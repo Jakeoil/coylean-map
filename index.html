@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coylean Map Maker</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ── Main Menu ── */
+  #menu {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    gap: 16px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  }
+  #menu h1 {
+    font-size: 2.4rem;
+    margin-bottom: 24px;
+    color: #e94560;
+    text-shadow: 0 0 20px rgba(233,69,96,0.4);
+  }
+  .menu-btn {
+    width: 220px;
+    padding: 14px 0;
+    font-size: 1.1rem;
+    border: 2px solid #e94560;
+    background: transparent;
+    color: #eee;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .menu-btn:hover {
+    background: #e94560;
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(233,69,96,0.4);
+  }
+
+  /* ── Complexity Dialog ── */
+  #dialog-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  #dialog-overlay.visible { display: flex; }
+  #dialog {
+    background: #16213e;
+    border: 2px solid #e94560;
+    border-radius: 12px;
+    padding: 32px;
+    text-align: center;
+    min-width: 280px;
+  }
+  #dialog h2 {
+    margin-bottom: 20px;
+    color: #e94560;
+  }
+  #dialog .menu-btn { width: 180px; }
+
+  /* ── About Overlay ── */
+  #about-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  #about-overlay.visible { display: flex; }
+  #about-box {
+    background: #16213e;
+    border: 2px solid #e94560;
+    border-radius: 12px;
+    padding: 32px;
+    max-width: 520px;
+    line-height: 1.6;
+  }
+  #about-box h2 {
+    margin-bottom: 16px;
+    color: #e94560;
+  }
+  #about-box p { margin-bottom: 12px; }
+
+  /* ── Map View ── */
+  #map-view {
+    display: none;
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+  }
+  #map-view.visible { display: block; }
+  #mapCanvas {
+    display: block;
+    cursor: grab;
+  }
+  #mapCanvas:active { cursor: grabbing; }
+
+  /* ── HUD Controls ── */
+  #hud {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+    flex-wrap: wrap;
+  }
+  .hud-btn {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    border: 1px solid rgba(233,69,96,0.6);
+    background: rgba(26,26,46,0.85);
+    color: #eee;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    backdrop-filter: blur(4px);
+    transition: background 0.15s;
+  }
+  .hud-btn:hover { background: rgba(233,69,96,0.5); }
+
+  #info {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.5);
+    z-index: 10;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════ Main Menu ════════ -->
+<div id="menu">
+  <h1>Coylean Map</h1>
+  <button class="menu-btn" id="btn-new">New Map</button>
+  <button class="menu-btn" id="btn-about">About</button>
+</div>
+
+<!-- ════════ Complexity Dialog ════════ -->
+<div id="dialog-overlay">
+  <div id="dialog">
+    <h2>Complexity</h2>
+    <button class="menu-btn" id="btn-simple">Simple</button>
+    <br><br>
+    <button class="menu-btn" id="btn-elaborate">Elaborate</button>
+  </div>
+</div>
+
+<!-- ════════ About Overlay ════════ -->
+<div id="about-overlay">
+  <div id="about-box">
+    <h2>Coylean Map Program</h2>
+    <p>A Coylean Map is a unique pattern produced by subdividing a square with vertical and
+    horizontal lines in a specified fashion. The lines are drawn so as to stop and
+    continue where they meet a perpendicular line. The finished pattern contains
+    similar copies of previous iterations making this pattern a fractal.</p>
+    <p>This pattern was discovered by Jeff Coyle. During the early 70s many
+    examples were drawn by hand. The first computer implementation was done on a Commodore PET using
+    their character set followed by a more graphical version on the Apple II. This
+    implementation is a web port of an Android app ported from a C# version done in .NET.</p>
+    <br>
+    <button class="menu-btn" id="btn-about-close">Close</button>
+  </div>
+</div>
+
+<!-- ════════ Map View ════════ -->
+<div id="map-view">
+  <div id="hud">
+    <button class="hud-btn" id="btn-back">Back</button>
+    <button class="hud-btn" id="btn-depth-up">Depth +</button>
+    <button class="hud-btn" id="btn-depth-down">Depth &minus;</button>
+    <button class="hud-btn" id="btn-scale-up">Scale +</button>
+    <button class="hud-btn" id="btn-scale-down">Scale &minus;</button>
+    <span class="hud-btn" id="hud-stats" style="cursor:default;"></span>
+  </div>
+  <canvas id="mapCanvas"></canvas>
+  <div id="info">Drag to pan</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  Coylean Map – JS/Canvas port
+// ═══════════════════════════════════════════════════
+
+const COMPLEXITY_SIMPLE = 0;
+const COMPLEXITY_ELABORATE = 1;
+
+const COLOR_LIST = [
+  '#8FBC8F', '#FFEBCD', '#8A2BE2', '#00FFFF',
+  '#DEB887', '#FAEBD7', '#FF7F50', '#F0FFFF',
+  '#FF1493', '#8FBC8F', '#FFFACD', '#FF6347',
+  '#B22222', '#C0C0C0', '#FFDEAD', '#A52A2A',
+  '#FF00FF', '#40E0D0', '#FF00FF'
+];
+
+// ── State ──
+let complexity = COMPLEXITY_SIMPLE;
+let scale = 4;
+let depth = 9;
+let maxPri = 12;
+
+// Pan state
+let anchorX = 0, anchorY = 0;
+let touchStartX = 0, touchStartY = 0;
+let touchCurrX = 0, touchCurrY = 0;
+let dragging = false;
+
+// Off-screen bitmap
+let offCanvas, offCtx;
+let mapWidth, mapHeight;
+
+// ── DOM ──
+const menu = document.getElementById('menu');
+const dialogOverlay = document.getElementById('dialog-overlay');
+const aboutOverlay = document.getElementById('about-overlay');
+const mapView = document.getElementById('map-view');
+const canvas = document.getElementById('mapCanvas');
+const ctx = canvas.getContext('2d');
+
+// ── Menu wiring ──
+document.getElementById('btn-new').onclick = () => dialogOverlay.classList.add('visible');
+document.getElementById('btn-about').onclick = () => aboutOverlay.classList.add('visible');
+document.getElementById('btn-about-close').onclick = () => aboutOverlay.classList.remove('visible');
+
+dialogOverlay.onclick = (e) => { if (e.target === dialogOverlay) dialogOverlay.classList.remove('visible'); };
+aboutOverlay.onclick = (e) => { if (e.target === aboutOverlay) aboutOverlay.classList.remove('visible'); };
+
+document.getElementById('btn-simple').onclick = () => startMap(COMPLEXITY_SIMPLE);
+document.getElementById('btn-elaborate').onclick = () => startMap(COMPLEXITY_ELABORATE);
+document.getElementById('btn-back').onclick = goBack;
+
+document.getElementById('btn-depth-up').onclick = () => { depth++; regenerate(); };
+document.getElementById('btn-depth-down').onclick = () => { if (depth > 0) { depth--; regenerate(); } };
+document.getElementById('btn-scale-up').onclick = () => { scale++; regenerate(); };
+document.getElementById('btn-scale-down').onclick = () => { if (scale > 1) { scale--; regenerate(); } };
+
+// ── Navigation ──
+function startMap(c) {
+  complexity = c;
+  scale = 4;
+  depth = 0;
+  anchorX = anchorY = 0;
+  touchStartX = touchStartY = touchCurrX = touchCurrY = 0;
+
+  dialogOverlay.classList.remove('visible');
+  menu.style.display = 'none';
+  mapView.classList.add('visible');
+
+  resizeCanvas();
+  generateMap();
+  updateStats();
+  drawView();
+}
+
+function goBack() {
+  mapView.classList.remove('visible');
+  menu.style.display = 'flex';
+}
+
+// ── Canvas sizing ──
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', () => {
+  if (mapView.classList.contains('visible')) {
+    resizeCanvas();
+    drawView();
+  }
+});
+
+// ── Algorithm ──
+function priority(i) {
+  for (let j = 0; j < maxPri; j++) {
+    if (i % 2 !== 0) return j;
+    i = Math.floor(i / 2);
+  }
+  return maxPri;
+}
+
+function computeMaxPri(ds, rs) {
+  if (ds < rs) ds = rs;
+  for (let i = 0; i < 32; i++) {
+    if (ds < 1) return i;
+    ds = Math.floor(ds / 2);
+  }
+  return 32;
+}
+
+function generateMap() {
+  // Use a large off-screen canvas like the Android bitmap approach
+  mapWidth = 2048;
+  mapHeight = 2048;
+
+  offCanvas = document.createElement('canvas');
+  offCanvas.width = mapWidth;
+  offCanvas.height = mapHeight;
+  offCtx = offCanvas.getContext('2d');
+
+  // White background
+  offCtx.fillStyle = '#FFFFFF';
+  offCtx.fillRect(0, 0, mapWidth, mapHeight);
+
+  let numOfDowns = Math.floor(mapWidth / scale);
+  let numOfRights = Math.floor(mapHeight / scale);
+
+  if (complexity === COMPLEXITY_ELABORATE) {
+    numOfDowns = Math.floor(numOfDowns / 2);
+    numOfRights = Math.floor(numOfRights / 2);
+  }
+
+  if (numOfDowns < 1) numOfDowns = 1;
+  if (numOfRights < 1) numOfRights = 1;
+
+  maxPri = computeMaxPri(numOfDowns, numOfRights);
+
+  const downArrows = new Array(numOfDowns).fill(false);
+  const rightArrows = new Array(numOfRights).fill(false);
+  downArrows[0] = true;
+
+  let y_place = 0;
+
+  for (let y = 0; y < numOfRights; y++) {
+    let x_place = 0;
+    let y_height = 0;
+
+    for (let x = 0; x < numOfDowns; x++) {
+      let down = downArrows[x];
+      let right = rightArrows[y];
+
+      const downPri = priority(x);
+      const rightPri = priority(y);
+
+      if (downPri >= rightPri) {
+        if (down) right = !right;
+      } else {
+        if (right) down = !down;
+      }
+
+      let x_width;
+
+      if (complexity === COMPLEXITY_ELABORATE) {
+        x_width = renderComplex(offCtx, x_place, y_place,
+          downArrows[x], downPri, rightArrows[y], rightPri, down, right);
+        y_height = scale * rightPri * 2;
+      } else {
+        renderSimple(offCtx, x_place, y_place, downArrows[x], rightArrows[y]);
+        x_width = scale;
+        y_height = scale;
+      }
+
+      downArrows[x] = down;
+      rightArrows[y] = right;
+      x_place += x_width;
+    }
+    y_place += y_height;
+  }
+}
+
+function renderSimple(g, x_place, y_place, down, right) {
+  const x_r = x_place + scale;
+  const y_b = y_place + scale;
+
+  g.strokeStyle = '#000000';
+  g.lineWidth = 1;
+
+  if (down) {
+    g.beginPath();
+    g.moveTo(x_r, y_place);
+    g.lineTo(x_r, y_b);
+    g.stroke();
+  }
+  if (right) {
+    g.beginPath();
+    g.moveTo(x_place, y_b);
+    g.lineTo(x_r, y_b);
+    g.stroke();
+  }
+}
+
+function renderComplex(g, x_place, y_place,
+  down, downPri, right, rightPri, down_out, right_out) {
+
+  const width = downPri * 2;
+  const height = rightPri * 2;
+  const x_width = scale * width;
+  const y_height = scale * height;
+
+  for (let i = 0; i < maxPri; i++) {
+    let work_done = true;
+
+    if (i > maxPri - depth - 2) {
+      work_done = false;
+      g.fillStyle = COLOR_LIST[i % COLOR_LIST.length];
+
+      const w = width - 2 * i - 1;
+      const h = height - 2 * i - 1;
+
+      if (w > 0) {
+        if (down) {
+          if (down_out) {
+            g.fillRect(
+              x_place + scale * (i + 1),
+              y_place,
+              scale * w,
+              scale * (rightPri * 2));
+          } else {
+            g.fillRect(
+              x_place + scale * (i + 1),
+              y_place,
+              scale * w,
+              scale * (rightPri + 1));
+          }
+        }
+        if (down_out) {
+          g.fillRect(
+            x_place + scale * (i + 1),
+            y_place + scale * rightPri,
+            scale * w,
+            scale * rightPri);
+        }
+        work_done = true;
+      }
+
+      if (h > 0) {
+        if (right) {
+          if (right_out) {
+            g.fillRect(
+              x_place,
+              y_place + scale * (i + 1),
+              scale * (downPri * 2),
+              scale * h);
+          }
+          g.fillRect(
+            x_place,
+            y_place + scale * (i + 1),
+            scale * (downPri + 1),
+            scale * h);
+        }
+        if (right_out) {
+          g.fillRect(
+            x_place + scale * downPri,
+            y_place + scale * (i + 1),
+            scale * downPri,
+            scale * h);
+        }
+        work_done = true;
+      }
+    }
+    if (!work_done) break;
+  }
+
+  return x_width;
+}
+
+// ── Drawing the viewport ──
+function drawView() {
+  if (!offCanvas) return;
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const tx = anchorX + (touchCurrX - touchStartX);
+  const ty = anchorY + (touchCurrY - touchStartY);
+
+  ctx.drawImage(offCanvas, tx, ty);
+}
+
+function updateStats() {
+  document.getElementById('hud-stats').textContent =
+    'depth=' + depth + '  scale=' + scale + '  maxPri=' + maxPri;
+}
+
+function regenerate() {
+  generateMap();
+  updateStats();
+  drawView();
+}
+
+// ── Mouse pan ──
+canvas.addEventListener('mousedown', (e) => {
+  dragging = true;
+  touchStartX = touchCurrX = e.clientX;
+  touchStartY = touchCurrY = e.clientY;
+});
+canvas.addEventListener('mousemove', (e) => {
+  if (!dragging) return;
+  touchCurrX = e.clientX;
+  touchCurrY = e.clientY;
+  drawView();
+});
+canvas.addEventListener('mouseup', (e) => {
+  if (!dragging) return;
+  dragging = false;
+  anchorX += e.clientX - touchStartX;
+  anchorY += e.clientY - touchStartY;
+  touchStartX = touchCurrX = e.clientX;
+  touchStartY = touchCurrY = e.clientY;
+  drawView();
+});
+canvas.addEventListener('mouseleave', (e) => {
+  if (!dragging) return;
+  dragging = false;
+  anchorX += touchCurrX - touchStartX;
+  anchorY += touchCurrY - touchStartY;
+  touchStartX = touchCurrX = 0;
+  touchStartY = touchCurrY = 0;
+  drawView();
+});
+
+// ── Touch pan (mobile) ──
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  dragging = true;
+  touchStartX = touchCurrX = t.clientX;
+  touchStartY = touchCurrY = t.clientY;
+}, { passive: false });
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (!dragging) return;
+  const t = e.touches[0];
+  touchCurrX = t.clientX;
+  touchCurrY = t.clientY;
+  drawView();
+}, { passive: false });
+canvas.addEventListener('touchend', (e) => {
+  if (!dragging) return;
+  dragging = false;
+  anchorX += touchCurrX - touchStartX;
+  anchorY += touchCurrY - touchStartY;
+  touchStartX = touchCurrX = 0;
+  touchStartY = touchCurrY = 0;
+  drawView();
+});
+</script>
+</body>
+</html>

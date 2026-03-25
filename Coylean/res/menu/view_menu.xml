@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+  <item 
+    android:id="@+id/scale_inc" android:title="@string/increase_scale_label">
+  </item>
+  <item 
+    android:id="@+id/scale_dec" 
+    android:title="@string/decrease_scale_label">
+  </item>
+  <item android:id="@+id/depth_inc" 
+    android:title="@string/increase_depth_label"></item>
+  <item android:title="@string/decrease_depth_label" android:id="@+id/depth_dec">
+  </item>
+
+</menu>

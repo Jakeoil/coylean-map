@@ -1,0 +1,10 @@
+.DS_Store
+CoyeanMax/
+CoyleanSquareMax/
+*.class
+*.apk
+*.dex
+local.properties
+bin/
+gen/
+build/

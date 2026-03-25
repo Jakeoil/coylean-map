@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Coylean Map Maker</string>
+    <string name="main_title">Coylean Map</string>
+    <string name="continue_label">Continue</string>
+    <string name="new_map_label">New Map</string>
+    <string name="about_label">About</string>
+    <string name="exit_label">Exit</string>
+    <string name="about_title">Coylean Map Program</string>
+    <string name="about_text">\
+    <p>A Coylean Map is a unique pattern produced by subdividing a square with vertical and 
+    horizontal lines in a specified fashion.  The lines are drawn so as to stop and
+    continue where they meet a perpendicular line. The finished pattern contains 
+    similar copies of previous iterations making this pattern a fractal.</p>
+    <p>This pattern was discovered by yours truly, Jeff Coyle.  During the early 70s many
+    examples were drawn by hand.  The first computer implementation was done on a Commodore PET using
+    their character set followed by a more graphical version on the Apple II.  This 
+    implementation is a port from a C# version done in .NET.
+    </p></string>
+<string name="settings_label">Settings...</string>
+
+<string name="settings_shortcut">s</string>
+<string name="complex_label">Complexity</string><string name="complex_summary">Show the hierarchy of the map in color</string>
+
+<string name="new_map_title">Complexity</string>
+<string name="simple_label">Simple</string>
+<string name="elaborate_label">Elaborate</string>
+<string name="increase_scale_label">scale++</string>
+<string name="decrease_scale_label">scale--</string>
+<string name="increase_depth_label">depth++</string>
+<string name="decrease_depth_label">depth--</string>
+
+</resources>

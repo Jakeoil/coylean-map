@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+<array name="complexity">
+   <item>@string/simple_label</item>
+   <item>@string/elaborate_label</item>
+</array>
+</resources>
