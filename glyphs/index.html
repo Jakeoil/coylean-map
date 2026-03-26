@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Coylean Glyphs — 4×4 Section Catalog</title>
+        <link rel="icon" type="image/png" href="../map-icon.png" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family: Menlo, Monaco, "Courier New", monospace;
+                background: #fff;
+                color: #222;
+                padding: 24px;
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+
+            /* ── Breadcrumb ── */
+            .breadcrumb {
+                font-size: 0.85rem;
+                color: #888;
+                margin-bottom: 16px;
+            }
+            .breadcrumb a {
+                color: #555;
+                text-decoration: none;
+            }
+            .breadcrumb a:hover {
+                text-decoration: underline;
+            }
+
+            h1 {
+                font-size: 1.6rem;
+                margin-bottom: 8px;
+            }
+            .subtitle {
+                color: #666;
+                font-size: 0.9rem;
+                margin-bottom: 24px;
+                max-width: 720px;
+                line-height: 1.5;
+            }
+            h2 {
+                font-size: 1.2rem;
+                margin: 32px 0 12px;
+                border-bottom: 1px solid #ccc;
+                padding-bottom: 4px;
+            }
+
+            /* ── 8×8 Grid ── */
+            .grid-wrapper {
+                overflow-x: auto;
+                margin-bottom: 16px;
+            }
+            .glyph-grid {
+                border-collapse: collapse;
+            }
+            .glyph-grid th {
+                font-size: 0.7rem;
+                padding: 4px 6px;
+                color: #666;
+                font-weight: normal;
+                white-space: nowrap;
+            }
+            .glyph-grid th.col-header {
+                text-align: center;
+            }
+            .glyph-grid th.row-header {
+                text-align: right;
+                padding-right: 8px;
+            }
+            .glyph-grid td {
+                padding: 3px;
+                border: 1px solid #eee;
+                text-align: center;
+            }
+            .glyph-label {
+                font-size: 0.6rem;
+                color: #999;
+            }
+            .glyph-grid th.corner-label {
+                font-size: 0.65rem;
+                color: #999;
+                text-align: right;
+                padding-right: 8px;
+                vertical-align: bottom;
+            }
+
+            /* ── Note ── */
+            .note {
+                font-size: 0.85rem;
+                color: #888;
+                font-style: italic;
+                margin: 16px 0 32px;
+                line-height: 1.5;
+            }
+
+            /* ── Equivalence Classes ── */
+            .eq-classes {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 16px;
+                margin-top: 12px;
+            }
+            .eq-card {
+                border: 1px solid #ddd;
+                padding: 10px;
+                text-align: center;
+                background: #fafafa;
+            }
+            .eq-card .label {
+                font-size: 0.7rem;
+                color: #666;
+                margin-top: 4px;
+            }
+            .eq-card .sym-name {
+                font-size: 0.75rem;
+                font-weight: bold;
+                color: #333;
+            }
+            .eq-card .members {
+                font-size: 0.6rem;
+                color: #999;
+                margin-top: 2px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="breadcrumb">
+            <a href="../">Coylean Map</a> / Glyphs
+        </div>
+
+        <h1>Coylean Glyphs — 4×4 Section Catalog</h1>
+        <p class="subtitle">
+            Each glyph shows a 4×4 Coylean Map section defined by two 3-bit
+            codes: which of the 3 interior vertical lines (down-arrows) and 3
+            interior horizontal lines (right-arrows) are present. At
+            intersections, the higher-priority line passes through and the
+            lower-priority line breaks. Line priority follows the 2-adic
+            valuation: position 2 has priority 1 (senior), positions 1 and 3
+            have priority 0. Solid dots = line present, hollow dots = absent.
+        </p>
+
+        <h2>Vertical-Seniority Grid (vertical wins ties)</h2>
+        <div class="grid-wrapper">
+            <table class="glyph-grid" id="v-grid"></table>
+        </div>
+
+        <h3>V — Equivalence Classes under D4</h3>
+        <p class="subtitle">
+            The 64 V-glyphs grouped by the 8 symmetries of the square (4
+            rotations × 2 reflections). Each class shows its canonical
+            representative, stabilizer symmetry group, orbit size, and member
+            codes.
+        </p>
+        <div class="eq-classes" id="v-eq-classes"></div>
+
+        <h2>Horizontal-Seniority Grid (horizontal wins ties)</h2>
+        <div class="grid-wrapper">
+            <table class="glyph-grid" id="h-grid"></table>
+        </div>
+
+        <h3>H — Equivalence Classes under D4</h3>
+        <p class="subtitle">
+            The 64 H-glyphs grouped by D4 symmetry. Equal-priority
+            intersections resolve in favor of horizontal lines.
+        </p>
+        <div class="eq-classes" id="h-eq-classes"></div>
+
+        <script src="glyphs.js"></script>
+    </body>
+</html>
