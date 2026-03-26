@@ -2,18 +2,15 @@
 //  Coylean Glyphs — 4×4 Section Catalog
 // ═══════════════════════════════════════════════════
 
-const BASE_PATH = "../";
-
 // Canvas size for each glyph
-const CELL_PX = 16; // pixels per grid cell
-const DOT_R = 2.5; // dot radius
-const MARGIN = 10; // margin for dots at edges
-const NUM_CELLS = 3; // 3×3 interior grid
-// 3 algorithm cells + 1 exit cell on right/bottom + margins for dots on all sides
-const GRID_CELLS = NUM_CELLS + 1; // 4 cells wide/tall to include exit segments
+const CELL_PX = 16;
+const DOT_R = 2.5;
+const MARGIN = 10;
+const NUM_CELLS = 3;
+const GRID_CELLS = NUM_CELLS + 1; // includes exit segment column/row
 const CANVAS_SIZE = CELL_PX * GRID_CELLS + MARGIN * 2;
 
-// ── Coylean Algorithm (from coylean.js) ──
+// ── Coylean Algorithm (duplicated from coylean.js — no module system) ──
 
 function computeMaxPri(ds, rs) {
     if (ds < rs) ds = rs;
@@ -24,12 +21,14 @@ function computeMaxPri(ds, rs) {
     return 32;
 }
 
-function priority(i, maxPri) {
-    for (let j = 0; j < maxPri; j++) {
+const MAX_PRI = computeMaxPri(NUM_CELLS, NUM_CELLS);
+
+function priority(i) {
+    for (let j = 0; j < MAX_PRI; j++) {
         if (i % 2 !== 0) return j;
         i = Math.floor(i / 2);
     }
-    return maxPri;
+    return MAX_PRI;
 }
 
 // ── Glyph Renderer — uses the real Coylean algorithm ──
@@ -41,10 +40,6 @@ function drawGlyph(canvas, downCode, rightCode, verticalWinsTies) {
 
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-
-    const numOfDowns = NUM_CELLS;
-    const numOfRights = NUM_CELLS;
-    const maxPri = computeMaxPri(numOfDowns, numOfRights);
 
     // Initialize arrows from the 3-bit codes
     const downArrows = [
@@ -63,31 +58,26 @@ function drawGlyph(canvas, downCode, rightCode, verticalWinsTies) {
         return MARGIN + gridPos * CELL_PX;
     }
 
-    // ── Input dots centered on line endpoints ──
-    // Down-arrow dots at top of each vertical line
+    // Input dots
     for (let x = 0; x < 3; x++) {
         drawDot(ctx, px(x + 1), px(0), !!(downCode & (1 << x)));
     }
-    // Right-arrow dots at left of each horizontal line
     for (let y = 0; y < 3; y++) {
         drawDot(ctx, px(0), px(y + 1), !!(rightCode & (1 << y)));
     }
 
-    // ── Run the Coylean algorithm ──
-    // Positions are 1, 2, 3 with priorities 0, 1, 0
     ctx.strokeStyle = "#000";
     ctx.lineWidth = 1.2;
 
     let y_place = 0;
-    for (let y = 0; y < numOfRights; y++) {
+    for (let y = 0; y < NUM_CELLS; y++) {
         let x_place = 0;
-        for (let x = 0; x < numOfDowns; x++) {
+        for (let x = 0; x < NUM_CELLS; x++) {
             let down = downArrows[x];
             let right = rightArrows[y];
 
-            // Use 1-based positions: priorities are 0, 1, 0
-            const downPri = priority(x + 1, maxPri);
-            const rightPri = priority(y + 1, maxPri);
+            const downPri = priority(x + 1);
+            const rightPri = priority(y + 1);
 
             if (verticalWinsTies ? downPri >= rightPri : downPri > rightPri) {
                 if (down) right = !right;
@@ -95,7 +85,6 @@ function drawGlyph(canvas, downCode, rightCode, verticalWinsTies) {
                 if (right) down = !down;
             }
 
-            // RenderSimple: draw vertical segment (down) and horizontal segment (right)
             const cx = px(0) + x_place;
             const cy = px(0) + y_place;
             const x_r = cx + CELL_PX;
@@ -134,8 +123,7 @@ function drawGlyph(canvas, downCode, rightCode, verticalWinsTies) {
         y_place += CELL_PX;
     }
 
-    // Draw the final down values exiting the bottom
-    for (let x = 0; x < numOfDowns; x++) {
+    for (let x = 0; x < NUM_CELLS; x++) {
         if (downArrows[x]) {
             const x_r = px(0) + (x + 1) * CELL_PX;
             const cy = px(0) + y_place;
@@ -146,12 +134,10 @@ function drawGlyph(canvas, downCode, rightCode, verticalWinsTies) {
         }
     }
 
-    // ── Output dots centered on line endpoints ──
-    // Right side: at end of exit horizontal segments
+    // Output dots
     for (let y = 0; y < 3; y++) {
         drawDot(ctx, px(GRID_CELLS), px(y + 1), rightArrows[y]);
     }
-    // Bottom side: at end of exit vertical segments
     for (let x = 0; x < 3; x++) {
         drawDot(ctx, px(x + 1), px(GRID_CELLS), downArrows[x]);
     }
@@ -219,6 +205,28 @@ function buildGrid(tableId, prefix, verticalWinsTies) {
 }
 
 // ── D4 Symmetry Classification ──
+//
+// The dihedral group D4 has 8 elements acting on a square:
+//   e    — identity
+//   r    — 90° rotation
+//   r²   — 180° rotation
+//   r³   — 270° rotation
+//   s_h  — reflect across horizontal axis
+//   s_v  — reflect across vertical axis
+//   s_d1 — reflect across main diagonal (↘)
+//   s_d2 — reflect across anti-diagonal (↙)
+//
+// Each symmetry transforms a (down, right) code pair:
+//   e    : (d, r) → (d, r)
+//   r    : (d, r) → (r, rev(d))
+//   r²   : (d, r) → (rev(d), rev(r))
+//   r³   : (d, r) → (rev(r), d)
+//   s_h  : (d, r) → (rev(d), r)
+//   s_v  : (d, r) → (d, rev(r))
+//   s_d1 : (d, r) → (r, d)
+//   s_d2 : (d, r) → (rev(r), rev(d))
+//
+// reverse(code) flips bit 0 ↔ bit 2, bit 1 stays (mirror about center).
 
 // Reverse 3-bit code: swap bit 0 and bit 2, bit 1 stays
 function reverse3(code) {
@@ -270,12 +278,14 @@ function classifyD4() {
         for (let r = 0; r < 8; r++) {
             if (visited.has(pairKey(d, r))) continue;
 
+            const orbitKeys = new Set();
             const orbit = [];
             const stabilizer = [];
             for (let ti = 0; ti < D4_TRANSFORMS.length; ti++) {
                 const [nd, nr] = D4_TRANSFORMS[ti](d, r);
                 const key = pairKey(nd, nr);
-                if (!orbit.some((m) => pairKey(m[0], m[1]) === key)) {
+                if (!orbitKeys.has(key)) {
+                    orbitKeys.add(key);
                     orbit.push([nd, nr]);
                 }
                 visited.add(key);
@@ -317,9 +327,8 @@ function stabilizerName(stabilizer) {
     return "|" + stabilizer.length + "|";
 }
 
-function buildEquivalenceClasses(containerId, prefix, verticalWinsTies) {
+function buildEquivalenceClasses(containerId, prefix, verticalWinsTies, classes) {
     const container = document.getElementById(containerId);
-    const classes = classifyD4();
 
     for (const cls of classes) {
         const card = document.createElement("div");
@@ -354,7 +363,8 @@ function buildEquivalenceClasses(containerId, prefix, verticalWinsTies) {
 }
 
 // ── Init ──
+const D4_CLASSES = classifyD4();
 buildGrid("v-grid", "V", true);
-buildEquivalenceClasses("v-eq-classes", "V", true);
+buildEquivalenceClasses("v-eq-classes", "V", true, D4_CLASSES);
 buildGrid("h-grid", "H", false);
-buildEquivalenceClasses("h-eq-classes", "H", false);
+buildEquivalenceClasses("h-eq-classes", "H", false, D4_CLASSES);
