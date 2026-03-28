@@ -33,7 +33,7 @@ function priority(i) {
 
 // ── Glyph Renderer — uses the real Coylean algorithm ──
 
-// D4 transform index → [scaleX, scaleY] for F overlay
+// D4 transform index → [scaleX, scaleY] for letter overlay
 // s_h = flip upside down (horizontal axis mirror), s_v = flip left/right (vertical axis mirror)
 const D4_TO_SCALE = {
     0: [1, 1],      // e
@@ -42,8 +42,30 @@ const D4_TO_SCALE = {
     5: [-1, 1],     // s_v
 };
 
-// Populated after V_CLASSES is computed
-let V77_F_TRANSFORMS = {};
+// Populated after V_CLASSES is computed: "d,r" → [letter, scaleX, scaleY]
+let GLYPH_LETTERS = {};
+
+function assignLetter(classes, downCode, rightCode, letter) {
+    for (const cls of classes) {
+        if (cls.orbit.some(([d, r]) => d === downCode && r === rightCode)) {
+            // Compute transforms relative to the specified glyph (not the orbit rep)
+            const base = computePattern(downCode, rightCode, true);
+            for (let i = 0; i < cls.orbit.length; i++) {
+                const [d, r] = cls.orbit[i];
+                const mem = computePattern(d, r, true);
+                const memKey = transformedPatternKey(mem.v, mem.h, 0);
+                for (let ti = 0; ti < 8; ti++) {
+                    if (transformedPatternKey(base.v, base.h, ti) === memKey) {
+                        const scale = D4_TO_SCALE[ti];
+                        if (scale) GLYPH_LETTERS[d + "," + r] = [letter, scale[0], scale[1]];
+                        break;
+                    }
+                }
+            }
+            break;
+        }
+    }
+}
 
 function drawGlyph(canvas, downCode, rightCode, verticalWinsTies, fTransform) {
     canvas.width = CANVAS_SIZE;
@@ -150,32 +172,32 @@ function drawGlyph(canvas, downCode, rightCode, verticalWinsTies, fTransform) {
         drawDot(ctx, px(x + 1), px(GRID_CELLS), downArrows[x]);
     }
 
-    // F overlay
+    // Letter overlay
     if (fTransform) {
         const gridCx = MARGIN + (GRID_CELLS * CELL_PX) / 2;
         const gridCy = MARGIN + (GRID_CELLS * CELL_PX) / 2;
         ctx.save();
         ctx.translate(gridCx, gridCy);
-        ctx.scale(fTransform[0], fTransform[1]);
-        ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+        ctx.scale(fTransform[1], fTransform[2]);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
         ctx.font =
             "bold " + NUM_CELLS * CELL_PX + "px Monaco, Menlo, monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText("F", 0, 0);
+        ctx.fillText(fTransform[0], 0, 0);
         ctx.restore();
     }
 }
 
-function drawDot(ctx, x, y, filled) {
+function drawDot(ctx, x, y, filled, r) {
     ctx.beginPath();
-    ctx.arc(x, y, DOT_R, 0, Math.PI * 2);
+    ctx.arc(x, y, r || DOT_R, 0, Math.PI * 2);
     if (filled) {
         ctx.fillStyle = "#000";
         ctx.fill();
     } else {
         ctx.strokeStyle = "#000";
-        ctx.lineWidth = 0.8;
+        ctx.lineWidth = (r || DOT_R) * 0.32;
         ctx.stroke();
     }
 }
@@ -215,7 +237,7 @@ function buildGrid(tableId, prefix, verticalWinsTies) {
         for (let r = 0; r < 8; r++) {
             const td = document.createElement("td");
             const canvas = document.createElement("canvas");
-            const ft = verticalWinsTies ? V77_F_TRANSFORMS[d + "," + r] : null;
+            const ft = verticalWinsTies ? GLYPH_LETTERS[d + "," + r] : null;
             drawGlyph(canvas, d, r, verticalWinsTies, ft);
             td.appendChild(canvas);
             const label = document.createElement("div");
@@ -414,7 +436,7 @@ function buildEquivalenceClasses(
             cell.className = "eq-cell";
 
             const canvas = document.createElement("canvas");
-            const ft2 = verticalWinsTies ? V77_F_TRANSFORMS[d + "," + r] : null;
+            const ft2 = verticalWinsTies ? GLYPH_LETTERS[d + "," + r] : null;
             drawGlyph(canvas, d, r, verticalWinsTies, ft2);
             cell.appendChild(canvas);
 
@@ -463,7 +485,8 @@ function drawCoyleanMap(canvasEl, N, cell) {
     const r = new Array(M).fill(false);
     d[0] = true;
 
-    ctx.lineWidth = 1.2;
+    const lw = cell * 1.2 / CELL_PX;
+    ctx.lineWidth = lw;
 
     for (let y = 0; y < M; y++) {
         const rp = pri(y);
@@ -542,85 +565,89 @@ function drawCoyleanMap(canvasEl, N, cell) {
         }
     }
 
-    // Draw overlays on matching sections
+    // Draw overlays on all sections
     for (let sr = 0; sr < NS; sr++) {
         for (let sc = 0; sc < NS; sc++) {
             const [dc, rc] = secCodes[sr][sc];
-            const ft = V77_F_TRANSFORMS[dc + "," + rc];
-            if (!ft) continue;
+            const ft = GLYPH_LETTERS[dc + "," + rc];
 
             const sx = (sc * SEC + 1) * cell;
             const sy = (sr * SEC + 1) * cell;
+            const cx = sx + 2 * cell;
+            const cy = sy + 2 * cell;
 
-            // Run glyph algorithm to draw brown lines
-            const da = [!!(dc & 1), !!(dc & 2), !!(dc & 4)];
-            const ra = [!!(rc & 1), !!(rc & 2), !!(rc & 4)];
+            if (ft) {
+                // Assigned letter: draw brown lines, dots, and transformed letter
+                const da = [!!(dc & 1), !!(dc & 2), !!(dc & 4)];
+                const ra = [!!(rc & 1), !!(rc & 2), !!(rc & 4)];
 
-            ctx.strokeStyle = "#c9a96e";
-            ctx.lineWidth = 1.2;
+                ctx.strokeStyle = "#c9a96e";
+                ctx.lineWidth = lw;
 
-            for (let gy = 0; gy < 3; gy++) {
-                for (let gx = 0; gx < 3; gx++) {
-                    let dv = da[gx], rv = ra[gy];
-                    const dp = priority(gx + 1), rp = priority(gy + 1);
-                    if (dp >= rp) { if (dv) rv = !rv; }
-                    else          { if (rv) dv = !dv; }
+                for (let gy = 0; gy < 3; gy++) {
+                    for (let gx = 0; gx < 3; gx++) {
+                        let dv = da[gx], rv = ra[gy];
+                        const dp = priority(gx + 1), rp = priority(gy + 1);
+                        if (dp >= rp) { if (dv) rv = !rv; }
+                        else          { if (rv) dv = !dv; }
 
-                    const x0 = sx + gx * cell, y0 = sy + gy * cell;
-                    if (da[gx]) {
-                        ctx.beginPath();
-                        ctx.moveTo(x0 + cell, y0);
-                        ctx.lineTo(x0 + cell, y0 + cell);
-                        ctx.stroke();
+                        const x0 = sx + gx * cell, y0 = sy + gy * cell;
+                        if (da[gx]) {
+                            ctx.beginPath();
+                            ctx.moveTo(x0 + cell, y0);
+                            ctx.lineTo(x0 + cell, y0 + cell);
+                            ctx.stroke();
+                        }
+                        if (ra[gy]) {
+                            ctx.beginPath();
+                            ctx.moveTo(x0, y0 + cell);
+                            ctx.lineTo(x0 + cell, y0 + cell);
+                            ctx.stroke();
+                        }
+                        da[gx] = dv;
+                        ra[gy] = rv;
                     }
                     if (ra[gy]) {
                         ctx.beginPath();
-                        ctx.moveTo(x0, y0 + cell);
-                        ctx.lineTo(x0 + cell, y0 + cell);
+                        ctx.moveTo(sx + 3 * cell, sy + (gy + 1) * cell);
+                        ctx.lineTo(sx + 4 * cell, sy + (gy + 1) * cell);
                         ctx.stroke();
                     }
-                    da[gx] = dv;
-                    ra[gy] = rv;
                 }
-                // Exit right
-                if (ra[gy]) {
-                    ctx.beginPath();
-                    ctx.moveTo(sx + 3 * cell, sy + (gy + 1) * cell);
-                    ctx.lineTo(sx + 4 * cell, sy + (gy + 1) * cell);
-                    ctx.stroke();
+                for (let gx = 0; gx < 3; gx++) {
+                    if (da[gx]) {
+                        ctx.beginPath();
+                        ctx.moveTo(sx + (gx + 1) * cell, sy + 3 * cell);
+                        ctx.lineTo(sx + (gx + 1) * cell, sy + 4 * cell);
+                        ctx.stroke();
+                    }
                 }
-            }
-            // Exit down
-            for (let gx = 0; gx < 3; gx++) {
-                if (da[gx]) {
-                    ctx.beginPath();
-                    ctx.moveTo(sx + (gx + 1) * cell, sy + 3 * cell);
-                    ctx.lineTo(sx + (gx + 1) * cell, sy + 4 * cell);
-                    ctx.stroke();
-                }
-            }
 
-            // Input dots
-            for (let i = 0; i < 3; i++) {
-                drawDot(ctx, sx + (i + 1) * cell, sy, !!(dc & (1 << i)));
-                drawDot(ctx, sx, sy + (i + 1) * cell, !!(rc & (1 << i)));
-            }
-            // Output dots
-            for (let i = 0; i < 3; i++) {
-                drawDot(ctx, sx + (i + 1) * cell, sy + 4 * cell, da[i]);
-                drawDot(ctx, sx + 4 * cell, sy + (i + 1) * cell, ra[i]);
-            }
+                const dr = cell * DOT_R / CELL_PX;
+                for (let i = 0; i < 3; i++) {
+                    drawDot(ctx, sx + (i + 1) * cell, sy, !!(dc & (1 << i)), dr);
+                    drawDot(ctx, sx, sy + (i + 1) * cell, !!(rc & (1 << i)), dr);
+                    drawDot(ctx, sx + (i + 1) * cell, sy + 4 * cell, da[i], dr);
+                    drawDot(ctx, sx + 4 * cell, sy + (i + 1) * cell, ra[i], dr);
+                }
 
-            // F letter with proper D4 transform
-            ctx.save();
-            ctx.translate(sx + 2 * cell, sy + 2 * cell);
-            ctx.scale(ft[0], ft[1]);
-            ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
-            ctx.font = "bold " + (3 * cell) + "px Monaco, Menlo, monospace";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText("F", 0, 0);
-            ctx.restore();
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.scale(ft[1], ft[2]);
+                ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+                ctx.font = "bold " + (3 * cell) + "px Monaco, Menlo, monospace";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(ft[0], 0, 0);
+                ctx.restore();
+            } else {
+                // Unassigned: show V label
+                ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+                ctx.font = (cell * 0.7) + "px Monaco, Menlo, monospace";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("V" + SUB_DIGITS[dc] + SUB_DIGITS[rc], cx, cy);
+            }
         }
     }
 }
@@ -640,20 +667,25 @@ H_CLASSES.forEach((c) => {
     c.colorClass = vOrbitKeys.has(orbitKey(c)) ? "both" : "h-only";
 });
 
-// Build V77 F transforms from computed D4 classification
-for (const cls of V_CLASSES) {
-    if (cls.orbit.some(([d, r]) => d === 7 && r === 7)) {
-        for (let i = 0; i < cls.orbit.length; i++) {
-            const [d, r] = cls.orbit[i];
-            const scale = D4_TO_SCALE[cls.transforms[i]];
-            if (scale) V77_F_TRANSFORMS[d + "," + r] = scale;
-        }
-        break;
-    }
-}
+// Assign letters to glyph families
+assignLetter(V_CLASSES, 7, 7, "F");
+assignLetter(V_CLASSES, 1, 7, "P");
+assignLetter(V_CLASSES, 6, 6, "J");
+assignLetter(V_CLASSES, 5, 6, "M");
+assignLetter(V_CLASSES, 0, 0, "O");
+assignLetter(V_CLASSES, 1, 1, "L");
+assignLetter(V_CLASSES, 2, 5, "Q");
+assignLetter(V_CLASSES, 5, 7, "R");
+assignLetter(V_CLASSES, 1, 5, "B");
+assignLetter(V_CLASSES, 5, 1, "Y");
+assignLetter(V_CLASSES, 3, 7, "r");
+assignLetter(V_CLASSES, 1, 6, "S");
 
 const mapCanvas = document.getElementById("coylean-map");
 if (mapCanvas) drawCoyleanMap(mapCanvas, 32, CELL_PX);
+
+const mapCanvas6 = document.getElementById("coylean-map-6");
+if (mapCanvas6) drawCoyleanMap(mapCanvas6, 64, 8);
 
 buildGrid("v-grid", "V", true);
 buildEquivalenceClasses("v-eq-classes", "V", true, V_CLASSES);
