@@ -33,7 +33,19 @@ function priority(i) {
 
 // ── Glyph Renderer — uses the real Coylean algorithm ──
 
-function drawGlyph(canvas, downCode, rightCode, verticalWinsTies) {
+// D4 transform index → [scaleX, scaleY] for F overlay
+// s_h = flip upside down (horizontal axis mirror), s_v = flip left/right (vertical axis mirror)
+const D4_TO_SCALE = {
+    0: [1, 1],      // e
+    2: [-1, -1],    // r²
+    4: [1, -1],     // s_h
+    5: [-1, 1],     // s_v
+};
+
+// Populated after V_CLASSES is computed
+let V77_F_TRANSFORMS = {};
+
+function drawGlyph(canvas, downCode, rightCode, verticalWinsTies, fTransform) {
     canvas.width = CANVAS_SIZE;
     canvas.height = CANVAS_SIZE;
     const ctx = canvas.getContext("2d");
@@ -42,11 +54,7 @@ function drawGlyph(canvas, downCode, rightCode, verticalWinsTies) {
     ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
     // Initialize arrows from the 3-bit codes
-    const downArrows = [
-        !!(downCode & 1),
-        !!(downCode & 2),
-        !!(downCode & 4),
-    ];
+    const downArrows = [!!(downCode & 1), !!(downCode & 2), !!(downCode & 4)];
     const rightArrows = [
         !!(rightCode & 1),
         !!(rightCode & 2),
@@ -141,6 +149,22 @@ function drawGlyph(canvas, downCode, rightCode, verticalWinsTies) {
     for (let x = 0; x < 3; x++) {
         drawDot(ctx, px(x + 1), px(GRID_CELLS), downArrows[x]);
     }
+
+    // F overlay
+    if (fTransform) {
+        const gridCx = MARGIN + (GRID_CELLS * CELL_PX) / 2;
+        const gridCy = MARGIN + (GRID_CELLS * CELL_PX) / 2;
+        ctx.save();
+        ctx.translate(gridCx, gridCy);
+        ctx.scale(fTransform[0], fTransform[1]);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+        ctx.font =
+            "bold " + NUM_CELLS * CELL_PX + "px Monaco, Menlo, monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("F", 0, 0);
+        ctx.restore();
+    }
 }
 
 function drawDot(ctx, x, y, filled) {
@@ -191,7 +215,8 @@ function buildGrid(tableId, prefix, verticalWinsTies) {
         for (let r = 0; r < 8; r++) {
             const td = document.createElement("td");
             const canvas = document.createElement("canvas");
-            drawGlyph(canvas, d, r, verticalWinsTies);
+            const ft = verticalWinsTies ? V77_F_TRANSFORMS[d + "," + r] : null;
+            drawGlyph(canvas, d, r, verticalWinsTies, ft);
             td.appendChild(canvas);
             const label = document.createElement("div");
             label.className = "glyph-label";
@@ -204,60 +229,86 @@ function buildGrid(tableId, prefix, verticalWinsTies) {
     table.appendChild(tbody);
 }
 
-// ── D4 Symmetry Classification ──
+// ── D4 Visual Equivalence ──
 //
-// The dihedral group D4 has 8 elements acting on a square:
-//   e    — identity
-//   r    — 90° rotation
-//   r²   — 180° rotation
-//   r³   — 270° rotation
-//   s_h  — reflect across horizontal axis
-//   s_v  — reflect across vertical axis
-//   s_d1 — reflect across main diagonal (↘)
-//   s_d2 — reflect across anti-diagonal (↙)
+// Two glyphs are equivalent under D4 if one's visual segment pattern
+// can be rotated/reflected to match the other's. We classify by the
+// rendered output, not the input codes, because the Coylean algorithm's
+// XOR propagation breaks input-level symmetry.
 //
-// Each symmetry transforms a (down, right) code pair:
-//   e    : (d, r) → (d, r)
-//   r    : (d, r) → (r, rev(d))
-//   r²   : (d, r) → (rev(d), rev(r))
-//   r³   : (d, r) → (rev(r), d)
-//   s_h  : (d, r) → (rev(d), r)
-//   s_v  : (d, r) → (d, rev(r))
-//   s_d1 : (d, r) → (r, d)
-//   s_d2 : (d, r) → (rev(r), rev(d))
+// Visual pattern representation:
+//   v[x][y]: vertical segment at col x+1, rows y to y+1  (x: 0-2, y: 0-3)
+//   h[x][y]: horizontal segment at row y+1, cols x to x+1 (x: 0-3, y: 0-2)
 //
-// reverse(code) flips bit 0 ↔ bit 2, bit 1 stays (mirror about center).
+// D4 transforms on this 4×4 segment grid:
+//   e    : v'[a][b] = v[a][b],       h'[a][b] = h[a][b]
+//   r    : v'[a][b] = h[3-b][a],     h'[a][b] = v[2-b][a]
+//   r²   : v'[a][b] = v[2-a][3-b],   h'[a][b] = h[3-a][2-b]
+//   r³   : v'[a][b] = h[b][2-a],     h'[a][b] = v[b][3-a]
+//   s_h  : v'[a][b] = v[a][3-b],     h'[a][b] = h[a][2-b]
+//   s_v  : v'[a][b] = v[2-a][b],     h'[a][b] = h[3-a][b]
+//   s_d1 : v'[a][b] = h[b][a],       h'[a][b] = v[b][a]
+//   s_d2 : v'[a][b] = h[3-b][2-a],   h'[a][b] = v[2-b][3-a]
 
-// Reverse 3-bit code: swap bit 0 and bit 2, bit 1 stays
-function reverse3(code) {
-    const b0 = code & 1;
-    const b1 = code & 2;
-    const b2 = code & 4;
-    return (b0 << 2) | b1 | (b2 >> 2);
+function computePattern(downCode, rightCode, verticalWinsTies) {
+    const downArrows = [!!(downCode & 1), !!(downCode & 2), !!(downCode & 4)];
+    const rightArrows = [
+        !!(rightCode & 1),
+        !!(rightCode & 2),
+        !!(rightCode & 4),
+    ];
+
+    const v = Array.from({ length: 3 }, () => Array(4).fill(false));
+    const h = Array.from({ length: 4 }, () => Array(3).fill(false));
+
+    for (let y = 0; y < 3; y++) {
+        for (let x = 0; x < 3; x++) {
+            let down = downArrows[x];
+            let right = rightArrows[y];
+            const downPri = priority(x + 1);
+            const rightPri = priority(y + 1);
+            if (verticalWinsTies ? downPri >= rightPri : downPri > rightPri) {
+                if (down) right = !right;
+            } else {
+                if (right) down = !down;
+            }
+            if (downArrows[x]) v[x][y] = true;
+            if (rightArrows[y]) h[x][y] = true;
+            downArrows[x] = down;
+            rightArrows[y] = right;
+        }
+        if (rightArrows[y]) h[3][y] = true;
+    }
+    for (let x = 0; x < 3; x++) {
+        if (downArrows[x]) v[x][3] = true;
+    }
+    return { v, h };
 }
 
-// D4 transformations on (down, right) pairs
-const D4_TRANSFORMS = [
-    (d, r) => [d, r], // e: identity
-    (d, r) => [r, reverse3(d)], // r: 90° CW
-    (d, r) => [reverse3(d), reverse3(r)], // r²: 180°
-    (d, r) => [reverse3(r), d], // r³: 270° CW
-    (d, r) => [reverse3(d), r], // s_h: horizontal reflection
-    (d, r) => [d, reverse3(r)], // s_v: vertical reflection
-    (d, r) => [r, d], // s_d1: diagonal reflection
-    (d, r) => [reverse3(r), reverse3(d)], // s_d2: anti-diagonal reflection
+const VISUAL_D4 = [
+    { v: (v, h, a, b) => v[a][b], h: (v, h, a, b) => h[a][b] },
+    { v: (v, h, a, b) => h[3 - b][a], h: (v, h, a, b) => v[2 - b][a] },
+    { v: (v, h, a, b) => v[2 - a][3 - b], h: (v, h, a, b) => h[3 - a][2 - b] },
+    { v: (v, h, a, b) => h[b][2 - a], h: (v, h, a, b) => v[b][3 - a] },
+    { v: (v, h, a, b) => v[a][3 - b], h: (v, h, a, b) => h[a][2 - b] },
+    { v: (v, h, a, b) => v[2 - a][b], h: (v, h, a, b) => h[3 - a][b] },
+    { v: (v, h, a, b) => h[b][a], h: (v, h, a, b) => v[b][a] },
+    { v: (v, h, a, b) => h[3 - b][2 - a], h: (v, h, a, b) => v[2 - b][3 - a] },
 ];
 
-const D4_NAMES = [
-    "e",
-    "r",
-    "r\u00B2",
-    "r\u00B3",
-    "s_h",
-    "s_v",
-    "s_d1",
-    "s_d2",
-];
+const D4_NAMES = ["e", "r", "r\u00B2", "r\u00B3", "s_h", "s_v", "s_d1", "s_d2"];
+
+function transformedPatternKey(v, h, ti) {
+    const t = VISUAL_D4[ti];
+    let key = 0;
+    for (let a = 0; a < 3; a++)
+        for (let b = 0; b < 4; b++)
+            if (t.v(v, h, a, b)) key |= 1 << (a * 4 + b);
+    for (let a = 0; a < 4; a++)
+        for (let b = 0; b < 3; b++)
+            if (t.h(v, h, a, b)) key |= 1 << (12 + a * 3 + b);
+    return key;
+}
 
 // Unicode subscript digits: ₀₁₂₃₄₅₆₇
 const SUB_DIGITS = "\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087";
@@ -270,40 +321,47 @@ function pairKey(d, r) {
     return d * 8 + r;
 }
 
-function classifyD4() {
-    const visited = new Set();
-    const classes = [];
-
+function classifyVisualD4(verticalWinsTies) {
+    const glyphs = [];
     for (let d = 0; d < 8; d++) {
         for (let r = 0; r < 8; r++) {
-            if (visited.has(pairKey(d, r))) continue;
-
-            const orbitKeys = new Set();
-            const orbit = [];
-            const stabilizer = [];
-            for (let ti = 0; ti < D4_TRANSFORMS.length; ti++) {
-                const [nd, nr] = D4_TRANSFORMS[ti](d, r);
-                const key = pairKey(nd, nr);
-                if (!orbitKeys.has(key)) {
-                    orbitKeys.add(key);
-                    orbit.push([nd, nr]);
-                }
-                visited.add(key);
-                if (nd === d && nr === r) {
-                    stabilizer.push(D4_NAMES[ti]);
-                }
+            const { v, h } = computePattern(d, r, verticalWinsTies);
+            let canonKey = Infinity;
+            const keys = [];
+            for (let ti = 0; ti < 8; ti++) {
+                const k = transformedPatternKey(v, h, ti);
+                keys.push(k);
+                if (k < canonKey) canonKey = k;
             }
-
-            orbit.sort((a, b) => pairKey(a[0], a[1]) - pairKey(b[0], b[1]));
-            const rep = orbit[0];
-
-            classes.push({
-                rep,
-                orbit,
-                stabilizer,
-                orbitSize: orbit.length,
-            });
+            glyphs.push({ d, r, v, h, canonKey, keys });
         }
+    }
+
+    const groups = new Map();
+    for (const g of glyphs) {
+        if (!groups.has(g.canonKey)) groups.set(g.canonKey, []);
+        groups.get(g.canonKey).push(g);
+    }
+
+    const classes = [];
+    for (const members of groups.values()) {
+        const orbit = members.map((m) => [m.d, m.r]);
+        orbit.sort((a, b) => pairKey(a[0], a[1]) - pairKey(b[0], b[1]));
+        const rep = orbit[0];
+        const rm = members.find((m) => m.d === rep[0] && m.r === rep[1]);
+        const repKey = rm.keys[0]; // identity = original pattern
+
+        // For each orbit member, find which D4 transform maps rep → member
+        const transforms = orbit.map(([d, r]) => {
+            const m = members.find((x) => x.d === d && x.r === r);
+            const mKey = m.keys[0];
+            for (let ti = 0; ti < 8; ti++) {
+                if (transformedPatternKey(rm.v, rm.h, ti) === mKey) return ti;
+            }
+            return 0;
+        });
+
+        classes.push({ rep, orbit, transforms, orbitSize: orbit.length });
     }
 
     classes.sort(
@@ -312,59 +370,292 @@ function classifyD4() {
     return classes;
 }
 
-function stabilizerName(stabilizer) {
-    if (stabilizer.length === 8) return "D\u2084";
-    if (stabilizer.length === 4) return "D\u2082";
-    if (stabilizer.length === 2) {
-        if (stabilizer.includes("r\u00B2")) return "Z\u2082-rot";
-        if (stabilizer.includes("s_h")) return "Z\u2082-h";
-        if (stabilizer.includes("s_v")) return "Z\u2082-v";
-        if (stabilizer.includes("s_d1")) return "Z\u2082-d1";
-        if (stabilizer.includes("s_d2")) return "Z\u2082-d2";
-        return "Z\u2082";
-    }
-    if (stabilizer.length === 1) return "trivial";
-    return "|" + stabilizer.length + "|";
-}
-
-function buildEquivalenceClasses(containerId, prefix, verticalWinsTies, classes) {
+function buildEquivalenceClasses(
+    containerId,
+    prefix,
+    verticalWinsTies,
+    classes,
+) {
     const container = document.getElementById(containerId);
 
-    for (const cls of classes) {
-        const card = document.createElement("div");
-        card.className = "eq-card";
+    // Sort by orbit size (1, 2, 4), then by rep
+    const sorted = [...classes].sort((a, b) => {
+        if (a.orbitSize !== b.orbitSize) return a.orbitSize - b.orbitSize;
+        return pairKey(a.rep[0], a.rep[1]) - pairKey(b.rep[0], b.rep[1]);
+    });
 
-        const canvas = document.createElement("canvas");
-        drawGlyph(canvas, cls.rep[0], cls.rep[1], verticalWinsTies);
-        card.appendChild(canvas);
+    // Pack multiple groups per line; separate lines when orbit size changes
+    let lastSize = 0;
+    let line = null;
 
-        const nameLabel = document.createElement("div");
-        nameLabel.className = "sym-name";
-        nameLabel.textContent = glyphName(prefix, cls.rep[0], cls.rep[1]);
-        card.appendChild(nameLabel);
+    for (const cls of sorted) {
+        if (cls.orbitSize !== lastSize) {
+            if (lastSize > 0) {
+                const sep = document.createElement("div");
+                sep.className = "eq-separator";
+                container.appendChild(sep);
+            }
+            lastSize = cls.orbitSize;
+            line = null;
+        }
 
-        const symLabel = document.createElement("div");
-        symLabel.className = "label";
-        symLabel.textContent =
-            stabilizerName(cls.stabilizer) +
-            "  |orbit|=" +
-            cls.orbitSize;
-        card.appendChild(symLabel);
+        if (!line) {
+            line = document.createElement("div");
+            line.className = "eq-line";
+            container.appendChild(line);
+        }
 
-        const members = document.createElement("div");
-        members.className = "members";
-        members.textContent = cls.orbit
-            .map((m) => glyphName(prefix, m[0], m[1]))
-            .join(" ");
-        card.appendChild(members);
+        const group = document.createElement("div");
+        group.className = "eq-group " + (cls.colorClass || "both");
 
-        container.appendChild(card);
+        for (let i = 0; i < cls.orbit.length; i++) {
+            const [d, r] = cls.orbit[i];
+            const cell = document.createElement("div");
+            cell.className = "eq-cell";
+
+            const canvas = document.createElement("canvas");
+            const ft2 = verticalWinsTies ? V77_F_TRANSFORMS[d + "," + r] : null;
+            drawGlyph(canvas, d, r, verticalWinsTies, ft2);
+            cell.appendChild(canvas);
+
+            const nameLabel = document.createElement("div");
+            nameLabel.className = "sym-name";
+            nameLabel.textContent = glyphName(prefix, d, r);
+            cell.appendChild(nameLabel);
+
+            const transformLabel = document.createElement("div");
+            transformLabel.className = "transform";
+            transformLabel.textContent = D4_NAMES[cls.transforms[i]];
+            cell.appendChild(transformLabel);
+
+            group.appendChild(cell);
+        }
+
+        line.appendChild(group);
+    }
+}
+
+function orbitKey(cls) {
+    return cls.orbit.map((m) => pairKey(m[0], m[1])).join(",");
+}
+
+// ── Coylean Map ──
+
+function drawCoyleanMap(canvasEl, N, cell) {
+    const M = N + 1;
+    const maxP = computeMaxPri(M, M);
+    const size = M * cell;
+    canvasEl.width = canvasEl.height = size;
+
+    function pri(i) {
+        for (let j = 0; j < maxP; j++) {
+            if (i % 2 !== 0) return j;
+            i = Math.floor(i / 2);
+        }
+        return maxP;
+    }
+
+    const ctx = canvasEl.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, size, size);
+
+    const d = new Array(M).fill(false);
+    const r = new Array(M).fill(false);
+    d[0] = true;
+
+    ctx.lineWidth = 1.2;
+
+    for (let y = 0; y < M; y++) {
+        const rp = pri(y);
+        for (let x = 0; x < M; x++) {
+            const preD = d[x];
+            const preR = r[y];
+            const dp = pri(x);
+
+            if (dp >= rp) {
+                if (preD) r[y] = !r[y];
+            } else {
+                if (preR) d[x] = !d[x];
+            }
+
+            const xr = (x + 1) * cell;
+            const yb = (y + 1) * cell;
+
+            if (preD) {
+                ctx.strokeStyle = dp < 2 ? "#90caf9" : "#000";
+                ctx.beginPath();
+                ctx.moveTo(xr, y * cell);
+                ctx.lineTo(xr, yb);
+                ctx.stroke();
+            }
+            if (preR) {
+                ctx.strokeStyle = rp < 2 ? "#90caf9" : "#000";
+                ctx.beginPath();
+                ctx.moveTo(x * cell, yb);
+                ctx.lineTo(xr, yb);
+                ctx.stroke();
+            }
+        }
+    }
+
+    // Find all sections matching V77's orbit and overlay F
+    // Re-run algorithm to capture section input codes
+    const SEC = 4;
+    const NS = N / SEC; // 8 sections per axis
+    const secCodes = Array.from({length: NS}, () =>
+        Array.from({length: NS}, () => [0, 0])
+    );
+    {
+        const d2 = new Array(M).fill(false);
+        const r2 = new Array(M).fill(false);
+        d2[0] = true;
+
+        for (let y = 0; y < M; y++) {
+            const rp2 = pri(y);
+            const yRel = y - 1;
+            const sr = Math.floor(yRel / SEC);
+            const rowInSec = yRel % SEC;
+            const isSecRow = y >= 1 && sr < NS && rowInSec < 3;
+
+            for (let x = 0; x < M; x++) {
+                const preD2 = d2[x];
+                const preR2 = r2[y];
+                const xRel = x - 1;
+                const sc = Math.floor(xRel / SEC);
+                const colInSec = xRel % SEC;
+
+                // Capture down inputs at first interior row of each section
+                if (isSecRow && rowInSec === 0 && x >= 1 && sc < NS && colInSec < 3) {
+                    if (preD2) secCodes[sr][sc][0] |= (1 << colInSec);
+                }
+                // Capture right inputs at first interior column of each section
+                if (isSecRow && x >= 1 && sc < NS && colInSec === 0) {
+                    if (preR2) secCodes[sr][sc][1] |= (1 << rowInSec);
+                }
+
+                if (pri(x) >= rp2) {
+                    if (preD2) r2[y] = !r2[y];
+                } else {
+                    if (preR2) d2[x] = !d2[x];
+                }
+            }
+        }
+    }
+
+    // Draw overlays on matching sections
+    for (let sr = 0; sr < NS; sr++) {
+        for (let sc = 0; sc < NS; sc++) {
+            const [dc, rc] = secCodes[sr][sc];
+            const ft = V77_F_TRANSFORMS[dc + "," + rc];
+            if (!ft) continue;
+
+            const sx = (sc * SEC + 1) * cell;
+            const sy = (sr * SEC + 1) * cell;
+
+            // Run glyph algorithm to draw brown lines
+            const da = [!!(dc & 1), !!(dc & 2), !!(dc & 4)];
+            const ra = [!!(rc & 1), !!(rc & 2), !!(rc & 4)];
+
+            ctx.strokeStyle = "#c9a96e";
+            ctx.lineWidth = 1.2;
+
+            for (let gy = 0; gy < 3; gy++) {
+                for (let gx = 0; gx < 3; gx++) {
+                    let dv = da[gx], rv = ra[gy];
+                    const dp = priority(gx + 1), rp = priority(gy + 1);
+                    if (dp >= rp) { if (dv) rv = !rv; }
+                    else          { if (rv) dv = !dv; }
+
+                    const x0 = sx + gx * cell, y0 = sy + gy * cell;
+                    if (da[gx]) {
+                        ctx.beginPath();
+                        ctx.moveTo(x0 + cell, y0);
+                        ctx.lineTo(x0 + cell, y0 + cell);
+                        ctx.stroke();
+                    }
+                    if (ra[gy]) {
+                        ctx.beginPath();
+                        ctx.moveTo(x0, y0 + cell);
+                        ctx.lineTo(x0 + cell, y0 + cell);
+                        ctx.stroke();
+                    }
+                    da[gx] = dv;
+                    ra[gy] = rv;
+                }
+                // Exit right
+                if (ra[gy]) {
+                    ctx.beginPath();
+                    ctx.moveTo(sx + 3 * cell, sy + (gy + 1) * cell);
+                    ctx.lineTo(sx + 4 * cell, sy + (gy + 1) * cell);
+                    ctx.stroke();
+                }
+            }
+            // Exit down
+            for (let gx = 0; gx < 3; gx++) {
+                if (da[gx]) {
+                    ctx.beginPath();
+                    ctx.moveTo(sx + (gx + 1) * cell, sy + 3 * cell);
+                    ctx.lineTo(sx + (gx + 1) * cell, sy + 4 * cell);
+                    ctx.stroke();
+                }
+            }
+
+            // Input dots
+            for (let i = 0; i < 3; i++) {
+                drawDot(ctx, sx + (i + 1) * cell, sy, !!(dc & (1 << i)));
+                drawDot(ctx, sx, sy + (i + 1) * cell, !!(rc & (1 << i)));
+            }
+            // Output dots
+            for (let i = 0; i < 3; i++) {
+                drawDot(ctx, sx + (i + 1) * cell, sy + 4 * cell, da[i]);
+                drawDot(ctx, sx + 4 * cell, sy + (i + 1) * cell, ra[i]);
+            }
+
+            // F letter with proper D4 transform
+            ctx.save();
+            ctx.translate(sx + 2 * cell, sy + 2 * cell);
+            ctx.scale(ft[0], ft[1]);
+            ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+            ctx.font = "bold " + (3 * cell) + "px Monaco, Menlo, monospace";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("F", 0, 0);
+            ctx.restore();
+        }
     }
 }
 
 // ── Init ──
-const D4_CLASSES = classifyD4();
+const V_CLASSES = classifyVisualD4(true);
+const H_CLASSES = classifyVisualD4(false);
+
+// Find which orbits are shared between V and H
+const vOrbitKeys = new Set(V_CLASSES.map(orbitKey));
+const hOrbitKeys = new Set(H_CLASSES.map(orbitKey));
+
+V_CLASSES.forEach((c) => {
+    c.colorClass = hOrbitKeys.has(orbitKey(c)) ? "both" : "v-only";
+});
+H_CLASSES.forEach((c) => {
+    c.colorClass = vOrbitKeys.has(orbitKey(c)) ? "both" : "h-only";
+});
+
+// Build V77 F transforms from computed D4 classification
+for (const cls of V_CLASSES) {
+    if (cls.orbit.some(([d, r]) => d === 7 && r === 7)) {
+        for (let i = 0; i < cls.orbit.length; i++) {
+            const [d, r] = cls.orbit[i];
+            const scale = D4_TO_SCALE[cls.transforms[i]];
+            if (scale) V77_F_TRANSFORMS[d + "," + r] = scale;
+        }
+        break;
+    }
+}
+
+const mapCanvas = document.getElementById("coylean-map");
+if (mapCanvas) drawCoyleanMap(mapCanvas, 32, CELL_PX);
+
 buildGrid("v-grid", "V", true);
-buildEquivalenceClasses("v-eq-classes", "V", true, D4_CLASSES);
+buildEquivalenceClasses("v-eq-classes", "V", true, V_CLASSES);
 buildGrid("h-grid", "H", false);
-buildEquivalenceClasses("h-eq-classes", "H", false, D4_CLASSES);
+buildEquivalenceClasses("h-eq-classes", "H", false, H_CLASSES);

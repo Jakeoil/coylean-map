@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Glyph Work — Monaco Font</title>
+        <link rel="icon" type="image/png" href="../map-icon.png" />
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+                font-family: Monaco, Menlo, "Courier New", monospace;
+                background: #fff;
+                color: #222;
+                padding: 24px;
+            }
+            .breadcrumb { font-size: 0.85rem; color: #888; margin-bottom: 16px; }
+            .breadcrumb a { color: #555; text-decoration: none; }
+            .breadcrumb a:hover { text-decoration: underline; }
+            h1 { font-size: 1.5rem; margin-bottom: 16px; }
+            .row {
+                display: flex;
+                gap: 24px;
+                flex-wrap: wrap;
+                align-items: flex-start;
+            }
+            .glyph-card {
+                text-align: center;
+            }
+            .glyph-label {
+                font-size: 0.85rem;
+                font-weight: bold;
+                margin-top: 4px;
+                color: #333;
+            }
+            .transform-label {
+                font-size: 0.75rem;
+                color: #888;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="breadcrumb">
+            <a href="../">Coylean Map</a> /
+            <a href="./">Glyphs</a> /
+            Work
+            &nbsp;|&nbsp; <a href="index.html">Catalog</a>
+        </div>
+
+        <h1>V₇₇ orbit — F transforms</h1>
+        <div class="row">
+            <div class="glyph-card">
+                <canvas id="g-v77"></canvas>
+                <div class="glyph-label">V₇₇</div>
+                <div class="transform-label">e</div>
+            </div>
+            <div class="glyph-card">
+                <canvas id="g-v67"></canvas>
+                <div class="glyph-label">V₆₇</div>
+                <div class="transform-label">s_v (mirror)</div>
+            </div>
+            <div class="glyph-card">
+                <canvas id="g-v74"></canvas>
+                <div class="glyph-label">V₇₄</div>
+                <div class="transform-label">s_h (flip)</div>
+            </div>
+            <div class="glyph-card">
+                <canvas id="g-v31"></canvas>
+                <div class="glyph-label">V₃₁</div>
+                <div class="transform-label">r² (180°)</div>
+            </div>
+        </div>
+
+        <script>
+            const CELL_PX = 48;
+            const MARGIN = 14;
+            const NUM_CELLS = 3;
+            const GRID_CELLS = NUM_CELLS + 1;
+            const CANVAS_SIZE = CELL_PX * GRID_CELLS + MARGIN * 2;
+
+            function computeMaxPri(ds, rs) {
+                if (ds < rs) ds = rs;
+                for (let i = 0; i < 32; i++) {
+                    if (ds < 1) return i;
+                    ds = Math.floor(ds / 2);
+                }
+                return 32;
+            }
+
+            const MAX_PRI = computeMaxPri(NUM_CELLS, NUM_CELLS);
+
+            function priority(i) {
+                for (let j = 0; j < MAX_PRI; j++) {
+                    if (i % 2 !== 0) return j;
+                    i = Math.floor(i / 2);
+                }
+                return MAX_PRI;
+            }
+
+            const DOT_R = 4;
+
+            function px(gridPos) {
+                return MARGIN + gridPos * CELL_PX;
+            }
+
+            function drawDot(ctx, x, y, filled) {
+                ctx.beginPath();
+                ctx.arc(x, y, DOT_R, 0, Math.PI * 2);
+                if (filled) {
+                    ctx.fillStyle = "#000";
+                    ctx.fill();
+                } else {
+                    ctx.strokeStyle = "#000";
+                    ctx.lineWidth = 0.8;
+                    ctx.stroke();
+                }
+            }
+
+            // Draw V77 glyph onto a canvas, return it as source image
+            function drawBaseGlyph() {
+                const off = document.createElement("canvas");
+                off.width = CANVAS_SIZE;
+                off.height = CANVAS_SIZE;
+                const ctx = off.getContext("2d");
+
+                ctx.fillStyle = "#fff";
+                ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+                const downArrows = [true, true, true];   // downCode = 7
+                const rightArrows = [true, true, true];   // rightCode = 7
+
+                // Input dots
+                for (let i = 0; i < 3; i++) drawDot(ctx, px(i + 1), px(0), true);
+                for (let i = 0; i < 3; i++) drawDot(ctx, px(0), px(i + 1), true);
+
+                ctx.strokeStyle = "#000";
+                ctx.lineWidth = 2;
+
+                let y_place = 0;
+                for (let y = 0; y < NUM_CELLS; y++) {
+                    let x_place = 0;
+                    for (let x = 0; x < NUM_CELLS; x++) {
+                        let down = downArrows[x];
+                        let right = rightArrows[y];
+                        const downPri = priority(x + 1);
+                        const rightPri = priority(y + 1);
+
+                        if (downPri >= rightPri) {
+                            if (down) right = !right;
+                        } else {
+                            if (right) down = !down;
+                        }
+
+                        const cx = px(0) + x_place;
+                        const cy = px(0) + y_place;
+                        const x_r = cx + CELL_PX;
+                        const y_b = cy + CELL_PX;
+
+                        if (downArrows[x]) {
+                            ctx.beginPath();
+                            ctx.moveTo(x_r, cy);
+                            ctx.lineTo(x_r, y_b);
+                            ctx.stroke();
+                        }
+                        if (rightArrows[y]) {
+                            ctx.beginPath();
+                            ctx.moveTo(cx, y_b);
+                            ctx.lineTo(x_r, y_b);
+                            ctx.stroke();
+                        }
+
+                        downArrows[x] = down;
+                        rightArrows[y] = right;
+                        x_place += CELL_PX;
+                    }
+
+                    if (rightArrows[y]) {
+                        const cx = px(0) + x_place;
+                        const cy = px(0) + y_place;
+                        ctx.beginPath();
+                        ctx.moveTo(cx, cy + CELL_PX);
+                        ctx.lineTo(cx + CELL_PX, cy + CELL_PX);
+                        ctx.stroke();
+                    }
+                    y_place += CELL_PX;
+                }
+
+                for (let x = 0; x < NUM_CELLS; x++) {
+                    if (downArrows[x]) {
+                        const x_r = px(0) + (x + 1) * CELL_PX;
+                        const cy = px(0) + y_place;
+                        ctx.beginPath();
+                        ctx.moveTo(x_r, cy);
+                        ctx.lineTo(x_r, cy + CELL_PX);
+                        ctx.stroke();
+                    }
+                }
+
+                // Output dots
+                for (let y = 0; y < 3; y++)
+                    drawDot(ctx, px(GRID_CELLS), px(y + 1), rightArrows[y]);
+                for (let x = 0; x < 3; x++)
+                    drawDot(ctx, px(x + 1), px(GRID_CELLS), downArrows[x]);
+
+                return off;
+            }
+
+            // Draw base glyph transformed + F transformed
+            function drawTransformed(canvas, baseImg, scaleX, scaleY) {
+                canvas.width = CANVAS_SIZE;
+                canvas.height = CANVAS_SIZE;
+                const ctx = canvas.getContext("2d");
+
+                // Draw the transformed glyph
+                ctx.save();
+                ctx.translate(CANVAS_SIZE / 2, CANVAS_SIZE / 2);
+                ctx.scale(scaleX, scaleY);
+                ctx.drawImage(baseImg, -CANVAS_SIZE / 2, -CANVAS_SIZE / 2);
+                ctx.restore();
+
+                // Superimpose transformed "F"
+                const gridCx = MARGIN + GRID_CELLS * CELL_PX / 2;
+                const gridCy = MARGIN + GRID_CELLS * CELL_PX / 2;
+                ctx.save();
+                ctx.translate(gridCx, gridCy);
+                ctx.scale(scaleX, scaleY);
+                ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+                ctx.font = "bold " + (NUM_CELLS * CELL_PX) + "px Monaco, Menlo, monospace";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("F", 0, 0);
+                ctx.restore();
+            }
+
+            const baseImg = drawBaseGlyph();
+            drawTransformed(document.getElementById("g-v77"), baseImg,  1,  1);  // identity
+            drawTransformed(document.getElementById("g-v67"), baseImg, -1,  1);  // mirror LR
+            drawTransformed(document.getElementById("g-v74"), baseImg,  1, -1);  // flip UD
+            drawTransformed(document.getElementById("g-v31"), baseImg, -1, -1);  // 180°
+        </script>
+    </body>
+</html>

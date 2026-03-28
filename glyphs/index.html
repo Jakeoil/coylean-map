@@ -80,8 +80,9 @@
                 text-align: center;
             }
             .glyph-label {
-                font-size: 0.6rem;
-                color: #999;
+                font-size: 0.7rem;
+                font-weight: bold;
+                color: #555;
             }
             .glyph-grid th.corner-label {
                 font-size: 0.65rem;
@@ -93,37 +94,51 @@
 
             /* ── Equivalence Classes ── */
             .eq-classes {
+                margin-top: 12px;
+            }
+            .eq-line {
                 display: flex;
                 flex-wrap: wrap;
                 gap: 16px;
-                margin-top: 12px;
+                margin-bottom: 4px;
             }
-            .eq-card {
-                border: 1px solid #ddd;
-                padding: 10px;
+            .eq-group {
+                display: flex;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                overflow: hidden;
+            }
+            .eq-group.both .eq-cell { background: #ede7f6; }
+            .eq-group.v-only .eq-cell { background: #e3f2fd; }
+            .eq-group.h-only .eq-cell { background: #fce4ec; }
+            .eq-cell {
                 text-align: center;
-                background: #fafafa;
+                padding: 4px 6px;
             }
-            .eq-card .label {
+            .eq-cell .sym-name {
                 font-size: 0.7rem;
-                color: #666;
-                margin-top: 4px;
-            }
-            .eq-card .sym-name {
-                font-size: 0.75rem;
                 font-weight: bold;
                 color: #333;
             }
-            .eq-card .members {
+            .eq-cell .transform {
                 font-size: 0.6rem;
-                color: #999;
-                margin-top: 2px;
+                color: #888;
+            }
+            .eq-separator {
+                height: 12px;
+            }
+            .figure {
+                margin: 12px 0 24px;
+            }
+            .figure canvas {
+                display: block;
             }
         </style>
     </head>
     <body>
         <div class="breadcrumb">
             <a href="../">Coylean Map</a> / Glyphs
+            &nbsp;|&nbsp; <a href="work.html">Work</a>
         </div>
 
         <h1>Coylean Glyphs — 4×4 Section Catalog</h1>
@@ -137,6 +152,11 @@
             have priority 0. Solid dots = line present, hollow dots = absent.
         </p>
 
+        <h2>Coylean Map — Order 5</h2>
+        <div class="figure">
+            <canvas id="coylean-map"></canvas>
+        </div>
+
         <h2>Vertical-Seniority Grid (vertical wins ties)</h2>
         <div class="grid-wrapper">
             <table class="glyph-grid" id="v-grid"></table>
@@ -144,10 +164,10 @@
 
         <h3>V — Equivalence Classes under D4</h3>
         <p class="subtitle">
-            The 64 V-glyphs grouped by the 8 symmetries of the square (4
-            rotations × 2 reflections). Each class shows its canonical
-            representative, stabilizer symmetry group, orbit size, and member
-            codes.
+            All 64 V-glyphs grouped by visual equivalence under D4 (4
+            rotations × 2 reflections). Each row is one equivalence class;
+            the label below each glyph names the D4 transform from the
+            first member.
         </p>
         <div class="eq-classes" id="v-eq-classes"></div>
 
@@ -158,8 +178,9 @@
 
         <h3>H — Equivalence Classes under D4</h3>
         <p class="subtitle">
-            The 64 H-glyphs grouped by D4 symmetry. Equal-priority
-            intersections resolve in favor of horizontal lines.
+            All 64 H-glyphs grouped by visual equivalence under D4.
+            Equal-priority intersections resolve in favor of horizontal
+            lines.
         </p>
         <div class="eq-classes" id="h-eq-classes"></div>
 

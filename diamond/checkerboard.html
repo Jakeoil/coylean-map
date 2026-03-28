@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Coylean Checkerboard Structure</title>
+        <link rel="icon" type="image/png" href="../map-icon.png" />
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+                font-family: Menlo, Monaco, "Courier New", monospace;
+                background: #fff;
+                color: #222;
+                padding: 24px;
+                max-width: 960px;
+                margin: 0 auto;
+                line-height: 1.6;
+            }
+
+            .breadcrumb { font-size: 0.85rem; color: #888; margin-bottom: 16px; }
+            .breadcrumb a { color: #555; text-decoration: none; }
+            .breadcrumb a:hover { text-decoration: underline; }
+
+            h1 { font-size: 1.5rem; margin-bottom: 8px; }
+            h2 { font-size: 1.1rem; margin: 28px 0 10px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+            p { margin-bottom: 12px; max-width: 640px; }
+            .key { margin: 16px 0; font-size: 0.9rem; }
+            .key span { display: inline-block; width: 24px; height: 3px; vertical-align: middle; margin-right: 6px; }
+            .key-black { background: #000; }
+            .key-red { background: #c62828; }
+
+            .figure { margin: 16px 0 24px; }
+            .figure canvas { display: block; }
+            .caption { font-size: 0.75rem; color: #888; margin-top: 6px; }
+
+            .encoding {
+                background: #f5f5f5;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+                padding: 16px 20px;
+                font-size: 0.85rem;
+                margin: 16px 0;
+                max-width: 520px;
+            }
+            .encoding code { background: #e8e8e8; padding: 1px 4px; border-radius: 3px; }
+        </style>
+    </head>
+    <body>
+        <div class="breadcrumb">
+            <a href="../">Coylean Map</a> /
+            <a href="./">Diamond</a> /
+            Checkerboard
+        </div>
+
+        <h1>Checkerboard Structure</h1>
+        <p>
+            The diamond view reveals that a Coylean map is composed of exactly
+            two interleaved families of diagonals, each with its own seniority class.
+        </p>
+
+        <div class="key">
+            <span class="key-black"></span> <code>/</code> = vertical (down) arrows — <strong>senior</strong> class<br>
+            <span class="key-red"></span> <code>\</code> = horizontal (right) arrows — <strong>junior</strong> class
+        </div>
+
+        <h2>Order 2 — colored</h2>
+        <div class="figure">
+            <canvas id="cb-colored"></canvas>
+            <div class="caption">5 &times; 5 cells. Black / and red \ show the two seniority classes.</div>
+        </div>
+
+        <h2>Order 2 — with priorities</h2>
+        <p>
+            Each diagonal has a evenness priority. The <code>0</code> index has
+            priority &infin; (the basis). Priority labels are shown along the
+            top edges: black for <code>/</code> columns, red for <code>\</code> rows.
+        </p>
+        <div class="figure">
+            <canvas id="cb-labeled"></canvas>
+            <div class="caption">Priority labels: &infin; = evenness(0), then 0, 1, 0 for indices 1–4.</div>
+        </div>
+
+        <h2>Minimal encoding</h2>
+        <div class="encoding">
+            A Coylean map of any order is fully determined by:<br><br>
+            <strong>1.</strong> Two &infin;-positions (where <code>evenness(0)</code> sits on each diagonal family)<br>
+            <strong>2.</strong> Storage order implies seniority — first = senior (<code>/</code>), second = junior (<code>\</code>)<br>
+            <strong>3.</strong> The evenness priority ordering is universal (not stored)<br>
+            <strong>4.</strong> <code>/</code> vs <code>\</code> is implicit from cell position (m+n parity)<br><br>
+            The two &infin;-diagonals initialize to <strong>true</strong>.
+            Everything else follows from XOR propagation.
+        </div>
+
+        <h2>Order 3 — colored</h2>
+        <div class="figure">
+            <canvas id="cb-order3"></canvas>
+            <div class="caption">9 &times; 9 cells. The self-similar structure repeats at each evenness level.</div>
+        </div>
+
+        <h2>Four quadrants — Order 2</h2>
+        <p>
+            The same algorithm runs in each quadrant — the only difference is the
+            direction of propagation. The four orientations are related by sign
+            reflections: S&thinsp;(+,+), E&thinsp;(+,&minus;), N&thinsp;(&minus;,&minus;), W&thinsp;(&minus;,+).
+        </p>
+        <p>
+            The <span class="key-black" style="display:inline-block;width:16px;height:3px;vertical-align:middle;"></span>&nbsp;<code>/</code>
+            &infin;-diagonal (senior) extends full NE–SW through center.
+            The <span class="key-red" style="display:inline-block;width:16px;height:3px;vertical-align:middle;"></span>&nbsp;<code>\</code>
+            &infin;-diagonal (junior) extends full NW–SE through center.
+            The seed lines and the &infin; base positions are the only information.
+        </p>
+        <div class="figure">
+            <canvas id="cb-fourquad"></canvas>
+            <div class="caption">Order 2, four quadrants. Each quadrant runs the identical algorithm; four-fold symmetric via sign reflection.</div>
+        </div>
+
+        <h2>Four quadrants — Order 3</h2>
+        <div class="figure">
+            <canvas id="cb-fourquad3"></canvas>
+            <div class="caption">Order 3, four quadrants. The self-similar structure is visible at larger scale.</div>
+        </div>
+
+        <script src="checkerboard.js"></script>
+    </body>
+</html>
