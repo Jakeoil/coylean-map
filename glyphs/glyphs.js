@@ -176,12 +176,12 @@ function drawGlyph(canvas, downCode, rightCode, verticalWinsTies, fTransform) {
     if (fTransform) {
         const gridCx = MARGIN + (GRID_CELLS * CELL_PX) / 2;
         const gridCy = MARGIN + (GRID_CELLS * CELL_PX) / 2;
+        const fontSize = NUM_CELLS * CELL_PX;
         ctx.save();
-        ctx.translate(gridCx, gridCy);
+        ctx.translate(gridCx, gridCy + fontSize * 0.05 * fTransform[2]);
         ctx.scale(fTransform[1], fTransform[2]);
-        ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
-        ctx.font =
-            "bold " + NUM_CELLS * CELL_PX + "px Monaco, Menlo, monospace";
+        ctx.fillStyle = "rgba(0, 0, 100, 0.4)";
+        ctx.font = "bold " + fontSize + "px Monaco, Menlo, monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(fTransform[0], 0, 0);
@@ -581,7 +581,7 @@ function drawCoyleanMap(canvasEl, N, cell) {
                 const da = [!!(dc & 1), !!(dc & 2), !!(dc & 4)];
                 const ra = [!!(rc & 1), !!(rc & 2), !!(rc & 4)];
 
-                ctx.strokeStyle = "#c9a96e";
+                ctx.strokeStyle = "#90caf9";
                 ctx.lineWidth = lw;
 
                 for (let gy = 0; gy < 3; gy++) {
@@ -631,11 +631,12 @@ function drawCoyleanMap(canvasEl, N, cell) {
                     drawDot(ctx, sx + 4 * cell, sy + (i + 1) * cell, ra[i], dr);
                 }
 
+                const mapFontSize = 3 * cell;
                 ctx.save();
-                ctx.translate(cx, cy);
+                ctx.translate(cx, cy + mapFontSize * 0.05 * ft[2]);
                 ctx.scale(ft[1], ft[2]);
-                ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
-                ctx.font = "bold " + (3 * cell) + "px Monaco, Menlo, monospace";
+                ctx.fillStyle = "rgba(0, 0, 100, 0.4)";
+                ctx.font = "bold " + mapFontSize + "px Monaco, Menlo, monospace";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
                 ctx.fillText(ft[0], 0, 0);
@@ -650,6 +651,152 @@ function drawCoyleanMap(canvasEl, N, cell) {
             }
         }
     }
+}
+
+// ── Translation Table ──
+
+function getSectionData(N) {
+    const M = N + 1;
+    const maxP = computeMaxPri(M, M);
+    function pri(i) {
+        for (let j = 0; j < maxP; j++) {
+            if (i % 2 !== 0) return j;
+            i = Math.floor(i / 2);
+        }
+        return maxP;
+    }
+    const SEC = 4;
+    const NS = N / SEC;
+    const codes = Array.from({ length: NS }, () =>
+        Array.from({ length: NS }, () => [0, 0]),
+    );
+    // vBound[sr][sc]: vertical segment between section cols sc and sc+1 at row sr
+    // hBound[sr][sc]: horizontal segment between section rows sr and sr+1 at col sc
+    const vBound = Array.from({ length: NS }, () => Array(NS).fill(false));
+    const hBound = Array.from({ length: NS }, () => Array(NS).fill(false));
+
+    const d = new Array(M).fill(false);
+    const r = new Array(M).fill(false);
+    d[0] = true;
+
+    for (let y = 0; y < M; y++) {
+        const rp = pri(y);
+        const yRel = y - 1;
+        const sr = Math.floor(yRel / SEC);
+        const rowInSec = yRel % SEC;
+        const isSecRow = y >= 1 && sr < NS && rowInSec < 3;
+
+        for (let x = 0; x < M; x++) {
+            const preD = d[x];
+            const preR = r[y];
+            const xRel = x - 1;
+            const sc = Math.floor(xRel / SEC);
+            const colInSec = xRel % SEC;
+
+            // Capture section input codes
+            if (isSecRow && rowInSec === 0 && x >= 1 && sc < NS && colInSec < 3) {
+                if (preD) codes[sr][sc][0] |= 1 << colInSec;
+            }
+            if (isSecRow && x >= 1 && sc < NS && colInSec === 0) {
+                if (preR) codes[sr][sc][1] |= 1 << rowInSec;
+            }
+
+            // Capture boundary segments (exit lines at section edges)
+            // Vertical boundary: colInSec=3 is the exit column of section sc
+            if (x >= 1 && colInSec === 3 && sc < NS - 1 && y >= 1 && sr >= 0 && sr < NS) {
+                if (preD) vBound[sr][sc] = true;
+            }
+            // Horizontal boundary: rowInSec=3 is the exit row of section sr
+            if (y >= 1 && rowInSec === 3 && sr >= 0 && sr < NS - 1 && x >= 1 && sc >= 0 && sc < NS) {
+                if (preR) hBound[sr][sc] = true;
+            }
+
+            if (pri(x) >= rp) {
+                if (preD) r[y] = !r[y];
+            } else {
+                if (preR) d[x] = !d[x];
+            }
+        }
+    }
+    return { codes, NS, vBound, hBound };
+}
+
+function glyphLabel(dc, rc) {
+    const ft = GLYPH_LETTERS[dc + "," + rc];
+    if (!ft) return "V" + SUB_DIGITS[dc] + SUB_DIGITS[rc];
+    const [letter, sx, sy] = ft;
+    if (sx === 1 && sy === 1) return letter;
+    if (sx === 1 && sy === -1) return letter + "\u2195";    // ↕ s_h
+    if (sx === -1 && sy === 1) return letter + "\u2194";    // ↔ s_v
+    if (sx === -1 && sy === -1) return letter + "\u27F2";   // ⟲ r²
+    return letter;
+}
+
+function buildTranslationTable(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const o5 = getSectionData(32);
+    const o6 = getSectionData(64);
+
+    const grid = document.createElement("div");
+    grid.className = "trans-grid";
+
+    const seen = new Set();
+    for (let sr5 = 0; sr5 < 8; sr5++) {
+        for (let sc5 = 0; sc5 < 8; sc5++) {
+            const [dc5, rc5] = o5.codes[sr5][sc5];
+            const ft5 = GLYPH_LETTERS[dc5 + "," + rc5];
+            if (!ft5) continue;
+            const parent = glyphLabel(dc5, rc5);
+            if (seen.has(parent)) continue;
+            seen.add(parent);
+
+            const sr6 = sr5 * 2, sc6 = sc5 * 2;
+            const children = [
+                [sr6, sc6], [sr6, sc6 + 1],
+                [sr6 + 1, sc6], [sr6 + 1, sc6 + 1],
+            ];
+            const labels = children.map(
+                ([r, c]) => glyphLabel(o6.codes[r][c][0], o6.codes[r][c][1]),
+            );
+
+            // Boundary segments between the 2×2 children
+            const vSepTop = o6.vBound[sr6][sc6];
+            const vSepBot = o6.vBound[sr6 + 1][sc6];
+            const hSepLeft = o6.hBound[sr6][sc6];
+            const hSepRight = o6.hBound[sr6][sc6 + 1];
+
+            const card = document.createElement("div");
+            card.className = "trans-card";
+
+            const title = document.createElement("div");
+            title.className = "trans-parent";
+            title.textContent = parent;
+            card.appendChild(title);
+
+            const box = document.createElement("div");
+            box.className = "trans-2x2";
+            const classes = [
+                [(hSepLeft ? "border-bottom" : ""), (vSepTop ? "border-right" : "")],
+                [(hSepRight ? "border-bottom" : ""), ""],
+                ["", (vSepBot ? "border-right" : "")],
+                ["", ""],
+            ];
+            for (let i = 0; i < 4; i++) {
+                const cell = document.createElement("div");
+                cell.className =
+                    "trans-cell" +
+                    (classes[i][0] ? " " + classes[i][0] : "") +
+                    (classes[i][1] ? " " + classes[i][1] : "");
+                cell.textContent = labels[i];
+                box.appendChild(cell);
+            }
+            card.appendChild(box);
+            grid.appendChild(card);
+        }
+    }
+    container.appendChild(grid);
 }
 
 // ── Init ──
@@ -686,6 +833,8 @@ if (mapCanvas) drawCoyleanMap(mapCanvas, 32, CELL_PX);
 
 const mapCanvas6 = document.getElementById("coylean-map-6");
 if (mapCanvas6) drawCoyleanMap(mapCanvas6, 64, 8);
+
+buildTranslationTable("translation-table");
 
 buildGrid("v-grid", "V", true);
 buildEquivalenceClasses("v-eq-classes", "V", true, V_CLASSES);

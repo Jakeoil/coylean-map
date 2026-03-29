@@ -133,6 +133,38 @@
             .figure canvas {
                 display: block;
             }
+
+            /* ── Translation Table ── */
+            .trans-grid {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+            .trans-card {
+                text-align: center;
+            }
+            .trans-parent {
+                font-size: 0.85rem;
+                font-weight: bold;
+                margin-bottom: 2px;
+                color: #333;
+            }
+            .trans-2x2 {
+                display: grid;
+                grid-template-columns: auto auto;
+                width: 64px;
+                height: 48px;
+            }
+            .trans-2x2 .trans-cell {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.75rem;
+                font-weight: bold;
+                color: rgba(0, 0, 100, 0.7);
+            }
+            .trans-2x2 .trans-cell.border-right { border-right: 1.5px solid #000; }
+            .trans-2x2 .trans-cell.border-bottom { border-bottom: 1.5px solid #000; }
         </style>
     </head>
     <body>
@@ -161,6 +193,14 @@
         <div class="figure">
             <canvas id="coylean-map-6"></canvas>
         </div>
+
+        <h2>Translation Table — Order 5 → 6</h2>
+        <p class="subtitle">
+            Each lettered section on the order-5 map expands to a 2×2 block on
+            the order-6 map. Interior borders show where Coylean segments exist
+            at the boundary.
+        </p>
+        <div class="grid-wrapper" id="translation-table"></div>
 
         <h2>Vertical-Seniority Grid (vertical wins ties)</h2>
         <div class="grid-wrapper">

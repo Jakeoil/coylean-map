@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Coylean Map — Self-Similar Explorer</title>
+        <link rel="icon" type="image/png" href="../map-icon.png" />
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+                font-family: Menlo, Monaco, "Courier New", monospace;
+                background: #fff;
+                color: #222;
+                padding: 24px;
+                max-width: 1200px;
+                margin: 0 auto;
+                line-height: 1.6;
+            }
+
+            .breadcrumb { font-size: 0.85rem; color: #888; margin-bottom: 16px; }
+            .breadcrumb a { color: #555; text-decoration: none; }
+            .breadcrumb a:hover { text-decoration: underline; }
+
+            h1 { font-size: 1.6rem; margin-bottom: 8px; }
+            h2 { font-size: 1.2rem; margin: 28px 0 10px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+            p { margin-bottom: 12px; max-width: 720px; }
+            .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 16px; max-width: 720px; }
+
+            /* ── Substitution Table ── */
+            .sub-grid {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+                margin-bottom: 16px;
+            }
+            .sub-card {
+                text-align: center;
+            }
+            .sub-parent {
+                font-size: 0.8rem;
+                font-weight: bold;
+                margin-bottom: 2px;
+                color: #333;
+            }
+            .sub-2x2 {
+                display: grid;
+                grid-template-columns: auto auto;
+                width: 56px;
+                height: 44px;
+            }
+            .sub-cell {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.65rem;
+                font-weight: bold;
+                color: rgba(0, 0, 100, 0.7);
+            }
+            .sub-cell.border-right { border-right: 1.5px solid #000; }
+            .sub-cell.border-bottom { border-bottom: 1.5px solid #000; }
+
+            /* ── Explorer Canvas ── */
+            .explorer-wrap {
+                position: relative;
+                margin: 16px 0;
+            }
+            #explorer-canvas {
+                display: block;
+                border: 1px solid #ccc;
+                cursor: pointer;
+            }
+            .controls {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                margin-bottom: 8px;
+                flex-wrap: wrap;
+            }
+            .ctrl-btn {
+                padding: 6px 14px;
+                font-size: 0.8rem;
+                font-family: inherit;
+                border: 1px solid #aaa;
+                background: #f5f5f5;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            .ctrl-btn:hover { background: #e0e0e0; }
+            .ctrl-btn:disabled { opacity: 0.4; cursor: default; }
+            .zoom-info {
+                font-size: 0.8rem;
+                color: #666;
+            }
+            .zoom-path {
+                font-size: 0.75rem;
+                color: #888;
+                margin-bottom: 8px;
+            }
+
+            /* ── Reachable codes ── */
+            .code-list {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                margin: 12px 0;
+            }
+            .code-tag {
+                font-size: 0.75rem;
+                padding: 2px 6px;
+                border-radius: 3px;
+                background: #e8e8e8;
+            }
+            .code-tag.assigned {
+                background: rgba(0, 0, 100, 0.1);
+                color: rgba(0, 0, 100, 0.8);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="breadcrumb">
+            <a href="../">Coylean Map</a> /
+            <a href="../glyphs/">Glyphs</a> /
+            Explorer
+        </div>
+
+        <h1>Self-Similar Map Explorer</h1>
+        <p class="subtitle">
+            The Coylean map has a deterministic substitution structure: each
+            4&times;4 section, identified by its (down, right) input code,
+            always expands to the same 2&times;2 block of child sections at
+            the next order. This makes the map an infinite fractal that can be
+            explored to arbitrary depth using a finite lookup table of 34 rules.
+        </p>
+
+        <h2>The Substitution Rule</h2>
+        <p class="subtitle">
+            Of the 64 possible (down, right) code pairs, only 34 are reachable
+            from the V₇₇ seed. Each reachable code maps to a fixed 2&times;2
+            block. Interior borders show where Coylean segments cross the
+            child-section boundary.
+        </p>
+        <div class="sub-grid" id="sub-table"></div>
+
+        <h2>Reachable Codes</h2>
+        <p class="subtitle">
+            The 34 codes that appear in the map. Highlighted codes have letter
+            assignments from the glyph catalog.
+        </p>
+        <div class="code-list" id="code-list"></div>
+
+        <h2>Interactive Explorer</h2>
+        <p class="subtitle">
+            Click any section to zoom in. The substitution table generates
+            child sections on demand — no limit to zoom depth. The path
+            is remembered so you can zoom back out.
+        </p>
+        <div class="controls">
+            <button class="ctrl-btn" id="btn-out" disabled>Zoom Out</button>
+            <button class="ctrl-btn" id="btn-reset">Reset</button>
+            <span class="zoom-info" id="zoom-info">Level 0 — Order 5 (8&times;8)</span>
+        </div>
+        <div class="zoom-path" id="zoom-path"></div>
+        <div class="explorer-wrap">
+            <canvas id="explorer-canvas"></canvas>
+        </div>
+
+        <script src="explorer.js"></script>
+    </body>
+</html>
