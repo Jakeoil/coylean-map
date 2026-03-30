@@ -822,10 +822,10 @@ assignLetter(V_CLASSES, 5, 6, "M");
 assignLetter(V_CLASSES, 0, 0, "O");
 assignLetter(V_CLASSES, 1, 1, "L");
 assignLetter(V_CLASSES, 2, 5, "Q");
-assignLetter(V_CLASSES, 5, 7, "R");
+assignLetter(V_CLASSES, 0, 7, "T");
 assignLetter(V_CLASSES, 1, 5, "B");
 assignLetter(V_CLASSES, 5, 1, "Y");
-assignLetter(V_CLASSES, 3, 7, "r");
+assignLetter(V_CLASSES, 6, 1, "R");
 assignLetter(V_CLASSES, 1, 6, "S");
 
 const mapCanvas = document.getElementById("coylean-map");

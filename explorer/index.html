@@ -23,36 +23,47 @@
 
             h1 { font-size: 1.6rem; margin-bottom: 8px; }
             h2 { font-size: 1.2rem; margin: 28px 0 10px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+            h3 { font-size: 1rem; margin: 20px 0 8px; color: #444; }
             p { margin-bottom: 12px; max-width: 720px; }
             .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 16px; max-width: 720px; }
+            .note { color: #888; font-size: 0.85rem; margin: 12px 0; max-width: 720px; font-style: italic; }
 
             /* ── Substitution Table ── */
+            .sub-group {
+                margin-bottom: 20px;
+            }
+            .sub-group-label {
+                font-size: 0.85rem;
+                font-weight: bold;
+                color: #555;
+                margin-bottom: 6px;
+            }
             .sub-grid {
                 display: flex;
                 flex-wrap: wrap;
-                gap: 10px;
-                margin-bottom: 16px;
+                gap: 14px;
+                margin-bottom: 8px;
             }
             .sub-card {
                 text-align: center;
             }
             .sub-parent {
-                font-size: 0.8rem;
+                font-size: 1rem;
                 font-weight: bold;
-                margin-bottom: 2px;
+                margin-bottom: 4px;
                 color: #333;
             }
             .sub-2x2 {
                 display: grid;
-                grid-template-columns: auto auto;
-                width: 56px;
-                height: 44px;
+                grid-template-columns: 1fr 1fr;
+                width: 80px;
+                height: 60px;
             }
             .sub-cell {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 0.65rem;
+                font-size: 0.8rem;
                 font-weight: bold;
                 color: rgba(0, 0, 100, 0.7);
             }
@@ -87,6 +98,7 @@
             }
             .ctrl-btn:hover { background: #e0e0e0; }
             .ctrl-btn:disabled { opacity: 0.4; cursor: default; }
+            .ctrl-btn.active { background: #d0d0ff; border-color: #66c; }
             .zoom-info {
                 font-size: 0.8rem;
                 color: #666;
@@ -105,14 +117,17 @@
                 margin: 12px 0;
             }
             .code-tag {
-                font-size: 0.75rem;
-                padding: 2px 6px;
-                border-radius: 3px;
+                font-size: 0.9rem;
+                padding: 4px 10px;
+                border-radius: 4px;
                 background: #e8e8e8;
+                min-width: 50px;
+                text-align: center;
             }
             .code-tag.assigned {
                 background: rgba(0, 0, 100, 0.1);
                 color: rgba(0, 0, 100, 0.8);
+                min-width: 80px;
             }
         </style>
     </head>
@@ -135,11 +150,12 @@
         <h2>The Substitution Rule</h2>
         <p class="subtitle">
             Of the 64 possible (down, right) code pairs, only 34 are reachable
-            from the V₇₇ seed. Each reachable code maps to a fixed 2&times;2
-            block. Interior borders show where Coylean segments cross the
-            child-section boundary.
+            from the V&#x2087;&#x2087; seed. Each reachable code maps to a fixed
+            2&times;2 block. Interior borders show where Coylean segments cross
+            the child-section boundary. Codes are grouped by D4 orbit &mdash;
+            e (identity), s&#x1D65; (mirror), s&#x2095; (flip), r&sup2; (180&deg;).
         </p>
-        <div class="sub-grid" id="sub-table"></div>
+        <div id="sub-table"></div>
 
         <h2>Reachable Codes</h2>
         <p class="subtitle">
@@ -148,16 +164,48 @@
         </p>
         <div class="code-list" id="code-list"></div>
 
+        <h2>Universe View</h2>
+        <p class="subtitle">
+            The Coylean map extends to the full plane with a 2&times;2
+            quadrant seed. The standard map (F) occupies the bottom-right;
+            the other three quadrants are J, M, and J&times;s<sub>h</sub>.
+        </p>
+        <div class="controls">
+            <button class="ctrl-btn" id="btn-uni-out" disabled>Zoom Out</button>
+            <button class="ctrl-btn" id="btn-uni-reset">Reset</button>
+            <button class="ctrl-btn" id="btn-uni-dots">Dots: On</button>
+            <button class="ctrl-btn" id="btn-uni-letters">Letters: On</button>
+            <span class="zoom-info" id="uni-zoom-info">Level 0 &mdash; Order 5 (8&times;8)</span>
+        </div>
+        <div class="zoom-path" id="uni-zoom-path"></div>
+        <div class="explorer-wrap">
+            <canvas id="universe-canvas"></canvas>
+        </div>
+
         <h2>Interactive Explorer</h2>
         <p class="subtitle">
             Click any section to zoom in. The substitution table generates
-            child sections on demand — no limit to zoom depth. The path
+            child sections on demand &mdash; no limit to zoom depth. The path
             is remembered so you can zoom back out.
+        </p>
+        <p class="subtitle">
+            Adjacent sections share a boundary but their dots are computed
+            independently from each section's input code. When dots at a shared
+            boundary are misaligned (one filled, one hollow), this reveals the
+            transition state &mdash; the signal changes as it crosses from one
+            section to the next.
+        </p>
+        <p class="note">
+            Note: a small gap appears where black boundary segments meet at
+            section corners. This is a rendering artifact from the section-gap
+            layout &mdash; to be addressed in a future update.
         </p>
         <div class="controls">
             <button class="ctrl-btn" id="btn-out" disabled>Zoom Out</button>
             <button class="ctrl-btn" id="btn-reset">Reset</button>
-            <span class="zoom-info" id="zoom-info">Level 0 — Order 5 (8&times;8)</span>
+            <button class="ctrl-btn" id="btn-dots">Dots: On</button>
+            <button class="ctrl-btn" id="btn-letters">Letters: On</button>
+            <span class="zoom-info" id="zoom-info">Level 0 &mdash; Order 5 (8&times;8)</span>
         </div>
         <div class="zoom-path" id="zoom-path"></div>
         <div class="explorer-wrap">

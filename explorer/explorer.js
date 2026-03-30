@@ -87,7 +87,17 @@ function classifyVisualD4() {
     const classes = [];
     for (const members of groups.values()) {
         const orbit = members.map(m => [m.d, m.r]).sort((a, b) => (a[0] * 8 + a[1]) - (b[0] * 8 + b[1]));
-        classes.push({ orbit, members });
+        const rep = orbit[0];
+        const rm = members.find(m => m.d === rep[0] && m.r === rep[1]);
+        const transforms = orbit.map(([d, r]) => {
+            const m = members.find(x => x.d === d && x.r === r);
+            const mKey = m.keys[0];
+            for (let ti = 0; ti < 8; ti++) {
+                if (transformedPatternKey(rm.v, rm.h, ti) === mKey) return ti;
+            }
+            return 0;
+        });
+        classes.push({ orbit, members, transforms });
     }
     return classes;
 }
@@ -123,10 +133,10 @@ assignLetter(V_CLASSES, 5, 6, "M");
 assignLetter(V_CLASSES, 0, 0, "O");
 assignLetter(V_CLASSES, 1, 1, "L");
 assignLetter(V_CLASSES, 2, 5, "Q");
-assignLetter(V_CLASSES, 5, 7, "R");
+assignLetter(V_CLASSES, 0, 7, "T");
 assignLetter(V_CLASSES, 1, 5, "B");
 assignLetter(V_CLASSES, 5, 1, "Y");
-assignLetter(V_CLASSES, 3, 7, "r");
+assignLetter(V_CLASSES, 6, 1, "R");
 assignLetter(V_CLASSES, 1, 6, "S");
 
 // ── Substitution Table ──
@@ -260,48 +270,91 @@ function glyphLabel(dc, rc) {
 
 // ── Build Substitution Table Display ──
 
+const D4_LABELS = ["e", "r", "r\u00B2", "r\u00B3", "s\u2095", "s\u1D65", "s\u2081", "s\u2082"];
+
+function buildSubCard(dc, rc) {
+    const rule = SUB_TABLE[dc + "," + rc];
+    if (!rule) return null;
+
+    const card = document.createElement("div");
+    card.className = "sub-card";
+
+    const title = document.createElement("div");
+    title.className = "sub-parent";
+    title.textContent = glyphLabel(dc, rc);
+    card.appendChild(title);
+
+    const box = document.createElement("div");
+    box.className = "sub-2x2";
+
+    const labels = rule.children.map(([d, r]) => glyphLabel(d, r));
+    const cls = [
+        [rule.hBoundLeft ? "border-bottom" : "", rule.vBoundTop ? "border-right" : ""],
+        [rule.hBoundRight ? "border-bottom" : "", ""],
+        ["", rule.vBoundBot ? "border-right" : ""],
+        ["", ""],
+    ];
+
+    for (let i = 0; i < 4; i++) {
+        const cell = document.createElement("div");
+        cell.className = "sub-cell" +
+            (cls[i][0] ? " " + cls[i][0] : "") +
+            (cls[i][1] ? " " + cls[i][1] : "");
+        cell.textContent = labels[i];
+        box.appendChild(cell);
+    }
+    card.appendChild(box);
+    return card;
+}
+
 function buildSubTable() {
     const container = document.getElementById("sub-table");
-    const keys = Object.keys(SUB_TABLE).sort((a, b) => {
-        const [ad, ar] = a.split(",").map(Number);
-        const [bd, br] = b.split(",").map(Number);
-        return (ad * 8 + ar) - (bd * 8 + br);
+
+    // Group by D4 orbit: for each orbit with reachable members, show them together
+    // with transform labels (e, s_v, s_h, r²)
+    const orbitGroups = [];
+    for (const cls of V_CLASSES) {
+        const reachable = cls.orbit.filter(([d, r]) => SUB_TABLE[d + "," + r]);
+        if (reachable.length === 0) continue;
+
+        // Find which transforms are present
+        const members = reachable.map(([d, r]) => {
+            const idx = cls.orbit.findIndex(([od, or]) => od === d && or === r);
+            return { dc: d, rc: r, ti: cls.transforms[idx] };
+        });
+        // Sort by transform index so e comes first
+        members.sort((a, b) => a.ti - b.ti);
+        orbitGroups.push(members);
+    }
+
+    // Sort groups: single-member first, then by first member code
+    orbitGroups.sort((a, b) => {
+        if (a.length !== b.length) return a.length - b.length;
+        return (a[0].dc * 8 + a[0].rc) - (b[0].dc * 8 + b[0].rc);
     });
 
-    for (const key of keys) {
-        const [dc, rc] = key.split(",").map(Number);
-        const rule = SUB_TABLE[key];
-        const parent = glyphLabel(dc, rc);
+    for (const members of orbitGroups) {
+        const group = document.createElement("div");
+        group.className = "sub-group";
 
-        const card = document.createElement("div");
-        card.className = "sub-card";
+        const grid = document.createElement("div");
+        grid.className = "sub-grid";
 
-        const title = document.createElement("div");
-        title.className = "sub-parent";
-        title.textContent = parent;
-        card.appendChild(title);
+        for (const m of members) {
+            const card = buildSubCard(m.dc, m.rc);
+            if (!card) continue;
 
-        const box = document.createElement("div");
-        box.className = "sub-2x2";
+            // Add transform label below the 2x2
+            const tLabel = document.createElement("div");
+            tLabel.style.cssText = "font-size:0.7rem;color:#888;margin-top:2px;";
+            tLabel.textContent = D4_LABELS[m.ti];
+            card.appendChild(tLabel);
 
-        const labels = rule.children.map(([d, r]) => glyphLabel(d, r));
-        const cls = [
-            [rule.hBoundLeft ? "border-bottom" : "", rule.vBoundTop ? "border-right" : ""],
-            [rule.hBoundRight ? "border-bottom" : "", ""],
-            ["", rule.vBoundBot ? "border-right" : ""],
-            ["", ""],
-        ];
-
-        for (let i = 0; i < 4; i++) {
-            const cell = document.createElement("div");
-            cell.className = "sub-cell" +
-                (cls[i][0] ? " " + cls[i][0] : "") +
-                (cls[i][1] ? " " + cls[i][1] : "");
-            cell.textContent = labels[i];
-            box.appendChild(cell);
+            grid.appendChild(card);
         }
-        card.appendChild(box);
-        container.appendChild(card);
+
+        group.appendChild(grid);
+        container.appendChild(group);
     }
 }
 
@@ -334,6 +387,8 @@ let currentHBound;
 let gridSize;       // sections per axis
 let zoomStack = []; // for zoom out
 let hoverR = -1, hoverC = -1;
+let showDots = true;
+let showLetters = true;
 
 function initRootGrid() {
     gridSize = o5.NS; // 8
@@ -483,24 +538,24 @@ function updateUI() {
 
 const DOT_R = 2;
 
-function drawDot(x, y, filled, r) {
+function drawDot(c, x, y, filled, r) {
     const radius = r || DOT_R;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    c.beginPath();
+    c.arc(x, y, radius, 0, Math.PI * 2);
     if (filled) {
-        ctx.fillStyle = "#000";
-        ctx.fill();
+        c.fillStyle = "#000";
+        c.fill();
     } else {
-        ctx.strokeStyle = "#000";
-        ctx.lineWidth = radius * 0.32;
-        ctx.stroke();
+        c.strokeStyle = "#000";
+        c.lineWidth = radius * 0.32;
+        c.stroke();
     }
 }
 
-function render() {
-    const rows = currentGrid.length;
-    const cols = currentGrid[0].length;
-    const SEC = 4; // cells per section axis
+function renderOnCanvas(canvasEl, c, grid, vBound, hBound, hR, hC, dots, letters) {
+    const rows = grid.length;
+    const cols = grid[0].length;
+    const SEC = 4;
 
     // Compute cell size to fit canvas
     const maxPx = Math.min(800, window.innerWidth - 60);
@@ -510,32 +565,32 @@ function render() {
     const totalW = cols * (secPx + gap) + gap;
     const totalH = rows * (secPx + gap) + gap;
 
-    canvas.width = totalW;
-    canvas.height = totalH;
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, totalW, totalH);
+    canvasEl.width = totalW;
+    canvasEl.height = totalH;
+    c.fillStyle = "#fff";
+    c.fillRect(0, 0, totalW, totalH);
 
     const lw = Math.max(0.5, cellSize * 0.08);
     const dotR = Math.max(1, cellSize * 0.15);
 
     for (let sr = 0; sr < rows; sr++) {
         for (let sc = 0; sc < cols; sc++) {
-            const [dc, rc] = currentGrid[sr][sc];
+            const [dc, rc] = grid[sr][sc];
             const sx = gap + sc * (secPx + gap);
             const sy = gap + sr * (secPx + gap);
 
             // Highlight on hover
-            if (sr === hoverR && sc === hoverC) {
-                ctx.fillStyle = "rgba(0, 0, 100, 0.05)";
-                ctx.fillRect(sx, sy, secPx, secPx);
+            if (sr === hR && sc === hC) {
+                c.fillStyle = "rgba(0, 0, 100, 0.05)";
+                c.fillRect(sx, sy, secPx, secPx);
             }
 
             // Draw glyph lines
             const da = [!!(dc & 1), !!(dc & 2), !!(dc & 4)];
             const ra = [!!(rc & 1), !!(rc & 2), !!(rc & 4)];
 
-            ctx.strokeStyle = "#90caf9";
-            ctx.lineWidth = lw;
+            c.strokeStyle = "#90caf9";
+            c.lineWidth = lw;
 
             for (let gy = 0; gy < 3; gy++) {
                 for (let gx = 0; gx < 3; gx++) {
@@ -546,105 +601,113 @@ function render() {
 
                     const x0 = sx + gx * cellSize, y0 = sy + gy * cellSize;
                     if (da[gx]) {
-                        ctx.beginPath();
-                        ctx.moveTo(x0 + cellSize, y0);
-                        ctx.lineTo(x0 + cellSize, y0 + cellSize);
-                        ctx.stroke();
+                        c.beginPath();
+                        c.moveTo(x0 + cellSize, y0);
+                        c.lineTo(x0 + cellSize, y0 + cellSize);
+                        c.stroke();
                     }
                     if (ra[gy]) {
-                        ctx.beginPath();
-                        ctx.moveTo(x0, y0 + cellSize);
-                        ctx.lineTo(x0 + cellSize, y0 + cellSize);
-                        ctx.stroke();
+                        c.beginPath();
+                        c.moveTo(x0, y0 + cellSize);
+                        c.lineTo(x0 + cellSize, y0 + cellSize);
+                        c.stroke();
                     }
                     da[gx] = dv;
                     ra[gy] = rv;
                 }
                 if (ra[gy]) {
-                    ctx.beginPath();
-                    ctx.moveTo(sx + 3 * cellSize, sy + (gy + 1) * cellSize);
-                    ctx.lineTo(sx + 4 * cellSize, sy + (gy + 1) * cellSize);
-                    ctx.stroke();
+                    c.beginPath();
+                    c.moveTo(sx + 3 * cellSize, sy + (gy + 1) * cellSize);
+                    c.lineTo(sx + 4 * cellSize, sy + (gy + 1) * cellSize);
+                    c.stroke();
                 }
             }
             for (let gx = 0; gx < 3; gx++) {
                 if (da[gx]) {
-                    ctx.beginPath();
-                    ctx.moveTo(sx + (gx + 1) * cellSize, sy + 3 * cellSize);
-                    ctx.lineTo(sx + (gx + 1) * cellSize, sy + 4 * cellSize);
-                    ctx.stroke();
+                    c.beginPath();
+                    c.moveTo(sx + (gx + 1) * cellSize, sy + 3 * cellSize);
+                    c.lineTo(sx + (gx + 1) * cellSize, sy + 4 * cellSize);
+                    c.stroke();
                 }
             }
 
             // Dots
-            const daOrig = [!!(dc & 1), !!(dc & 2), !!(dc & 4)];
-            const raOrig = [!!(rc & 1), !!(rc & 2), !!(rc & 4)];
-            for (let i = 0; i < 3; i++) {
-                drawDot(sx + (i + 1) * cellSize, sy, daOrig[i], dotR);
-                drawDot(sx, sy + (i + 1) * cellSize, raOrig[i], dotR);
-                drawDot(sx + (i + 1) * cellSize, sy + 4 * cellSize, da[i], dotR);
-                drawDot(sx + 4 * cellSize, sy + (i + 1) * cellSize, ra[i], dotR);
+            if (dots) {
+                const daOrig = [!!(dc & 1), !!(dc & 2), !!(dc & 4)];
+                const raOrig = [!!(rc & 1), !!(rc & 2), !!(rc & 4)];
+                for (let i = 0; i < 3; i++) {
+                    drawDot(c, sx + (i + 1) * cellSize, sy, daOrig[i], dotR);
+                    drawDot(c, sx, sy + (i + 1) * cellSize, raOrig[i], dotR);
+                    drawDot(c, sx + (i + 1) * cellSize, sy + 4 * cellSize, da[i], dotR);
+                    drawDot(c, sx + 4 * cellSize, sy + (i + 1) * cellSize, ra[i], dotR);
+                }
             }
 
             // Letter overlay
-            const ft = GLYPH_LETTERS[dc + "," + rc];
-            if (ft) {
-                const fontSize = 3 * cellSize;
-                const cx = sx + 2 * cellSize;
-                const cy = sy + 2 * cellSize + fontSize * 0.05 * ft[2];
-                ctx.save();
-                ctx.translate(cx, cy);
-                ctx.scale(ft[1], ft[2]);
-                ctx.fillStyle = "rgba(0, 0, 100, 0.4)";
-                ctx.font = "bold " + fontSize + "px Monaco, Menlo, monospace";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText(ft[0], 0, 0);
-                ctx.restore();
-            } else if (cellSize >= 6) {
-                // V label for unassigned
-                ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
-                ctx.font = (cellSize * 0.7) + "px Monaco, Menlo, monospace";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText(
-                    "V" + SUB_DIGITS[dc] + SUB_DIGITS[rc],
-                    sx + 2 * cellSize, sy + 2 * cellSize,
-                );
+            if (letters) {
+                const ft = GLYPH_LETTERS[dc + "," + rc];
+                if (ft) {
+                    const fontSize = 3 * cellSize;
+                    const cx = sx + 2 * cellSize;
+                    const cy = sy + 2 * cellSize + fontSize * 0.05 * ft[2];
+                    c.save();
+                    c.translate(cx, cy);
+                    c.scale(ft[1], ft[2]);
+                    c.fillStyle = "rgba(0, 0, 100, 0.4)";
+                    c.font = "bold " + fontSize + "px Monaco, Menlo, monospace";
+                    c.textAlign = "center";
+                    c.textBaseline = "middle";
+                    c.fillText(ft[0], 0, 0);
+                    c.restore();
+                } else if (cellSize >= 6) {
+                    // V label for unassigned
+                    c.fillStyle = "rgba(0, 0, 0, 0.25)";
+                    c.font = (cellSize * 0.7) + "px Monaco, Menlo, monospace";
+                    c.textAlign = "center";
+                    c.textBaseline = "middle";
+                    c.fillText(
+                        "V" + SUB_DIGITS[dc] + SUB_DIGITS[rc],
+                        sx + 2 * cellSize, sy + 2 * cellSize,
+                    );
+                }
             }
         }
     }
 
     // Draw boundary segments between sections
-    ctx.strokeStyle = "#000";
-    ctx.lineWidth = lw;
+    c.strokeStyle = "#000";
+    c.lineWidth = lw;
 
     for (let sr = 0; sr < rows; sr++) {
         for (let sc = 0; sc < cols - 1; sc++) {
-            if (currentVBound[sr][sc]) {
+            if (vBound[sr][sc]) {
                 const x = gap + (sc + 1) * (secPx + gap) - gap / 2;
                 const y1 = gap + sr * (secPx + gap);
                 const y2 = y1 + secPx;
-                ctx.beginPath();
-                ctx.moveTo(x, y1);
-                ctx.lineTo(x, y2);
-                ctx.stroke();
+                c.beginPath();
+                c.moveTo(x, y1);
+                c.lineTo(x, y2);
+                c.stroke();
             }
         }
     }
     for (let sr = 0; sr < rows - 1; sr++) {
         for (let sc = 0; sc < cols; sc++) {
-            if (currentHBound[sr][sc]) {
+            if (hBound[sr][sc]) {
                 const y = gap + (sr + 1) * (secPx + gap) - gap / 2;
                 const x1 = gap + sc * (secPx + gap);
                 const x2 = x1 + secPx;
-                ctx.beginPath();
-                ctx.moveTo(x1, y);
-                ctx.lineTo(x2, y);
-                ctx.stroke();
+                c.beginPath();
+                c.moveTo(x1, y);
+                c.lineTo(x2, y);
+                c.stroke();
             }
         }
     }
+}
+
+function render() {
+    renderOnCanvas(canvas, ctx, currentGrid, currentVBound, currentHBound, hoverR, hoverC, showDots, showLetters);
 }
 
 // ── Interaction ──
@@ -689,13 +752,193 @@ canvas.addEventListener("mouseleave", function () {
 document.getElementById("btn-out").addEventListener("click", zoomOut);
 document.getElementById("btn-reset").addEventListener("click", initRootGrid);
 
+const btnDots = document.getElementById("btn-dots");
+btnDots.addEventListener("click", function () {
+    showDots = !showDots;
+    btnDots.textContent = "Dots: " + (showDots ? "On" : "Off");
+    btnDots.classList.toggle("active", showDots);
+    render();
+});
+
+const btnLetters = document.getElementById("btn-letters");
+btnLetters.addEventListener("click", function () {
+    showLetters = !showLetters;
+    btnLetters.textContent = "Letters: " + (showLetters ? "On" : "Off");
+    btnLetters.classList.toggle("active", showLetters);
+    render();
+});
+
 document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
         if (zoomStack.length > 0) zoomOut();
     }
 });
 
+// ── Universe View ──
+
+const uniCanvas = document.getElementById("universe-canvas");
+const uniCtx = uniCanvas ? uniCanvas.getContext("2d") : null;
+
+let uniGrid, uniVBound, uniHBound, uniGridSize;
+let uniZoomStack = [];
+let uniHoverR = -1, uniHoverC = -1;
+let uniShowDots = true;
+let uniShowLetters = true;
+
+function buildUniverseSeed() {
+    // 2×2 seed: J(V66) | M(V56) / J×s_h(V73) | F(V77)
+    let grid = [
+        [[6, 6], [5, 6]],
+        [[7, 3], [7, 7]],
+    ];
+    let vb = [[true, false], [true, false]];
+    let hb = [[false, true], [false, false]];
+    let ns = 2;
+
+    // Expand twice: 2→4→8 (order 3 → 4 → 5)
+    let exp = expandGrid(grid, vb, hb, ns);
+    exp = expandGrid(exp.grid, exp.vBound, exp.hBound, exp.ns);
+    return exp;
+}
+
+function initUniverse() {
+    const seed = buildUniverseSeed();
+    uniGridSize = seed.ns;
+    uniGrid = seed.grid;
+    uniVBound = seed.vBound;
+    uniHBound = seed.hBound;
+    uniZoomStack = [];
+    updateUniUI();
+    renderUniverse();
+}
+
+function uniZoomIn(row, col) {
+    uniZoomStack.push({
+        grid: uniGrid, vBound: uniVBound, hBound: uniHBound, ns: uniGridSize,
+    });
+    const expanded = expandGrid(uniGrid, uniVBound, uniHBound, uniGridSize);
+    const ns2 = expanded.ns;
+    const centerR = row * 2, centerC = col * 2;
+    const halfWin = Math.floor(uniGridSize / 2);
+    let startR = Math.max(0, centerR - halfWin + 1);
+    let startC = Math.max(0, centerC - halfWin + 1);
+    if (startR + uniGridSize > ns2) startR = Math.max(0, ns2 - uniGridSize);
+    if (startC + uniGridSize > ns2) startC = Math.max(0, ns2 - uniGridSize);
+    const viewRows = Math.min(uniGridSize, ns2);
+    const viewCols = Math.min(uniGridSize, ns2);
+
+    uniGrid = Array.from({ length: viewRows }, (_, r) =>
+        Array.from({ length: viewCols }, (_, c) =>
+            [...expanded.grid[startR + r][startC + c]],
+        ),
+    );
+    uniVBound = Array.from({ length: viewRows }, (_, r) =>
+        Array.from({ length: viewCols }, (_, c) => {
+            const sc = startC + c;
+            return sc < ns2 - 1 ? expanded.vBound[startR + r][sc] : false;
+        }),
+    );
+    uniHBound = Array.from({ length: viewRows }, (_, r) =>
+        Array.from({ length: viewCols }, (_, c) => {
+            const sr = startR + r;
+            return sr < ns2 - 1 ? expanded.hBound[sr][startC + c] : false;
+        }),
+    );
+    updateUniUI();
+    renderUniverse();
+}
+
+function uniZoomOut() {
+    if (uniZoomStack.length === 0) return;
+    const prev = uniZoomStack.pop();
+    uniGrid = prev.grid;
+    uniVBound = prev.vBound;
+    uniHBound = prev.hBound;
+    uniGridSize = prev.ns;
+    updateUniUI();
+    renderUniverse();
+}
+
+function updateUniUI() {
+    const level = uniZoomStack.length;
+    const order = 5 + level;
+    document.getElementById("uni-zoom-info").textContent =
+        "Level " + level + " \u2014 Order " + order +
+        " (" + uniGridSize + "\u00d7" + uniGridSize + " window)";
+    document.getElementById("btn-uni-out").disabled = level === 0;
+    const pathEl = document.getElementById("uni-zoom-path");
+    if (level === 0) {
+        pathEl.textContent = "";
+    } else {
+        pathEl.textContent = "Zoom depth: " + level +
+            " (click Zoom Out or Reset to navigate back)";
+    }
+}
+
+function renderUniverse() {
+    if (!uniCtx) return;
+    renderOnCanvas(uniCanvas, uniCtx, uniGrid, uniVBound, uniHBound,
+        uniHoverR, uniHoverC, uniShowDots, uniShowLetters);
+}
+
+function getUniSection(e) {
+    const rect = uniCanvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const rows = uniGrid.length;
+    const cols = uniGrid[0].length;
+    const SEC = 4;
+    const maxPx = Math.min(800, window.innerWidth - 60);
+    const cellSize = Math.max(4, Math.floor(maxPx / (cols * SEC + cols)));
+    const gap = Math.max(1, Math.floor(cellSize * 0.15));
+    const stride = SEC * cellSize + gap;
+    const sc = Math.floor((mx - gap) / stride);
+    const sr = Math.floor((my - gap) / stride);
+    if (sr >= 0 && sr < rows && sc >= 0 && sc < cols) return [sr, sc];
+    return null;
+}
+
+if (uniCanvas) {
+    uniCanvas.addEventListener("click", function (e) {
+        const sec = getUniSection(e);
+        if (sec) uniZoomIn(sec[0], sec[1]);
+    });
+
+    uniCanvas.addEventListener("mousemove", function (e) {
+        const sec = getUniSection(e);
+        const oldR = uniHoverR, oldC = uniHoverC;
+        if (sec) { uniHoverR = sec[0]; uniHoverC = sec[1]; }
+        else { uniHoverR = -1; uniHoverC = -1; }
+        if (uniHoverR !== oldR || uniHoverC !== oldC) renderUniverse();
+    });
+
+    uniCanvas.addEventListener("mouseleave", function () {
+        uniHoverR = -1; uniHoverC = -1;
+        renderUniverse();
+    });
+
+    document.getElementById("btn-uni-out").addEventListener("click", uniZoomOut);
+    document.getElementById("btn-uni-reset").addEventListener("click", initUniverse);
+
+    const btnUniDots = document.getElementById("btn-uni-dots");
+    btnUniDots.addEventListener("click", function () {
+        uniShowDots = !uniShowDots;
+        btnUniDots.textContent = "Dots: " + (uniShowDots ? "On" : "Off");
+        btnUniDots.classList.toggle("active", uniShowDots);
+        renderUniverse();
+    });
+
+    const btnUniLetters = document.getElementById("btn-uni-letters");
+    btnUniLetters.addEventListener("click", function () {
+        uniShowLetters = !uniShowLetters;
+        btnUniLetters.textContent = "Letters: " + (uniShowLetters ? "On" : "Off");
+        btnUniLetters.classList.toggle("active", uniShowLetters);
+        renderUniverse();
+    });
+}
+
 // ── Init ──
 buildSubTable();
 buildCodeList();
+initUniverse();
 initRootGrid();
