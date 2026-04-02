@@ -44,20 +44,21 @@ const D4_TO_SCALE = {
 
 // Populated after V_CLASSES is computed: "d,r" → [letter, scaleX, scaleY]
 let GLYPH_LETTERS = {};
+let H_GLYPH_LETTERS = {};
 
-function assignLetter(classes, downCode, rightCode, letter) {
+function assignLetter(classes, downCode, rightCode, letter, target = GLYPH_LETTERS, verticalWinsTies = true) {
     for (const cls of classes) {
         if (cls.orbit.some(([d, r]) => d === downCode && r === rightCode)) {
             // Compute transforms relative to the specified glyph (not the orbit rep)
-            const base = computePattern(downCode, rightCode, true);
+            const base = computePattern(downCode, rightCode, verticalWinsTies);
             for (let i = 0; i < cls.orbit.length; i++) {
                 const [d, r] = cls.orbit[i];
-                const mem = computePattern(d, r, true);
+                const mem = computePattern(d, r, verticalWinsTies);
                 const memKey = transformedPatternKey(mem.v, mem.h, 0);
                 for (let ti = 0; ti < 8; ti++) {
                     if (transformedPatternKey(base.v, base.h, ti) === memKey) {
                         const scale = D4_TO_SCALE[ti];
-                        if (scale) GLYPH_LETTERS[d + "," + r] = [letter, scale[0], scale[1]];
+                        if (scale) target[d + "," + r] = [letter, scale[0], scale[1]];
                         break;
                     }
                 }
@@ -173,14 +174,16 @@ function drawGlyph(canvas, downCode, rightCode, verticalWinsTies, fTransform) {
     }
 
     // Letter overlay
+    // fTransform: [letter, scaleX, scaleY, color, backslash]
     if (fTransform) {
         const gridCx = MARGIN + (GRID_CELLS * CELL_PX) / 2;
         const gridCy = MARGIN + (GRID_CELLS * CELL_PX) / 2;
         const fontSize = NUM_CELLS * CELL_PX;
         ctx.save();
         ctx.translate(gridCx, gridCy + fontSize * 0.05 * fTransform[2]);
+        if (fTransform[4]) ctx.transform(0, 1, 1, 0, 0, 0); // \ reflection
         ctx.scale(fTransform[1], fTransform[2]);
-        ctx.fillStyle = "rgba(0, 0, 100, 0.4)";
+        ctx.fillStyle = fTransform[3] || "rgba(0, 0, 100, 0.4)";
         ctx.font = "bold " + fontSize + "px Monaco, Menlo, monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -237,7 +240,13 @@ function buildGrid(tableId, prefix, verticalWinsTies) {
         for (let r = 0; r < 8; r++) {
             const td = document.createElement("td");
             const canvas = document.createElement("canvas");
-            const ft = verticalWinsTies ? GLYPH_LETTERS[d + "," + r] : null;
+            let ft = null;
+            if (verticalWinsTies) {
+                ft = GLYPH_LETTERS[d + "," + r];
+            } else {
+                const hft = H_GLYPH_LETTERS[d + "," + r];
+                if (hft) ft = [hft[0], hft[1], hft[2], "rgba(139, 0, 0, 0.5)", true];
+            }
             drawGlyph(canvas, d, r, verticalWinsTies, ft);
             td.appendChild(canvas);
             const label = document.createElement("div");
@@ -436,7 +445,13 @@ function buildEquivalenceClasses(
             cell.className = "eq-cell";
 
             const canvas = document.createElement("canvas");
-            const ft2 = verticalWinsTies ? GLYPH_LETTERS[d + "," + r] : null;
+            let ft2 = null;
+            if (verticalWinsTies) {
+                ft2 = GLYPH_LETTERS[d + "," + r];
+            } else {
+                const hft = H_GLYPH_LETTERS[d + "," + r];
+                if (hft) ft2 = [hft[0], hft[1], hft[2], "rgba(139, 0, 0, 0.5)", true];
+            }
             drawGlyph(canvas, d, r, verticalWinsTies, ft2);
             cell.appendChild(canvas);
 
@@ -827,6 +842,20 @@ assignLetter(V_CLASSES, 1, 5, "B");
 assignLetter(V_CLASSES, 5, 1, "Y");
 assignLetter(V_CLASSES, 6, 1, "R");
 assignLetter(V_CLASSES, 1, 6, "S");
+
+// H-grid letter assignments (backslash reflection: V_{d,r} → H_{r,d})
+assignLetter(H_CLASSES, 7, 7, "F", H_GLYPH_LETTERS, false);
+assignLetter(H_CLASSES, 7, 1, "P", H_GLYPH_LETTERS, false);
+assignLetter(H_CLASSES, 6, 6, "J", H_GLYPH_LETTERS, false);
+assignLetter(H_CLASSES, 6, 5, "M", H_GLYPH_LETTERS, false);
+assignLetter(H_CLASSES, 0, 0, "O", H_GLYPH_LETTERS, false);
+assignLetter(H_CLASSES, 1, 1, "L", H_GLYPH_LETTERS, false);
+assignLetter(H_CLASSES, 5, 2, "Q", H_GLYPH_LETTERS, false);
+assignLetter(H_CLASSES, 7, 0, "T", H_GLYPH_LETTERS, false);
+assignLetter(H_CLASSES, 5, 1, "B", H_GLYPH_LETTERS, false);
+assignLetter(H_CLASSES, 1, 5, "Y", H_GLYPH_LETTERS, false);
+assignLetter(H_CLASSES, 1, 6, "R", H_GLYPH_LETTERS, false);
+assignLetter(H_CLASSES, 6, 1, "S", H_GLYPH_LETTERS, false);
 
 const mapCanvas = document.getElementById("coylean-map");
 if (mapCanvas) drawCoyleanMap(mapCanvas, 32, CELL_PX);
