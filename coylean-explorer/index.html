@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="shortcut icon" href="map-icon.png" />
+        <title>Coylean Map Exploration</title>
+        <link rel="stylesheet" href="math.css" />
+    </head>
+
+    <body>
+        <header>
+            <h1>Coylean Map exploration</h1>
+            <h2>Move the true downs and rights back and forth</h2>
+        </header>
+        <div id="meat">
+            <div id="controls">
+                <h3>Controls</h3>
+                <div class="control-group" id="feature">
+                    <h4>Map Type</h4>
+                    <button id="feature-active"></button>
+                    <br />
+                    <input type="radio" name="feature" id="legacy" />
+                    <label for="legacy">Legacy</label>
+                    <input type="radio" name="feature" id="explore" />
+                    <label for="explore">Explore</label>
+                    <input type="radio" name="feature" id="universe" />
+                    <label for="universe">Universe</label>
+                </div>
+                <div class="control-group">
+                    <div>
+                        <h4>Size</h4>
+                        <button id="size-dec">smaller</button>
+                        <button id="size-toggle"></button>
+                        <button id="size-inc">larger</button>
+                    </div>
+                    <div>
+                        <h4>Scale</h4>
+                        <button id="scale-dec">smaller</button>
+                        <button id="scale-reset"></button>
+                        <button id="scale-inc">larger</button>
+                    </div>
+                </div>
+                <div class="control-group can-explore">
+                    <h4>Horizontal init column</h4>
+                    <button id="rights-left">Left</button>
+                    <label id="rights-pos"></label>
+                    <button id="rights-right">Right</button>
+                    <br />
+                    <h4>Vertical init row</h4>
+                    <button id="downs-up">Up</button>
+                    <label id="downs-pos"></label>
+                    <button id="downs-down">Down</button>
+                </div>
+            </div>
+            <div id="content">
+                <div id="explore-map">
+                    <h2>Explore the map</h2>
+                    <canvas></canvas>
+                </div>
+            </div>
+        </div>
+        <script type="module" src="coylean-app.js"></script>
+    </body>
+</html>

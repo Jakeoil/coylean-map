@@ -2,6 +2,20 @@
 //  Self-Similar Coylean Map Explorer
 // ═══════════════════════════════════════════════════
 
+// ── Baby Blocks (lazy-loaded) ──
+let babyBlocks = null;
+let useBabyBlocks = false;
+let babyBlocksOutline = true;
+
+function ftToD4Explorer(ft) {
+    const [, sx, sy] = ft;
+    if (sx === 1 && sy === 1) return "e";
+    if (sx === -1 && sy === -1) return "r2";
+    if (sx === 1 && sy === -1) return "sh";
+    if (sx === -1 && sy === 1) return "sv";
+    return "e";
+}
+
 // ── Coylean Algorithm (shared with glyphs.js) ──
 
 function computeMaxPri(ds, rs) {
@@ -139,9 +153,100 @@ assignLetter(V_CLASSES, 5, 1, "Y");
 assignLetter(V_CLASSES, 6, 1, "R");
 assignLetter(V_CLASSES, 1, 6, "S");
 
+// ── H-grid (horizontal wins ties) ──
+
+function computePatternH(downCode, rightCode) {
+    const da = [!!(downCode & 1), !!(downCode & 2), !!(downCode & 4)];
+    const ra = [!!(rightCode & 1), !!(rightCode & 2), !!(rightCode & 4)];
+    const v = Array.from({ length: 3 }, () => Array(4).fill(false));
+    const h = Array.from({ length: 4 }, () => Array(3).fill(false));
+    for (let y = 0; y < 3; y++) {
+        for (let x = 0; x < 3; x++) {
+            let d = da[x], r = ra[y];
+            const dp = priority(x + 1), rp = priority(y + 1);
+            if (dp > rp) { if (d) r = !r; } else { if (r) d = !d; }
+            if (da[x]) v[x][y] = true;
+            if (ra[y]) h[x][y] = true;
+            da[x] = d; ra[y] = r;
+        }
+        if (ra[y]) h[3][y] = true;
+    }
+    for (let x = 0; x < 3; x++) { if (da[x]) v[x][3] = true; }
+    return { v, h };
+}
+
+function classifyVisualD4H() {
+    const glyphs = [];
+    for (let d = 0; d < 8; d++) for (let r = 0; r < 8; r++) {
+        const { v, h } = computePatternH(d, r);
+        let ck = Infinity; const keys = [];
+        for (let ti = 0; ti < 8; ti++) {
+            const k = transformedPatternKey(v, h, ti);
+            keys.push(k); if (k < ck) ck = k;
+        }
+        glyphs.push({ d, r, v, h, ck, keys });
+    }
+    const groups = new Map();
+    for (const g of glyphs) { if (!groups.has(g.ck)) groups.set(g.ck, []); groups.get(g.ck).push(g); }
+    const classes = [];
+    for (const members of groups.values()) {
+        const orbit = members.map(m => [m.d, m.r]).sort((a, b) => (a[0] * 8 + a[1]) - (b[0] * 8 + b[1]));
+        const rep = orbit[0];
+        const rm = members.find(m => m.d === rep[0] && m.r === rep[1]);
+        const transforms = orbit.map(([d, r]) => {
+            const m = members.find(x => x.d === d && x.r === r);
+            const mKey = m.keys[0];
+            for (let ti = 0; ti < 8; ti++) {
+                if (transformedPatternKey(rm.v, rm.h, ti) === mKey) return ti;
+            }
+            return 0;
+        });
+        classes.push({ orbit, members, transforms });
+    }
+    return classes;
+}
+
+const H_GLYPH_LETTERS = {};
+const H_CLASSES = classifyVisualD4H();
+
+function assignHLetter(classes, downCode, rightCode, letter) {
+    for (const cls of classes) {
+        if (cls.orbit.some(([d, r]) => d === downCode && r === rightCode)) {
+            const base = computePatternH(downCode, rightCode);
+            for (let i = 0; i < cls.orbit.length; i++) {
+                const [d, r] = cls.orbit[i];
+                const mem = computePatternH(d, r);
+                const memKey = transformedPatternKey(mem.v, mem.h, 0);
+                for (let ti = 0; ti < 8; ti++) {
+                    if (transformedPatternKey(base.v, base.h, ti) === memKey) {
+                        const scale = D4_TO_SCALE[ti];
+                        if (scale) H_GLYPH_LETTERS[d + "," + r] = [letter, scale[0], scale[1]];
+                        break;
+                    }
+                }
+            }
+            break;
+        }
+    }
+}
+
+// Backslash reflection: V_{d,r} → H_{r,d}
+assignHLetter(H_CLASSES, 7, 7, "F");
+assignHLetter(H_CLASSES, 7, 1, "P");
+assignHLetter(H_CLASSES, 6, 6, "J");
+assignHLetter(H_CLASSES, 6, 5, "M");
+assignHLetter(H_CLASSES, 0, 0, "O");
+assignHLetter(H_CLASSES, 1, 1, "L");
+assignHLetter(H_CLASSES, 5, 2, "Q");
+assignHLetter(H_CLASSES, 7, 0, "T");
+assignHLetter(H_CLASSES, 5, 1, "B");
+assignHLetter(H_CLASSES, 1, 5, "Y");
+assignHLetter(H_CLASSES, 1, 6, "R");
+assignHLetter(H_CLASSES, 6, 1, "S");
+
 // ── Substitution Table ──
 
-function getSectionData(N) {
+function getSectionData(N, rightHigh = false) {
     const M = N + 1;
     const maxP = computeMaxPri(M, M);
     function pri(i) {
@@ -190,7 +295,7 @@ function getSectionData(N) {
                 if (preR) hBound[sr][sc] = true;
             }
 
-            if (pri(x) >= rp) {
+            if (rightHigh ? pri(x) > rp : pri(x) >= rp) {
                 if (preD) r[y] = !r[y];
             } else {
                 if (preR) d[x] = !d[x];
@@ -249,6 +354,57 @@ for (let sr = 0; sr < 16; sr++) {
             vBoundBot: o7.vBound[sr7 + 1][sc7],
             hBoundLeft: o7.hBound[sr7][sc7],
             hBoundRight: o7.hBound[sr7][sc7 + 1],
+        };
+    }
+}
+
+// Build the H substitution table from order 5 → 6 (rightHigh = true)
+const ho5 = getSectionData(32, true);
+const ho6 = getSectionData(64, true);
+const H_SUB_TABLE = {};
+const H_REACHABLE = new Set();
+
+for (let sr = 0; sr < 8; sr++) {
+    for (let sc = 0; sc < 8; sc++) {
+        const [dc, rc] = ho5.codes[sr][sc];
+        const key = dc + "," + rc;
+        H_REACHABLE.add(key);
+        if (H_SUB_TABLE[key]) continue;
+        const sr6 = sr * 2, sc6 = sc * 2;
+        H_SUB_TABLE[key] = {
+            children: [
+                ho6.codes[sr6][sc6],
+                ho6.codes[sr6][sc6 + 1],
+                ho6.codes[sr6 + 1][sc6],
+                ho6.codes[sr6 + 1][sc6 + 1],
+            ],
+            vBoundTop: ho6.vBound[sr6][sc6],
+            vBoundBot: ho6.vBound[sr6 + 1][sc6],
+            hBoundLeft: ho6.hBound[sr6][sc6],
+            hBoundRight: ho6.hBound[sr6][sc6 + 1],
+        };
+    }
+}
+
+const ho7 = getSectionData(128, true);
+for (let sr = 0; sr < 16; sr++) {
+    for (let sc = 0; sc < 16; sc++) {
+        const [dc, rc] = ho6.codes[sr][sc];
+        const key = dc + "," + rc;
+        H_REACHABLE.add(key);
+        if (H_SUB_TABLE[key]) continue;
+        const sr7 = sr * 2, sc7 = sc * 2;
+        H_SUB_TABLE[key] = {
+            children: [
+                ho7.codes[sr7][sc7],
+                ho7.codes[sr7][sc7 + 1],
+                ho7.codes[sr7 + 1][sc7],
+                ho7.codes[sr7 + 1][sc7 + 1],
+            ],
+            vBoundTop: ho7.vBound[sr7][sc7],
+            vBoundBot: ho7.vBound[sr7 + 1][sc7],
+            hBoundLeft: ho7.hBound[sr7][sc7],
+            hBoundRight: ho7.hBound[sr7][sc7 + 1],
         };
     }
 }
@@ -372,6 +528,120 @@ function buildCodeList() {
         tag.className = "code-tag" + (ft ? " assigned" : "");
         tag.textContent = "V" + SUB_DIGITS[dc] + SUB_DIGITS[rc] +
             (ft ? " = " + glyphLabel(dc, rc) : "");
+        container.appendChild(tag);
+    }
+}
+
+// ── H-Grid Substitution Display ──
+
+function hGlyphLabel(dc, rc) {
+    const ft = H_GLYPH_LETTERS[dc + "," + rc];
+    if (!ft) return "H" + SUB_DIGITS[dc] + SUB_DIGITS[rc];
+    const [letter, sx, sy] = ft;
+    const bs = "\\";
+    if (sx === 1 && sy === 1) return letter + bs;
+    if (sx === 1 && sy === -1) return letter + bs + "\u2195";
+    if (sx === -1 && sy === 1) return letter + bs + "\u2194";
+    if (sx === -1 && sy === -1) return letter + bs + "\u27F2";
+    return letter + bs;
+}
+
+function buildHSubCard(dc, rc) {
+    const rule = H_SUB_TABLE[dc + "," + rc];
+    if (!rule) return null;
+
+    const card = document.createElement("div");
+    card.className = "sub-card";
+
+    const title = document.createElement("div");
+    title.className = "sub-parent";
+    title.textContent = hGlyphLabel(dc, rc);
+    card.appendChild(title);
+
+    const box = document.createElement("div");
+    box.className = "sub-2x2";
+
+    const labels = rule.children.map(([d, r]) => hGlyphLabel(d, r));
+    const cls = [
+        [rule.hBoundLeft ? "border-bottom" : "", rule.vBoundTop ? "border-right" : ""],
+        [rule.hBoundRight ? "border-bottom" : "", ""],
+        ["", rule.vBoundBot ? "border-right" : ""],
+        ["", ""],
+    ];
+
+    for (let i = 0; i < 4; i++) {
+        const cell = document.createElement("div");
+        cell.className = "sub-cell" +
+            (cls[i][0] ? " " + cls[i][0] : "") +
+            (cls[i][1] ? " " + cls[i][1] : "");
+        cell.textContent = labels[i];
+        box.appendChild(cell);
+    }
+    card.appendChild(box);
+    return card;
+}
+
+function buildHSubTable() {
+    const container = document.getElementById("h-sub-table");
+    if (!container) return;
+
+    const orbitGroups = [];
+    for (const cls of H_CLASSES) {
+        const reachable = cls.orbit.filter(([d, r]) => H_SUB_TABLE[d + "," + r]);
+        if (reachable.length === 0) continue;
+
+        const members = reachable.map(([d, r]) => {
+            const idx = cls.orbit.findIndex(([od, or]) => od === d && or === r);
+            return { dc: d, rc: r, ti: cls.transforms[idx] };
+        });
+        members.sort((a, b) => a.ti - b.ti);
+        orbitGroups.push(members);
+    }
+
+    orbitGroups.sort((a, b) => {
+        if (a.length !== b.length) return a.length - b.length;
+        return (a[0].dc * 8 + a[0].rc) - (b[0].dc * 8 + b[0].rc);
+    });
+
+    for (const members of orbitGroups) {
+        const group = document.createElement("div");
+        group.className = "sub-group";
+
+        const grid = document.createElement("div");
+        grid.className = "sub-grid";
+
+        for (const m of members) {
+            const card = buildHSubCard(m.dc, m.rc);
+            if (!card) continue;
+
+            const tLabel = document.createElement("div");
+            tLabel.style.cssText = "font-size:0.7rem;color:#888;margin-top:2px;";
+            tLabel.textContent = D4_LABELS[m.ti];
+            card.appendChild(tLabel);
+
+            grid.appendChild(card);
+        }
+
+        group.appendChild(grid);
+        container.appendChild(group);
+    }
+}
+
+function buildHCodeList() {
+    const container = document.getElementById("h-code-list");
+    if (!container) return;
+    const keys = [...H_REACHABLE].sort((a, b) => {
+        const [ad, ar] = a.split(",").map(Number);
+        const [bd, br] = b.split(",").map(Number);
+        return (ad * 8 + ar) - (bd * 8 + br);
+    });
+    for (const key of keys) {
+        const [dc, rc] = key.split(",").map(Number);
+        const tag = document.createElement("span");
+        const ft = H_GLYPH_LETTERS[key];
+        tag.className = "code-tag" + (ft ? " assigned" : "");
+        tag.textContent = "H" + SUB_DIGITS[dc] + SUB_DIGITS[rc] +
+            (ft ? " = " + hGlyphLabel(dc, rc) : "");
         container.appendChild(tag);
     }
 }
@@ -649,16 +919,27 @@ function renderOnCanvas(canvasEl, c, grid, vBound, hBound, hR, hC, dots, letters
                 if (ft) {
                     const fontSize = 3 * cellSize;
                     const cx = sx + 2 * cellSize;
-                    const cy = sy + 2 * cellSize + fontSize * 0.05 * ft[2];
-                    c.save();
-                    c.translate(cx, cy);
-                    c.scale(ft[1], ft[2]);
-                    c.fillStyle = "rgba(0, 0, 100, 0.4)";
-                    c.font = "bold " + fontSize + "px Monaco, Menlo, monospace";
-                    c.textAlign = "center";
-                    c.textBaseline = "middle";
-                    c.fillText(ft[0], 0, 0);
-                    c.restore();
+                    const cy = sy + 2 * cellSize;
+                    if (useBabyBlocks && babyBlocks) {
+                        const d4 = ftToD4Explorer(ft);
+                        const blockSize = 4 * cellSize;
+                        c.save();
+                        c.globalAlpha = 0.45;
+                        babyBlocks.drawDirect(c, ft[0], cx, cy, blockSize, {
+                            transform: d4, outline: babyBlocksOutline,
+                        });
+                        c.restore();
+                    } else {
+                        c.save();
+                        c.translate(cx, cy + fontSize * 0.05 * ft[2]);
+                        c.scale(ft[1], ft[2]);
+                        c.fillStyle = "rgba(0, 0, 100, 0.4)";
+                        c.font = "bold " + fontSize + "px Monaco, Menlo, monospace";
+                        c.textAlign = "center";
+                        c.textBaseline = "middle";
+                        c.fillText(ft[0], 0, 0);
+                        c.restore();
+                    }
                 } else if (cellSize >= 6) {
                     // V label for unassigned
                     c.fillStyle = "rgba(0, 0, 0, 0.25)";
@@ -940,5 +1221,40 @@ if (uniCanvas) {
 // ── Init ──
 buildSubTable();
 buildCodeList();
+buildHSubTable();
+buildHCodeList();
 initUniverse();
 initRootGrid();
+
+// ── Baby Blocks Toggle ──
+
+const bbToggle = document.getElementById("baby-blocks-toggle");
+const bbOutline = document.getElementById("baby-blocks-outline");
+
+function rerenderAll() {
+    render();
+    renderUniverse();
+}
+
+if (bbToggle) {
+    bbToggle.addEventListener("change", function () {
+        useBabyBlocks = this.checked;
+        if (useBabyBlocks && !babyBlocks) {
+            import("../baby-blocks/baby-blocks.js").then(mod => {
+                mod.BabyBlocks.load("../baby-blocks/AlphabetBlocks.svg").then(bb => {
+                    babyBlocks = bb;
+                    rerenderAll();
+                });
+            });
+        } else {
+            rerenderAll();
+        }
+    });
+}
+
+if (bbOutline) {
+    bbOutline.addEventListener("change", function () {
+        babyBlocksOutline = this.checked;
+        if (useBabyBlocks) rerenderAll();
+    });
+}

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Baby Blocks</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Menlo, Monaco, "Courier New", monospace;
+            background: #fff; color: #222;
+            padding: 24px; max-width: 1200px; margin: 0 auto;
+        }
+        .breadcrumb { font-size: 0.85rem; color: #888; margin-bottom: 16px; }
+        .breadcrumb a { color: #555; text-decoration: none; }
+        h1 { font-size: 1.6rem; margin-bottom: 8px; }
+        h2 { font-size: 1.2rem; margin: 24px 0 10px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+        .grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+        .block-cell { text-align: center; font-size: 0.7rem; color: #888; }
+        .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+        select, button {
+            font-family: inherit; font-size: 0.85rem;
+            padding: 4px 10px; border: 1px solid #aaa; border-radius: 4px;
+            background: #f5f5f5; cursor: pointer;
+        }
+        label { font-size: 0.85rem; }
+        input[type="color"] { width: 40px; height: 28px; border: 1px solid #aaa; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="breadcrumb"><a href="../">Coylean Map</a> / Baby Blocks</div>
+    <h1>Baby Blocks</h1>
+
+    <h2>All Characters</h2>
+    <div class="controls">
+        <label>Transform:
+            <select id="transform">
+                <option value="e">e (identity)</option>
+                <option value="r">r (90° CW)</option>
+                <option value="r2">r² (180°)</option>
+                <option value="r3">r³ (270° CW)</option>
+                <option value="sv">sᵥ (flip L↔R)</option>
+                <option value="sh">sₕ (flip T↔B)</option>
+                <option value="d">d (\ mirror)</option>
+                <option value="d'">d' (/ mirror)</option>
+            </select>
+        </label>
+        <label>Color: <input type="color" id="color" value="#0075BB" /></label>
+        <label><input type="checkbox" id="use-color" /> Override color</label>
+        <label><input type="checkbox" id="outline" checked /> Outline</label>
+        <label>Size:
+            <select id="size">
+                <option value="32">32</option>
+                <option value="48">48</option>
+                <option value="64" selected>64</option>
+                <option value="96">96</option>
+                <option value="128">128</option>
+            </select>
+        </label>
+    </div>
+    <div class="grid" id="grid"></div>
+
+    <script type="module">
+        import { BabyBlocks } from "./baby-blocks.js";
+
+        const grid = document.getElementById("grid");
+        const elTransform = document.getElementById("transform");
+        const elColor = document.getElementById("color");
+        const elUseColor = document.getElementById("use-color");
+        const elOutline = document.getElementById("outline");
+        const elSize = document.getElementById("size");
+
+        const blocks = await BabyBlocks.load("./AlphabetBlocks.svg");
+
+        function render() {
+            grid.innerHTML = "";
+            const t = elTransform.value;
+            const color = elUseColor.checked ? elColor.value : undefined;
+            const outline = elOutline.checked;
+            const size = parseInt(elSize.value);
+
+            for (const ch of blocks.chars) {
+                const cell = document.createElement("div");
+                cell.className = "block-cell";
+                const svg = blocks.get(ch, { transform: t, color, outline, size });
+                cell.appendChild(svg);
+                const label = document.createElement("div");
+                label.textContent = ch;
+                cell.appendChild(label);
+                grid.appendChild(cell);
+            }
+        }
+
+        render();
+        for (const el of [elTransform, elColor, elUseColor, elOutline, elSize]) {
+            el.addEventListener("change", render);
+        }
+    </script>
+</body>
+</html>

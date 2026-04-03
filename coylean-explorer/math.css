@@ -1,0 +1,82 @@
+body {
+    margin-left: 10px;
+    margin-right: 10px;
+    line-height: 1.5;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 0.8em;
+}
+.codeblock {
+    margin: 0 30px 0px 30px;
+    font-size: 12px;
+    font-family: Monaco, Courier, "Courier New";
+}
+canvas.apple-ii {
+    background: #000000;
+}
+
+.flowtile {
+    /* border: 1px solid #d3d3d3; */
+    display: inline-block;
+    /* vertical-align: middle */
+}
+#across {
+    padding-left: 100px;
+    display: block;
+}
+#meat {
+    display: flex;
+    height: 1000px;
+}
+.pageButton {
+    border: 1px solid black;
+    outline: none;
+    background-color: black;
+    color: white;
+}
+
+#controls {
+    /* outline: 3px solid blue; */
+    flex: 1;
+    padding: 8px;
+    background: lightblue;
+}
+
+.control-group {
+    border: 3px outset rgb(208, 236, 246);
+    margin: 0px 0px 5px 0px;
+    padding: 0px 0px 15px 3px;
+}
+
+/* prettier ignore */
+.control-group h4 {
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+}
+.can-explore {
+    display: block;
+}
+
+#content {
+    flex: 6;
+    margin-left: 10px;
+    padding-left: 10px;
+    overflow: scroll;
+}
+
+iframe {
+    border: none;
+}
+
+.control-group legend {
+    /*font-size: 1.17em;*/
+    font-weight: bold;
+}
+.wheel table {
+    border: 1px solid black;
+}
+.wheel th {
+    border: 1px solid black;
+}
+.wheel td {
+    border: 1px solid black;
+}

@@ -164,6 +164,22 @@
         </p>
         <div class="code-list" id="code-list"></div>
 
+        <h2>H Substitution Rule</h2>
+        <p class="subtitle">
+            The horizontal-seniority (H) map uses right-wins-ties priority.
+            Under backslash reflection, V<sub>d,r</sub> &rarr; H<sub>r,d</sub>.
+            Each reachable code maps to a fixed 2&times;2 block, parallel to the
+            V-grid rules above.
+        </p>
+        <div id="h-sub-table"></div>
+
+        <h2>H Reachable Codes</h2>
+        <p class="subtitle">
+            Codes reachable under horizontal seniority. Highlighted codes have
+            letter assignments (backslash-reflected from the V-grid catalog).
+        </p>
+        <div class="code-list" id="h-code-list"></div>
+
         <h2>Universe View</h2>
         <p class="subtitle">
             The Coylean map extends to the full plane with a 2&times;2
@@ -175,6 +191,12 @@
             <button class="ctrl-btn" id="btn-uni-reset">Reset</button>
             <button class="ctrl-btn" id="btn-uni-dots">Dots: On</button>
             <button class="ctrl-btn" id="btn-uni-letters">Letters: On</button>
+            <label style="font-size: 0.8rem; cursor: pointer; margin-left: 4px;">
+                <input type="checkbox" id="baby-blocks-toggle" /> Blocks
+            </label>
+            <label style="font-size: 0.8rem; cursor: pointer;">
+                <input type="checkbox" id="baby-blocks-outline" checked /> Outline
+            </label>
             <span class="zoom-info" id="uni-zoom-info">Level 0 &mdash; Order 5 (8&times;8)</span>
         </div>
         <div class="zoom-path" id="uni-zoom-path"></div>

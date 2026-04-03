@@ -2,6 +2,11 @@
 //  Coylean Glyphs — 4×4 Section Catalog
 // ═══════════════════════════════════════════════════
 
+// ── Baby Blocks (lazy-loaded) ──
+let babyBlocks = null;
+let useBabyBlocks = false;
+let babyBlocksOutline = true;
+
 // Canvas size for each glyph
 const CELL_PX = 16;
 const DOT_R = 2.5;
@@ -179,16 +184,28 @@ function drawGlyph(canvas, downCode, rightCode, verticalWinsTies, fTransform) {
         const gridCx = MARGIN + (GRID_CELLS * CELL_PX) / 2;
         const gridCy = MARGIN + (GRID_CELLS * CELL_PX) / 2;
         const fontSize = NUM_CELLS * CELL_PX;
-        ctx.save();
-        ctx.translate(gridCx, gridCy + fontSize * 0.05 * fTransform[2]);
-        if (fTransform[4]) ctx.transform(0, 1, 1, 0, 0, 0); // \ reflection
-        ctx.scale(fTransform[1], fTransform[2]);
-        ctx.fillStyle = fTransform[3] || "rgba(0, 0, 100, 0.4)";
-        ctx.font = "bold " + fontSize + "px Monaco, Menlo, monospace";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(fTransform[0], 0, 0);
-        ctx.restore();
+
+        if (useBabyBlocks && babyBlocks) {
+            const d4 = ftToD4Glyph(fTransform);
+            const blockSize = GRID_CELLS * CELL_PX;
+            ctx.save();
+            ctx.globalAlpha = 0.45;
+            babyBlocks.drawDirect(ctx, fTransform[0], gridCx, gridCy, blockSize, {
+                transform: d4, outline: babyBlocksOutline,
+            });
+            ctx.restore();
+        } else {
+            ctx.save();
+            ctx.translate(gridCx, gridCy + fontSize * 0.05 * fTransform[2]);
+            if (fTransform[4]) ctx.transform(0, 1, 1, 0, 0, 0);
+            ctx.scale(fTransform[1], fTransform[2]);
+            ctx.fillStyle = fTransform[3] || "rgba(0, 0, 100, 0.4)";
+            ctx.font = "bold " + fontSize + "px Monaco, Menlo, monospace";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(fTransform[0], 0, 0);
+            ctx.restore();
+        }
     }
 }
 
@@ -865,7 +882,67 @@ if (mapCanvas6) drawCoyleanMap(mapCanvas6, 64, 8);
 
 buildTranslationTable("translation-table");
 
-buildGrid("v-grid", "V", true);
-buildEquivalenceClasses("v-eq-classes", "V", true, V_CLASSES);
-buildGrid("h-grid", "H", false);
-buildEquivalenceClasses("h-eq-classes", "H", false, H_CLASSES);
+// ── fTransform → D4 name (for baby blocks) ──
+
+function ftToD4Glyph(ft) {
+    const [, sx, sy, , backslash] = ft;
+    if (!backslash) {
+        if (sx === 1 && sy === 1) return "e";
+        if (sx === -1 && sy === -1) return "r2";
+        if (sx === 1 && sy === -1) return "sh";
+        if (sx === -1 && sy === 1) return "sv";
+    } else {
+        if (sx === 1 && sy === 1) return "d";
+        if (sx === -1 && sy === -1) return "d'";
+        if (sx === 1 && sy === -1) return "r3";
+        if (sx === -1 && sy === 1) return "r";
+    }
+    return "e";
+}
+
+// ── Build grids ──
+
+function rebuildGrids() {
+    for (const id of ["v-grid", "h-grid"]) {
+        const el = document.getElementById(id);
+        el.innerHTML = "";
+    }
+    for (const id of ["v-eq-classes", "h-eq-classes"]) {
+        const el = document.getElementById(id);
+        el.innerHTML = "";
+    }
+    buildGrid("v-grid", "V", true);
+    buildEquivalenceClasses("v-eq-classes", "V", true, V_CLASSES);
+    buildGrid("h-grid", "H", false);
+    buildEquivalenceClasses("h-eq-classes", "H", false, H_CLASSES);
+}
+
+rebuildGrids();
+
+// ── Baby Blocks Toggle ──
+
+const bbToggle = document.getElementById("baby-blocks-toggle");
+const bbOutline = document.getElementById("baby-blocks-outline");
+
+if (bbToggle) {
+    bbToggle.addEventListener("change", function () {
+        useBabyBlocks = this.checked;
+        if (useBabyBlocks && !babyBlocks) {
+            import("../baby-blocks/baby-blocks.js").then(mod => {
+                mod.BabyBlocks.load("../baby-blocks/AlphabetBlocks.svg").then(bb => {
+                    babyBlocks = bb;
+                    rebuildGrids();
+                });
+            });
+        } else {
+            rebuildGrids();
+        }
+    });
+}
+
+if (bbOutline) {
+    bbOutline.addEventListener("change", function () {
+        babyBlocksOutline = this.checked;
+        if (useBabyBlocks) rebuildGrids();
+    });
+}
