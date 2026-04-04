@@ -495,7 +495,9 @@ function orbitKey(cls) {
 
 // ── Coylean Map ──
 
-function drawCoyleanMap(canvasEl, N, cell) {
+function drawCoyleanMap(canvasEl, N, cell, opts) {
+    const mapBB = opts && opts.babyBlocks;
+    const mapBBOutline = opts ? opts.outline : true;
     const M = N + 1;
     const maxP = computeMaxPri(M, M);
     const size = M * cell;
@@ -663,16 +665,27 @@ function drawCoyleanMap(canvasEl, N, cell) {
                     drawDot(ctx, sx + 4 * cell, sy + (i + 1) * cell, ra[i], dr);
                 }
 
-                const mapFontSize = 3 * cell;
-                ctx.save();
-                ctx.translate(cx, cy + mapFontSize * 0.05 * ft[2]);
-                ctx.scale(ft[1], ft[2]);
-                ctx.fillStyle = "rgba(0, 0, 100, 0.4)";
-                ctx.font = "bold " + mapFontSize + "px Monaco, Menlo, monospace";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText(ft[0], 0, 0);
-                ctx.restore();
+                if (mapBB && babyBlocks) {
+                    const d4 = ftToD4Glyph(ft);
+                    const blockSize = 4 * cell;
+                    ctx.save();
+                    ctx.globalAlpha = 0.45;
+                    babyBlocks.drawDirect(ctx, ft[0], cx, cy, blockSize, {
+                        transform: d4, outline: mapBBOutline,
+                    });
+                    ctx.restore();
+                } else {
+                    const mapFontSize = 3 * cell;
+                    ctx.save();
+                    ctx.translate(cx, cy + mapFontSize * 0.05 * ft[2]);
+                    ctx.scale(ft[1], ft[2]);
+                    ctx.fillStyle = "rgba(0, 0, 100, 0.4)";
+                    ctx.font = "bold " + mapFontSize + "px Monaco, Menlo, monospace";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText(ft[0], 0, 0);
+                    ctx.restore();
+                }
             } else {
                 // Unassigned: show V label
                 ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
@@ -874,11 +887,28 @@ assignLetter(H_CLASSES, 1, 5, "Y", H_GLYPH_LETTERS, false);
 assignLetter(H_CLASSES, 1, 6, "R", H_GLYPH_LETTERS, false);
 assignLetter(H_CLASSES, 6, 1, "S", H_GLYPH_LETTERS, false);
 
-const mapCanvas = document.getElementById("coylean-map");
-if (mapCanvas) drawCoyleanMap(mapCanvas, 32, CELL_PX);
+// Per-map baby blocks state
+const mapBBState = {
+    "coylean-map": { bb: false, outline: true },
+    "coylean-map-6": { bb: false, outline: true },
+};
 
-const mapCanvas6 = document.getElementById("coylean-map-6");
-if (mapCanvas6) drawCoyleanMap(mapCanvas6, 64, 8);
+const mapConfigs = {
+    "coylean-map": { N: 32, cell: CELL_PX },
+    "coylean-map-6": { N: 64, cell: 8 },
+};
+
+function redrawMap(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const st = mapBBState[id];
+    const cfg = mapConfigs[id];
+    drawCoyleanMap(el, cfg.N, cfg.cell, { babyBlocks: st.bb, outline: st.outline });
+}
+
+for (const id of Object.keys(mapConfigs)) {
+    if (document.getElementById(id)) redrawMap(id);
+}
 
 buildTranslationTable("translation-table");
 
@@ -946,3 +976,35 @@ if (bbOutline) {
         if (useBabyBlocks) rebuildGrids();
     });
 }
+
+// ── Per-map Baby Blocks Toggles ──
+
+function ensureBabyBlocksLoaded(cb) {
+    if (babyBlocks) { cb(); return; }
+    import("../baby-blocks/baby-blocks.js").then(mod => {
+        mod.BabyBlocks.load("../baby-blocks/AlphabetBlocks.svg").then(bb => {
+            babyBlocks = bb;
+            cb();
+        });
+    });
+}
+
+document.querySelectorAll(".map-bb-toggle").forEach(el => {
+    el.addEventListener("change", function () {
+        const id = this.dataset.map;
+        mapBBState[id].bb = this.checked;
+        if (this.checked) {
+            ensureBabyBlocksLoaded(() => redrawMap(id));
+        } else {
+            redrawMap(id);
+        }
+    });
+});
+
+document.querySelectorAll(".map-bb-outline").forEach(el => {
+    el.addEventListener("change", function () {
+        const id = this.dataset.map;
+        mapBBState[id].outline = this.checked;
+        if (mapBBState[id].bb) redrawMap(id);
+    });
+});
