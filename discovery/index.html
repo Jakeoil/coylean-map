@@ -33,7 +33,15 @@
     padding: 4px 6px; margin-bottom: 3px; background: #fff; border: 1px solid #ddd;
     border-radius: 3px; display: flex; align-items: center; gap: 6px;
   }
+  #regionList .rg-entry.hovered { background: #e8f4ff; }
   .swatch { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; border: 1px solid #ccc; }
+  #configPanel { font-size: 11px; display: flex; flex-wrap: wrap; gap: 2px 10px; }
+  #configPanel label { cursor: pointer; user-select: none; }
+  #lineList { font-size: 11px; line-height: 1.4; overflow-y: auto; max-height: 12vh; }
+  #lineList .ln-entry {
+    padding: 4px 6px; margin-bottom: 3px; background: #fff; border: 1px solid #ddd;
+    border-left: 3px solid #555; border-radius: 3px;
+  }
   canvas { flex: 1; display: block; cursor: crosshair; background: #a8cce0; }
   #tooltip {
     position: fixed; pointer-events: none; background: rgba(255,255,255,0.96);
@@ -52,8 +60,17 @@
     <button id="altBtn">Alternating</button>
   </div>
   <div id="modeLabel">alternating: off</div>
+  <div class="panel-label">Display</div>
+  <div id="configPanel">
+    <label><input type="checkbox" id="showRegions" checked> Regions</label>
+    <label><input type="checkbox" id="showRegionLabels" checked> Region labels</label>
+    <label><input type="checkbox" id="showCrossings" checked> Crossings</label>
+    <label><input type="checkbox" id="showPaths" checked> Paths</label>
+  </div>
   <div class="panel-label">Crossings</div>
   <div id="ixList"></div>
+  <div class="panel-label">Lines</div>
+  <div id="lineList"></div>
   <div class="panel-label">Regions</div>
   <div id="regionList"></div>
 </div>
@@ -64,11 +81,16 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const ixListEl = document.getElementById('ixList');
+const lineListEl = document.getElementById('lineList');
 const regionListEl = document.getElementById('regionList');
 const tooltip = document.getElementById('tooltip');
 const clearBtn = document.getElementById('clearBtn');
 const altBtn = document.getElementById('altBtn');
 const modeLabel = document.getElementById('modeLabel');
+const showRegionsCb = document.getElementById('showRegions');
+const showRegionLabelsCb = document.getElementById('showRegionLabels');
+const showCrossingsCb = document.getElementById('showCrossings');
+const showPathsCb = document.getElementById('showPaths');
 
 // === State ===
 
@@ -77,16 +99,33 @@ let strokes = [];
 let currentStroke = null;
 let allSegments = [];    // {x1,y1,x2,y2, strokeIdx, seqIdx}
 let drawing = false;
-let intersections = [];  // {x, y, angleDeg, a1, a2, id, cuts: [{strokeIdx, pos}]}
+let intersections = [];  // {x, y, a1, a2, id, cuts: [{strokeIdx, pos}]}
 let regions = [];        // {id, polygon, color, area}
 let nextIxId = 1;
 let nextRegionId = 1;
 let hoveredIx = null;
+let hoveredEdge = null;   // {points, id, twinId, originNode, destNode, leftFace, rightFace}
+let hoveredRegion = null; // region id
+
+// Persistent DCEL data from last rebuildRegions (for hover queries)
+let dcelEdges = [];   // [{id, twinId, points, originNode, destNode, face, twinFace}]
+let dcelFaces = [];   // [{id, polygon, area, isOuter, regionId, edgeCount, adjFaces}]
 let inputBuffer = [];
 let pointerDown = false;
 let lastPointerPos = null;
 let altPrevPos = null;     // previous mouse position for alternating crossing detection
 let altDrawing = false;    // currently drawing in alternating mode
+
+// View transform (pan/zoom)
+let viewX = 0, viewY = 0, viewScale = 1;
+let panning = false, panStartX = 0, panStartY = 0, panViewX0 = 0, panViewY0 = 0;
+
+function screenToWorld(sx, sy) {
+  return { x: (sx - viewX) / viewScale, y: (sy - viewY) / viewScale };
+}
+function worldToScreen(wx, wy) {
+  return { x: wx * viewScale + viewX, y: wy * viewScale + viewY };
+}
 
 const REGION_PALETTE = [
   null,                       // 0 = background (ocean, unfilled)
@@ -122,14 +161,33 @@ function segIntersect(ax1, ay1, ax2, ay2, bx1, by1, bx2, by2) {
 
 function segAngle(x1, y1, x2, y2) { return Math.atan2(y2 - y1, x2 - x1); }
 
-function angleBetween(a1, a2) {
-  let d = Math.abs(a1 - a2);
-  if (d > Math.PI) d = 2 * Math.PI - d;
-  if (d > Math.PI / 2) d = Math.PI - d;
-  return d;
-}
 
 function dist(x1, y1, x2, y2) { return Math.hypot(x2 - x1, y2 - y1); }
+
+// Distance from point (px,py) to polyline (array of {x,y})
+function distToPolyline(px, py, pts) {
+  let best = Infinity;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const ax = pts[i].x, ay = pts[i].y, bx = pts[i+1].x, by = pts[i+1].y;
+    const dx = bx - ax, dy = by - ay;
+    const len2 = dx * dx + dy * dy;
+    let t = len2 < 0.001 ? 0 : Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / len2));
+    const d = dist(px, py, ax + t*dx, ay + t*dy);
+    if (d < best) best = d;
+  }
+  return best;
+}
+
+// Point-in-polygon (ray casting)
+function pointInPolygon(px, py, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].x, yi = poly[i].y, xj = poly[j].x, yj = poly[j].y;
+    if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi)
+      inside = !inside;
+  }
+  return inside;
+}
 
 // === Catmull-Rom spline ===
 
@@ -197,8 +255,7 @@ function checkForIntersections(strokeIdx, prevSegCount) {
       const a1 = segAngle(seg.x1, seg.y1, seg.x2, seg.y2);
       const a2 = segAngle(nseg.x1, nseg.y1, nseg.x2, nseg.y2);
       intersections.push({
-        x: hit.x, y: hit.y, angleDeg: (angleBetween(a1, a2) * 180 / Math.PI).toFixed(1),
-        a1, a2, id: nextIxId++,
+        x: hit.x, y: hit.y, a1, a2, id: nextIxId++,
         cuts: [
           { strokeIdx: seg.strokeIdx, pos: seg.seqIdx + hit.t },
           { strokeIdx: nseg.strokeIdx, pos: nseg.seqIdx + hit.u }
@@ -215,8 +272,7 @@ function checkForIntersections(strokeIdx, prevSegCount) {
       const a1 = segAngle(seg.x1, seg.y1, seg.x2, seg.y2);
       const a2 = segAngle(nseg.x1, nseg.y1, nseg.x2, nseg.y2);
       intersections.push({
-        x: hit.x, y: hit.y, angleDeg: (angleBetween(a1, a2) * 180 / Math.PI).toFixed(1),
-        a1, a2, id: nextIxId++,
+        x: hit.x, y: hit.y, a1, a2, id: nextIxId++,
         cuts: [
           { strokeIdx, pos: seg.seqIdx + hit.t },
           { strokeIdx, pos: nseg.seqIdx + hit.u }
@@ -231,7 +287,7 @@ function checkForIntersections(strokeIdx, prevSegCount) {
 function rebuildRegions() {
   regions = [];
   nextRegionId = 1;
-  if (!intersections.length) { updateSidebar(); return; }
+  if (!intersections.length) { dcelEdges = []; dcelFaces = []; updateSidebar(); return; }
 
   // Nodes: one per intersection
   const nodes = [];
@@ -340,13 +396,12 @@ function rebuildRegions() {
       if (cur.next < 0) break;
       cur = halfEdges[cur.next];
     }
-    if (faceHEs.length < 2) continue;
-
     // Build polygon
     const poly = [];
     for (const fhe of faceHEs) {
       for (let k = 0; k < fhe.points.length - 1; k++) poly.push(fhe.points[k]);
     }
+    if (poly.length < 3) continue;
 
     // Signed area (screen coords: positive = bounded face, outer face is most negative)
     let area = 0;
@@ -407,15 +462,60 @@ function rebuildRegions() {
   for (let i = 0; i < faces.length; i++) { if (colors[i] < 0) colors[i] = 1; }
 
   // Build regions (skip outer, skip background-colored, skip tiny faces)
+  const faceToRegion = {};
   for (let i = 0; i < faces.length; i++) {
     if (i === outerIdx) continue;
     if (colors[i] === 0) continue;
     if (Math.abs(faces[i].area) < 80) continue;
-    regions.push({
+    const rg = {
       id: nextRegionId++,
       polygon: faces[i].polygon,
       color: REGION_PALETTE[colors[i]] || REGION_PALETTE[1],
       area: Math.abs(faces[i].area)
+    };
+    faceToRegion[i] = rg.id;
+    regions.push(rg);
+  }
+
+  // Build node label map: intersection nodes use #id, endpoints use "ep"
+  const nodeLabel = {};
+  for (let i = 0; i < nodes.length; i++) {
+    if (i < intersections.length) {
+      nodeLabel[i] = '#' + intersections[i].id;
+    } else {
+      nodeLabel[i] = 'ep';
+    }
+  }
+
+  // Persist DCEL data for hover
+  dcelEdges = [];
+  const seen = new Set();
+  for (const he of halfEdges) {
+    if (seen.has(he.id)) continue;
+    seen.add(he.id); seen.add(he.twin);
+    const twin = halfEdges[he.twin];
+    dcelEdges.push({
+      id: he.id, twinId: he.twin,
+      points: he.points,
+      originNode: nodeLabel[he.origin] || he.origin,
+      destNode: nodeLabel[twin.origin] || twin.origin,
+      face: he.face, twinFace: twin.face,
+      faceRegion: faceToRegion[he.face] || null,
+      twinFaceRegion: faceToRegion[twin.face] || null
+    });
+  }
+
+  dcelFaces = [];
+  for (let i = 0; i < faces.length; i++) {
+    const adjSet = adj[i];
+    dcelFaces.push({
+      id: i,
+      polygon: faces[i].polygon,
+      area: Math.abs(faces[i].area),
+      isOuter: i === outerIdx,
+      regionId: faceToRegion[i] || null,
+      edgeCount: faces[i].heIds.length,
+      adjFaces: [...adjSet]
     });
   }
 
@@ -427,8 +527,17 @@ function rebuildRegions() {
 function updateSidebar() {
   ixListEl.innerHTML = intersections.map(ix =>
     `<div class="ix-entry" data-id="${ix.id}" id="ix-${ix.id}">` +
-    `<b>#${ix.id}</b> (${ix.x.toFixed(0)},${ix.y.toFixed(0)}) ${ix.angleDeg}\u00b0</div>`
+    `<b>#${ix.id}</b> (${ix.x.toFixed(0)},${ix.y.toFixed(0)})</div>`
   ).join('');
+
+  lineListEl.innerHTML = strokes.map((s, i) => {
+    const segs = getStrokeSegs(i);
+    if (!segs.length) return '';
+    const p0 = { x: segs[0].x1, y: segs[0].y1 };
+    const pN = { x: segs[segs.length-1].x2, y: segs[segs.length-1].y2 };
+    const len = segs.reduce((sum, seg) => sum + dist(seg.x1, seg.y1, seg.x2, seg.y2), 0);
+    return `<div class="ln-entry">L${i} (${p0.x.toFixed(0)},${p0.y.toFixed(0)})\u2192(${pN.x.toFixed(0)},${pN.y.toFixed(0)}) ${Math.round(len)}px</div>`;
+  }).join('');
 
   regionListEl.innerHTML = regions.map(rg =>
     `<div class="rg-entry" id="rg-${rg.id}">` +
@@ -440,68 +549,133 @@ function updateSidebar() {
 // === Rendering ===
 
 function render() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.setTransform(viewScale, 0, 0, viewScale, viewX, viewY);
+
+  const lw = 1 / viewScale; // scale-compensated unit
+
+  const showReg = showRegionsCb.checked;
+  const showLbl = showRegionLabelsCb.checked;
+  const showIx = showCrossingsCb.checked;
+  const showPath = showPathsCb.checked;
 
   // Regions (filled, behind curves)
-  for (const rg of regions) {
-    if (rg.polygon.length < 3) continue;
-    ctx.fillStyle = rg.color;
-    ctx.beginPath();
-    ctx.moveTo(rg.polygon[0].x, rg.polygon[0].y);
-    for (let i = 1; i < rg.polygon.length; i++) ctx.lineTo(rg.polygon[i].x, rg.polygon[i].y);
-    ctx.closePath();
-    ctx.fill();
+  if (showReg) {
+    for (const rg of regions) {
+      if (rg.polygon.length < 3) continue;
+      const isHov = hoveredRegion === rg.id;
+      ctx.fillStyle = isHov ? rg.color.replace('0.92', '1.0').replace('0.22', '0.45') : rg.color;
+      ctx.beginPath();
+      ctx.moveTo(rg.polygon[0].x, rg.polygon[0].y);
+      for (let i = 1; i < rg.polygon.length; i++) ctx.lineTo(rg.polygon[i].x, rg.polygon[i].y);
+      ctx.closePath();
+      ctx.fill();
+      if (isHov) {
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+        ctx.lineWidth = 1.5 * lw;
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Region labels (centroid)
+  if (showReg && showLbl) {
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.font = `${11 * lw}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const rg of regions) {
+      if (rg.polygon.length < 3) continue;
+      let cx = 0, cy = 0;
+      for (const p of rg.polygon) { cx += p.x; cy += p.y; }
+      cx /= rg.polygon.length; cy /= rg.polygon.length;
+      ctx.fillText(`R${rg.id}`, cx, cy);
+    }
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
   }
 
   // Strokes
-  ctx.strokeStyle = '#333';
-  ctx.lineWidth = 2;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  for (let si = 0; si < strokes.length; si++) {
-    const segs = getStrokeSegs(si);
-    if (!segs.length) continue;
+  if (showPath) {
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2 * lw;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (let si = 0; si < strokes.length; si++) {
+      const segs = getStrokeSegs(si);
+      if (!segs.length) continue;
+      ctx.beginPath();
+      ctx.moveTo(segs[0].x1, segs[0].y1);
+      for (const s of segs) ctx.lineTo(s.x2, s.y2);
+      ctx.stroke();
+    }
+  }
+
+  // Hovered edge highlight
+  if (hoveredEdge) {
+    const pts = hoveredEdge.points;
+    ctx.strokeStyle = '#e8a000';
+    ctx.lineWidth = 5 * lw;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.beginPath();
-    ctx.moveTo(segs[0].x1, segs[0].y1);
-    for (const s of segs) ctx.lineTo(s.x2, s.y2);
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
     ctx.stroke();
   }
 
   // Stroke start markers
-  ctx.fillStyle = '#555';
-  for (const stroke of strokes) {
-    if (stroke.length > 0) {
-      ctx.beginPath();
-      ctx.arc(stroke[0].x, stroke[0].y, 3, 0, Math.PI * 2);
-      ctx.fill();
+  if (showPath) {
+    ctx.fillStyle = '#555';
+    for (const stroke of strokes) {
+      if (stroke.length > 0) {
+        ctx.beginPath();
+        ctx.arc(stroke[0].x, stroke[0].y, 3 * lw, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
 
   // Intersection markers
-  for (const ix of intersections) {
-    const hov = hoveredIx === ix.id;
-    const r = hov ? 8 : 5;
-    ctx.save();
-    ctx.translate(ix.x, ix.y);
-    ctx.strokeStyle = hov ? '#e8a000' : '#d04050';
-    ctx.lineWidth = hov ? 2.5 : 1.5;
-    const len = hov ? 16 : 12;
+  if (showIx) {
+    for (const ix of intersections) {
+      const hov = hoveredIx === ix.id;
+      const r = (hov ? 5 : 3) * lw;
+      ctx.save();
+      ctx.translate(ix.x, ix.y);
+      ctx.strokeStyle = hov ? '#e8a000' : '#d04050';
+      ctx.lineWidth = (hov ? 2.5 : 1.5) * lw;
+      const len = (hov ? 16 : 12) * lw;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(ix.a1) * -len, Math.sin(ix.a1) * -len);
+      ctx.lineTo(Math.cos(ix.a1) * len, Math.sin(ix.a1) * len);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(ix.a2) * -len, Math.sin(ix.a2) * -len);
+      ctx.lineTo(Math.cos(ix.a2) * len, Math.sin(ix.a2) * len);
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = hov ? '#e8a000' : '#d04050';
+      ctx.beginPath();
+      ctx.arc(ix.x, ix.y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#222';
+      ctx.font = `${10 * lw}px monospace`;
+      ctx.fillText(`#${ix.id}`, ix.x + r + 3 * lw, ix.y - r);
+    }
+  }
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+  // Alternating mode skip cursor: hollow circle at mouse position
+  if (alternating && lastPointerPos && !altDrawing) {
+    const sp = worldToScreen(lastPointerPos.ox, lastPointerPos.oy);
+    ctx.strokeStyle = 'rgba(100,100,100,0.6)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(Math.cos(ix.a1) * -len, Math.sin(ix.a1) * -len);
-    ctx.lineTo(Math.cos(ix.a1) * len, Math.sin(ix.a1) * len);
+    ctx.arc(sp.x, sp.y, 8, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(ix.a2) * -len, Math.sin(ix.a2) * -len);
-    ctx.lineTo(Math.cos(ix.a2) * len, Math.sin(ix.a2) * len);
-    ctx.stroke();
-    ctx.restore();
-    ctx.fillStyle = hov ? '#e8a000' : '#d04050';
-    ctx.beginPath();
-    ctx.arc(ix.x, ix.y, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#222';
-    ctx.font = '10px monospace';
-    ctx.fillText(`#${ix.id}`, ix.x + r + 3, ix.y - r);
   }
 }
 
@@ -530,9 +704,7 @@ function registerAltIntersection(crossing, newSi, posOnNew) {
     a2 = segAngle(s.x1, s.y1, s.x2, s.y2);
   }
   intersections.push({
-    x: crossing.x, y: crossing.y,
-    angleDeg: (angleBetween(a1, a2) * 180 / Math.PI).toFixed(1),
-    a1, a2, id: nextIxId++,
+    x: crossing.x, y: crossing.y, a1, a2, id: nextIxId++,
     cuts: [
       { strokeIdx: crossing.seg.strokeIdx, pos: crossing.seg.seqIdx + crossing.u },
       { strokeIdx: newSi, pos: posOnNew }
@@ -541,27 +713,50 @@ function registerAltIntersection(crossing, newSi, posOnNew) {
 }
 
 canvas.addEventListener('pointerdown', e => {
+  // Middle-click or Ctrl+left-click: start panning
+  if (e.button === 1 || (e.button === 0 && e.ctrlKey)) {
+    e.preventDefault();
+    panning = true;
+    panStartX = e.clientX; panStartY = e.clientY;
+    panViewX0 = viewX; panViewY0 = viewY;
+    canvas.setPointerCapture(e.pointerId);
+    return;
+  }
   if (e.button !== 0) return;
   if (alternating) return; // alternating mode doesn't use mouse button
   canvas.setPointerCapture(e.pointerId);
   pointerDown = true;
-  inputBuffer.push({ type: 'down', x: e.offsetX, y: e.offsetY });
+  const w = screenToWorld(e.offsetX, e.offsetY);
+  inputBuffer.push({ type: 'down', x: w.x, y: w.y });
 });
 canvas.addEventListener('pointermove', e => {
-  lastPointerPos = { x: e.clientX, y: e.clientY, ox: e.offsetX, oy: e.offsetY };
+  if (panning) {
+    viewX = panViewX0 + (e.clientX - panStartX);
+    viewY = panViewY0 + (e.clientY - panStartY);
+    return;
+  }
+
+  const w = screenToWorld(e.offsetX, e.offsetY);
+  lastPointerPos = { x: e.clientX, y: e.clientY, ox: w.x, oy: w.y };
 
   if (alternating) {
-    // In alternating mode, always feed move events (crossing detection in processInput)
     const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
-    for (const ce of events) inputBuffer.push({ type: 'altmove', x: ce.offsetX, y: ce.offsetY });
+    for (const ce of events) {
+      const cw = screenToWorld(ce.offsetX, ce.offsetY);
+      inputBuffer.push({ type: 'altmove', x: cw.x, y: cw.y });
+    }
     return;
   }
 
   if (!pointerDown) return;
   const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
-  for (const ce of events) inputBuffer.push({ type: 'move', x: ce.offsetX, y: ce.offsetY });
+  for (const ce of events) {
+    const cw = screenToWorld(ce.offsetX, ce.offsetY);
+    inputBuffer.push({ type: 'move', x: cw.x, y: cw.y });
+  }
 });
-canvas.addEventListener('pointerup', () => {
+canvas.addEventListener('pointerup', e => {
+  if (panning) { panning = false; return; }
   if (alternating) return;
   pointerDown = false;
   inputBuffer.push({ type: 'up' });
@@ -576,13 +771,23 @@ canvas.addEventListener('pointerleave', () => {
   }
   lastPointerPos = null; hoveredIx = null; tooltip.style.display = 'none';
 });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+  const mx = e.offsetX, my = e.offsetY;
+  viewX = mx - (mx - viewX) * factor;
+  viewY = my - (my - viewY) * factor;
+  viewScale *= factor;
+}, { passive: false });
 
 clearBtn.addEventListener('click', () => {
   strokes = []; allSegments = []; currentStroke = null;
-  intersections = []; regions = [];
+  intersections = []; regions = []; dcelEdges = []; dcelFaces = [];
   nextIxId = 1; nextRegionId = 1;
-  hoveredIx = null; drawing = false; inputBuffer = [];
+  hoveredIx = null; hoveredEdge = null; hoveredRegion = null;
+  drawing = false; inputBuffer = [];
   altDrawing = false; altPrevPos = null;
+  viewX = 0; viewY = 0; viewScale = 1;
   tooltip.style.display = 'none';
   updateSidebar(); render();
 });
@@ -604,6 +809,7 @@ function toggleAlternating() {
 }
 altBtn.addEventListener('click', toggleAlternating);
 canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); });
 canvas.addEventListener('pointerdown', e => { if (e.button === 2) toggleAlternating(); }, true);
 
 // === Animation loop ===
@@ -611,7 +817,7 @@ canvas.addEventListener('pointerdown', e => { if (e.button === 2) toggleAlternat
 function addPointToStroke(x, y) {
   if (!currentStroke) return;
   const prev = currentStroke[currentStroke.length - 1];
-  if (dist(prev.x, prev.y, x, y) <= 4) return;
+  if (dist(prev.x, prev.y, x, y) <= 4 / viewScale) return;
   currentStroke.push({ x, y });
   const si = strokes.length - 1;
   if (currentStroke.length >= 2) {
@@ -621,6 +827,59 @@ function addPointToStroke(x, y) {
     checkForIntersections(si, prevCount);
     if (intersections.length > prevIx) rebuildRegions();
   }
+}
+
+function snapStrokeEnd(si) {
+  const stroke = strokes[si];
+  if (!stroke || stroke.length < 2) return;
+  const end = stroke[stroke.length - 1];
+  const SNAP_R = 15 / viewScale;
+
+  // Check existing intersections
+  let bestTarget = null, bestDist = SNAP_R;
+  for (const ix of intersections) {
+    const d = dist(end.x, end.y, ix.x, ix.y);
+    if (d < bestDist) { bestDist = d; bestTarget = { x: ix.x, y: ix.y, isIx: true, ix }; }
+  }
+
+  // Check stroke start points (including own start for closing loops)
+  for (let i = 0; i < strokes.length; i++) {
+    const s = strokes[i];
+    if (s.length > 0) {
+      // For own stroke, only snap if the stroke is long enough to form a real loop
+      if (i === si && s.length < 10) continue;
+      const d = dist(end.x, end.y, s[0].x, s[0].y);
+      if (d < bestDist) { bestDist = d; bestTarget = { x: s[0].x, y: s[0].y, isIx: false, strokeIdx: i }; }
+    }
+  }
+
+  if (!bestTarget) return;
+
+  // Snap endpoint
+  stroke[stroke.length - 1] = { x: bestTarget.x, y: bestTarget.y };
+  rebuildStrokeSegments(si);
+  const prevCount = allSegments.filter(s => s.strokeIdx === si).length;
+  checkForIntersections(si, prevCount);
+
+  if (!bestTarget.isIx) {
+    // Snapped to a bare stroke start — create a new intersection node there
+    if (!intersections.some(ix => dist(ix.x, ix.y, bestTarget.x, bestTarget.y) < 5)) {
+      const segs = getStrokeSegs(si);
+      const endPos = segs.length;
+      const a1 = segs.length ? segAngle(segs[segs.length-1].x1, segs[segs.length-1].y1, segs[segs.length-1].x2, segs[segs.length-1].y2) : 0;
+      const otherSegs = getStrokeSegs(bestTarget.strokeIdx);
+      const a2 = otherSegs.length ? segAngle(otherSegs[0].x1, otherSegs[0].y1, otherSegs[0].x2, otherSegs[0].y2) : 0;
+      intersections.push({
+        x: bestTarget.x, y: bestTarget.y, a1, a2, id: nextIxId++,
+        cuts: [
+          { strokeIdx: si, pos: endPos },
+          { strokeIdx: bestTarget.strokeIdx, pos: 0 }
+        ]
+      });
+    }
+  }
+
+  rebuildRegions();
 }
 
 function processInput() {
@@ -662,44 +921,119 @@ function processInput() {
       altPrevPos = cur;
     } else if (evt.type === 'down') {
       drawing = true;
-      currentStroke = [{ x: evt.x, y: evt.y }];
+      let sx = evt.x, sy = evt.y;
+      // Snap start to nearby intersection or stroke start
+      let bestD = 15 / viewScale;
+      for (const ix of intersections) {
+        const d = dist(sx, sy, ix.x, ix.y);
+        if (d < bestD) { bestD = d; sx = ix.x; sy = ix.y; }
+      }
+      for (const s of strokes) {
+        if (s.length > 0) {
+          const d = dist(sx, sy, s[0].x, s[0].y);
+          if (d < bestD) { bestD = d; sx = s[0].x; sy = s[0].y; }
+        }
+      }
+      currentStroke = [{ x: sx, y: sy }];
       strokes.push(currentStroke);
     } else if (evt.type === 'move' && drawing && currentStroke) {
       addPointToStroke(evt.x, evt.y);
     } else if (evt.type === 'up') {
+      if (drawing && currentStroke && currentStroke.length >= 2) {
+        snapStrokeEnd(strokes.length - 1);
+      }
       drawing = false;
       currentStroke = null;
       altDrawing = false;
+      updateSidebar();
     }
   }
 }
 
+function clearHoverState() {
+  hoveredIx = null; hoveredEdge = null; hoveredRegion = null;
+  tooltip.style.display = 'none';
+  document.querySelectorAll('.ix-entry,.rg-entry').forEach(el => el.classList.remove('hovered'));
+}
+
 function updateHover() {
   if (!lastPointerPos || drawing) {
-    if (drawing && hoveredIx !== null) { hoveredIx = null; tooltip.style.display = 'none'; }
+    if (drawing && (hoveredIx || hoveredEdge || hoveredRegion)) clearHoverState();
     return;
   }
   const mx = lastPointerPos.ox, my = lastPointerPos.oy;
-  let closest = null, best = 20;
+  const tx = lastPointerPos.x, ty = lastPointerPos.y;
+
+  const hoverR = 8 / viewScale; // scale-compensated hover radius
+
+  // Priority 1: vertex (intersection)
+  let closestIx = null, bestIxD = hoverR;
   for (const ix of intersections) {
     const d = dist(mx, my, ix.x, ix.y);
-    if (d < best) { best = d; closest = ix; }
+    if (d < bestIxD) { bestIxD = d; closestIx = ix; }
   }
-  if (closest) {
-    if (hoveredIx !== closest.id) {
-      hoveredIx = closest.id;
-      document.querySelectorAll('.ix-entry').forEach(el => el.classList.remove('hovered'));
-      const el = document.getElementById('ix-' + closest.id);
+  if (closestIx) {
+    if (hoveredIx !== closestIx.id || hoveredEdge || hoveredRegion) {
+      clearHoverState();
+      hoveredIx = closestIx.id;
+      const el = document.getElementById('ix-' + closestIx.id);
       if (el) { el.classList.add('hovered'); el.scrollIntoView({ block: 'nearest' }); }
     }
     tooltip.style.display = 'block';
-    tooltip.style.left = (lastPointerPos.x + 16) + 'px';
-    tooltip.style.top = (lastPointerPos.y - 10) + 'px';
-    tooltip.textContent = `#${closest.id}\npos: (${closest.x.toFixed(1)}, ${closest.y.toFixed(1)})\nangle: ${closest.angleDeg}\u00b0`;
-  } else if (hoveredIx !== null) {
-    hoveredIx = null; tooltip.style.display = 'none';
-    document.querySelectorAll('.ix-entry').forEach(el => el.classList.remove('hovered'));
+    tooltip.style.left = (tx + 16) + 'px';
+    tooltip.style.top = (ty - 10) + 'px';
+    tooltip.textContent = `vertex #${closestIx.id}\npos: (${closestIx.x.toFixed(1)}, ${closestIx.y.toFixed(1)})`;
+    return;
   }
+
+  // Priority 2: edge (dart)
+  let closestEdge = null, bestEdgeD = hoverR;
+  for (const e of dcelEdges) {
+    const d = distToPolyline(mx, my, e.points);
+    if (d < bestEdgeD) { bestEdgeD = d; closestEdge = e; }
+  }
+  if (closestEdge) {
+    if (!hoveredEdge || hoveredEdge.id !== closestEdge.id || hoveredIx || hoveredRegion) {
+      clearHoverState();
+      hoveredEdge = closestEdge;
+    }
+    const leftLabel = closestEdge.faceRegion ? `R${closestEdge.faceRegion}` : (closestEdge.face >= 0 ? 'ocean' : '?');
+    const rightLabel = closestEdge.twinFaceRegion ? `R${closestEdge.twinFaceRegion}` : (closestEdge.twinFace >= 0 ? 'ocean' : '?');
+    tooltip.style.display = 'block';
+    tooltip.style.left = (tx + 16) + 'px';
+    tooltip.style.top = (ty - 10) + 'px';
+    tooltip.textContent = `edge (dart ${closestEdge.id}/${closestEdge.twinId})\nnode ${closestEdge.originNode} \u2192 ${closestEdge.destNode}\nfaces: ${leftLabel} | ${rightLabel}`;
+    return;
+  }
+
+  // Priority 3: region (face)
+  let hitRegion = null;
+  for (const rg of regions) {
+    if (rg.polygon.length < 3) continue;
+    if (pointInPolygon(mx, my, rg.polygon)) { hitRegion = rg; break; }
+  }
+  if (hitRegion) {
+    if (hoveredRegion !== hitRegion.id || hoveredIx || hoveredEdge) {
+      clearHoverState();
+      hoveredRegion = hitRegion.id;
+      const el = document.getElementById('rg-' + hitRegion.id);
+      if (el) { el.classList.add('hovered'); el.scrollIntoView({ block: 'nearest' }); }
+    }
+    // Find DCEL face for adjacency info
+    const face = dcelFaces.find(f => f.regionId === hitRegion.id);
+    const adjStr = face ? face.adjFaces.map(fi => {
+      const af = dcelFaces[fi];
+      return af && af.regionId ? `R${af.regionId}` : (af && af.isOuter ? 'ocean' : 'bg');
+    }).join(', ') : '';
+    tooltip.style.display = 'block';
+    tooltip.style.left = (tx + 16) + 'px';
+    tooltip.style.top = (ty - 10) + 'px';
+    tooltip.textContent = `R${hitRegion.id}\narea: ${Math.round(hitRegion.area)}px\u00b2\nedges: ${face ? face.edgeCount : '?'}\nadj: ${adjStr || 'none'}`;
+    return;
+  }
+
+  // Nothing hovered
+  if (hoveredIx || hoveredEdge || hoveredRegion) clearHoverState();
 }
 
 function frame() {
