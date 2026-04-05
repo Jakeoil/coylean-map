@@ -41,17 +41,24 @@ function priority(i) {
 // D4 transform index → [scaleX, scaleY] for letter overlay
 // s_h = flip upside down (horizontal axis mirror), s_v = flip left/right (vertical axis mirror)
 const D4_TO_SCALE = {
-    0: [1, 1],      // e
-    2: [-1, -1],    // r²
-    4: [1, -1],     // s_h
-    5: [-1, 1],     // s_v
+    0: [1, 1], // e
+    2: [-1, -1], // r²
+    4: [1, -1], // s_h
+    5: [-1, 1], // s_v
 };
 
 // Populated after V_CLASSES is computed: "d,r" → [letter, scaleX, scaleY]
 let GLYPH_LETTERS = {};
 let H_GLYPH_LETTERS = {};
 
-function assignLetter(classes, downCode, rightCode, letter, target = GLYPH_LETTERS, verticalWinsTies = true) {
+function assignLetter(
+    classes,
+    downCode,
+    rightCode,
+    letter,
+    target = GLYPH_LETTERS,
+    verticalWinsTies = true,
+) {
     for (const cls of classes) {
         if (cls.orbit.some(([d, r]) => d === downCode && r === rightCode)) {
             // Compute transforms relative to the specified glyph (not the orbit rep)
@@ -63,7 +70,8 @@ function assignLetter(classes, downCode, rightCode, letter, target = GLYPH_LETTE
                 for (let ti = 0; ti < 8; ti++) {
                     if (transformedPatternKey(base.v, base.h, ti) === memKey) {
                         const scale = D4_TO_SCALE[ti];
-                        if (scale) target[d + "," + r] = [letter, scale[0], scale[1]];
+                        if (scale)
+                            target[d + "," + r] = [letter, scale[0], scale[1]];
                         break;
                     }
                 }
@@ -190,9 +198,17 @@ function drawGlyph(canvas, downCode, rightCode, verticalWinsTies, fTransform) {
             const blockSize = GRID_CELLS * CELL_PX;
             ctx.save();
             ctx.globalAlpha = 0.45;
-            babyBlocks.drawDirect(ctx, fTransform[0], gridCx, gridCy, blockSize, {
-                transform: d4, outline: babyBlocksOutline,
-            });
+            babyBlocks.drawDirect(
+                ctx,
+                fTransform[0],
+                gridCx,
+                gridCy,
+                blockSize,
+                {
+                    transform: d4,
+                    outline: babyBlocksOutline,
+                },
+            );
             ctx.restore();
         } else {
             ctx.save();
@@ -262,7 +278,8 @@ function buildGrid(tableId, prefix, verticalWinsTies) {
                 ft = GLYPH_LETTERS[d + "," + r];
             } else {
                 const hft = H_GLYPH_LETTERS[d + "," + r];
-                if (hft) ft = [hft[0], hft[1], hft[2], "rgba(139, 0, 0, 0.5)", true];
+                if (hft)
+                    ft = [hft[0], hft[1], hft[2], "rgba(139, 0, 0, 0.5)", true];
             }
             drawGlyph(canvas, d, r, verticalWinsTies, ft);
             td.appendChild(canvas);
@@ -467,7 +484,14 @@ function buildEquivalenceClasses(
                 ft2 = GLYPH_LETTERS[d + "," + r];
             } else {
                 const hft = H_GLYPH_LETTERS[d + "," + r];
-                if (hft) ft2 = [hft[0], hft[1], hft[2], "rgba(139, 0, 0, 0.5)", true];
+                if (hft)
+                    ft2 = [
+                        hft[0],
+                        hft[1],
+                        hft[2],
+                        "rgba(139, 0, 0, 0.5)",
+                        true,
+                    ];
             }
             drawGlyph(canvas, d, r, verticalWinsTies, ft2);
             cell.appendChild(canvas);
@@ -519,7 +543,7 @@ function drawCoyleanMap(canvasEl, N, cell, opts) {
     const r = new Array(M).fill(false);
     d[0] = true;
 
-    const lw = cell * 1.2 / CELL_PX;
+    const lw = (cell * 1.2) / CELL_PX;
     ctx.lineWidth = lw;
 
     for (let y = 0; y < M; y++) {
@@ -559,8 +583,8 @@ function drawCoyleanMap(canvasEl, N, cell, opts) {
     // Re-run algorithm to capture section input codes
     const SEC = 4;
     const NS = N / SEC; // 8 sections per axis
-    const secCodes = Array.from({length: NS}, () =>
-        Array.from({length: NS}, () => [0, 0])
+    const secCodes = Array.from({ length: NS }, () =>
+        Array.from({ length: NS }, () => [0, 0]),
     );
     {
         const d2 = new Array(M).fill(false);
@@ -582,12 +606,18 @@ function drawCoyleanMap(canvasEl, N, cell, opts) {
                 const colInSec = xRel % SEC;
 
                 // Capture down inputs at first interior row of each section
-                if (isSecRow && rowInSec === 0 && x >= 1 && sc < NS && colInSec < 3) {
-                    if (preD2) secCodes[sr][sc][0] |= (1 << colInSec);
+                if (
+                    isSecRow &&
+                    rowInSec === 0 &&
+                    x >= 1 &&
+                    sc < NS &&
+                    colInSec < 3
+                ) {
+                    if (preD2) secCodes[sr][sc][0] |= 1 << colInSec;
                 }
                 // Capture right inputs at first interior column of each section
                 if (isSecRow && x >= 1 && sc < NS && colInSec === 0) {
-                    if (preR2) secCodes[sr][sc][1] |= (1 << rowInSec);
+                    if (preR2) secCodes[sr][sc][1] |= 1 << rowInSec;
                 }
 
                 if (pri(x) >= rp2) {
@@ -620,12 +650,18 @@ function drawCoyleanMap(canvasEl, N, cell, opts) {
 
                 for (let gy = 0; gy < 3; gy++) {
                     for (let gx = 0; gx < 3; gx++) {
-                        let dv = da[gx], rv = ra[gy];
-                        const dp = priority(gx + 1), rp = priority(gy + 1);
-                        if (dp >= rp) { if (dv) rv = !rv; }
-                        else          { if (rv) dv = !dv; }
+                        let dv = da[gx],
+                            rv = ra[gy];
+                        const dp = priority(gx + 1),
+                            rp = priority(gy + 1);
+                        if (dp >= rp) {
+                            if (dv) rv = !rv;
+                        } else {
+                            if (rv) dv = !dv;
+                        }
 
-                        const x0 = sx + gx * cell, y0 = sy + gy * cell;
+                        const x0 = sx + gx * cell,
+                            y0 = sy + gy * cell;
                         if (da[gx]) {
                             ctx.beginPath();
                             ctx.moveTo(x0 + cell, y0);
@@ -657,10 +693,22 @@ function drawCoyleanMap(canvasEl, N, cell, opts) {
                     }
                 }
 
-                const dr = cell * DOT_R / CELL_PX;
+                const dr = (cell * DOT_R) / CELL_PX;
                 for (let i = 0; i < 3; i++) {
-                    drawDot(ctx, sx + (i + 1) * cell, sy, !!(dc & (1 << i)), dr);
-                    drawDot(ctx, sx, sy + (i + 1) * cell, !!(rc & (1 << i)), dr);
+                    drawDot(
+                        ctx,
+                        sx + (i + 1) * cell,
+                        sy,
+                        !!(dc & (1 << i)),
+                        dr,
+                    );
+                    drawDot(
+                        ctx,
+                        sx,
+                        sy + (i + 1) * cell,
+                        !!(rc & (1 << i)),
+                        dr,
+                    );
                     drawDot(ctx, sx + (i + 1) * cell, sy + 4 * cell, da[i], dr);
                     drawDot(ctx, sx + 4 * cell, sy + (i + 1) * cell, ra[i], dr);
                 }
@@ -671,7 +719,8 @@ function drawCoyleanMap(canvasEl, N, cell, opts) {
                     ctx.save();
                     ctx.globalAlpha = 0.45;
                     babyBlocks.drawDirect(ctx, ft[0], cx, cy, blockSize, {
-                        transform: d4, outline: mapBBOutline,
+                        transform: d4,
+                        outline: mapBBOutline,
                     });
                     ctx.restore();
                 } else {
@@ -680,7 +729,8 @@ function drawCoyleanMap(canvasEl, N, cell, opts) {
                     ctx.translate(cx, cy + mapFontSize * 0.05 * ft[2]);
                     ctx.scale(ft[1], ft[2]);
                     ctx.fillStyle = "rgba(0, 0, 100, 0.4)";
-                    ctx.font = "bold " + mapFontSize + "px Monaco, Menlo, monospace";
+                    ctx.font =
+                        "bold " + mapFontSize + "px Monaco, Menlo, monospace";
                     ctx.textAlign = "center";
                     ctx.textBaseline = "middle";
                     ctx.fillText(ft[0], 0, 0);
@@ -689,7 +739,7 @@ function drawCoyleanMap(canvasEl, N, cell, opts) {
             } else {
                 // Unassigned: show V label
                 ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
-                ctx.font = (cell * 0.7) + "px Monaco, Menlo, monospace";
+                ctx.font = cell * 0.7 + "px Monaco, Menlo, monospace";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
                 ctx.fillText("V" + SUB_DIGITS[dc] + SUB_DIGITS[rc], cx, cy);
@@ -739,7 +789,13 @@ function getSectionData(N) {
             const colInSec = xRel % SEC;
 
             // Capture section input codes
-            if (isSecRow && rowInSec === 0 && x >= 1 && sc < NS && colInSec < 3) {
+            if (
+                isSecRow &&
+                rowInSec === 0 &&
+                x >= 1 &&
+                sc < NS &&
+                colInSec < 3
+            ) {
                 if (preD) codes[sr][sc][0] |= 1 << colInSec;
             }
             if (isSecRow && x >= 1 && sc < NS && colInSec === 0) {
@@ -748,11 +804,26 @@ function getSectionData(N) {
 
             // Capture boundary segments (exit lines at section edges)
             // Vertical boundary: colInSec=3 is the exit column of section sc
-            if (x >= 1 && colInSec === 3 && sc < NS - 1 && y >= 1 && sr >= 0 && sr < NS) {
+            if (
+                x >= 1 &&
+                colInSec === 3 &&
+                sc < NS - 1 &&
+                y >= 1 &&
+                sr >= 0 &&
+                sr < NS
+            ) {
                 if (preD) vBound[sr][sc] = true;
             }
             // Horizontal boundary: rowInSec=3 is the exit row of section sr
-            if (y >= 1 && rowInSec === 3 && sr >= 0 && sr < NS - 1 && x >= 1 && sc >= 0 && sc < NS) {
+            if (
+                y >= 1 &&
+                rowInSec === 3 &&
+                sr >= 0 &&
+                sr < NS - 1 &&
+                x >= 1 &&
+                sc >= 0 &&
+                sc < NS
+            ) {
                 if (preR) hBound[sr][sc] = true;
             }
 
@@ -771,9 +842,9 @@ function glyphLabel(dc, rc) {
     if (!ft) return "V" + SUB_DIGITS[dc] + SUB_DIGITS[rc];
     const [letter, sx, sy] = ft;
     if (sx === 1 && sy === 1) return letter;
-    if (sx === 1 && sy === -1) return letter + "\u2195";    // ↕ s_h
-    if (sx === -1 && sy === 1) return letter + "\u2194";    // ↔ s_v
-    if (sx === -1 && sy === -1) return letter + "\u27F2";   // ⟲ r²
+    if (sx === 1 && sy === -1) return letter + "\u2195"; // ↕ s_h
+    if (sx === -1 && sy === 1) return letter + "\u2194"; // ↔ s_v
+    if (sx === -1 && sy === -1) return letter + "\u27F2"; // ⟲ r²
     return letter;
 }
 
@@ -797,13 +868,16 @@ function buildTranslationTable(containerId) {
             if (seen.has(parent)) continue;
             seen.add(parent);
 
-            const sr6 = sr5 * 2, sc6 = sc5 * 2;
+            const sr6 = sr5 * 2,
+                sc6 = sc5 * 2;
             const children = [
-                [sr6, sc6], [sr6, sc6 + 1],
-                [sr6 + 1, sc6], [sr6 + 1, sc6 + 1],
+                [sr6, sc6],
+                [sr6, sc6 + 1],
+                [sr6 + 1, sc6],
+                [sr6 + 1, sc6 + 1],
             ];
-            const labels = children.map(
-                ([r, c]) => glyphLabel(o6.codes[r][c][0], o6.codes[r][c][1]),
+            const labels = children.map(([r, c]) =>
+                glyphLabel(o6.codes[r][c][0], o6.codes[r][c][1]),
             );
 
             // Boundary segments between the 2×2 children
@@ -823,9 +897,12 @@ function buildTranslationTable(containerId) {
             const box = document.createElement("div");
             box.className = "trans-2x2";
             const classes = [
-                [(hSepLeft ? "border-bottom" : ""), (vSepTop ? "border-right" : "")],
-                [(hSepRight ? "border-bottom" : ""), ""],
-                ["", (vSepBot ? "border-right" : "")],
+                [
+                    hSepLeft ? "border-bottom" : "",
+                    vSepTop ? "border-right" : "",
+                ],
+                [hSepRight ? "border-bottom" : "", ""],
+                ["", vSepBot ? "border-right" : ""],
                 ["", ""],
             ];
             for (let i = 0; i < 4; i++) {
@@ -903,7 +980,10 @@ function redrawMap(id) {
     if (!el) return;
     const st = mapBBState[id];
     const cfg = mapConfigs[id];
-    drawCoyleanMap(el, cfg.N, cfg.cell, { babyBlocks: st.bb, outline: st.outline });
+    drawCoyleanMap(el, cfg.N, cfg.cell, {
+        babyBlocks: st.bb,
+        outline: st.outline,
+    });
 }
 
 for (const id of Object.keys(mapConfigs)) {
@@ -958,11 +1038,13 @@ if (bbToggle) {
     bbToggle.addEventListener("change", function () {
         useBabyBlocks = this.checked;
         if (useBabyBlocks && !babyBlocks) {
-            import("../baby-blocks/baby-blocks.js").then(mod => {
-                mod.BabyBlocks.load("../baby-blocks/AlphabetBlocks.svg").then(bb => {
-                    babyBlocks = bb;
-                    rebuildGrids();
-                });
+            import("../baby-blocks/baby-blocks.js").then((mod) => {
+                mod.BabyBlocks.load("../baby-blocks/AlphabetBlocks.svg").then(
+                    (bb) => {
+                        babyBlocks = bb;
+                        rebuildGrids();
+                    },
+                );
             });
         } else {
             rebuildGrids();
@@ -980,16 +1062,19 @@ if (bbOutline) {
 // ── Per-map Baby Blocks Toggles ──
 
 function ensureBabyBlocksLoaded(cb) {
-    if (babyBlocks) { cb(); return; }
-    import("../baby-blocks/baby-blocks.js").then(mod => {
-        mod.BabyBlocks.load("../baby-blocks/AlphabetBlocks.svg").then(bb => {
+    if (babyBlocks) {
+        cb();
+        return;
+    }
+    import("../baby-blocks/baby-blocks.js").then((mod) => {
+        mod.BabyBlocks.load("../baby-blocks/AlphabetBlocks.svg").then((bb) => {
             babyBlocks = bb;
             cb();
         });
     });
 }
 
-document.querySelectorAll(".map-bb-toggle").forEach(el => {
+document.querySelectorAll(".map-bb-toggle").forEach((el) => {
     el.addEventListener("change", function () {
         const id = this.dataset.map;
         mapBBState[id].bb = this.checked;
@@ -1001,7 +1086,7 @@ document.querySelectorAll(".map-bb-toggle").forEach(el => {
     });
 });
 
-document.querySelectorAll(".map-bb-outline").forEach(el => {
+document.querySelectorAll(".map-bb-outline").forEach((el) => {
     el.addEventListener("change", function () {
         const id = this.dataset.map;
         mapBBState[id].outline = this.checked;

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Coylean Map — Compare Reference vs Hand-drawn</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Menlo, monospace; padding: 16px; background: #f8f8f8; }
+        h1 { font-size: 1.2rem; margin-bottom: 12px; }
+        .controls { margin-bottom: 12px; font-size: 0.85rem; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+        .controls label { cursor: pointer; white-space: nowrap; }
+        .mode-tabs { margin-bottom: 12px; }
+        .mode-tabs button { font-family: inherit; font-size: 0.85rem; padding: 4px 12px; border: 1px solid #999; background: #eee; cursor: pointer; }
+        .mode-tabs button.active { background: #333; color: #fff; }
+
+        /* Side-by-side mode */
+        .side-by-side { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+        .panel { text-align: center; }
+        .panel h2 { font-size: 0.9rem; margin-bottom: 6px; }
+
+        /* Overlay mode */
+        .overlay-container {
+            position: relative;
+            display: inline-block;
+            border: 1px solid #ccc;
+            background: #fff;
+            cursor: move;
+        }
+        .overlay-container img {
+            display: block;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+        .overlay-container canvas {
+            position: absolute;
+            pointer-events: none;
+        }
+        .overlay-help { font-size: 0.75rem; color: #888; margin-top: 6px; }
+
+        canvas { image-rendering: auto; }
+        img { object-fit: contain; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <h1>Coylean Map — Reference vs Hand-drawn (c. 1975)</h1>
+
+    <div class="mode-tabs">
+        <button id="btn-side" class="active">Side by Side</button>
+        <button id="btn-overlay">Overlay</button>
+    </div>
+
+    <div class="controls">
+        <label>Order:
+            <select id="order-sel">
+                <option value="4">4 (16)</option>
+                <option value="5">5 (32)</option>
+                <option value="6" selected>6 (64)</option>
+                <option value="7">7 (128)</option>
+            </select>
+        </label>
+        <label>Photo:
+            <select id="photo-sel">
+                <option value="coylean_sx70_restored.jpg" selected>Restored</option>
+                <option value="coylean_sx70_2.jpg">Version 2</option>
+                <option value="coylean_sx70_2_original.jpg">Original</option>
+            </select>
+        </label>
+        <label>Size:
+            <input type="range" id="size-slider" min="300" max="1600" value="800" />
+            <span id="size-label">800</span>px
+        </label>
+        <label class="overlay-only hidden">Ref opacity:
+            <input type="range" id="opacity-slider" min="0" max="100" value="50" />
+            <span id="opacity-label">50</span>%
+        </label>
+        <label class="overlay-only hidden">Ref scale:
+            <input type="range" id="ref-scale-slider" min="50" max="200" value="100" />
+            <span id="ref-scale-label">100</span>%
+        </label>
+        <label>
+            <input type="checkbox" id="ref-red" /> Red lines
+        </label>
+        <label>
+            <input type="checkbox" id="show-empty" /> Highlight empty regions
+        </label>
+    </div>
+
+    <!-- Side-by-side view -->
+    <div id="side-view" class="side-by-side">
+        <div class="panel">
+            <h2>Reference (computed)</h2>
+            <canvas id="ref-canvas"></canvas>
+        </div>
+        <div class="panel">
+            <h2>Hand-drawn (SX-70)</h2>
+            <img id="photo-side" src="coylean_sx70_restored.jpg" />
+        </div>
+    </div>
+
+    <!-- Overlay view -->
+    <div id="overlay-view" class="hidden">
+        <div class="overlay-container" id="overlay-box">
+            <img id="photo-overlay" src="coylean_sx70_restored.jpg" />
+            <canvas id="overlay-canvas"></canvas>
+        </div>
+        <p class="overlay-help">Drag the reference to align it with the photo. Use scale/opacity sliders to match.</p>
+    </div>
+
+    <script>
+    // ── Algorithm ──
+    function pri(i, maxP) {
+        for (let j = 0; j < maxP; j++) {
+            if (i % 2 !== 0) return j;
+            i = Math.floor(i / 2);
+        }
+        return maxP;
+    }
+
+    function computeMaxPri(n) {
+        for (let i = 0; i < 32; i++) {
+            if (n < 1) return i;
+            n = Math.floor(n / 2);
+        }
+        return 32;
+    }
+
+    function drawRefToCanvas(canvas, order, canvasSize, color, showEmpty) {
+        const N = 1 << order;
+        const M = N + 1;
+        const maxP = computeMaxPri(M);
+        const cell = canvasSize / M;
+        canvas.width = canvas.height = canvasSize;
+        const ctx = canvas.getContext('2d');
+
+        ctx.clearRect(0, 0, canvasSize, canvasSize);
+
+        const d = new Array(M).fill(false);
+        const r = new Array(M).fill(false);
+        d[0] = true;
+
+        // Store segments for empty-region detection
+        const vSeg = showEmpty ? Array.from({length: M}, () => new Array(M).fill(false)) : null;
+        const hSeg = showEmpty ? Array.from({length: M}, () => new Array(M).fill(false)) : null;
+
+        ctx.strokeStyle = color || '#000';
+        ctx.lineWidth = Math.max(0.8, cell * 0.15);
+
+        for (let y = 0; y < M; y++) {
+            const rp = pri(y, maxP);
+            for (let x = 0; x < M; x++) {
+                const preD = d[x];
+                const preR = r[y];
+                const dp = pri(x, maxP);
+
+                if (showEmpty) { vSeg[x][y] = d[x]; hSeg[x][y] = r[y]; }
+
+                if (dp >= rp) {
+                    if (preD) r[y] = !r[y];
+                } else {
+                    if (preR) d[x] = !d[x];
+                }
+
+                const xr = (x + 1) * cell;
+                const yb = (y + 1) * cell;
+
+                if (preD) {
+                    ctx.beginPath();
+                    ctx.moveTo(xr, y * cell);
+                    ctx.lineTo(xr, yb);
+                    ctx.stroke();
+                }
+                if (preR) {
+                    ctx.beginPath();
+                    ctx.moveTo(x * cell, yb);
+                    ctx.lineTo(xr, yb);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // Highlight empty 4x4+ regions
+        if (showEmpty) {
+            const visited = Array.from({length: M}, () => new Array(M).fill(false));
+            for (let sy = 0; sy < M; sy++) {
+                for (let sx = 0; sx < M; sx++) {
+                    if (visited[sx][sy] || vSeg[sx][sy] || hSeg[sx][sy]) continue;
+                    // Flood-fill to find contiguous empty rectangle
+                    let w = 0;
+                    while (sx + w < M && !vSeg[sx+w][sy] && !hSeg[sx+w][sy]) w++;
+                    let h = 1;
+                    outer: while (sy + h < M) {
+                        for (let dx = 0; dx < w; dx++) {
+                            if (vSeg[sx+dx][sy+h] || hSeg[sx+dx][sy+h]) break outer;
+                        }
+                        h++;
+                    }
+                    if (w >= 4 && h >= 4) {
+                        const alpha = Math.min(0.4, (w * h) / 200);
+                        ctx.fillStyle = 'rgba(0,100,255,' + alpha + ')';
+                        ctx.fillRect(sx * cell, sy * cell, w * cell, h * cell);
+                    }
+                    for (let dy = 0; dy < h; dy++)
+                        for (let dx = 0; dx < w; dx++)
+                            visited[sx+dx][sy+dy] = true;
+                }
+            }
+        }
+    }
+
+    // ── State ──
+    let mode = 'side'; // 'side' or 'overlay'
+    let overlayX = 0, overlayY = 0;
+    let dragStartX, dragStartY, dragAnchorX, dragAnchorY;
+    let dragging = false;
+
+    // ── Mode switching ──
+    document.getElementById('btn-side').onclick = () => { mode = 'side'; updateMode(); };
+    document.getElementById('btn-overlay').onclick = () => { mode = 'overlay'; updateMode(); };
+
+    function updateMode() {
+        document.getElementById('btn-side').classList.toggle('active', mode === 'side');
+        document.getElementById('btn-overlay').classList.toggle('active', mode === 'overlay');
+        document.getElementById('side-view').classList.toggle('hidden', mode !== 'side');
+        document.getElementById('overlay-view').classList.toggle('hidden', mode !== 'overlay');
+        document.querySelectorAll('.overlay-only').forEach(el =>
+            el.classList.toggle('hidden', mode !== 'overlay'));
+        update();
+    }
+
+    // ── Overlay drag ──
+    const overlayBox = document.getElementById('overlay-box');
+    overlayBox.addEventListener('mousedown', e => {
+        dragging = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        dragAnchorX = overlayX;
+        dragAnchorY = overlayY;
+        e.preventDefault();
+    });
+    window.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        overlayX = dragAnchorX + (e.clientX - dragStartX);
+        overlayY = dragAnchorY + (e.clientY - dragStartY);
+        positionOverlay();
+    });
+    window.addEventListener('mouseup', () => { dragging = false; });
+
+    function positionOverlay() {
+        const c = document.getElementById('overlay-canvas');
+        c.style.left = overlayX + 'px';
+        c.style.top = overlayY + 'px';
+    }
+
+    // ── Update ──
+    function update() {
+        const order = parseInt(document.getElementById('order-sel').value);
+        const size = parseInt(document.getElementById('size-slider').value);
+        const useRed = document.getElementById('ref-red').checked;
+        const showEmpty = document.getElementById('show-empty').checked;
+        const color = useRed ? '#e00' : '#000';
+        document.getElementById('size-label').textContent = size;
+
+        if (mode === 'side') {
+            const refCanvas = document.getElementById('ref-canvas');
+            drawRefToCanvas(refCanvas, order, size, color, showEmpty);
+            const ctx = refCanvas.getContext('2d');
+            // Draw white bg behind lines
+            const tmp = document.createElement('canvas');
+            tmp.width = tmp.height = size;
+            const tctx = tmp.getContext('2d');
+            tctx.fillStyle = '#fff';
+            tctx.fillRect(0, 0, size, size);
+            tctx.drawImage(refCanvas, 0, 0);
+            ctx.drawImage(tmp, 0, 0);
+
+            const photo = document.getElementById('photo-side');
+            photo.src = document.getElementById('photo-sel').value;
+            photo.style.height = size + 'px';
+        } else {
+            const opacity = parseInt(document.getElementById('opacity-slider').value) / 100;
+            const refScale = parseInt(document.getElementById('ref-scale-slider').value) / 100;
+            document.getElementById('opacity-label').textContent = Math.round(opacity * 100);
+            document.getElementById('ref-scale-label').textContent = Math.round(refScale * 100);
+
+            const photo = document.getElementById('photo-overlay');
+            photo.src = document.getElementById('photo-sel').value;
+            photo.style.height = size + 'px';
+
+            const refSize = Math.round(size * refScale);
+            const c = document.getElementById('overlay-canvas');
+            drawRefToCanvas(c, order, refSize, color, showEmpty);
+            c.style.opacity = opacity;
+            positionOverlay();
+        }
+    }
+
+    // ── Event wiring ──
+    ['order-sel', 'photo-sel'].forEach(id =>
+        document.getElementById(id).addEventListener('change', update));
+    ['size-slider', 'opacity-slider', 'ref-scale-slider'].forEach(id =>
+        document.getElementById(id).addEventListener('input', update));
+    document.getElementById('ref-red').addEventListener('change', update);
+    document.getElementById('show-empty').addEventListener('change', update);
+
+    update();
+    </script>
+</body>
+</html>
