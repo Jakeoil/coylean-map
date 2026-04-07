@@ -6,7 +6,8 @@ let g; // canvas 2D context
 // ── State ──
 
 let feature_active = "legacy"; // "legacy", "explore", "universe"
-let SIZE = 65;
+let numRows = 65;
+let numCols = 65;
 let SCALE = 8;
 let rightsPos = 1;
 let downsPos = 1;
@@ -16,7 +17,8 @@ let downsPos = 1;
 const elesExplore = document.querySelectorAll(".can-explore");
 const eleActive = document.querySelector("#feature-active");
 const radioButtons = document.querySelectorAll("input[name='feature']");
-const eleSizeToggle = document.querySelector("#size-toggle");
+const eleNumRows = document.querySelector("#numRows");
+const eleNumCols = document.querySelector("#numCols");
 const eleScaleReset = document.querySelector("#scale-reset");
 const eleRightsPos = document.querySelector("#rights-pos");
 const eleDownsPos = document.querySelector("#downs-pos");
@@ -57,22 +59,20 @@ for (let button of radioButtons) {
 
 // ── Controls: Size ──
 
-document.querySelector("#size-dec").addEventListener("click", function () {
-    if (SIZE > 1) SIZE--;
-    eleSizeToggle.innerHTML = SIZE;
-    coyleanApp();
+eleNumRows.addEventListener("input", function () {
+    const v = parseInt(eleNumRows.value, 10);
+    if (Number.isFinite(v) && v >= 1) {
+        numRows = v;
+        coyleanApp();
+    }
 });
 
-document.querySelector("#size-inc").addEventListener("click", function () {
-    SIZE++;
-    eleSizeToggle.innerHTML = SIZE;
-    coyleanApp();
-});
-
-eleSizeToggle.addEventListener("click", function () {
-    SIZE = SIZE < 10 ? 65 : 5;
-    eleSizeToggle.innerHTML = SIZE;
-    coyleanApp();
+eleNumCols.addEventListener("input", function () {
+    const v = parseInt(eleNumCols.value, 10);
+    if (Number.isFinite(v) && v >= 1) {
+        numCols = v;
+        coyleanApp();
+    }
 });
 
 // ── Controls: Scale ──
@@ -191,25 +191,25 @@ function cell(down, right, i, j, dx = 1, dy = 1) {
     g.stroke();
 }
 
-function coyleanExploration() {
-    let [downMatrix, rightMatrix] = propagate(SIZE, SIZE, rightsPos, downsPos);
+function coyleanExploration(numRows, numCols) {
+    let [downMatrix, rightMatrix] = propagate(numRows, numCols, rightsPos, downsPos);
 
-    for (let j = 0; j < SIZE; j++) {
-        for (let i = 0; i < SIZE; i++) {
+    for (let j = 0; j < numRows; j++) {
+        for (let i = 0; i < numCols; i++) {
             cell(downMatrix[j][i], rightMatrix[i][j], i, j);
         }
     }
 }
 
-function coyleanLegacy() {
-    const downs = new Array(SIZE).fill(false);
-    const rights = new Array(SIZE).fill(false);
+function coyleanLegacy(numRows, numCols) {
+    const downs = new Array(numCols).fill(false);
+    const rights = new Array(numRows).fill(false);
     downs[0] = true;
 
-    for (let j = 0; j < SIZE; j++) {
+    for (let j = 0; j < numRows; j++) {
         let y = j * SCALE;
         let yp = y + SCALE;
-        for (let i = 0; i < SIZE; i++) {
+        for (let i = 0; i < numCols; i++) {
             let x = i * SCALE;
             let xp = x + SCALE;
             if (downs[i]) {
@@ -261,53 +261,53 @@ function coyleanLegacy() {
     }
 }
 
-function coyleanUniverse() {
-    const { nw, ne, sw, se, radius: R } = universalPropagate(SIZE);
+function coyleanUniverse(numRows, numCols) {
+    const { nw, ne, sw, se } = universalPropagate(numRows, numCols);
     const [nwDM, nwRM] = nw;
     const [neDM, neRM] = ne;
     const [swDM, swRM] = sw;
     const [seDM, seRM] = se;
 
     // SE: identity — full range, owns both axes
-    for (let j = 0; j < R; j++) {
-        for (let i = 0; i < R; i++) {
-            cell(seDM[j][i], seRM[i][j], R + i, R + j, 1, 1);
+    for (let j = 0; j < numRows; j++) {
+        for (let i = 0; i < numCols; i++) {
+            cell(seDM[j][i], seRM[i][j], numCols + i, numRows + j, 1, 1);
         }
     }
     // NE: sₕ — suppress down at j=0 (init row duplicate)
-    for (let j = 0; j < R; j++) {
-        for (let i = 0; i < R; i++) {
+    for (let j = 0; j < numRows; j++) {
+        for (let i = 0; i < numCols; i++) {
             cell(
                 j === 0 ? false : neDM[j][i],
                 neRM[i][j],
-                R + i,
-                R - 1 - j,
+                numCols + i,
+                numRows - 1 - j,
                 1,
                 0,
             );
         }
     }
     // SW: sᵥ — suppress right at i=0 (init col duplicate)
-    for (let j = 0; j < R; j++) {
-        for (let i = 0; i < R; i++) {
+    for (let j = 0; j < numRows; j++) {
+        for (let i = 0; i < numCols; i++) {
             cell(
                 swDM[j][i],
                 i === 0 ? false : swRM[i][j],
-                R - 1 - i,
-                R + j,
+                numCols - 1 - i,
+                numRows + j,
                 0,
                 1,
             );
         }
     }
     // NW: r² — suppress down at j=0, right at i=0
-    for (let j = 0; j < R; j++) {
-        for (let i = 0; i < R; i++) {
+    for (let j = 0; j < numRows; j++) {
+        for (let i = 0; i < numCols; i++) {
             cell(
                 j === 0 ? false : nwDM[j][i],
                 i === 0 ? false : nwRM[i][j],
-                R - 1 - i,
-                R - 1 - j,
+                numCols - 1 - i,
+                numRows - 1 - j,
                 0,
                 0,
             );
@@ -323,11 +323,11 @@ function coyleanApp() {
     g.lineWidth = 1;
 
     if (feature_active === "universe") {
-        canvas.width = SCALE * (2 * SIZE + 1);
-        canvas.height = SCALE * (2 * SIZE + 1);
+        canvas.width = SCALE * (2 * numCols + 1);
+        canvas.height = SCALE * (2 * numRows + 1);
     } else {
-        canvas.width = SCALE * (SIZE + 1);
-        canvas.height = SCALE * (SIZE + 1);
+        canvas.width = SCALE * (numCols + 1);
+        canvas.height = SCALE * (numRows + 1);
     }
 
     const drawScreen =
@@ -336,13 +336,14 @@ function coyleanApp() {
             : feature_active === "explore"
               ? coyleanExploration
               : coyleanLegacy;
-    drawScreen();
+    drawScreen(numRows, numCols);
 }
 
 // ── Init ──
 
 refreshFeatureActive();
-eleSizeToggle.innerHTML = SIZE;
+eleNumRows.value = numRows;
+eleNumCols.value = numCols;
 eleScaleReset.innerHTML = SCALE;
 eleRightsPos.innerHTML = rightsPos;
 eleDownsPos.innerHTML = downsPos;

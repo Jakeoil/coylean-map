@@ -32,9 +32,14 @@
                 <div class="control-group">
                     <div>
                         <h4>Size</h4>
-                        <button id="size-dec">smaller</button>
-                        <button id="size-toggle"></button>
-                        <button id="size-inc">larger</button>
+                        <div class="size-control">
+                            <label for="numRows">numRows</label>
+                            <input type="number" id="numRows" value="65" min="1" max="500">
+                        </div>
+                        <div class="size-control">
+                            <label for="numCols">numCols</label>
+                            <input type="number" id="numCols" value="65" min="1" max="500">
+                        </div>
                     </div>
                     <div>
                         <h4>Scale</h4>

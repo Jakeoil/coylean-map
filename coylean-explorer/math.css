@@ -52,6 +52,20 @@ canvas.apple-ii {
     margin-top: 0.5em;
     margin-bottom: 0.5em;
 }
+.size-control {
+    display: inline-flex;
+    flex-direction: column;
+    margin-right: 8px;
+}
+.size-control label {
+    font-size: 0.75em;
+    color: #555;
+}
+.size-control input {
+    width: 64px;
+    padding: 2px 6px;
+    font-size: 0.9em;
+}
 .can-explore {
     display: block;
 }

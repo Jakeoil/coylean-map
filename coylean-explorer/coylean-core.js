@@ -121,16 +121,16 @@ export function propagate(numRows, numColumns, rightsPos, downsPos, rightHigh = 
  * outward. The rendering flips local coordinates to global canvas
  * positions, which automatically produces the correct axis segments.
  *
- * @param {number} radius - cells per quadrant per axis (total grid = 2R × 2R)
- * @returns {{ nw, ne, sw, se, radius }}
+ * @param {number} numRows    - cells per quadrant in the vertical direction
+ * @param {number} numColumns - cells per quadrant in the horizontal direction
+ * @returns {{ nw, ne, sw, se }}
  *   Each quadrant is a [downMatrix, rightMatrix] pair from propagate().
  */
-export function universalPropagate(radius, rightHigh = false) {
+export function universalPropagate(numRows, numColumns, rightHigh = false) {
     return {
-        nw: propagate(radius, radius, 0, 0, rightHigh),
-        ne: propagate(radius, radius, 1, 0, rightHigh),
-        sw: propagate(radius, radius, 0, 1, rightHigh),
-        se: propagate(radius, radius, 1, 1, rightHigh),
-        radius,
+        nw: propagate(numRows, numColumns, 0, 0, rightHigh),
+        ne: propagate(numRows, numColumns, 1, 0, rightHigh),
+        sw: propagate(numRows, numColumns, 0, 1, rightHigh),
+        se: propagate(numRows, numColumns, 1, 1, rightHigh),
     };
 }
