@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Coylean Propagation Diagram</title>
+<title>Coylean Propagation Diagram 2</title>
 <style>
 * { box-sizing: border-box; margin: 0; }
 body {
@@ -108,7 +108,7 @@ h2 { font-size: 0.85em; color: #666; text-transform: uppercase; letter-spacing: 
 .info-panel .title {
     font-weight: 600;
     margin-bottom: 6px;
-    color: #2563eb;
+    color: #2e7d32;
 }
 .info-panel .row {
     font-family: monospace;
@@ -127,6 +127,7 @@ h2 { font-size: 0.85em; color: #666; text-transform: uppercase; letter-spacing: 
     display: flex;
     align-items: flex-start;
     justify-content: center;
+    background: #fff;
 }
 
 /* ── SVG ── */
@@ -201,27 +202,27 @@ svg { cursor: default; }
     <div class="legend">
         <div class="legend-item">
             <svg class="legend-swatch" viewBox="-12 -12 24 24">
-                <polygon points="0,-10 10,0 0,10 -10,0" fill="#dbeafe" stroke="#58a6ff" stroke-width="1.5"/>
-                <line x1="0" y1="-10" x2="0" y2="10" stroke="#58a6ff" stroke-width="2"/>
+                <polygon points="0,-10 10,0 0,10 -10,0" fill="#b8e0a8" stroke="#5a9a4a" stroke-width="1.5"/>
+                <line x1="0" y1="-10" x2="0" y2="10" stroke="#3d7a2d" stroke-width="2"/>
             </svg>
             <span>downMatrix[j][i] = true</span>
         </div>
         <div class="legend-item">
             <svg class="legend-swatch" viewBox="-12 -12 24 24">
-                <polygon points="0,-10 10,0 0,10 -10,0" fill="#fff" stroke="#58a6ff" stroke-width="1.5"/>
+                <polygon points="0,-10 10,0 0,10 -10,0" fill="#fff" stroke="#5a9a4a" stroke-width="1.5"/>
             </svg>
             <span>downMatrix[j][i] = false</span>
         </div>
         <div class="legend-item">
             <svg class="legend-swatch" viewBox="-12 -12 24 24">
-                <polygon points="0,-10 10,0 0,10 -10,0" fill="#fde8d8" stroke="#f0883e" stroke-width="1.5"/>
-                <line x1="-10" y1="0" x2="10" y2="0" stroke="#f0883e" stroke-width="2"/>
+                <polygon points="0,-10 10,0 0,10 -10,0" fill="#bcd8e8" stroke="#5a8aaa" stroke-width="1.5"/>
+                <line x1="-10" y1="0" x2="10" y2="0" stroke="#3d6a8a" stroke-width="2"/>
             </svg>
             <span>rightMatrix[i][j] = true</span>
         </div>
         <div class="legend-item">
             <svg class="legend-swatch" viewBox="-12 -12 24 24">
-                <polygon points="0,-10 10,0 0,10 -10,0" fill="#fff" stroke="#f0883e" stroke-width="1.5"/>
+                <polygon points="0,-10 10,0 0,10 -10,0" fill="#fff" stroke="#5a8aaa" stroke-width="1.5"/>
             </svg>
             <span>rightMatrix[i][j] = false</span>
         </div>
@@ -240,8 +241,8 @@ svg { cursor: default; }
 <script type="module">
 import { pri, reaction, propagate } from './coylean-core.js';
 
-const S = 128;      // cell spacing
-const D = 36;       // diamond half-diagonal
+const S = 96;       // cell spacing
+const D = S / 2;    // diamond half-diagonal — touches neighbors at vertices
 const PAD = 64;     // padding
 
 const svg = document.getElementById('diagram');
@@ -315,7 +316,7 @@ function showDownInfo(j, i, val, rPos, dPos) {
     const pI = pri(i + rPos);
     const pJ = pri(j + dPos);
     info.innerHTML = `
-        <div class="title">Down Matrix</div>
+        <div class="title" style="color:#5a9a4a">Down Matrix r${j}c${i}</div>
         <div class="row">downMatrix[${j}][${i}] = ${valSpan(val)}</div>
         <div class="row dim">vertical arrow entering row ${j} at column ${i}</div>
         <div class="row">pri(${i} + ${rPos}) = pri(${i+rPos}) = ${pI}</div>
@@ -328,7 +329,7 @@ function showRightInfo(i, j, val, rPos, dPos) {
     const pI = pri(i + rPos);
     const pJ = pri(j + dPos);
     info.innerHTML = `
-        <div class="title" style="color:#f0883e">Right Matrix</div>
+        <div class="title" style="color:#5a8aaa">Right Matrix c${i}r${j}</div>
         <div class="row">rightMatrix[${i}][${j}] = ${valSpan(val)}</div>
         <div class="row dim">horizontal arrow entering column ${i} at row ${j}</div>
         <div class="row">pri(${i} + ${rPos}) = pri(${i+rPos}) = ${pI}</div>
@@ -346,7 +347,7 @@ function showCellInfo(i, j, dm, rm, rPos, dPos, rHigh) {
     const winner = (rHigh ? pI > pJ : pI >= pJ) ? 'down wins' : 'right wins';
 
     info.innerHTML = `
-        <div class="title" style="color:#bc8cff">Reaction at cell (${i}, ${j})</div>
+        <div class="title" style="color:#7c5cb0">Reaction at cell r${j}c${i}</div>
         <div class="row">in:  down=${valSpan(dIn)}  right=${valSpan(rIn)}</div>
         <div class="row">out: down=${valSpan(dOut)}  right=${valSpan(rOut)}</div>
         <div class="row dim" style="margin-top:6px">pri(${i+rPos}) = ${pI} ${pI >= pJ ? '≥' : '<'} ${pJ} = pri(${j+dPos})  →  ${winner}</div>
@@ -356,7 +357,7 @@ function showCellInfo(i, j, dm, rm, rPos, dPos, rHigh) {
 }
 
 function clearInfo() {
-    info.innerHTML = '<div class="dim">Hover a diamond or cell center</div>';
+    info.innerHTML = '<div class="dim">Hover a diamond</div>';
 }
 
 // ── Render ──
@@ -378,6 +379,24 @@ function render() {
     svg.setAttribute('height', h);
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
     svg.innerHTML = '';
+
+    // ── Arrowhead marker definitions ──
+    const defs = svgEl('defs', {});
+    const mkMarker = (id, path, fill) => {
+        const m = svgEl('marker', {
+            id, viewBox: '0 0 10 10',
+            refX: 5, refY: 5,
+            markerWidth: 4, markerHeight: 4,
+            orient: 'auto',
+        });
+        m.appendChild(svgEl('path', { d: path, fill }));
+        return m;
+    };
+    defs.appendChild(mkMarker('arrow-down', 'M 0 0 L 10 5 L 0 10 z', '#3d7a2d'));
+    defs.appendChild(mkMarker('arrow-up',   'M 10 0 L 0 5 L 10 10 z', '#3d7a2d'));
+    defs.appendChild(mkMarker('arrow-right','M 0 0 L 10 5 L 0 10 z', '#3d6a8a'));
+    defs.appendChild(mkMarker('arrow-left', 'M 10 0 L 0 5 L 10 10 z', '#3d6a8a'));
+    svg.appendChild(defs);
 
     // ── Flow lines (subtle connections) ──
     if (showFlow) {
@@ -411,26 +430,29 @@ function render() {
             const poly = svgEl('polygon', {
                 points: diamondPts(cx, cy),
                 class: 'diamond',
-                fill: val ? '#dbeafe' : '#fff',
-                stroke: '#58a6ff',
+                fill: '#b8e0a8',
+                stroke: 'none',
             });
             poly.addEventListener('mouseenter', () => showDownInfo(j, i, val, rPos, dPos));
             poly.addEventListener('mouseleave', clearInfo);
             svg.appendChild(poly);
 
             if (val) {
-                svg.appendChild(svgEl('line', {
+                const line = svgEl('line', {
                     x1: cx, y1: cy - D, x2: cx, y2: cy + D,
-                    class: 'arrow-line', stroke: '#58a6ff',
-                }));
+                    class: 'arrow-line', stroke: '#3d7a2d',
+                    'marker-end': 'url(#arrow-down)',
+                });
+                if (j === 0) line.setAttribute('marker-start', 'url(#arrow-up)');
+                svg.appendChild(line);
             }
 
             if (showLabels) {
                 svg.appendChild(Object.assign(svgEl('text', {
-                    x: cx, y: cy + 3,
+                    x: cx, y: cy + 5,
                     class: 'coord-label',
-                    fill: '#4a6a8a',
-                }), { textContent: `${j},${i}` }));
+                    fill: '#2e5a1e',
+                }), { textContent: `r${j}c${i}` }));
             }
         }
     }
@@ -444,41 +466,37 @@ function render() {
             const poly = svgEl('polygon', {
                 points: diamondPts(cx, cy),
                 class: 'diamond',
-                fill: val ? '#fde8d8' : '#fff',
-                stroke: '#f0883e',
+                fill: '#bcd8e8',
+                stroke: 'none',
             });
             poly.addEventListener('mouseenter', () => showRightInfo(i, j, val, rPos, dPos));
             poly.addEventListener('mouseleave', clearInfo);
             svg.appendChild(poly);
 
             if (val) {
-                svg.appendChild(svgEl('line', {
+                const line = svgEl('line', {
                     x1: cx - D, y1: cy, x2: cx + D, y2: cy,
-                    class: 'arrow-line', stroke: '#f0883e',
-                }));
+                    class: 'arrow-line', stroke: '#3d6a8a',
+                    'marker-end': 'url(#arrow-right)',
+                });
+                if (i === 0) line.setAttribute('marker-start', 'url(#arrow-left)');
+                svg.appendChild(line);
             }
 
             if (showLabels) {
                 svg.appendChild(Object.assign(svgEl('text', {
-                    x: cx, y: cy + 3,
+                    x: cx, y: cy + 5,
                     class: 'coord-label',
-                    fill: '#8a5a3a',
-                }), { textContent: `${i},${j}` }));
+                    fill: '#1e4a6a',
+                }), { textContent: `c${i}r${j}` }));
             }
         }
     }
 
-    // ── Cell center zones ──
+    // ── Cell center hover zones (small invisible) for reaction info ──
     for (let j = 0; j < nR; j++) {
         for (let i = 0; i < nC; i++) {
             const [cx, cy] = cellPos(i, j);
-            const zone = svgEl('polygon', {
-                points: diamondPts(cx, cy),
-                class: 'cell-zone',
-            });
-            zone.addEventListener('mouseenter', () => showCellInfo(i, j, dm, rm, rPos, dPos, rHigh));
-            zone.addEventListener('mouseleave', clearInfo);
-            svg.appendChild(zone);
 
             if (showPri) {
                 const pI = pri(i + rPos);
@@ -494,7 +512,7 @@ function render() {
                 svg.appendChild(Object.assign(svgEl('text', {
                     x: cx, y: cy + 16,
                     class: 'coord-label',
-                    fill: dw ? '#58a6ff' : '#f0883e',
+                    fill: dw ? '#5a9a4a' : '#5a8aaa',
                     'font-size': '16px',
                     'font-weight': 'bold',
                 }), { textContent: dw ? '↓' : '→' }));
@@ -502,25 +520,6 @@ function render() {
         }
     }
 
-    // ── Matrix labels ──
-    // "Down Matrix" label along top
-    svg.appendChild(Object.assign(svgEl('text', {
-        x: PAD + nC * S / 2, y: 16,
-        class: 'matrix-label',
-        'text-anchor': 'middle',
-        fill: '#58a6ff',
-    }), { textContent: `Down Matrix (${nR+1} × ${nC})` }));
-
-    // "Right Matrix" label along left
-    const rLabel = svgEl('text', {
-        x: 0, y: 0,
-        class: 'matrix-label',
-        'text-anchor': 'middle',
-        fill: '#f0883e',
-        transform: `translate(14, ${PAD + nR * S / 2}) rotate(-90)`,
-    });
-    rLabel.textContent = `Right Matrix (${nC+1} × ${nR})`;
-    svg.appendChild(rLabel);
 }
 
 render();
