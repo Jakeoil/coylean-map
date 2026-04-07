@@ -109,40 +109,40 @@ const clickScaleReset = function () {
 /**
  * Horizontal and Vertical Initializations
  */
-let rightsPos = 1;
-let downsPos = 1;
+let hInitCol = 1;
+let vInitRow = 1;
 
-const eleLeft = document.querySelector("#rights-left");
-const eleRight = document.querySelector("#rights-right");
-const eleUp = document.querySelector("#downs-up");
-const eleDown = document.querySelector("#rights-right");
-const eleDownsPos = document.querySelector("#downs-pos");
-const eleRightsPos = document.querySelector("#rights-pos");
+const eleLeft = document.querySelector("#h-init-col-left");
+const eleRight = document.querySelector("#h-init-col-right");
+const eleUp = document.querySelector("#v-init-row-up");
+const eleDown = document.querySelector("#h-init-col-right");
+const eleVInitRow = document.querySelector("#v-init-row");
+const eleHInitCol = document.querySelector("#h-init-col");
 
 /**
  * These control the are the rights- and downs- Pos
  */
-eleRightsPos.innerHTML = rightsPos;
-eleDownsPos.innerHTML = downsPos;
+eleHInitCol.innerHTML = hInitCol;
+eleVInitRow.innerHTML = vInitRow;
 
 const clickRight = function () {
-    rightsPos++;
-    eleRightsPos.innerHTML = rightsPos;
+    hInitCol++;
+    eleHInitCol.innerHTML = hInitCol;
     coyleanApp();
 };
 const clickLeft = function () {
-    rightsPos--;
-    eleRightsPos.innerHTML = rightsPos;
+    hInitCol--;
+    eleHInitCol.innerHTML = hInitCol;
     coyleanApp();
 };
 const clickUp = function () {
-    downsPos--;
-    eleDownsPos.innerHTML = downsPos;
+    vInitRow--;
+    eleVInitRow.innerHTML = vInitRow;
     coyleanApp();
 };
 const clickDown = function () {
-    downsPos++;
-    eleDownsPos.innerHTML = downsPos;
+    vInitRow++;
+    eleVInitRow.innerHTML = vInitRow;
     coyleanApp();
 };
 
@@ -297,28 +297,28 @@ function coyleanLegacy() {
  * Render them.
  *
  * Preconditions:
- *     rightsPos
- *     downsPos
+ *     hInitCol
+ *     vInitRow
  */
 function coyleanExploration() {
     let width = SIZE;
     let height = SIZE;
-    // seLoop(height - downsPos, width-rightsPos);
+    // seLoop(height - vInitRow, width-hInitCol);
     let [downMatrix, rightMatrix] = seLoop(height, width);
     // Future, do the same for the swLoop where we go left. -i.
     //
-    //   h = height - downsPos; w = rightsPos;
-    //   rightsPos = (-rightsPos + 1)
+    //   h = height - vInitRow; w = hInitCol;
+    //   hInitCol = (-hInitCol + 1)
     //   swLoop(h, w);
 
     //
     // The nwLoop, where we go left and up.
-    //   nwLoop(downsPos, rightsPos);
-    //   rightsPos = (-rightsPos + 1)
-    //   downsPos = (-downsPos + 1)
+    //   nwLoop(vInitRow, hInitCol);
+    //   hInitCol = (-hInitCol + 1)
+    //   vInitRow = (-vInitRow + 1)
     // The neLoop, where we go up.
-    //   neLoop(downsPos, width - rightsPos);
-    //   downsPos = (-downsPos + 1)
+    //   neLoop(vInitRow, width - hInitCol);
+    //   vInitRow = (-vInitRow + 1)
 
     for (let j = 0; j < SIZE; j++) {
         for (let i = 0; i < SIZE; i++) {
@@ -405,7 +405,7 @@ function reaction(vertical, horizontal, i, j) {
         return [false, false];
     }
 
-    let downWins = pri(i + rightsPos) >= pri(j + downsPos);
+    let downWins = pri(i + hInitCol) >= pri(j + vInitRow);
     if (horizontal && vertical) {
         if (downWins) return [true, false];
         else return [false, true];

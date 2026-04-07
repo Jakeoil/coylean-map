@@ -39,18 +39,18 @@ export class Col extends Array {
  * Two booleans in (vertical arrow, horizontal arrow),
  * two booleans out (do they continue?).
  *
- * rightsPos and downsPos offset the priority grid.
+ * hInitCol and vInitRow offset the priority grid.
  * The standard map uses (1, 1). Other values shift the
  * priority landscape, producing different maps.
  */
-export function reaction(vertical, horizontal, i, j, rightsPos, downsPos, rightHigh = false) {
+export function reaction(vertical, horizontal, i, j, hInitCol, vInitRow, rightHigh = false) {
     if (!horizontal && !vertical) {
         return [false, false];
     }
 
     let downWins = rightHigh
-        ? pri(i + rightsPos) > pri(j + downsPos)
-        : pri(i + rightsPos) >= pri(j + downsPos);
+        ? pri(i + hInitCol) > pri(j + vInitRow)
+        : pri(i + hInitCol) >= pri(j + vInitRow);
     if (horizontal && vertical) {
         if (downWins) return [true, false];
         else return [false, true];
@@ -77,11 +77,11 @@ export function reaction(vertical, horizontal, i, j, rightsPos, downsPos, rightH
  *
  * @param {number} numRows    - grid height
  * @param {number} numColumns - grid width
- * @param {number} rightsPos  - horizontal priority offset
- * @param {number} downsPos   - vertical priority offset
+ * @param {number} hInitCol   - horizontal priority offset (initial column)
+ * @param {number} vInitRow   - vertical priority offset (initial row)
  * @returns {[Row[], Col[]]}  - [downMatrix, rightMatrix]
  */
-export function propagate(numRows, numColumns, rightsPos, downsPos, rightHigh = false) {
+export function propagate(numRows, numColumns, hInitCol, vInitRow, rightHigh = false) {
     const initRow = new Row(numColumns).fill(true);
     const downMatrix = [...Array(numRows + 1)].map(() => new Row());
     const rightMatrix = [...Array(numColumns + 1)].map(() => new Col());
@@ -96,8 +96,8 @@ export function propagate(numRows, numColumns, rightsPos, downsPos, rightHigh = 
                     rightMatrix[i][j],
                     i,
                     j,
-                    rightsPos,
-                    downsPos,
+                    hInitCol,
+                    vInitRow,
                     rightHigh,
                 );
         }
@@ -110,7 +110,7 @@ export function propagate(numRows, numColumns, rightsPos, downsPos, rightHigh = 
  *
  * Computes the full Coylean map extending in every direction from the
  * axis crossing point. Each quadrant is an independent propagate() call
- * with the appropriate (rightsPos, downsPos) offset:
+ * with the appropriate (hInitCol, vInitRow) offset:
  *
  *       NW (0,0) │ NE (1,0)
  *       ─────────┼─────────

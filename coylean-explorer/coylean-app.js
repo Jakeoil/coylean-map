@@ -9,8 +9,8 @@ let feature_active = "legacy"; // "legacy", "explore", "universe"
 let numRows = 65;
 let numCols = 65;
 let SCALE = 8;
-let rightsPos = 1;
-let downsPos = 1;
+let hInitCol = 1;
+let vInitRow = 1;
 
 // ── DOM references ──
 
@@ -20,8 +20,8 @@ const radioButtons = document.querySelectorAll("input[name='feature']");
 const eleNumRows = document.querySelector("#numRows");
 const eleNumCols = document.querySelector("#numCols");
 const eleScaleReset = document.querySelector("#scale-reset");
-const eleRightsPos = document.querySelector("#rights-pos");
-const eleDownsPos = document.querySelector("#downs-pos");
+const eleHInitCol = document.querySelector("#h-init-col");
+const eleVInitRow = document.querySelector("#v-init-row");
 
 // ── Controls: Map Type ──
 
@@ -97,27 +97,27 @@ eleScaleReset.addEventListener("click", function () {
 
 // ── Controls: Position Offsets ──
 
-document.querySelector("#rights-right").addEventListener("click", function () {
-    rightsPos++;
-    eleRightsPos.innerHTML = rightsPos;
+document.querySelector("#h-init-col-right").addEventListener("click", function () {
+    hInitCol++;
+    eleHInitCol.innerHTML = hInitCol;
     coyleanApp();
 });
 
-document.querySelector("#rights-left").addEventListener("click", function () {
-    rightsPos--;
-    eleRightsPos.innerHTML = rightsPos;
+document.querySelector("#h-init-col-left").addEventListener("click", function () {
+    hInitCol--;
+    eleHInitCol.innerHTML = hInitCol;
     coyleanApp();
 });
 
-document.querySelector("#downs-up").addEventListener("click", function () {
-    downsPos--;
-    eleDownsPos.innerHTML = downsPos;
+document.querySelector("#v-init-row-up").addEventListener("click", function () {
+    vInitRow--;
+    eleVInitRow.innerHTML = vInitRow;
     coyleanApp();
 });
 
-document.querySelector("#downs-down").addEventListener("click", function () {
-    downsPos++;
-    eleDownsPos.innerHTML = downsPos;
+document.querySelector("#v-init-row-down").addEventListener("click", function () {
+    vInitRow++;
+    eleVInitRow.innerHTML = vInitRow;
     coyleanApp();
 });
 
@@ -192,7 +192,7 @@ function cell(down, right, i, j, dx = 1, dy = 1) {
 }
 
 function coyleanExploration(numRows, numCols) {
-    let [downMatrix, rightMatrix] = propagate(numRows, numCols, rightsPos, downsPos);
+    let [downMatrix, rightMatrix] = propagate(numRows, numCols, hInitCol, vInitRow);
 
     for (let j = 0; j < numRows; j++) {
         for (let i = 0; i < numCols; i++) {
@@ -345,6 +345,6 @@ refreshFeatureActive();
 eleNumRows.value = numRows;
 eleNumCols.value = numCols;
 eleScaleReset.innerHTML = SCALE;
-eleRightsPos.innerHTML = rightsPos;
-eleDownsPos.innerHTML = downsPos;
+eleHInitCol.innerHTML = hInitCol;
+eleVInitRow.innerHTML = vInitRow;
 coyleanApp();

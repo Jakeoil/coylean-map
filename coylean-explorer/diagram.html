@@ -179,10 +179,10 @@ svg { cursor: default; }
             <input type="number" id="numCols" value="4" min="1" max="16">
         </div>
         <div class="control" style="flex-direction:row;align-items:center;gap:8px;">
-            <label>rightsPos</label>
-            <input type="number" id="rightsPos" value="1" min="-20" max="20">
-            <label>downsPos</label>
-            <input type="number" id="downsPos" value="1" min="-20" max="20">
+            <label>hInitCol</label>
+            <input type="number" id="hInitCol" value="1" min="-20" max="20">
+            <label>vInitRow</label>
+            <input type="number" id="vInitRow" value="1" min="-20" max="20">
         </div>
         <div class="control">
             <label>rightHigh</label>
@@ -251,8 +251,8 @@ const callSig = document.getElementById('call-sig');
 const inputs = {
     numRows:  document.getElementById('numRows'),
     numCols:  document.getElementById('numCols'),
-    rightsPos: document.getElementById('rightsPos'),
-    downsPos: document.getElementById('downsPos'),
+    hInitCol: document.getElementById('hInitCol'),
+    vInitRow: document.getElementById('vInitRow'),
     rightHigh: document.getElementById('rightHigh'),
 };
 
@@ -311,46 +311,46 @@ function valSpan(v) {
     return `<span class="${v ? 'val-true' : 'val-false'}">${v}</span>`;
 }
 
-function showDownInfo(j, i, val, rPos, dPos) {
-    const pI = pri(i + rPos);
-    const pJ = pri(j + dPos);
+function showDownInfo(j, i, val, hInitCol, vInitRow) {
+    const pI = pri(i + hInitCol);
+    const pJ = pri(j + vInitRow);
     info.innerHTML = `
         <div class="title">Down Matrix</div>
         <div class="row">downMatrix[${j}][${i}] = ${valSpan(val)}</div>
         <div class="row dim">vertical arrow entering row ${j} at column ${i}</div>
-        <div class="row">pri(${i} + ${rPos}) = pri(${i+rPos}) = ${pI}</div>
-        <div class="row">pri(${j} + ${dPos}) = pri(${j+dPos}) = ${pJ}</div>
+        <div class="row">pri(${i} + ${hInitCol}) = pri(${i+hInitCol}) = ${pI}</div>
+        <div class="row">pri(${j} + ${vInitRow}) = pri(${j+vInitRow}) = ${pJ}</div>
         <div class="row dim">${j === 0 ? '(init row — always true)' : ''}</div>
     `;
 }
 
-function showRightInfo(i, j, val, rPos, dPos) {
-    const pI = pri(i + rPos);
-    const pJ = pri(j + dPos);
+function showRightInfo(i, j, val, hInitCol, vInitRow) {
+    const pI = pri(i + hInitCol);
+    const pJ = pri(j + vInitRow);
     info.innerHTML = `
         <div class="title" style="color:#f0883e">Right Matrix</div>
         <div class="row">rightMatrix[${i}][${j}] = ${valSpan(val)}</div>
         <div class="row dim">horizontal arrow entering column ${i} at row ${j}</div>
-        <div class="row">pri(${i} + ${rPos}) = pri(${i+rPos}) = ${pI}</div>
-        <div class="row">pri(${j} + ${dPos}) = pri(${j+dPos}) = ${pJ}</div>
+        <div class="row">pri(${i} + ${hInitCol}) = pri(${i+hInitCol}) = ${pI}</div>
+        <div class="row">pri(${j} + ${vInitRow}) = pri(${j+vInitRow}) = ${pJ}</div>
         <div class="row dim">${i === 0 ? '(init column — always true)' : ''}</div>
     `;
 }
 
-function showCellInfo(i, j, dm, rm, rPos, dPos, rHigh) {
+function showCellInfo(i, j, dm, rm, hInitCol, vInitRow, rHigh) {
     const dIn = dm[j][i];
     const rIn = rm[i][j];
-    const [dOut, rOut] = reaction(dIn, rIn, i, j, rPos, dPos, rHigh);
-    const pI = pri(i + rPos);
-    const pJ = pri(j + dPos);
+    const [dOut, rOut] = reaction(dIn, rIn, i, j, hInitCol, vInitRow, rHigh);
+    const pI = pri(i + hInitCol);
+    const pJ = pri(j + vInitRow);
     const winner = (rHigh ? pI > pJ : pI >= pJ) ? 'down wins' : 'right wins';
 
     info.innerHTML = `
         <div class="title" style="color:#bc8cff">Reaction at cell (${i}, ${j})</div>
         <div class="row">in:  down=${valSpan(dIn)}  right=${valSpan(rIn)}</div>
         <div class="row">out: down=${valSpan(dOut)}  right=${valSpan(rOut)}</div>
-        <div class="row dim" style="margin-top:6px">pri(${i+rPos}) = ${pI} ${pI >= pJ ? '≥' : '<'} ${pJ} = pri(${j+dPos})  →  ${winner}</div>
-        <div class="row">reaction(${dIn}, ${rIn}, ${i}, ${j}, ${rPos}, ${dPos})</div>
+        <div class="row dim" style="margin-top:6px">pri(${i+hInitCol}) = ${pI} ${pI >= pJ ? '≥' : '<'} ${pJ} = pri(${j+vInitRow})  →  ${winner}</div>
+        <div class="row">reaction(${dIn}, ${rIn}, ${i}, ${j}, ${hInitCol}, ${vInitRow})</div>
         <div class="row dim">→ [${dOut}, ${rOut}]</div>
     `;
 }
@@ -364,13 +364,13 @@ function clearInfo() {
 function render() {
     const nR = +inputs.numRows.value;
     const nC = +inputs.numCols.value;
-    const rPos = +inputs.rightsPos.value;
-    const dPos = +inputs.downsPos.value;
+    const hInitCol = +inputs.hInitCol.value;
+    const vInitRow = +inputs.vInitRow.value;
     const rHigh = inputs.rightHigh.checked;
 
-    callSig.textContent = `propagate(${nR}, ${nC}, ${rPos}, ${dPos}, ${rHigh})`;
+    callSig.textContent = `propagate(${nR}, ${nC}, ${hInitCol}, ${vInitRow}, ${rHigh})`;
 
-    const [dm, rm] = propagate(nR, nC, rPos, dPos, rHigh);
+    const [dm, rm] = propagate(nR, nC, hInitCol, vInitRow, rHigh);
 
     const w = 2 * PAD + nC * S;
     const h = 2 * PAD + nR * S;
@@ -414,7 +414,7 @@ function render() {
                 fill: val ? '#dbeafe' : '#fff',
                 stroke: '#58a6ff',
             });
-            poly.addEventListener('mouseenter', () => showDownInfo(j, i, val, rPos, dPos));
+            poly.addEventListener('mouseenter', () => showDownInfo(j, i, val, hInitCol, vInitRow));
             poly.addEventListener('mouseleave', clearInfo);
             svg.appendChild(poly);
 
@@ -447,7 +447,7 @@ function render() {
                 fill: val ? '#fde8d8' : '#fff',
                 stroke: '#f0883e',
             });
-            poly.addEventListener('mouseenter', () => showRightInfo(i, j, val, rPos, dPos));
+            poly.addEventListener('mouseenter', () => showRightInfo(i, j, val, hInitCol, vInitRow));
             poly.addEventListener('mouseleave', clearInfo);
             svg.appendChild(poly);
 
@@ -476,13 +476,13 @@ function render() {
                 points: diamondPts(cx, cy),
                 class: 'cell-zone',
             });
-            zone.addEventListener('mouseenter', () => showCellInfo(i, j, dm, rm, rPos, dPos, rHigh));
+            zone.addEventListener('mouseenter', () => showCellInfo(i, j, dm, rm, hInitCol, vInitRow, rHigh));
             zone.addEventListener('mouseleave', clearInfo);
             svg.appendChild(zone);
 
             if (showPri) {
-                const pI = pri(i + rPos);
-                const pJ = pri(j + dPos);
+                const pI = pri(i + hInitCol);
+                const pJ = pri(j + vInitRow);
                 const dw = rHigh ? pI > pJ : pI >= pJ;
                 const cmp = rHigh ? '>' : '≥';
                 svg.appendChild(Object.assign(svgEl('text', {

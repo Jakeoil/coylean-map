@@ -28,7 +28,7 @@ position offsets). This is the correct factoring of the problem.
 
 ```javascript
 function reaction(vertical, horizontal, i, j) {
-    let downWins = pri(i + rightsPos) >= pri(j + downsPos);
+    let downWins = pri(i + hInitCol) >= pri(j + vInitRow);
     ...
 }
 ```
@@ -101,29 +101,29 @@ plan:
 
 ```javascript
 // Future, do the same for the swLoop where we go left. -i.
-//   rightsPos = (-rightsPos + 1)
+//   hInitCol = (-hInitCol + 1)
 // The nwLoop, where we go left and up.
-//   rightsPos = (-rightsPos + 1)
-//   downsPos = (-downsPos + 1)
+//   hInitCol = (-hInitCol + 1)
+//   vInitRow = (-vInitRow + 1)
 // The neLoop, where we go up.
-//   downsPos = (-downsPos + 1)
+//   vInitRow = (-vInitRow + 1)
 ```
 
 These were never implemented, but the insight is correct and profound.
 
-## rightsPos and downsPos: The Universe in Two Variables
+## hInitCol and vInitRow: The Universe in Two Variables
 
 These are the most important variables in the file.
 
 ```javascript
-let rightsPos = 1;
-let downsPos = 1;
+let hInitCol = 1;
+let vInitRow = 1;
 ```
 
 They enter the algorithm at exactly one point — the priority comparison:
 
 ```javascript
-let downWins = pri(i + rightsPos) >= pri(j + downsPos);
+let downWins = pri(i + hInitCol) >= pri(j + vInitRow);
 ```
 
 With the defaults (1, 1), this is `pri(i+1) >= pri(j+1)`. The "+1" offset
@@ -132,9 +132,9 @@ priority 0 (the lowest). The axis line at position 0 (with its infinite
 priority) is **excluded** from the computation. The grid starts one step
 past the axis.
 
-### What rightsPos=0 means
+### What hInitCol=0 means
 
-Setting `rightsPos=0` changes the comparison to `pri(i) >= pri(j+1)`.
+Setting `hInitCol=0` changes the comparison to `pri(i) >= pri(j+1)`.
 Now position i=0 maps to `pri(0) = 100` (maximum priority). **The vertical
 axis line is included in the grid.** Column 0 has infinite priority and
 will never be flipped — it's a permanent vertical line, exactly the
@@ -142,7 +142,7 @@ will never be flipped — it's a permanent vertical line, exactly the
 
 ### The four quadrants
 
-| rightsPos | downsPos | Direction   | Quadrant     | Universe seed |
+| hInitCol | vInitRow | Direction   | Quadrant     | Universe seed |
 | --------- | -------- | ----------- | ------------ | ------------- |
 | 1         | 1        | SE (+x, +y) | bottom-right | F (V₇₇)       |
 | 0         | 1        | SW (−x, +y) | bottom-left  | J×sₕ (V₇₃)    |
@@ -151,7 +151,7 @@ will never be flipped — it's a permanent vertical line, exactly the
 
 Each quadrant is computed by:
 
-1. Setting rightsPos and downsPos to include or exclude each axis
+1. Setting hInitCol and vInitRow to include or exclude each axis
 2. Flipping the iteration direction for each axis that's included
    (propagate away from the origin, not toward it)
 
@@ -163,8 +163,8 @@ But 0 and 1 are just the most natural values. These variables are
 
 ### Beyond 0 and 1: the full parameter space
 
-`rightsPos` and `downsPos` can be any integer. The priority comparison
-`pri(i + rightsPos) >= pri(j + downsPos)` shifts the entire priority
+`hInitCol` and `vInitRow` can be any integer. The priority comparison
+`pri(i + hInitCol) >= pri(j + vInitRow)` shifts the entire priority
 grid by an arbitrary offset in each direction.
 
 With the default (1, 1), the priority landscape is:
@@ -178,7 +178,7 @@ The clean binary hierarchy: every 2nd position is priority 0, every 4th
 is priority 1, every 8th is priority 2. This is what produces the
 regular, self-similar Coylean map with its 4-cell sections.
 
-With rightsPos=3, the landscape shifts:
+With hInitCol=3, the landscape shifts:
 
 ```
 i+3:  3  4  5  6  7  8  9  10 ...
@@ -196,7 +196,7 @@ The **evenness of the offset determines how strange the map becomes**:
 - **Even offsets** (2, 4, 8, ...): The offset is itself divisible by 2,
   so `pri(i + offset)` still has some alignment with the binary hierarchy.
   Higher powers of 2 produce more regular maps. In particular,
-  `rightsPos = 2^k` shifts by a full period at level k, preserving the
+  `hInitCol = 2^k` shifts by a full period at level k, preserving the
   structure at scales larger than 2^k.
 
 - **Odd offsets** (1, 3, 5, 7, ...): The least even values. `pri(i + odd)`
@@ -204,7 +204,7 @@ The **evenness of the offset determines how strange the map becomes**:
   than 1 produce maps where the first section boundary falls in an
   unexpected place, breaking the regular tiling.
 
-- **rightsPos=0 and rightsPos=1** are the two values that straddle the
+- **hInitCol=0 and hInitCol=1** are the two values that straddle the
   highest-priority line (position 0, the axis). `pos=1` places you one
   step to the right of the axis; `pos=0` includes the axis itself.
   These are the two "natural" positions — one on each side of the
@@ -212,7 +212,7 @@ The **evenness of the offset determines how strange the map becomes**:
   universe quadrants.
 
 - **Values near highly even numbers** get local relief. For example,
-  `rightsPos=15` or `rightsPos=16` are near the priority-4 line at
+  `hInitCol=15` or `hInitCol=16` are near the priority-4 line at
   position 16. The map is disrupted globally but has local regularity
   near that high-priority boundary — as if the offset found a smaller
   "axis" to orbit around. The further from any power of 2, the wilder
@@ -259,9 +259,9 @@ This means the two "infinite priority" values are duals:
 - **0** has infinite evenness (all trailing zeros) — the standard axis
 - **−1** has infinite oddness (all trailing ones) — the "odd axis"
 
-And `rightsPos` connects them: `pri(i + 1)` is the evenness of `i + 1`,
+And `hInitCol` connects them: `pri(i + 1)` is the evenness of `i + 1`,
 which equals the oddness of `i`. So the standard Coylean map with
-`rightsPos=1` is equivalently computing **oddness-based** priorities
+`hInitCol=1` is equivalently computing **oddness-based** priorities
 on the raw grid positions. The "+1" offset converts the evenness function
 into an oddness function.
 
@@ -285,12 +285,12 @@ first row. The initial "all true" IS the d[0]=true seed, already expanded.
 
 This explains why `r[0] = true` (the "horizontal seed") isn't an
 independent variable in the standard algorithm. With `d[0] = true` and
-`rightsPos=1`, the vertical seed at position 0 has maximum priority. It
+`hInitCol=1`, the vertical seed at position 0 has maximum priority. It
 flips every horizontal arrow that passes through it. Setting `r[0]` to
 true or false before the loop doesn't matter — it gets immediately
 overwritten by the interaction with `d[0]`.
 
-The horizontal seed becomes meaningful only when `downsPos=0`, which
+The horizontal seed becomes meaningful only when `vInitRow=0`, which
 includes the horizontal axis line at maximum priority. In that
 configuration, both axis lines are permanent structures, and their
 intersection at the origin IS the Coylean seed.
@@ -299,8 +299,8 @@ intersection at the origin IS the Coylean seed.
 
 | Variable         | Line | Default | Role                                                   |
 | ---------------- | ---- | ------- | ------------------------------------------------------ |
-| `rightsPos`      | 112  | 1       | Horizontal priority offset (0=include axis, 1=exclude) |
-| `downsPos`       | 113  | 1       | Vertical priority offset (0=include axis, 1=exclude)   |
+| `hInitCol`      | 112  | 1       | Horizontal priority offset (0=include axis, 1=exclude) |
+| `vInitRow`       | 113  | 1       | Vertical priority offset (0=include axis, 1=exclude)   |
 | `SIZE`           | 59   | 65      | Grid dimension. 65 = 2⁶+1, an order 6 map              |
 | `SCALE`          | 86   | 8       | Pixel size per cell                                    |
 | `feature_active` | 13   | false   | Toggle: exploration vs legacy rendering                |
@@ -310,7 +310,7 @@ intersection at the origin IS the Coylean seed.
 
 This follows the Coylean dimension rule: order n requires 2ⁿ + 1 cells
 per axis, not 2ⁿ. The "+1" accounts for the boundary cell — or
-equivalently, for the axis line that `rightsPos`/`downsPos` can include
+equivalently, for the axis line that `hInitCol`/`vInitRow` can include
 or exclude.
 
 ### The Row and Col classes
@@ -345,14 +345,14 @@ quadrant (+i, +j), and we want to continue it westward (−i direction).
 j = 0, 1, 2, ..., with initial conditions: top row all true, left column
 all true. These represent arrows arriving from the axis boundary.
 
-At each cell, `reaction()` asks: `pri(i + rightsPos) >= pri(j + downsPos)?`
+At each cell, `reaction()` asks: `pri(i + hInitCol) >= pri(j + vInitRow)?`
 
 The entire map structure is encoded in this priority comparison.
 
 ### The axis as a mirror
 
 The axis line lives at the position where `pri() = ∞` — i.e., where
-`i + rightsPos = 0`, or `i = -rightsPos`. With the standard `rightsPos=1`,
+`i + hInitCol = 0`, or `i = -hInitCol`. With the standard `hInitCol=1`,
 the axis is at global position i = −1, one step left of the grid's
 origin.
 
@@ -375,11 +375,11 @@ map them to global positions going left).
 **2. Shift the priority offset.** The original comments have the formula:
 
 ```
-rightsPos_west = (-rightsPos + 1)
+hInitCol_west = (-hInitCol + 1)
 ```
 
 This toggles between 0 and 1: if the SE quadrant excludes the axis
-(`rightsPos=1`), the SW quadrant includes it (`rightsPos=0`), and vice
+(`hInitCol=1`), the SW quadrant includes it (`hInitCol=0`), and vice
 versa. The two quadrants share the axis boundary between them — one must
 include it, the other must not, to avoid double-counting.
 
@@ -396,7 +396,7 @@ The priority function has a key property: `pri(-n) = pri(n)` for all
 nonzero n (since −n and n have the same power-of-2 factorization). This
 means the priority landscape is **symmetric around 0**.
 
-For the SE quadrant with `rightsPos=1`, the priority sequence at
+For the SE quadrant with `hInitCol=1`, the priority sequence at
 columns 0, 1, 2, 3, ... is:
 
 ```
@@ -404,7 +404,7 @@ pri(0+1), pri(1+1), pri(2+1), pri(3+1) = pri(1), pri(2), pri(3), pri(4)
                                         = 0, 1, 0, 2
 ```
 
-For the SW quadrant going left with `rightsPos=0`, the priority sequence
+For the SW quadrant going left with `hInitCol=0`, the priority sequence
 at columns 0, 1, 2, 3, ... (mapped to global positions 0, −1, −2, −3) is:
 
 ```
@@ -418,7 +418,7 @@ prepended. The axis is the hinge that connects the two halves.
 
 ### The four continuations
 
-| Direction   | rightsPos | downsPos | Axis included |
+| Direction   | hInitCol | vInitRow | Axis included |
 | ----------- | --------- | -------- | ------------- |
 | SE (+i, +j) | 1         | 1        | neither       |
 | SW (−i, +j) | 0         | 1        | vertical      |
@@ -477,7 +477,7 @@ analytic continuation.
 
 `coyleanExploration` is the right architecture: separate computation from
 rendering, factor the algorithm into a pure `reaction()` function, and
-parameterize the quadrant selection with `rightsPos` and `downsPos`.
+parameterize the quadrant selection with `hInitCol` and `vInitRow`.
 
 The four-quadrant universe that we built in the explorer page using the
 2×2 seed (J | M / J×sₕ | F) is the same thing this code expresses with
@@ -507,7 +507,7 @@ Strategy: Four quadrants, one axis
     ─────────┼──────────→ E
              │
       SW     │     SE
-     (0,1)   │   (1,1)     ← (rightsPos, downsPos)
+     (0,1)   │   (1,1)     ← (hInitCol, vInitRow)
              │
              S
 
@@ -550,8 +550,8 @@ Signature
    NE → flip rows into global [+1..+R, −R..0]
    NW → flip both into global [−R..0, −R..0]
    Axis ownership:
-   • Vertical axis (col 0): from SW or NW (rightsPos = 0)
-   • Horizontal axis (row 0): from NE or NW (downsPos = 0)
+   • Vertical axis (col 0): from SW or NW (hInitCol = 0)
+   • Horizontal axis (row 0): from NE or NW (vInitRow = 0)
    • Origin (0,0): from NW (both = 0)
 
 ### Why the flips work
@@ -578,8 +578,8 @@ flipped quadrant's priority landscape is correct.
 
 What reaction() needs
 
-No changes. It already takes (vertical, horizontal, i, j, rightsPos,
-downsPos) — the offset parameter handles everything. The only new
+No changes. It already takes (vertical, horizontal, i, j, hInitCol,
+vInitRow) — the offset parameter handles everything. The only new
 concern is the assembly step, which is pure index arithmetic.
 
 ### Alternative: direct global iteration
