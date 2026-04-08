@@ -43,7 +43,15 @@ export class Col extends Array {
  * The standard map uses (1, 1). Other values shift the
  * priority landscape, producing different maps.
  */
-export function reaction(vertical, horizontal, i, j, hInitCol, vInitRow, rightHigh = false) {
+export function reaction(
+    vertical,
+    horizontal,
+    i,
+    j,
+    hInitCol,
+    vInitRow,
+    rightHigh = false,
+) {
     if (!horizontal && !vertical) {
         return [false, false];
     }
@@ -81,7 +89,13 @@ export function reaction(vertical, horizontal, i, j, hInitCol, vInitRow, rightHi
  * @param {number} vInitRow   - vertical priority offset (initial row)
  * @returns {[Row[], Col[]]}  - [downMatrix, rightMatrix]
  */
-export function propagate(numRows, numColumns, hInitCol, vInitRow, rightHigh = false) {
+export function propagate(
+    numRows,
+    numColumns,
+    hInitCol,
+    vInitRow,
+    rightHigh = false,
+) {
     const initRow = new Row(numColumns).fill(true);
     const downMatrix = [...Array(numRows + 1)].map(() => new Row());
     const rightMatrix = [...Array(numColumns + 1)].map(() => new Col());
@@ -90,16 +104,15 @@ export function propagate(numRows, numColumns, hInitCol, vInitRow, rightHigh = f
     for (let j = 0; j < numRows; j++) {
         rightMatrix[0][j] = true;
         for (let i = 0; i < numColumns; i++) {
-            [downMatrix[j + 1][i], rightMatrix[i + 1][j]] =
-                reaction(
-                    downMatrix[j][i],
-                    rightMatrix[i][j],
-                    i,
-                    j,
-                    hInitCol,
-                    vInitRow,
-                    rightHigh,
-                );
+            [downMatrix[j + 1][i], rightMatrix[i + 1][j]] = reaction(
+                downMatrix[j][i],
+                rightMatrix[i][j],
+                i,
+                j,
+                hInitCol,
+                vInitRow,
+                rightHigh,
+            );
         }
     }
     return [downMatrix, rightMatrix];
