@@ -2,6 +2,8 @@
 //  Coylean Glyphs — 4×4 Section Catalog
 // ═══════════════════════════════════════════════════
 
+import { pri, propagateFromBoundary } from "../coylean-explorer/coylean-core.js";
+
 // ── Baby Blocks (lazy-loaded) ──
 let babyBlocks = null;
 let useBabyBlocks = false;
@@ -15,25 +17,11 @@ const NUM_CELLS = 3;
 const GRID_CELLS = NUM_CELLS + 1; // includes exit segment column/row
 const CANVAS_SIZE = CELL_PX * GRID_CELLS + MARGIN * 2;
 
-// ── Coylean Algorithm (duplicated from coylean.js — no module system) ──
-
-function computeMaxPri(ds, rs) {
-    if (ds < rs) ds = rs;
-    for (let i = 0; i < 32; i++) {
-        if (ds < 1) return i;
-        ds = Math.floor(ds / 2);
-    }
-    return 32;
-}
-
-const MAX_PRI = computeMaxPri(NUM_CELLS, NUM_CELLS);
-
-function priority(i) {
-    for (let j = 0; j < MAX_PRI; j++) {
-        if (i % 2 !== 0) return j;
-        i = Math.floor(i / 2);
-    }
-    return MAX_PRI;
+// Boundary inputs for a 3-bit code: bit i becomes initBoundary[i].
+function bitsToBoundary(code, n) {
+    const arr = new Array(n);
+    for (let i = 0; i < n; i++) arr[i] = !!(code & (1 << i));
+    return arr;
 }
 
 // ── Glyph Renderer — uses the real Coylean algorithm ──
@@ -89,14 +77,6 @@ function drawGlyph(canvas, downCode, rightCode, verticalWinsTies, fTransform) {
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-    // Initialize arrows from the 3-bit codes
-    const downArrows = [!!(downCode & 1), !!(downCode & 2), !!(downCode & 4)];
-    const rightArrows = [
-        !!(rightCode & 1),
-        !!(rightCode & 2),
-        !!(rightCode & 4),
-    ];
-
     // Convert grid position to pixel coordinate
     function px(gridPos) {
         return MARGIN + gridPos * CELL_PX;
@@ -113,77 +93,49 @@ function drawGlyph(canvas, downCode, rightCode, verticalWinsTies, fTransform) {
     ctx.strokeStyle = "#000";
     ctx.lineWidth = 1.2;
 
-    let y_place = 0;
-    for (let y = 0; y < NUM_CELLS; y++) {
-        let x_place = 0;
+    // Propagate the 3×3 glyph using the shared core. hInitCol/vInitRow=1
+    // matches the original priority(x+1)/priority(y+1) tie-breaking.
+    const [downMatrix, rightMatrix] = propagateFromBoundary(
+        bitsToBoundary(downCode, NUM_CELLS),
+        bitsToBoundary(rightCode, NUM_CELLS),
+        1,
+        1,
+        !verticalWinsTies,
+    );
+
+    // Vertical segments at col x+1, rows y..y+1
+    for (let y = 0; y <= NUM_CELLS; y++) {
         for (let x = 0; x < NUM_CELLS; x++) {
-            let down = downArrows[x];
-            let right = rightArrows[y];
-
-            const downPri = priority(x + 1);
-            const rightPri = priority(y + 1);
-
-            if (verticalWinsTies ? downPri >= rightPri : downPri > rightPri) {
-                if (down) right = !right;
-            } else {
-                if (right) down = !down;
-            }
-
-            const cx = px(0) + x_place;
-            const cy = px(0) + y_place;
-            const x_r = cx + CELL_PX;
-            const y_b = cy + CELL_PX;
-
-            if (downArrows[x]) {
+            if (downMatrix[y][x]) {
+                const x_r = px(x + 1);
+                const cy = px(y);
                 ctx.beginPath();
                 ctx.moveTo(x_r, cy);
-                ctx.lineTo(x_r, y_b);
+                ctx.lineTo(x_r, cy + CELL_PX);
                 ctx.stroke();
             }
-            if (rightArrows[y]) {
+        }
+    }
+    // Horizontal segments at row y+1, cols x..x+1
+    for (let x = 0; x <= NUM_CELLS; x++) {
+        for (let y = 0; y < NUM_CELLS; y++) {
+            if (rightMatrix[x][y]) {
+                const cx = px(x);
+                const y_b = px(y + 1);
                 ctx.beginPath();
                 ctx.moveTo(cx, y_b);
-                ctx.lineTo(x_r, y_b);
+                ctx.lineTo(cx + CELL_PX, y_b);
                 ctx.stroke();
             }
-
-            // Update arrows for next iteration
-            downArrows[x] = down;
-            rightArrows[y] = right;
-            x_place += CELL_PX;
-        }
-
-        // Draw the final right value exiting the row
-        if (rightArrows[y]) {
-            const cx = px(0) + x_place;
-            const cy = px(0) + y_place;
-            const y_b = cy + CELL_PX;
-            ctx.beginPath();
-            ctx.moveTo(cx, y_b);
-            ctx.lineTo(cx + CELL_PX, y_b);
-            ctx.stroke();
-        }
-
-        y_place += CELL_PX;
-    }
-
-    for (let x = 0; x < NUM_CELLS; x++) {
-        if (downArrows[x]) {
-            const x_r = px(0) + (x + 1) * CELL_PX;
-            const cy = px(0) + y_place;
-            ctx.beginPath();
-            ctx.moveTo(x_r, cy);
-            ctx.lineTo(x_r, cy + CELL_PX);
-            ctx.stroke();
         }
     }
 
-    // Output dots
+    // Output dots: final row of downMatrix, final column of rightMatrix
     for (let y = 0; y < 3; y++) {
-        drawDot(ctx, px(GRID_CELLS), px(y + 1), rightArrows[y]);
+        drawDot(ctx, px(GRID_CELLS), px(y + 1), rightMatrix[NUM_CELLS][y]);
     }
     for (let x = 0; x < 3; x++) {
-        drawDot(ctx, px(x + 1), px(GRID_CELLS), downArrows[x]);
+        drawDot(ctx, px(x + 1), px(GRID_CELLS), downMatrix[NUM_CELLS][x]);
     }
 
     // Letter overlay
@@ -316,36 +268,25 @@ function buildGrid(tableId, prefix, verticalWinsTies) {
 //   s_d2 : v'[a][b] = h[3-b][2-a],   h'[a][b] = v[2-b][3-a]
 
 function computePattern(downCode, rightCode, verticalWinsTies) {
-    const downArrows = [!!(downCode & 1), !!(downCode & 2), !!(downCode & 4)];
-    const rightArrows = [
-        !!(rightCode & 1),
-        !!(rightCode & 2),
-        !!(rightCode & 4),
-    ];
-
+    const [downMatrix, rightMatrix] = propagateFromBoundary(
+        bitsToBoundary(downCode, NUM_CELLS),
+        bitsToBoundary(rightCode, NUM_CELLS),
+        1,
+        1,
+        !verticalWinsTies,
+    );
+    // v[x][y] = vertical at col x+1, row y; h[x][y] = horizontal at row y+1, col x
     const v = Array.from({ length: 3 }, () => Array(4).fill(false));
     const h = Array.from({ length: 4 }, () => Array(3).fill(false));
-
-    for (let y = 0; y < 3; y++) {
+    for (let y = 0; y < 4; y++) {
         for (let x = 0; x < 3; x++) {
-            let down = downArrows[x];
-            let right = rightArrows[y];
-            const downPri = priority(x + 1);
-            const rightPri = priority(y + 1);
-            if (verticalWinsTies ? downPri >= rightPri : downPri > rightPri) {
-                if (down) right = !right;
-            } else {
-                if (right) down = !down;
-            }
-            if (downArrows[x]) v[x][y] = true;
-            if (rightArrows[y]) h[x][y] = true;
-            downArrows[x] = down;
-            rightArrows[y] = right;
+            v[x][y] = !!downMatrix[y][x];
         }
-        if (rightArrows[y]) h[3][y] = true;
     }
-    for (let x = 0; x < 3; x++) {
-        if (downArrows[x]) v[x][3] = true;
+    for (let x = 0; x < 4; x++) {
+        for (let y = 0; y < 3; y++) {
+            h[x][y] = !!rightMatrix[x][y];
+        }
     }
     return { v, h };
 }
@@ -519,121 +460,103 @@ function orbitKey(cls) {
 
 // ── Coylean Map ──
 
-function drawCoyleanMap(canvasEl, N, cell, opts) {
+function drawCoyleanMap(canvasEl, Nr, Nc, cell, opts) {
     const mapBB = opts && opts.babyBlocks;
     const mapBBOutline = opts ? opts.outline : true;
-    const M = N + 1;
-    const maxP = computeMaxPri(M, M);
-    const size = M * cell;
-    canvasEl.width = canvasEl.height = size;
-
-    function pri(i) {
-        for (let j = 0; j < maxP; j++) {
-            if (i % 2 !== 0) return j;
-            i = Math.floor(i / 2);
-        }
-        return maxP;
-    }
+    const horizontalWinsTies = !!(opts && opts.horizontalWinsTies);
+    const Mr = Nr + 1;
+    const Mc = Nc + 1;
+    const w = Mc * cell;
+    const h = Mr * cell;
+    canvasEl.width = w;
+    canvasEl.height = h;
 
     const ctx = canvasEl.getContext("2d");
     ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, size, size);
+    ctx.fillRect(0, 0, w, h);
 
-    const d = new Array(M).fill(false);
-    const r = new Array(M).fill(false);
-    d[0] = true;
+    // Seed: SE-patch boundary input from the implicit larger map.
+    // V uses a single down-arrow at col 0; H is the backslash dual,
+    // so it uses a single right-arrow at row 0.
+    const initDown = new Array(Mc).fill(false);
+    const initRight = new Array(Mr).fill(false);
+    if (horizontalWinsTies) initRight[0] = true;
+    else initDown[0] = true;
+
+    // hInitCol=vInitRow=0 keeps the axis cells (priority pri(0)=∞) as the
+    // first row/column, matching glyphs.js's pri(x)/pri(y) convention.
+    const [downMatrix, rightMatrix] = propagateFromBoundary(
+        initDown,
+        initRight,
+        0,
+        0,
+        horizontalWinsTies,
+    );
 
     const lw = (cell * 1.2) / CELL_PX;
     ctx.lineWidth = lw;
 
-    for (let y = 0; y < M; y++) {
+    // Section bookkeeping: capture input codes during the same pass that
+    // draws segments. Each section is a 4×4 block whose interior is a 3×3
+    // glyph; rowInSec/colInSec ∈ {0,1,2} are interior, ==3 is the exit edge.
+    const SEC = 4;
+    const NSr = Nr / SEC;
+    const NSc = Nc / SEC;
+    const secCodes = Array.from({ length: NSr }, () =>
+        Array.from({ length: NSc }, () => [0, 0]),
+    );
+
+    for (let y = 0; y < Mr; y++) {
         const rp = pri(y);
-        for (let x = 0; x < M; x++) {
-            const preD = d[x];
-            const preR = r[y];
+        for (let x = 0; x < Mc; x++) {
+            const preD = !!downMatrix[y][x];
+            const preR = !!rightMatrix[x][y];
             const dp = pri(x);
-
-            if (dp >= rp) {
-                if (preD) r[y] = !r[y];
-            } else {
-                if (preR) d[x] = !d[x];
-            }
-
-            const xr = (x + 1) * cell;
-            const yb = (y + 1) * cell;
 
             if (preD) {
                 ctx.strokeStyle = dp < 2 ? "#90caf9" : "#000";
                 ctx.beginPath();
-                ctx.moveTo(xr, y * cell);
-                ctx.lineTo(xr, yb);
+                ctx.moveTo((x + 1) * cell, y * cell);
+                ctx.lineTo((x + 1) * cell, (y + 1) * cell);
                 ctx.stroke();
             }
             if (preR) {
                 ctx.strokeStyle = rp < 2 ? "#90caf9" : "#000";
                 ctx.beginPath();
-                ctx.moveTo(x * cell, yb);
-                ctx.lineTo(xr, yb);
+                ctx.moveTo(x * cell, (y + 1) * cell);
+                ctx.lineTo((x + 1) * cell, (y + 1) * cell);
                 ctx.stroke();
             }
         }
     }
 
-    // Find all sections matching V77's orbit and overlay F
-    // Re-run algorithm to capture section input codes
-    const SEC = 4;
-    const NS = N / SEC; // 8 sections per axis
-    const secCodes = Array.from({ length: NS }, () =>
-        Array.from({ length: NS }, () => [0, 0]),
-    );
-    {
-        const d2 = new Array(M).fill(false);
-        const r2 = new Array(M).fill(false);
-        d2[0] = true;
-
-        for (let y = 0; y < M; y++) {
-            const rp2 = pri(y);
-            const yRel = y - 1;
-            const sr = Math.floor(yRel / SEC);
-            const rowInSec = yRel % SEC;
-            const isSecRow = y >= 1 && sr < NS && rowInSec < 3;
-
-            for (let x = 0; x < M; x++) {
-                const preD2 = d2[x];
-                const preR2 = r2[y];
-                const xRel = x - 1;
-                const sc = Math.floor(xRel / SEC);
-                const colInSec = xRel % SEC;
-
-                // Capture down inputs at first interior row of each section
-                if (
-                    isSecRow &&
-                    rowInSec === 0 &&
-                    x >= 1 &&
-                    sc < NS &&
-                    colInSec < 3
-                ) {
-                    if (preD2) secCodes[sr][sc][0] |= 1 << colInSec;
-                }
-                // Capture right inputs at first interior column of each section
-                if (isSecRow && x >= 1 && sc < NS && colInSec === 0) {
-                    if (preR2) secCodes[sr][sc][1] |= 1 << rowInSec;
-                }
-
-                if (pri(x) >= rp2) {
-                    if (preD2) r2[y] = !r2[y];
-                } else {
-                    if (preR2) d2[x] = !d2[x];
-                }
+    // Capture section input codes by reading the propagated matrices at
+    // the section-boundary cells. For section (sr, sc), the down inputs
+    // come from downMatrix at y = sr*SEC+1 and x = sc*SEC+1+colInSec; the
+    // right inputs come from rightMatrix at x = sc*SEC+1 and y = sr*SEC+1+rowInSec.
+    for (let sr = 0; sr < NSr; sr++) {
+        for (let sc = 0; sc < NSc; sc++) {
+            const y0 = sr * SEC + 1;
+            const x0 = sc * SEC + 1;
+            for (let i = 0; i < 3; i++) {
+                if (downMatrix[y0][x0 + i]) secCodes[sr][sc][0] |= 1 << i;
+                if (rightMatrix[x0][y0 + i]) secCodes[sr][sc][1] |= 1 << i;
             }
         }
     }
 
     // Draw overlays on all sections
-    for (let sr = 0; sr < NS; sr++) {
-        for (let sc = 0; sc < NS; sc++) {
+    for (let sr = 0; sr < NSr; sr++) {
+        for (let sc = 0; sc < NSc; sc++) {
             const [dc, rc] = secCodes[sr][sc];
-            const ft = GLYPH_LETTERS[dc + "," + rc];
+            let ft;
+            if (horizontalWinsTies) {
+                const hft = H_GLYPH_LETTERS[dc + "," + rc];
+                if (hft)
+                    ft = [hft[0], hft[1], hft[2], "rgba(139, 0, 0, 0.5)", true];
+            } else {
+                ft = GLYPH_LETTERS[dc + "," + rc];
+            }
 
             const sx = (sc * SEC + 1) * cell;
             const sy = (sr * SEC + 1) * cell;
@@ -641,55 +564,38 @@ function drawCoyleanMap(canvasEl, N, cell, opts) {
             const cy = sy + 2 * cell;
 
             if (ft) {
-                // Assigned letter: draw brown lines, dots, and transformed letter
-                const da = [!!(dc & 1), !!(dc & 2), !!(dc & 4)];
-                const ra = [!!(rc & 1), !!(rc & 2), !!(rc & 4)];
+                // Assigned letter: draw overlay lines, dots, and transformed letter
+                const [secDown, secRight] = propagateFromBoundary(
+                    bitsToBoundary(dc, 3),
+                    bitsToBoundary(rc, 3),
+                    1,
+                    1,
+                    horizontalWinsTies,
+                );
 
                 ctx.strokeStyle = "#90caf9";
                 ctx.lineWidth = lw;
 
-                for (let gy = 0; gy < 3; gy++) {
+                // Vertical segments at col gx+1 of the section
+                for (let gy = 0; gy <= 3; gy++) {
                     for (let gx = 0; gx < 3; gx++) {
-                        let dv = da[gx],
-                            rv = ra[gy];
-                        const dp = priority(gx + 1),
-                            rp = priority(gy + 1);
-                        if (dp >= rp) {
-                            if (dv) rv = !rv;
-                        } else {
-                            if (rv) dv = !dv;
-                        }
-
-                        const x0 = sx + gx * cell,
-                            y0 = sy + gy * cell;
-                        if (da[gx]) {
+                        if (secDown[gy][gx]) {
                             ctx.beginPath();
-                            ctx.moveTo(x0 + cell, y0);
-                            ctx.lineTo(x0 + cell, y0 + cell);
+                            ctx.moveTo(sx + (gx + 1) * cell, sy + gy * cell);
+                            ctx.lineTo(sx + (gx + 1) * cell, sy + (gy + 1) * cell);
                             ctx.stroke();
                         }
-                        if (ra[gy]) {
-                            ctx.beginPath();
-                            ctx.moveTo(x0, y0 + cell);
-                            ctx.lineTo(x0 + cell, y0 + cell);
-                            ctx.stroke();
-                        }
-                        da[gx] = dv;
-                        ra[gy] = rv;
-                    }
-                    if (ra[gy]) {
-                        ctx.beginPath();
-                        ctx.moveTo(sx + 3 * cell, sy + (gy + 1) * cell);
-                        ctx.lineTo(sx + 4 * cell, sy + (gy + 1) * cell);
-                        ctx.stroke();
                     }
                 }
-                for (let gx = 0; gx < 3; gx++) {
-                    if (da[gx]) {
-                        ctx.beginPath();
-                        ctx.moveTo(sx + (gx + 1) * cell, sy + 3 * cell);
-                        ctx.lineTo(sx + (gx + 1) * cell, sy + 4 * cell);
-                        ctx.stroke();
+                // Horizontal segments at row gy+1 of the section
+                for (let gx = 0; gx <= 3; gx++) {
+                    for (let gy = 0; gy < 3; gy++) {
+                        if (secRight[gx][gy]) {
+                            ctx.beginPath();
+                            ctx.moveTo(sx + gx * cell, sy + (gy + 1) * cell);
+                            ctx.lineTo(sx + (gx + 1) * cell, sy + (gy + 1) * cell);
+                            ctx.stroke();
+                        }
                     }
                 }
 
@@ -709,8 +615,20 @@ function drawCoyleanMap(canvasEl, N, cell, opts) {
                         !!(rc & (1 << i)),
                         dr,
                     );
-                    drawDot(ctx, sx + (i + 1) * cell, sy + 4 * cell, da[i], dr);
-                    drawDot(ctx, sx + 4 * cell, sy + (i + 1) * cell, ra[i], dr);
+                    drawDot(
+                        ctx,
+                        sx + (i + 1) * cell,
+                        sy + 4 * cell,
+                        secDown[3][i],
+                        dr,
+                    );
+                    drawDot(
+                        ctx,
+                        sx + 4 * cell,
+                        sy + (i + 1) * cell,
+                        secRight[3][i],
+                        dr,
+                    );
                 }
 
                 if (mapBB && babyBlocks) {
@@ -727,8 +645,9 @@ function drawCoyleanMap(canvasEl, N, cell, opts) {
                     const mapFontSize = 3 * cell;
                     ctx.save();
                     ctx.translate(cx, cy + mapFontSize * 0.05 * ft[2]);
+                    if (ft[4]) ctx.transform(0, 1, 1, 0, 0, 0);
                     ctx.scale(ft[1], ft[2]);
-                    ctx.fillStyle = "rgba(0, 0, 100, 0.4)";
+                    ctx.fillStyle = ft[3] || "rgba(0, 0, 100, 0.4)";
                     ctx.font =
                         "bold " + mapFontSize + "px Monaco, Menlo, monospace";
                     ctx.textAlign = "center";
@@ -737,12 +656,13 @@ function drawCoyleanMap(canvasEl, N, cell, opts) {
                     ctx.restore();
                 }
             } else {
-                // Unassigned: show V label
+                // Unassigned: show placeholder label
+                const prefix = horizontalWinsTies ? "H" : "V";
                 ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
                 ctx.font = cell * 0.7 + "px Monaco, Menlo, monospace";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
-                ctx.fillText("V" + SUB_DIGITS[dc] + SUB_DIGITS[rc], cx, cy);
+                ctx.fillText(prefix + SUB_DIGITS[dc] + SUB_DIGITS[rc], cx, cy);
             }
         }
     }
@@ -750,91 +670,71 @@ function drawCoyleanMap(canvasEl, N, cell, opts) {
 
 // ── Translation Table ──
 
-function getSectionData(N) {
-    const M = N + 1;
-    const maxP = computeMaxPri(M, M);
-    function pri(i) {
-        for (let j = 0; j < maxP; j++) {
-            if (i % 2 !== 0) return j;
-            i = Math.floor(i / 2);
-        }
-        return maxP;
-    }
+function getSectionData(Nr, Nc, horizontalWinsTies) {
+    const Mr = Nr + 1;
+    const Mc = Nc + 1;
     const SEC = 4;
-    const NS = N / SEC;
-    const codes = Array.from({ length: NS }, () =>
-        Array.from({ length: NS }, () => [0, 0]),
+    const NSr = Nr / SEC;
+    const NSc = Nc / SEC;
+
+    const initDown = new Array(Mc).fill(false);
+    const initRight = new Array(Mr).fill(false);
+    if (horizontalWinsTies) initRight[0] = true;
+    else initDown[0] = true;
+
+    const [downMatrix, rightMatrix] = propagateFromBoundary(
+        initDown,
+        initRight,
+        0,
+        0,
+        horizontalWinsTies,
     );
-    // vBound[sr][sc]: vertical segment between section cols sc and sc+1 at row sr
-    // hBound[sr][sc]: horizontal segment between section rows sr and sr+1 at col sc
-    const vBound = Array.from({ length: NS }, () => Array(NS).fill(false));
-    const hBound = Array.from({ length: NS }, () => Array(NS).fill(false));
 
-    const d = new Array(M).fill(false);
-    const r = new Array(M).fill(false);
-    d[0] = true;
+    const codes = Array.from({ length: NSr }, () =>
+        Array.from({ length: NSc }, () => [0, 0]),
+    );
+    // vBound[sr][sc]: vertical segment at section sc's exit column, row sr
+    // hBound[sr][sc]: horizontal segment at section sr's exit row, col sc
+    const vBound = Array.from({ length: NSr }, () => Array(NSc).fill(false));
+    const hBound = Array.from({ length: NSr }, () => Array(NSc).fill(false));
 
-    for (let y = 0; y < M; y++) {
-        const rp = pri(y);
-        const yRel = y - 1;
-        const sr = Math.floor(yRel / SEC);
-        const rowInSec = yRel % SEC;
-        const isSecRow = y >= 1 && sr < NS && rowInSec < 3;
-
-        for (let x = 0; x < M; x++) {
-            const preD = d[x];
-            const preR = r[y];
-            const xRel = x - 1;
-            const sc = Math.floor(xRel / SEC);
-            const colInSec = xRel % SEC;
-
-            // Capture section input codes
-            if (
-                isSecRow &&
-                rowInSec === 0 &&
-                x >= 1 &&
-                sc < NS &&
-                colInSec < 3
-            ) {
-                if (preD) codes[sr][sc][0] |= 1 << colInSec;
+    for (let sr = 0; sr < NSr; sr++) {
+        for (let sc = 0; sc < NSc; sc++) {
+            const y0 = sr * SEC + 1;
+            const x0 = sc * SEC + 1;
+            // Section input codes: down arrows entering the section's first
+            // interior row, right arrows entering its first interior column.
+            for (let i = 0; i < 3; i++) {
+                if (downMatrix[y0][x0 + i]) codes[sr][sc][0] |= 1 << i;
+                if (rightMatrix[x0][y0 + i]) codes[sr][sc][1] |= 1 << i;
             }
-            if (isSecRow && x >= 1 && sc < NS && colInSec === 0) {
-                if (preR) codes[sr][sc][1] |= 1 << rowInSec;
+            // Boundary segments live at colInSec=3 / rowInSec=3 — the 4th
+            // cell of each section. Match the original semantics: vBound is
+            // true if any cell along the section's exit column has a vertical
+            // arrow; likewise for hBound along the exit row.
+            if (sc < NSc - 1) {
+                let any = false;
+                for (let i = 0; i < 4; i++) {
+                    if (downMatrix[y0 + i][x0 + 3]) {
+                        any = true;
+                        break;
+                    }
+                }
+                vBound[sr][sc] = any;
             }
-
-            // Capture boundary segments (exit lines at section edges)
-            // Vertical boundary: colInSec=3 is the exit column of section sc
-            if (
-                x >= 1 &&
-                colInSec === 3 &&
-                sc < NS - 1 &&
-                y >= 1 &&
-                sr >= 0 &&
-                sr < NS
-            ) {
-                if (preD) vBound[sr][sc] = true;
-            }
-            // Horizontal boundary: rowInSec=3 is the exit row of section sr
-            if (
-                y >= 1 &&
-                rowInSec === 3 &&
-                sr >= 0 &&
-                sr < NS - 1 &&
-                x >= 1 &&
-                sc >= 0 &&
-                sc < NS
-            ) {
-                if (preR) hBound[sr][sc] = true;
-            }
-
-            if (pri(x) >= rp) {
-                if (preD) r[y] = !r[y];
-            } else {
-                if (preR) d[x] = !d[x];
+            if (sr < NSr - 1) {
+                let any = false;
+                for (let i = 0; i < 4; i++) {
+                    if (rightMatrix[x0 + i][y0 + 3]) {
+                        any = true;
+                        break;
+                    }
+                }
+                hBound[sr][sc] = any;
             }
         }
     }
-    return { codes, NS, vBound, hBound };
+    return { codes, NSr, NSc, vBound, hBound };
 }
 
 function glyphLabel(dc, rc) {
@@ -848,12 +748,24 @@ function glyphLabel(dc, rc) {
     return letter;
 }
 
+function hGlyphLabel(dc, rc) {
+    const ft = H_GLYPH_LETTERS[dc + "," + rc];
+    if (!ft) return "H" + SUB_DIGITS[dc] + SUB_DIGITS[rc];
+    const [letter, sx, sy] = ft;
+    const bs = "\\";
+    if (sx === 1 && sy === 1) return letter + bs;
+    if (sx === 1 && sy === -1) return letter + bs + "\u2195";
+    if (sx === -1 && sy === 1) return letter + bs + "\u2194";
+    if (sx === -1 && sy === -1) return letter + bs + "\u27F2";
+    return letter + bs;
+}
+
 function buildTranslationTable(containerId) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    const o5 = getSectionData(32);
-    const o6 = getSectionData(64);
+    const o5 = getSectionData(32, 32, false);
+    const o6 = getSectionData(64, 64, false);
 
     const grid = document.createElement("div");
     grid.className = "trans-grid";
@@ -921,6 +833,97 @@ function buildTranslationTable(containerId) {
     container.appendChild(grid);
 }
 
+// ── V↔H Substitution Rules ──
+//
+// V→H: each V section in 5v expands into a 1×2 horizontal pair of H sections
+// in the asymmetric H-priority intermediate (5h: 32 rows × 64 cols, r[0]=true seed).
+// H→V: each H section in 5h expands into a 2×1 vertical pair of V sections in 6v.
+// Composing V→H→V reproduces the existing 5→6 V→V 2×2 substitution.
+
+function buildSubstitutionRules(vhContainerId, hvContainerId) {
+    const o5 = getSectionData(32, 32, false);
+    const o5h = getSectionData(32, 64, true);
+    const o6 = getSectionData(64, 64, false);
+
+    function makeCard(parentLabel, childLabels, sep, layoutClass, sepClass) {
+        const card = document.createElement("div");
+        card.className = "trans-card";
+        const title = document.createElement("div");
+        title.className = "trans-parent";
+        title.textContent = parentLabel;
+        card.appendChild(title);
+        const box = document.createElement("div");
+        box.className = layoutClass;
+        for (let i = 0; i < childLabels.length; i++) {
+            const cell = document.createElement("div");
+            cell.className =
+                "trans-cell" + (i === 0 && sep ? " " + sepClass : "");
+            cell.textContent = childLabels[i];
+            box.appendChild(cell);
+        }
+        card.appendChild(box);
+        return card;
+    }
+
+    // V → H (1×2 horizontal pair)
+    const vhContainer = document.getElementById(vhContainerId);
+    if (vhContainer) {
+        const grid = document.createElement("div");
+        grid.className = "trans-grid";
+        const seen = new Set();
+        for (let sr = 0; sr < 8; sr++) {
+            for (let sc = 0; sc < 8; sc++) {
+                const [dc, rc] = o5.codes[sr][sc];
+                const parent = glyphLabel(dc, rc);
+                if (seen.has(parent)) continue;
+                seen.add(parent);
+                const ha = o5h.codes[sr][2 * sc];
+                const hb = o5h.codes[sr][2 * sc + 1];
+                const sep = o5h.vBound[sr][2 * sc];
+                grid.appendChild(
+                    makeCard(
+                        parent,
+                        [hGlyphLabel(ha[0], ha[1]), hGlyphLabel(hb[0], hb[1])],
+                        sep,
+                        "trans-1x2",
+                        "border-right",
+                    ),
+                );
+            }
+        }
+        vhContainer.appendChild(grid);
+    }
+
+    // H → V (2×1 vertical pair)
+    const hvContainer = document.getElementById(hvContainerId);
+    if (hvContainer) {
+        const grid = document.createElement("div");
+        grid.className = "trans-grid";
+        const seen = new Set();
+        for (let sr = 0; sr < 8; sr++) {
+            for (let sc = 0; sc < 16; sc++) {
+                const [dc, rc] = o5h.codes[sr][sc];
+                const parent = hGlyphLabel(dc, rc);
+                if (seen.has(parent)) continue;
+                seen.add(parent);
+                const va = o6.codes[2 * sr][sc];
+                const vb = o6.codes[2 * sr + 1][sc];
+                const sep = o6.hBound[2 * sr][sc];
+                grid.appendChild(
+                    makeCard(
+                        parent,
+                        [glyphLabel(va[0], va[1]), glyphLabel(vb[0], vb[1])],
+                        sep,
+                        "trans-2x1",
+                        "border-bottom",
+                    ),
+                );
+            }
+        }
+        hvContainer.appendChild(grid);
+    }
+}
+
 // ── Init ──
 const V_CLASSES = classifyVisualD4(true);
 const H_CLASSES = classifyVisualD4(false);
@@ -967,12 +970,14 @@ assignLetter(H_CLASSES, 6, 1, "S", H_GLYPH_LETTERS, false);
 // Per-map baby blocks state
 const mapBBState = {
     "coylean-map": { bb: false, outline: true },
+    "coylean-map-6h": { bb: false, outline: true },
     "coylean-map-6": { bb: false, outline: true },
 };
 
 const mapConfigs = {
-    "coylean-map": { N: 32, cell: CELL_PX },
-    "coylean-map-6": { N: 64, cell: 8 },
+    "coylean-map": { Nr: 32, Nc: 32, cell: CELL_PX, horizontalWinsTies: false },
+    "coylean-map-6h": { Nr: 64, Nc: 64, cell: 8, horizontalWinsTies: true },
+    "coylean-map-6": { Nr: 64, Nc: 64, cell: 8, horizontalWinsTies: false },
 };
 
 function redrawMap(id) {
@@ -980,9 +985,10 @@ function redrawMap(id) {
     if (!el) return;
     const st = mapBBState[id];
     const cfg = mapConfigs[id];
-    drawCoyleanMap(el, cfg.N, cfg.cell, {
+    drawCoyleanMap(el, cfg.Nr, cfg.Nc, cfg.cell, {
         babyBlocks: st.bb,
         outline: st.outline,
+        horizontalWinsTies: cfg.horizontalWinsTies,
     });
 }
 
@@ -991,6 +997,7 @@ for (const id of Object.keys(mapConfigs)) {
 }
 
 buildTranslationTable("translation-table");
+buildSubstitutionRules("vh-sub-table", "hv-sub-table");
 
 // ── fTransform → D4 name (for baby blocks) ──
 

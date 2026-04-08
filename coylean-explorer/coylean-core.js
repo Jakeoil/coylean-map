@@ -74,14 +74,59 @@ export function reaction(
 }
 
 /**
- * Propagate arrows through a grid, building two boolean matrices.
+ * Propagate arrows through a grid from arbitrary boundary inputs.
  *
  * downMatrix[j][i]  — vertical arrow entering row j at column i
  * rightMatrix[i][j] — horizontal arrow entering column i at row j
  *
+ * The top row of downMatrix and the left column of rightMatrix are
+ * seeded from the supplied initDown / initRight arrays. Grid size is
+ * inferred from their lengths.
+ *
+ * @param {boolean[]} initDown  - top-row down inputs (length = numColumns)
+ * @param {boolean[]} initRight - left-column right inputs (length = numRows)
+ * @param {number}    hInitCol  - horizontal priority offset
+ * @param {number}    vInitRow  - vertical priority offset
+ * @returns {[Row[], Col[]]}    - [downMatrix, rightMatrix]
+ */
+export function propagateFromBoundary(
+    initDown,
+    initRight,
+    hInitCol,
+    vInitRow,
+    rightHigh = false,
+) {
+    const numColumns = initDown.length;
+    const numRows = initRight.length;
+    const downMatrix = [...Array(numRows + 1)].map(() => new Row());
+    const rightMatrix = [...Array(numColumns + 1)].map(() => new Col());
+
+    for (let i = 0; i < numColumns; i++) downMatrix[0][i] = initDown[i];
+    for (let j = 0; j < numRows; j++) rightMatrix[0][j] = initRight[j];
+
+    for (let j = 0; j < numRows; j++) {
+        for (let i = 0; i < numColumns; i++) {
+            [downMatrix[j + 1][i], rightMatrix[i + 1][j]] = reaction(
+                downMatrix[j][i],
+                rightMatrix[i][j],
+                i,
+                j,
+                hInitCol,
+                vInitRow,
+                rightHigh,
+            );
+        }
+    }
+    return [downMatrix, rightMatrix];
+}
+
+/**
+ * Propagate arrows through a grid with all-true boundaries.
+ *
  * Initial conditions: top row all true, left column all true.
  * This is equivalent to the d[0]=true seed after it has propagated
- * through the first row of the standard algorithm.
+ * through the first row of the standard algorithm (the seed at maximum
+ * priority flips r[0]=true, which then flips every d[i] in row 0 to true).
  *
  * @param {number} numRows    - grid height
  * @param {number} numColumns - grid width
@@ -96,26 +141,13 @@ export function propagate(
     vInitRow,
     rightHigh = false,
 ) {
-    const initRow = new Row(numColumns).fill(true);
-    const downMatrix = [...Array(numRows + 1)].map(() => new Row());
-    const rightMatrix = [...Array(numColumns + 1)].map(() => new Col());
-
-    downMatrix[0] = initRow;
-    for (let j = 0; j < numRows; j++) {
-        rightMatrix[0][j] = true;
-        for (let i = 0; i < numColumns; i++) {
-            [downMatrix[j + 1][i], rightMatrix[i + 1][j]] = reaction(
-                downMatrix[j][i],
-                rightMatrix[i][j],
-                i,
-                j,
-                hInitCol,
-                vInitRow,
-                rightHigh,
-            );
-        }
-    }
-    return [downMatrix, rightMatrix];
+    return propagateFromBoundary(
+        new Row(numColumns).fill(true),
+        new Col(numRows).fill(true),
+        hInitCol,
+        vInitRow,
+        rightHigh,
+    );
 }
 
 /**
