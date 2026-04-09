@@ -2,7 +2,7 @@
 
 A fractal pattern generator that creates "Coylean Maps" — geometric patterns produced by recursively subdividing a square with vertical and horizontal lines. Lines stop and continue where they meet perpendicular lines, producing self-similar fractal structures.
 
-This pattern was discovered by Jeff Coyle in the early 1970s, originally drawn by hand, then implemented on Commodore PET, Apple II, and C#/.NET. This repo contains the Android app and a web port.
+This pattern was discovered in late 1970 by Jeff Coyle while exploring the four color theorum. I was fascinated by a method of drawing maps by drawing a continuous self intersecting curve and alternatively drawing and lifting the pen. I became very interested doing this in a square and called it a Coylean Square. An avid reader of Martin Gardner's Scientific American's Mathematical Games, I had dreams that I found something important. I originally explored it by increasingly detailed drawings on graph paper.  This physical attempt is enshrined and an SX70 photograph from 1975. My first computer implementation was on my buddy's Commodore PET using it's character set. Then I got an Apple II in 1978 programmed it in 6502 assembler. Over the years, it became my "Hello World" for learning the basic graphing commands on new computers and languages. Java applets in the web. C#/.NET in Windows. An Android app in Java. My best effort so far was the Coylean Explorer which was on my web site (and Github), in 2022 after I retired. With the advent of Claude Code, I am managing to bring all my ideas together in this project. As my friend Curt said, when he saw the site: Screams Coyle!
 
 ## Web App
 
