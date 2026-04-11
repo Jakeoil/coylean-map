@@ -108,9 +108,15 @@
                 border-radius: 4px;
                 overflow: hidden;
             }
-            .eq-group.both .eq-cell { background: #ede7f6; }
-            .eq-group.v-only .eq-cell { background: #e3f2fd; }
-            .eq-group.h-only .eq-cell { background: #fce4ec; }
+            .eq-group.both .eq-cell {
+                background: #ede7f6;
+            }
+            .eq-group.v-only .eq-cell {
+                background: #e3f2fd;
+            }
+            .eq-group.h-only .eq-cell {
+                background: #fce4ec;
+            }
             .eq-cell {
                 text-align: center;
                 padding: 4px 6px;
@@ -155,6 +161,18 @@
                 width: 64px;
                 height: 48px;
             }
+            .trans-1x2 {
+                display: grid;
+                grid-template-columns: auto auto;
+                width: 64px;
+                height: 24px;
+            }
+            .trans-2x1 {
+                display: grid;
+                grid-template-rows: auto auto;
+                width: 32px;
+                height: 48px;
+            }
             .trans-2x2 .trans-cell {
                 display: flex;
                 align-items: center;
@@ -163,14 +181,19 @@
                 font-weight: bold;
                 color: rgba(0, 0, 100, 0.7);
             }
-            .trans-2x2 .trans-cell.border-right { border-right: 1.5px solid #000; }
-            .trans-2x2 .trans-cell.border-bottom { border-bottom: 1.5px solid #000; }
+            .trans-2x2 .trans-cell.border-right {
+                border-right: 1.5px solid #000;
+            }
+            .trans-2x2 .trans-cell.border-bottom {
+                border-bottom: 1.5px solid #000;
+            }
         </style>
     </head>
     <body>
         <div class="breadcrumb">
-            <a href="../">Coylean Map</a> / Glyphs
-            &nbsp;|&nbsp; <a href="work.html">Work</a>
+            <a href="../">Coylean Map</a> / Glyphs &nbsp;|&nbsp;
+            <a href="work.html">Work</a> |
+            <a href="../substitution/">Substitution</a>
         </div>
 
         <h1>Coylean Glyphs — 4×4 Section Catalog</h1>
@@ -185,13 +208,24 @@
         </p>
 
         <h2>Coylean Map — Order 5</h2>
-        <div style="margin: 8px 0; display: flex; align-items: center; gap: 10px;">
-            <label style="font-size: 0.85rem; cursor: pointer;">
-                <input type="checkbox" class="map-bb-toggle" data-map="coylean-map" />
+        <div
+            style="margin: 8px 0; display: flex; align-items: center; gap: 10px"
+        >
+            <label style="font-size: 0.85rem; cursor: pointer">
+                <input
+                    type="checkbox"
+                    class="map-bb-toggle"
+                    data-map="coylean-map"
+                />
                 Baby Blocks
             </label>
-            <label style="font-size: 0.85rem; cursor: pointer;">
-                <input type="checkbox" class="map-bb-outline" data-map="coylean-map" checked />
+            <label style="font-size: 0.85rem; cursor: pointer">
+                <input
+                    type="checkbox"
+                    class="map-bb-outline"
+                    data-map="coylean-map"
+                    checked
+                />
                 Outline
             </label>
         </div>
@@ -199,20 +233,72 @@
             <canvas id="coylean-map"></canvas>
         </div>
 
-        <h2>Coylean Map — Order 6</h2>
-        <div style="margin: 8px 0; display: flex; align-items: center; gap: 10px;">
-            <label style="font-size: 0.85rem; cursor: pointer;">
-                <input type="checkbox" class="map-bb-toggle" data-map="coylean-map-6" />
+        <h2>Coylean Map — Order 6h</h2>
+        <div
+            style="margin: 8px 0; display: flex; align-items: center; gap: 10px"
+        >
+            <label style="font-size: 0.85rem; cursor: pointer">
+                <input
+                    type="checkbox"
+                    class="map-bb-toggle"
+                    data-map="coylean-map-6h"
+                />
                 Baby Blocks
             </label>
-            <label style="font-size: 0.85rem; cursor: pointer;">
-                <input type="checkbox" class="map-bb-outline" data-map="coylean-map-6" checked />
+            <label style="font-size: 0.85rem; cursor: pointer">
+                <input
+                    type="checkbox"
+                    class="map-bb-outline"
+                    data-map="coylean-map-6h"
+                    checked
+                />
+                Outline
+            </label>
+        </div>
+        <div class="figure">
+            <canvas id="coylean-map-6h"></canvas>
+        </div>
+
+        <h2>Coylean Map — Order 6</h2>
+        <div
+            style="margin: 8px 0; display: flex; align-items: center; gap: 10px"
+        >
+            <label style="font-size: 0.85rem; cursor: pointer">
+                <input
+                    type="checkbox"
+                    class="map-bb-toggle"
+                    data-map="coylean-map-6"
+                />
+                Baby Blocks
+            </label>
+            <label style="font-size: 0.85rem; cursor: pointer">
+                <input
+                    type="checkbox"
+                    class="map-bb-outline"
+                    data-map="coylean-map-6"
+                    checked
+                />
                 Outline
             </label>
         </div>
         <div class="figure">
             <canvas id="coylean-map-6"></canvas>
         </div>
+
+        <h2>Substitution Rule — V → H (1×2 horizontal)</h2>
+        <p class="subtitle">
+            Each V-glyph substitutes into a horizontal pair of H-glyphs. A
+            vertical line between the children marks a section boundary in
+            the asymmetric H-priority intermediate.
+        </p>
+        <div class="grid-wrapper" id="vh-sub-table"></div>
+
+        <h2>Substitution Rule — H → V (2×1 vertical)</h2>
+        <p class="subtitle">
+            Each H-glyph substitutes into a vertical pair of V-glyphs.
+            Composing V → H → V reproduces the 5 → 6 substitution below.
+        </p>
+        <div class="grid-wrapper" id="hv-sub-table"></div>
 
         <h2>Translation Table — Order 5 → 6</h2>
         <p class="subtitle">
@@ -222,12 +308,19 @@
         </p>
         <div class="grid-wrapper" id="translation-table"></div>
 
-        <div style="margin: 24px 0 12px; display: flex; align-items: center; gap: 10px;">
-            <label style="font-size: 0.85rem; cursor: pointer;">
+        <div
+            style="
+                margin: 24px 0 12px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            "
+        >
+            <label style="font-size: 0.85rem; cursor: pointer">
                 <input type="checkbox" id="baby-blocks-toggle" />
                 Baby Blocks
             </label>
-            <label style="font-size: 0.85rem; cursor: pointer;">
+            <label style="font-size: 0.85rem; cursor: pointer">
                 <input type="checkbox" id="baby-blocks-outline" checked />
                 Outline
             </label>
@@ -240,10 +333,9 @@
 
         <h3>V — Equivalence Classes under D4</h3>
         <p class="subtitle">
-            All 64 V-glyphs grouped by visual equivalence under D4 (4
-            rotations × 2 reflections). Each row is one equivalence class;
-            the label below each glyph names the D4 transform from the
-            first member.
+            All 64 V-glyphs grouped by visual equivalence under D4 (4 rotations
+            × 2 reflections). Each row is one equivalence class; the label below
+            each glyph names the D4 transform from the first member.
         </p>
         <div class="eq-classes" id="v-eq-classes"></div>
 
@@ -255,8 +347,7 @@
         <h3>H — Equivalence Classes under D4</h3>
         <p class="subtitle">
             All 64 H-glyphs grouped by visual equivalence under D4.
-            Equal-priority intersections resolve in favor of horizontal
-            lines.
+            Equal-priority intersections resolve in favor of horizontal lines.
         </p>
         <div class="eq-classes" id="h-eq-classes"></div>
 

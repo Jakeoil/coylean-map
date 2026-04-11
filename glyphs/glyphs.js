@@ -2,7 +2,10 @@
 //  Coylean Glyphs — 4×4 Section Catalog
 // ═══════════════════════════════════════════════════
 
-import { pri, propagateFromBoundary } from "../coylean-explorer/coylean-core.js";
+import {
+    pri,
+    propagateFromBoundary,
+} from "../coylean-explorer/coylean-core.js";
 
 // ── Baby Blocks (lazy-loaded) ──
 let babyBlocks = null;
@@ -582,7 +585,10 @@ function drawCoyleanMap(canvasEl, Nr, Nc, cell, opts) {
                         if (secDown[gy][gx]) {
                             ctx.beginPath();
                             ctx.moveTo(sx + (gx + 1) * cell, sy + gy * cell);
-                            ctx.lineTo(sx + (gx + 1) * cell, sy + (gy + 1) * cell);
+                            ctx.lineTo(
+                                sx + (gx + 1) * cell,
+                                sy + (gy + 1) * cell,
+                            );
                             ctx.stroke();
                         }
                     }
@@ -593,7 +599,10 @@ function drawCoyleanMap(canvasEl, Nr, Nc, cell, opts) {
                         if (secRight[gx][gy]) {
                             ctx.beginPath();
                             ctx.moveTo(sx + gx * cell, sy + (gy + 1) * cell);
-                            ctx.lineTo(sx + (gx + 1) * cell, sy + (gy + 1) * cell);
+                            ctx.lineTo(
+                                sx + (gx + 1) * cell,
+                                sy + (gy + 1) * cell,
+                            );
                             ctx.stroke();
                         }
                     }
