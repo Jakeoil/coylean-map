@@ -1,5 +1,26 @@
 "use strict";
 
+export class Seniority {
+    static VERTICAL = 0;
+    static HORIZONTAL = 1;
+
+    static vertical() {
+        return new Seniority(Seniority.VERTICAL);
+    }
+
+    static horizontal() {
+        return new Seniority(Seniority.HORIZONTAL);
+    }
+
+    constructor(value = Seniority.VERTICAL) {
+        this.value = value;
+    }
+
+    get isVertical() {
+        return this.value === Seniority.VERTICAL;
+    }
+}
+
 /**
  * Evenness (2-adic valuation) of n.
  * Counts trailing zeros in binary representation.
@@ -82,6 +103,9 @@ export function reaction(
  * The top row of downMatrix and the left column of rightMatrix are
  * seeded from the supplied initDown / initRight arrays. Grid size is
  * inferred from their lengths.
+ * last 'extra' row in downMatrix and col in rightMatrix provides new init value
+ * for subsequent call. (It is necessary for user to adjust the priority offsets
+ * by the width or height)
  *
  * @param {boolean[]} initDown  - top-row down inputs (length = numColumns)
  * @param {boolean[]} initRight - left-column right inputs (length = numRows)
@@ -137,8 +161,8 @@ export function propagateFromBoundary(
 export function propagate(
     numRows,
     numColumns,
-    hInitCol,
-    vInitRow,
+    hInitCol = 1,
+    vInitRow = 1,
     rightHigh = false,
 ) {
     return propagateFromBoundary(
