@@ -1,548 +1,749 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Coylean Propagation Diagram 2</title>
-<style>
-* { box-sizing: border-box; margin: 0; }
-body {
-    font-family: system-ui, sans-serif;
-    background: #f5f5f5;
-    color: #333;
-    display: flex;
-    height: 100vh;
-}
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Coylean Propagation Diagram 2</title>
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+            }
+            body {
+                font-family: system-ui, sans-serif;
+                background: #f5f5f5;
+                color: #333;
+                display: flex;
+                height: 100vh;
+            }
 
-/* ── Sidebar ── */
-.sidebar {
-    width: 300px;
-    min-width: 300px;
-    padding: 20px;
-    background: #fff;
-    border-right: 1px solid #ddd;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-h1 { font-size: 1.2em; color: #222; }
-h2 { font-size: 0.85em; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
+            /* ── Sidebar ── */
+            .sidebar {
+                width: 300px;
+                min-width: 300px;
+                padding: 20px;
+                background: #fff;
+                border-right: 1px solid #ddd;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+            }
+            h1 {
+                font-size: 1.2em;
+                color: #222;
+            }
+            h2 {
+                font-size: 0.85em;
+                color: #666;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
 
-.controls { display: flex; flex-direction: column; gap: 10px; }
-.control-row { display: flex; gap: 10px; }
-.control {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-.control label {
-    font-size: 0.75em;
-    color: #666;
-}
-.control input {
-    width: 64px;
-    padding: 4px 8px;
-    background: #f5f5f5;
-    border: 1px solid #ccc;
-    color: #333;
-    border-radius: 4px;
-    font-size: 0.9em;
-}
-.call-sig {
-    font-family: monospace;
-    font-size: 0.95em;
-    color: #2a7a3a;
-    padding: 8px 12px;
-    background: #f5f5f5;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-}
+            .controls {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            .control-row {
+                display: flex;
+                gap: 10px;
+            }
+            .control {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+            }
+            .control label {
+                font-size: 0.75em;
+                color: #666;
+            }
+            .control input {
+                width: 64px;
+                padding: 4px 8px;
+                background: #f5f5f5;
+                border: 1px solid #ccc;
+                color: #333;
+                border-radius: 4px;
+                font-size: 0.9em;
+            }
+            .call-sig {
+                font-family: monospace;
+                font-size: 0.95em;
+                color: #2a7a3a;
+                padding: 8px 12px;
+                background: #f5f5f5;
+                border-radius: 6px;
+                border: 1px solid #ccc;
+            }
 
-.legend {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    font-size: 0.8em;
-}
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.legend-swatch {
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-}
+            .legend {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+                font-size: 0.8em;
+            }
+            .legend-item {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .legend-swatch {
+                width: 20px;
+                height: 20px;
+                flex-shrink: 0;
+            }
 
-.toggle-row {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-.toggle-row button {
-    padding: 4px 10px;
-    background: #e8e8e8;
-    border: 1px solid #ccc;
-    color: #333;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.8em;
-}
-.toggle-row button.active {
-    background: #1f6feb;
-    border-color: #1f6feb;
-    color: #fff;
-}
+            .toggle-row {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+            .toggle-row button {
+                padding: 4px 10px;
+                background: #e8e8e8;
+                border: 1px solid #ccc;
+                color: #333;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 0.8em;
+            }
+            .toggle-row button.active {
+                background: #1f6feb;
+                border-color: #1f6feb;
+                color: #fff;
+            }
 
-/* ── Info panel ── */
-.info-panel {
-    padding: 12px;
-    background: #f5f5f5;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    font-size: 0.82em;
-    min-height: 90px;
-    flex-shrink: 0;
-}
-.info-panel .title {
-    font-weight: 600;
-    margin-bottom: 6px;
-    color: #2e7d32;
-}
-.info-panel .row {
-    font-family: monospace;
-    margin: 3px 0;
-    color: #333;
-}
-.info-panel .dim { color: #888; }
-.info-panel .val-true { color: #16a34a; }
-.info-panel .val-false { color: #dc2626; }
+            /* ── Info panel ── */
+            .info-panel {
+                padding: 12px;
+                background: #f5f5f5;
+                border: 1px solid #ccc;
+                border-radius: 6px;
+                font-size: 0.82em;
+                min-height: 90px;
+                flex-shrink: 0;
+            }
+            .info-panel .title {
+                font-weight: 600;
+                margin-bottom: 6px;
+                color: #2e7d32;
+            }
+            .info-panel .row {
+                font-family: monospace;
+                margin: 3px 0;
+                color: #333;
+            }
+            .info-panel .dim {
+                color: #888;
+            }
+            .info-panel .val-true {
+                color: #16a34a;
+            }
+            .info-panel .val-false {
+                color: #dc2626;
+            }
 
-/* ── Main area ── */
-.main {
-    flex: 1;
-    overflow: auto;
-    padding: 24px;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    background: #fff;
-}
+            /* ── Main area ── */
+            .main {
+                flex: 1;
+                overflow: auto;
+                padding: 24px;
+                display: flex;
+                align-items: flex-start;
+                justify-content: center;
+                background: #fff;
+            }
 
-/* ── SVG ── */
-svg { cursor: default; }
+            /* ── SVG ── */
+            svg {
+                cursor: default;
+            }
 
-.diamond {
-    stroke-width: 1.5;
-    cursor: pointer;
-    transition: filter 0.1s;
-}
-.diamond:hover { filter: brightness(1.4); stroke-width: 2.5; }
+            .diamond {
+                stroke-width: 1.5;
+                cursor: pointer;
+                transition: filter 0.1s;
+            }
+            .diamond:hover {
+                filter: brightness(1.4);
+                stroke-width: 2.5;
+            }
 
-.arrow-path { pointer-events: none; }
-.flow-line { stroke: #ccc; stroke-width: 1; pointer-events: none; }
+            .arrow-path {
+                pointer-events: none;
+            }
+            .flow-line {
+                stroke: #ccc;
+                stroke-width: 1;
+                pointer-events: none;
+            }
 
-.cell-zone {
-    fill: transparent;
-    cursor: pointer;
-}
-.cell-zone:hover { fill: rgba(0,0,0,0.06); }
+            .cell-zone {
+                fill: transparent;
+                cursor: pointer;
+            }
+            .cell-zone:hover {
+                fill: rgba(0, 0, 0, 0.06);
+            }
 
-.coord-label {
-    font-size: 16px;
-    font-family: monospace;
-    pointer-events: none;
-    text-anchor: middle;
-}
-.matrix-label {
-    font-size: 18px;
-    font-family: system-ui;
-    pointer-events: none;
-    fill: #888;
-}
-</style>
-</head>
-<body>
+            .coord-label {
+                font-size: 16px;
+                font-family: monospace;
+                pointer-events: none;
+                text-anchor: middle;
+            }
+            .matrix-label {
+                font-size: 18px;
+                font-family: system-ui;
+                pointer-events: none;
+                fill: #888;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="sidebar">
+            <h1>Propagation Diagram</h1>
 
-<div class="sidebar">
-    <h1>Propagation Diagram</h1>
+            <div class="call-sig" id="call-sig">propagate(4, 4, 1, 1)</div>
 
-    <div class="call-sig" id="call-sig">propagate(4, 4, 1, 1)</div>
-
-    <div class="controls">
-        <div class="control-row">
-            <div class="control">
-                <label>numRows</label>
-                <input type="number" id="numRows" value="4" min="1" max="16">
+            <div class="controls">
+                <div class="control-row">
+                    <div class="control">
+                        <label>numRows</label>
+                        <input
+                            type="number"
+                            id="numRows"
+                            value="4"
+                            min="1"
+                            max="16"
+                        />
+                    </div>
+                    <div class="control">
+                        <label>numCols</label>
+                        <input
+                            type="number"
+                            id="numCols"
+                            value="4"
+                            min="1"
+                            max="16"
+                        />
+                    </div>
+                </div>
+                <div class="control-row">
+                    <div class="control">
+                        <label>hInitCol</label>
+                        <input
+                            type="number"
+                            id="hInitCol"
+                            value="1"
+                            min="-20"
+                            max="20"
+                        />
+                    </div>
+                    <div class="control">
+                        <label>vInitRow</label>
+                        <input
+                            type="number"
+                            id="vInitRow"
+                            value="1"
+                            min="-20"
+                            max="20"
+                        />
+                    </div>
+                </div>
             </div>
-            <div class="control">
-                <label>numCols</label>
-                <input type="number" id="numCols" value="4" min="1" max="16">
+
+            <h2>Display</h2>
+            <div class="toggle-row">
+                <button id="tog-labels" class="active">Labels</button>
+                <button id="tog-flow">Flow</button>
+                <button id="tog-pri">Priority</button>
+            </div>
+
+            <div class="control-row" style="margin-top: 10px">
+                <div class="control">
+                    <label>Seniority</label>
+                    <button
+                        id="seniority"
+                        style="
+                            padding: 4px 10px;
+                            background: #e8e8e8;
+                            border: 1px solid #ccc;
+                            color: #333;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            font-size: 0.8em;
+                        "
+                    >
+                        Vertical
+                    </button>
+                </div>
+            </div>
+
+            <h2>Legend</h2>
+            <div class="legend">
+                <div class="legend-item">
+                    <svg class="legend-swatch" viewBox="-12 -12 24 24">
+                        <polygon
+                            points="0,-10 10,0 0,10 -10,0"
+                            fill="#b8e0a8"
+                            stroke="#5a9a4a"
+                            stroke-width="1.5"
+                        />
+                        <path
+                            d="M-0.5,-9.5 A0.5,0.5 0 0 1 0.5,-9.5 L0.5,7.7 1.8,6.5 0,9.5 -1.8,6.5 -0.5,7.7Z"
+                            fill="#3d7a2d"
+                        />
+                    </svg>
+                    <span>downMatrix[j][i] = true</span>
+                </div>
+                <div class="legend-item">
+                    <svg class="legend-swatch" viewBox="-12 -12 24 24">
+                        <polygon
+                            points="0,-10 10,0 0,10 -10,0"
+                            fill="#fff"
+                            stroke="#5a9a4a"
+                            stroke-width="1.5"
+                        />
+                    </svg>
+                    <span>downMatrix[j][i] = false</span>
+                </div>
+                <div class="legend-item">
+                    <svg class="legend-swatch" viewBox="-12 -12 24 24">
+                        <polygon
+                            points="0,-10 10,0 0,10 -10,0"
+                            fill="#bcd8e8"
+                            stroke="#5a8aaa"
+                            stroke-width="1.5"
+                        />
+                        <path
+                            d="M-9.5,-0.5 A0.5,0.5 0 0 0 -9.5,0.5 L7.7,0.5 6.5,1.8 9.5,0 6.5,-1.8 7.7,-0.5Z"
+                            fill="#3d6a8a"
+                        />
+                    </svg>
+                    <span>rightMatrix[i][j] = true</span>
+                </div>
+                <div class="legend-item">
+                    <svg class="legend-swatch" viewBox="-12 -12 24 24">
+                        <polygon
+                            points="0,-10 10,0 0,10 -10,0"
+                            fill="#fff"
+                            stroke="#5a8aaa"
+                            stroke-width="1.5"
+                        />
+                    </svg>
+                    <span>rightMatrix[i][j] = false</span>
+                </div>
+            </div>
+
+            <h2>Details</h2>
+            <div class="info-panel" id="info">
+                <div class="dim">Hover a diamond or cell center</div>
             </div>
         </div>
-        <div class="control-row">
-            <div class="control">
-                <label>hInitCol</label>
-                <input type="number" id="hInitCol" value="1" min="-20" max="20">
-            </div>
-            <div class="control">
-                <label>vInitRow</label>
-                <input type="number" id="vInitRow" value="1" min="-20" max="20">
-            </div>
+
+        <div class="main">
+            <svg id="diagram"></svg>
         </div>
-    </div>
 
-    <h2>Display</h2>
-    <div class="toggle-row">
-        <button id="tog-labels" class="active">Labels</button>
-        <button id="tog-flow">Flow</button>
-        <button id="tog-pri">Priority</button>
-    </div>
+        <script type="module">
+            import {
+                pri,
+                Seniority,
+                reaction,
+                propagate,
+            } from "./coylean-core.js";
 
-    <div class="control-row" style="margin-top:10px">
-        <div class="control">
-            <label>Seniority</label>
-            <button id="seniority" style="padding:4px 10px;background:#e8e8e8;border:1px solid #ccc;color:#333;border-radius:4px;cursor:pointer;font-size:0.8em">Vertical</button>
-        </div>
-    </div>
+            const S = 96; // cell spacing
+            const D = S / 2; // diamond half-diagonal — touches neighbors at vertices
+            const PAD = 64; // padding
 
-    <h2>Legend</h2>
-    <div class="legend">
-        <div class="legend-item">
-            <svg class="legend-swatch" viewBox="-12 -12 24 24">
-                <polygon points="0,-10 10,0 0,10 -10,0" fill="#b8e0a8" stroke="#5a9a4a" stroke-width="1.5"/>
-                <path d="M-0.5,-9.5 A0.5,0.5 0 0 1 0.5,-9.5 L0.5,7.7 1.8,6.5 0,9.5 -1.8,6.5 -0.5,7.7Z" fill="#3d7a2d"/>
-            </svg>
-            <span>downMatrix[j][i] = true</span>
-        </div>
-        <div class="legend-item">
-            <svg class="legend-swatch" viewBox="-12 -12 24 24">
-                <polygon points="0,-10 10,0 0,10 -10,0" fill="#fff" stroke="#5a9a4a" stroke-width="1.5"/>
-            </svg>
-            <span>downMatrix[j][i] = false</span>
-        </div>
-        <div class="legend-item">
-            <svg class="legend-swatch" viewBox="-12 -12 24 24">
-                <polygon points="0,-10 10,0 0,10 -10,0" fill="#bcd8e8" stroke="#5a8aaa" stroke-width="1.5"/>
-                <path d="M-9.5,-0.5 A0.5,0.5 0 0 0 -9.5,0.5 L7.7,0.5 6.5,1.8 9.5,0 6.5,-1.8 7.7,-0.5Z" fill="#3d6a8a"/>
-            </svg>
-            <span>rightMatrix[i][j] = true</span>
-        </div>
-        <div class="legend-item">
-            <svg class="legend-swatch" viewBox="-12 -12 24 24">
-                <polygon points="0,-10 10,0 0,10 -10,0" fill="#fff" stroke="#5a8aaa" stroke-width="1.5"/>
-            </svg>
-            <span>rightMatrix[i][j] = false</span>
-        </div>
-    </div>
+            const svg = document.getElementById("diagram");
+            const info = document.getElementById("info");
+            const callSig = document.getElementById("call-sig");
+            const seniorityBtn = document.getElementById("seniority");
 
-    <h2>Details</h2>
-    <div class="info-panel" id="info">
-        <div class="dim">Hover a diamond or cell center</div>
-    </div>
-</div>
+            let seniority = Seniority.vertical();
+            seniorityBtn.addEventListener("click", () => {
+                seniority = seniority.isVertical
+                    ? Seniority.horizontal()
+                    : Seniority.vertical();
+                seniorityBtn.textContent = seniority.isVertical
+                    ? "Vertical"
+                    : "Horizontal";
+                render();
+            });
 
-<div class="main">
-    <svg id="diagram"></svg>
-</div>
+            const inputs = {
+                numRows: document.getElementById("numRows"),
+                numCols: document.getElementById("numCols"),
+                hInitCol: document.getElementById("hInitCol"),
+                vInitRow: document.getElementById("vInitRow"),
+            };
 
-<script type="module">
-import { pri, Seniority, reaction, propagate } from './coylean-core.js';
+            let showLabels = true,
+                showFlow = false,
+                showPri = false;
 
-const S = 96;       // cell spacing
-const D = S / 2;    // diamond half-diagonal — touches neighbors at vertices
-const PAD = 64;     // padding
+            // ── Toggle buttons ──
 
-const svg = document.getElementById('diagram');
-const info = document.getElementById('info');
-const callSig = document.getElementById('call-sig');
-const seniorityBtn = document.getElementById('seniority');
+            document.getElementById("tog-labels").onclick = function () {
+                showLabels = !showLabels;
+                this.classList.toggle("active");
+                render();
+            };
+            document.getElementById("tog-flow").onclick = function () {
+                showFlow = !showFlow;
+                this.classList.toggle("active");
+                render();
+            };
+            document.getElementById("tog-pri").onclick = function () {
+                showPri = !showPri;
+                this.classList.toggle("active");
+                render();
+            };
 
-let seniority = Seniority.vertical();
-seniorityBtn.addEventListener('click', () => {
-    seniority = seniority.isVertical ? Seniority.horizontal() : Seniority.vertical();
-    seniorityBtn.textContent = seniority.isVertical ? 'Vertical' : 'Horizontal';
-    render();
-});
+            // ── Controls ──
 
-const inputs = {
-    numRows:  document.getElementById('numRows'),
-    numCols:  document.getElementById('numCols'),
-    hInitCol: document.getElementById('hInitCol'),
-    vInitRow: document.getElementById('vInitRow'),
-};
+            for (const inp of Object.values(inputs)) {
+                inp.addEventListener("input", render);
+            }
 
-let showLabels = true, showFlow = false, showPri = false;
+            // ── SVG helpers ──
 
-// ── Toggle buttons ──
+            function svgEl(tag, attrs) {
+                const el = document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    tag,
+                );
+                for (const [k, v] of Object.entries(attrs))
+                    el.setAttribute(k, v);
+                return el;
+            }
 
-document.getElementById('tog-labels').onclick = function() {
-    showLabels = !showLabels; this.classList.toggle('active'); render();
-};
-document.getElementById('tog-flow').onclick = function() {
-    showFlow = !showFlow; this.classList.toggle('active'); render();
-};
-document.getElementById('tog-pri').onclick = function() {
-    showPri = !showPri; this.classList.toggle('active'); render();
-};
+            function diamondPts(cx, cy) {
+                return `${cx},${cy - D} ${cx + D},${cy} ${cx},${cy + D} ${cx - D},${cy}`;
+            }
 
-// ── Controls ──
+            // ── Coordinate mapping ──
+            // Down diamond D[j][i]: top edge of cell (i,j)
+            //   center: ((i + 0.5) * S, j * S)
+            // Right diamond R[i][j]: left edge of cell (i,j)
+            //   center: (i * S, (j + 0.5) * S)
+            // Cell center (i,j): ((i + 0.5) * S, (j + 0.5) * S)
 
-for (const inp of Object.values(inputs)) {
-    inp.addEventListener('input', render);
-}
+            function downPos(i, j) {
+                return [PAD + (i + 0.5) * S, PAD + j * S];
+            }
+            function rightPos(i, j) {
+                return [PAD + i * S, PAD + (j + 0.5) * S];
+            }
+            function cellPos(i, j) {
+                return [PAD + (i + 0.5) * S, PAD + (j + 0.5) * S];
+            }
 
-// ── SVG helpers ──
+            // ── Arrow paths ──
+            // Styled after research/arrow.svg: filled shaft with rounded cap + chevron arrowhead
 
-function svgEl(tag, attrs) {
-    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
-    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-    return el;
-}
+            const ARR_MARGIN = 1.5; // gap from diamond vertex to arrow tip
+            const ARR_SW = 1.25; // shaft half-width
+            const ARR_HL = 8; // arrowhead length (wings to tip)
+            const ARR_HW = 3.5; // arrowhead half-width
+            const ARR_ND = 2.5; // notch depth
 
-function diamondPts(cx, cy) {
-    return `${cx},${cy-D} ${cx+D},${cy} ${cx},${cy+D} ${cx-D},${cy}`;
-}
+            function downArrowPath(cx, cy, doubleHeaded) {
+                const t = cy - D + ARR_MARGIN;
+                const b = cy + D - ARR_MARGIN;
+                if (doubleHeaded) {
+                    return `M${cx},${t} L${cx + ARR_HW},${t + ARR_HL} ${cx + ARR_SW},${t + ARR_HL - ARR_ND} ${cx + ARR_SW},${b - ARR_HL + ARR_ND} ${cx + ARR_HW},${b - ARR_HL} ${cx},${b} ${cx - ARR_HW},${b - ARR_HL} ${cx - ARR_SW},${b - ARR_HL + ARR_ND} ${cx - ARR_SW},${t + ARR_HL - ARR_ND} ${cx - ARR_HW},${t + ARR_HL}Z`;
+                }
+                return `M${cx - ARR_SW},${t} A${ARR_SW},${ARR_SW} 0 0 1 ${cx + ARR_SW},${t} L${cx + ARR_SW},${b - ARR_HL + ARR_ND} ${cx + ARR_HW},${b - ARR_HL} ${cx},${b} ${cx - ARR_HW},${b - ARR_HL} ${cx - ARR_SW},${b - ARR_HL + ARR_ND}Z`;
+            }
 
-// ── Coordinate mapping ──
-// Down diamond D[j][i]: top edge of cell (i,j)
-//   center: ((i + 0.5) * S, j * S)
-// Right diamond R[i][j]: left edge of cell (i,j)
-//   center: (i * S, (j + 0.5) * S)
-// Cell center (i,j): ((i + 0.5) * S, (j + 0.5) * S)
+            function rightArrowPath(cx, cy, doubleHeaded) {
+                const l = cx - D + ARR_MARGIN;
+                const r = cx + D - ARR_MARGIN;
+                if (doubleHeaded) {
+                    return `M${l},${cy} L${l + ARR_HL},${cy - ARR_HW} ${l + ARR_HL - ARR_ND},${cy - ARR_SW} ${r - ARR_HL + ARR_ND},${cy - ARR_SW} ${r - ARR_HL},${cy - ARR_HW} ${r},${cy} ${r - ARR_HL},${cy + ARR_HW} ${r - ARR_HL + ARR_ND},${cy + ARR_SW} ${l + ARR_HL - ARR_ND},${cy + ARR_SW} ${l + ARR_HL},${cy + ARR_HW}Z`;
+                }
+                return `M${l},${cy - ARR_SW} A${ARR_SW},${ARR_SW} 0 0 0 ${l},${cy + ARR_SW} L${r - ARR_HL + ARR_ND},${cy + ARR_SW} ${r - ARR_HL},${cy + ARR_HW} ${r},${cy} ${r - ARR_HL},${cy - ARR_HW} ${r - ARR_HL + ARR_ND},${cy - ARR_SW}Z`;
+            }
 
-function downPos(i, j) {
-    return [PAD + (i + 0.5) * S, PAD + j * S];
-}
-function rightPos(i, j) {
-    return [PAD + i * S, PAD + (j + 0.5) * S];
-}
-function cellPos(i, j) {
-    return [PAD + (i + 0.5) * S, PAD + (j + 0.5) * S];
-}
+            // ── Info display ──
 
-// ── Arrow paths ──
-// Styled after research/arrow.svg: filled shaft with rounded cap + chevron arrowhead
+            function valSpan(v) {
+                return `<span class="${v ? "val-true" : "val-false"}">${v}</span>`;
+            }
 
-const ARR_MARGIN = 1.5;  // gap from diamond vertex to arrow tip
-const ARR_SW = 1.25;    // shaft half-width
-const ARR_HL = 8;       // arrowhead length (wings to tip)
-const ARR_HW = 3.5;     // arrowhead half-width
-const ARR_ND = 2.5;     // notch depth
-
-function downArrowPath(cx, cy, doubleHeaded) {
-    const t = cy - D + ARR_MARGIN;
-    const b = cy + D - ARR_MARGIN;
-    if (doubleHeaded) {
-        return `M${cx},${t} L${cx+ARR_HW},${t+ARR_HL} ${cx+ARR_SW},${t+ARR_HL-ARR_ND} ${cx+ARR_SW},${b-ARR_HL+ARR_ND} ${cx+ARR_HW},${b-ARR_HL} ${cx},${b} ${cx-ARR_HW},${b-ARR_HL} ${cx-ARR_SW},${b-ARR_HL+ARR_ND} ${cx-ARR_SW},${t+ARR_HL-ARR_ND} ${cx-ARR_HW},${t+ARR_HL}Z`;
-    }
-    return `M${cx-ARR_SW},${t} A${ARR_SW},${ARR_SW} 0 0 1 ${cx+ARR_SW},${t} L${cx+ARR_SW},${b-ARR_HL+ARR_ND} ${cx+ARR_HW},${b-ARR_HL} ${cx},${b} ${cx-ARR_HW},${b-ARR_HL} ${cx-ARR_SW},${b-ARR_HL+ARR_ND}Z`;
-}
-
-function rightArrowPath(cx, cy, doubleHeaded) {
-    const l = cx - D + ARR_MARGIN;
-    const r = cx + D - ARR_MARGIN;
-    if (doubleHeaded) {
-        return `M${l},${cy} L${l+ARR_HL},${cy-ARR_HW} ${l+ARR_HL-ARR_ND},${cy-ARR_SW} ${r-ARR_HL+ARR_ND},${cy-ARR_SW} ${r-ARR_HL},${cy-ARR_HW} ${r},${cy} ${r-ARR_HL},${cy+ARR_HW} ${r-ARR_HL+ARR_ND},${cy+ARR_SW} ${l+ARR_HL-ARR_ND},${cy+ARR_SW} ${l+ARR_HL},${cy+ARR_HW}Z`;
-    }
-    return `M${l},${cy-ARR_SW} A${ARR_SW},${ARR_SW} 0 0 0 ${l},${cy+ARR_SW} L${r-ARR_HL+ARR_ND},${cy+ARR_SW} ${r-ARR_HL},${cy+ARR_HW} ${r},${cy} ${r-ARR_HL},${cy-ARR_HW} ${r-ARR_HL+ARR_ND},${cy-ARR_SW}Z`;
-}
-
-// ── Info display ──
-
-function valSpan(v) {
-    return `<span class="${v ? 'val-true' : 'val-false'}">${v}</span>`;
-}
-
-function showDownInfo(j, i, val, hInitCol, vInitRow) {
-    const pI = pri(i + hInitCol);
-    const pJ = pri(j + vInitRow);
-    info.innerHTML = `
+            function showDownInfo(j, i, val, hInitCol, vInitRow) {
+                const pI = pri(i + hInitCol);
+                const pJ = pri(j + vInitRow);
+                info.innerHTML = `
         <div class="title" style="color:#5a9a4a">Down Matrix r${j}c${i}</div>
         <div class="row">downMatrix[${j}][${i}] = ${valSpan(val)}</div>
         <div class="row dim">vertical arrow entering row ${j} at column ${i}</div>
-        <div class="row">pri(${i} + ${hInitCol}) = pri(${i+hInitCol}) = ${pI}</div>
-        <div class="row">pri(${j} + ${vInitRow}) = pri(${j+vInitRow}) = ${pJ}</div>
-        <div class="row dim">${j === 0 ? '(init row — always true)' : ''}</div>
+        <div class="row">pri(${i} + ${hInitCol}) = pri(${i + hInitCol}) = ${pI}</div>
+        <div class="row">pri(${j} + ${vInitRow}) = pri(${j + vInitRow}) = ${pJ}</div>
+        <div class="row dim">${j === 0 ? "(init row — always true)" : ""}</div>
     `;
-}
+            }
 
-function showRightInfo(i, j, val, hInitCol, vInitRow) {
-    const pI = pri(i + hInitCol);
-    const pJ = pri(j + vInitRow);
-    info.innerHTML = `
+            function showRightInfo(i, j, val, hInitCol, vInitRow) {
+                const pI = pri(i + hInitCol);
+                const pJ = pri(j + vInitRow);
+                info.innerHTML = `
         <div class="title" style="color:#5a8aaa">Right Matrix c${i}r${j}</div>
         <div class="row">rightMatrix[${i}][${j}] = ${valSpan(val)}</div>
         <div class="row dim">horizontal arrow entering column ${i} at row ${j}</div>
-        <div class="row">pri(${i} + ${hInitCol}) = pri(${i+hInitCol}) = ${pI}</div>
-        <div class="row">pri(${j} + ${vInitRow}) = pri(${j+vInitRow}) = ${pJ}</div>
-        <div class="row dim">${i === 0 ? '(init column — always true)' : ''}</div>
+        <div class="row">pri(${i} + ${hInitCol}) = pri(${i + hInitCol}) = ${pI}</div>
+        <div class="row">pri(${j} + ${vInitRow}) = pri(${j + vInitRow}) = ${pJ}</div>
+        <div class="row dim">${i === 0 ? "(init column — always true)" : ""}</div>
     `;
-}
+            }
 
-function showCellInfo(i, j, dm, rm, hInitCol, vInitRow, sen) {
-    const dIn = dm[j][i];
-    const rIn = rm[i][j];
-    const [dOut, rOut] = reaction(dIn, rIn, i, j, hInitCol, vInitRow, sen);
-    const pI = pri(i + hInitCol);
-    const pJ = pri(j + vInitRow);
-    const winner = (sen.isVertical ? pI >= pJ : pI > pJ) ? 'down wins' : 'right wins';
+            function showCellInfo(i, j, dm, rm, hInitCol, vInitRow, sen) {
+                const dIn = dm[j][i];
+                const rIn = rm[i][j];
+                const [dOut, rOut] = reaction(
+                    dIn,
+                    rIn,
+                    i,
+                    j,
+                    hInitCol,
+                    vInitRow,
+                    sen,
+                );
+                const pI = pri(i + hInitCol);
+                const pJ = pri(j + vInitRow);
+                const winner = (sen.isVertical ? pI >= pJ : pI > pJ)
+                    ? "down wins"
+                    : "right wins";
 
-    info.innerHTML = `
+                info.innerHTML = `
         <div class="title" style="color:#7c5cb0">Reaction at cell r${j}c${i}</div>
         <div class="row">in:  down=${valSpan(dIn)}  right=${valSpan(rIn)}</div>
         <div class="row">out: down=${valSpan(dOut)}  right=${valSpan(rOut)}</div>
-        <div class="row dim" style="margin-top:6px">pri(${i+hInitCol}) = ${pI} ${pI >= pJ ? '≥' : '<'} ${pJ} = pri(${j+vInitRow})  →  ${winner}</div>
+        <div class="row dim" style="margin-top:6px">pri(${i + hInitCol}) = ${pI} ${pI >= pJ ? "≥" : "<"} ${pJ} = pri(${j + vInitRow})  →  ${winner}</div>
         <div class="row">reaction(${dIn}, ${rIn}, ${i}, ${j}, ${hInitCol}, ${vInitRow})</div>
         <div class="row dim">→ [${dOut}, ${rOut}]</div>
     `;
-}
-
-function clearInfo() {
-    info.innerHTML = '<div class="dim">Hover a diamond</div>';
-}
-
-// ── Render ──
-
-function render() {
-    const nR = +inputs.numRows.value;
-    const nC = +inputs.numCols.value;
-    const hInitCol = +inputs.hInitCol.value;
-    const vInitRow = +inputs.vInitRow.value;
-    callSig.textContent = `propagate(${nR}, ${nC}, ${hInitCol}, ${vInitRow})`;
-
-    const [dm, rm] = propagate(nR, nC, hInitCol, vInitRow, seniority);
-
-    const w = 2 * PAD + nC * S;
-    const h = 2 * PAD + nR * S;
-    svg.setAttribute('width', w);
-    svg.setAttribute('height', h);
-    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-    svg.innerHTML = '';
-
-    // ── Flow lines (subtle connections) ──
-    if (showFlow) {
-        const g = svgEl('g', {});
-        for (let j = 0; j < nR; j++) {
-            for (let i = 0; i < nC; i++) {
-                const [cx, cy] = cellPos(i, j);
-                // down in
-                const [dx0, dy0] = downPos(i, j);
-                g.appendChild(svgEl('line', {x1:dx0, y1:dy0, x2:cx, y2:cy, class:'flow-line'}));
-                // down out
-                const [dx1, dy1] = downPos(i, j+1);
-                g.appendChild(svgEl('line', {x1:cx, y1:cy, x2:dx1, y2:dy1, class:'flow-line'}));
-                // right in
-                const [rx0, ry0] = rightPos(i, j);
-                g.appendChild(svgEl('line', {x1:rx0, y1:ry0, x2:cx, y2:cy, class:'flow-line'}));
-                // right out
-                const [rx1, ry1] = rightPos(i+1, j);
-                g.appendChild(svgEl('line', {x1:cx, y1:cy, x2:rx1, y2:ry1, class:'flow-line'}));
-            }
-        }
-        svg.appendChild(g);
-    }
-
-    // ── Down diamonds ──
-    for (let j = 0; j <= nR; j++) {
-        for (let i = 0; i < nC; i++) {
-            const [cx, cy] = downPos(i, j);
-            const val = dm[j][i];
-
-            const poly = svgEl('polygon', {
-                points: diamondPts(cx, cy),
-                class: 'diamond',
-                fill: '#b8e0a8',
-                stroke: 'none',
-            });
-            poly.addEventListener('mouseenter', () => showDownInfo(j, i, val, hInitCol, vInitRow));
-            poly.addEventListener('mouseleave', clearInfo);
-            svg.appendChild(poly);
-
-            if (val) {
-                svg.appendChild(svgEl('path', {
-                    d: downArrowPath(cx, cy, j === 0),
-                    class: 'arrow-path',
-                    fill: '#3d7a2d',
-                }));
             }
 
-            if (showLabels) {
-                svg.appendChild(Object.assign(svgEl('text', {
-                    x: cx, y: cy + 5,
-                    class: 'coord-label',
-                    fill: '#2e5a1e',
-                }), { textContent: `r${j}c${i}` }));
-            }
-        }
-    }
-
-    // ── Right diamonds ──
-    for (let i = 0; i <= nC; i++) {
-        for (let j = 0; j < nR; j++) {
-            const [cx, cy] = rightPos(i, j);
-            const val = rm[i][j];
-
-            const poly = svgEl('polygon', {
-                points: diamondPts(cx, cy),
-                class: 'diamond',
-                fill: '#bcd8e8',
-                stroke: 'none',
-            });
-            poly.addEventListener('mouseenter', () => showRightInfo(i, j, val, hInitCol, vInitRow));
-            poly.addEventListener('mouseleave', clearInfo);
-            svg.appendChild(poly);
-
-            if (val) {
-                svg.appendChild(svgEl('path', {
-                    d: rightArrowPath(cx, cy, i === 0),
-                    class: 'arrow-path',
-                    fill: '#3d6a8a',
-                }));
+            function clearInfo() {
+                info.innerHTML = '<div class="dim">Hover a diamond</div>';
             }
 
-            if (showLabels) {
-                svg.appendChild(Object.assign(svgEl('text', {
-                    x: cx, y: cy + 5,
-                    class: 'coord-label',
-                    fill: '#1e4a6a',
-                }), { textContent: `c${i}r${j}` }));
+            // ── Render ──
+
+            function render() {
+                const nR = +inputs.numRows.value;
+                const nC = +inputs.numCols.value;
+                const hInitCol = +inputs.hInitCol.value;
+                const vInitRow = +inputs.vInitRow.value;
+                callSig.textContent = `propagate(${nR}, ${nC}, ${hInitCol}, ${vInitRow})`;
+
+                const [dm, rm] = propagate(
+                    nR,
+                    nC,
+                    hInitCol,
+                    vInitRow,
+                    seniority,
+                );
+
+                const w = 2 * PAD + nC * S;
+                const h = 2 * PAD + nR * S;
+                svg.setAttribute("width", w);
+                svg.setAttribute("height", h);
+                svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+                svg.innerHTML = "";
+
+                // ── Flow lines (subtle connections) ──
+                if (showFlow) {
+                    const g = svgEl("g", {});
+                    for (let j = 0; j < nR; j++) {
+                        for (let i = 0; i < nC; i++) {
+                            const [cx, cy] = cellPos(i, j);
+                            // down in
+                            const [dx0, dy0] = downPos(i, j);
+                            g.appendChild(
+                                svgEl("line", {
+                                    x1: dx0,
+                                    y1: dy0,
+                                    x2: cx,
+                                    y2: cy,
+                                    class: "flow-line",
+                                }),
+                            );
+                            // down out
+                            const [dx1, dy1] = downPos(i, j + 1);
+                            g.appendChild(
+                                svgEl("line", {
+                                    x1: cx,
+                                    y1: cy,
+                                    x2: dx1,
+                                    y2: dy1,
+                                    class: "flow-line",
+                                }),
+                            );
+                            // right in
+                            const [rx0, ry0] = rightPos(i, j);
+                            g.appendChild(
+                                svgEl("line", {
+                                    x1: rx0,
+                                    y1: ry0,
+                                    x2: cx,
+                                    y2: cy,
+                                    class: "flow-line",
+                                }),
+                            );
+                            // right out
+                            const [rx1, ry1] = rightPos(i + 1, j);
+                            g.appendChild(
+                                svgEl("line", {
+                                    x1: cx,
+                                    y1: cy,
+                                    x2: rx1,
+                                    y2: ry1,
+                                    class: "flow-line",
+                                }),
+                            );
+                        }
+                    }
+                    svg.appendChild(g);
+                }
+
+                // ── Down diamonds ──
+                for (let j = 0; j <= nR; j++) {
+                    for (let i = 0; i < nC; i++) {
+                        const [cx, cy] = downPos(i, j);
+                        const val = dm[j][i];
+
+                        const poly = svgEl("polygon", {
+                            points: diamondPts(cx, cy),
+                            class: "diamond",
+                            fill: "#b8e0a8",
+                            stroke: "none",
+                        });
+                        poly.addEventListener("mouseenter", () =>
+                            showDownInfo(j, i, val, hInitCol, vInitRow),
+                        );
+                        poly.addEventListener("mouseleave", clearInfo);
+                        svg.appendChild(poly);
+
+                        if (val) {
+                            svg.appendChild(
+                                svgEl("path", {
+                                    d: downArrowPath(cx, cy, j === 0),
+                                    class: "arrow-path",
+                                    fill: "#3d7a2d",
+                                }),
+                            );
+                        }
+
+                        if (showLabels) {
+                            svg.appendChild(
+                                Object.assign(
+                                    svgEl("text", {
+                                        x: cx,
+                                        y: cy + 5,
+                                        class: "coord-label",
+                                        fill: "#2e5a1e",
+                                    }),
+                                    { textContent: `r${j}c${i}` },
+                                ),
+                            );
+                        }
+                    }
+                }
+
+                // ── Right diamonds ──
+                for (let i = 0; i <= nC; i++) {
+                    for (let j = 0; j < nR; j++) {
+                        const [cx, cy] = rightPos(i, j);
+                        const val = rm[i][j];
+
+                        const poly = svgEl("polygon", {
+                            points: diamondPts(cx, cy),
+                            class: "diamond",
+                            fill: "#bcd8e8",
+                            stroke: "none",
+                        });
+                        poly.addEventListener("mouseenter", () =>
+                            showRightInfo(i, j, val, hInitCol, vInitRow),
+                        );
+                        poly.addEventListener("mouseleave", clearInfo);
+                        svg.appendChild(poly);
+
+                        if (val) {
+                            svg.appendChild(
+                                svgEl("path", {
+                                    d: rightArrowPath(cx, cy, i === 0),
+                                    class: "arrow-path",
+                                    fill: "#3d6a8a",
+                                }),
+                            );
+                        }
+
+                        if (showLabels) {
+                            svg.appendChild(
+                                Object.assign(
+                                    svgEl("text", {
+                                        x: cx,
+                                        y: cy + 5,
+                                        class: "coord-label",
+                                        fill: "#1e4a6a",
+                                    }),
+                                    { textContent: `c${i}r${j}` },
+                                ),
+                            );
+                        }
+                    }
+                }
+
+                // ── Cell center hover zones (small invisible) for reaction info ──
+                for (let j = 0; j < nR; j++) {
+                    for (let i = 0; i < nC; i++) {
+                        const [cx, cy] = cellPos(i, j);
+
+                        if (showPri) {
+                            const pI = pri(i + hInitCol);
+                            const pJ = pri(j + vInitRow);
+                            const dw = seniority.isVertical
+                                ? pI >= pJ
+                                : pI > pJ;
+                            const cmp = seniority.isVertical ? "≥" : ">";
+                            svg.appendChild(
+                                Object.assign(
+                                    svgEl("text", {
+                                        x: cx,
+                                        y: cy - 6,
+                                        class: "coord-label",
+                                        fill: "#bc8cff",
+                                        "font-size": "14px",
+                                    }),
+                                    { textContent: `${pI}${cmp}${pJ}?` },
+                                ),
+                            );
+                            svg.appendChild(
+                                Object.assign(
+                                    svgEl("text", {
+                                        x: cx,
+                                        y: cy + 16,
+                                        class: "coord-label",
+                                        fill: dw ? "#5a9a4a" : "#5a8aaa",
+                                        "font-size": "16px",
+                                        "font-weight": "bold",
+                                    }),
+                                    { textContent: dw ? "↓" : "→" },
+                                ),
+                            );
+                        }
+                    }
+                }
             }
-        }
-    }
 
-    // ── Cell center hover zones (small invisible) for reaction info ──
-    for (let j = 0; j < nR; j++) {
-        for (let i = 0; i < nC; i++) {
-            const [cx, cy] = cellPos(i, j);
-
-            if (showPri) {
-                const pI = pri(i + hInitCol);
-                const pJ = pri(j + vInitRow);
-                const dw = seniority.isVertical ? pI >= pJ : pI > pJ;
-                const cmp = seniority.isVertical ? '≥' : '>';
-                svg.appendChild(Object.assign(svgEl('text', {
-                    x: cx, y: cy - 6,
-                    class: 'coord-label',
-                    fill: '#bc8cff',
-                    'font-size': '14px',
-                }), { textContent: `${pI}${cmp}${pJ}?` }));
-                svg.appendChild(Object.assign(svgEl('text', {
-                    x: cx, y: cy + 16,
-                    class: 'coord-label',
-                    fill: dw ? '#5a9a4a' : '#5a8aaa',
-                    'font-size': '16px',
-                    'font-weight': 'bold',
-                }), { textContent: dw ? '↓' : '→' }));
-            }
-        }
-    }
-
-}
-
-render();
-</script>
-</body>
+            render();
+        </script>
+    </body>
 </html>

@@ -292,7 +292,7 @@ function coyleanUniverse(numRows, numCols) {
     // SE: identity — full range, owns both axes
     for (let j = 0; j < numRows; j++) {
         for (let i = 0; i < numCols; i++) {
-            cell(seDM[j][i], seRM[i][j], numCols + i, numRows + j, 1, 1,
+            cell(seDM[j][i], seRM[i][j], numCols - 1 + i, numRows - 1 + j, 1, 1,
                 pri(i + hInitCol), pri(j + vInitRow));
         }
     }
@@ -302,7 +302,7 @@ function coyleanUniverse(numRows, numCols) {
             cell(
                 j === 0 ? false : neDM[j][i],
                 neRM[i][j],
-                numCols + i,
+                numCols - 1 + i,
                 numRows - 1 - j,
                 1, 0,
                 pri(i + hInitCol), pri(j + 1 - vInitRow),
@@ -316,7 +316,7 @@ function coyleanUniverse(numRows, numCols) {
                 swDM[j][i],
                 i === 0 ? false : swRM[i][j],
                 numCols - 1 - i,
-                numRows + j,
+                numRows - 1 + j,
                 0, 1,
                 pri(i + 1 - hInitCol), pri(j + vInitRow),
             );
@@ -345,8 +345,8 @@ function coyleanApp() {
     g.lineWidth = 1;
 
     if (feature_active === "universe") {
-        canvas.width = SCALE * (2 * numCols + 1);
-        canvas.height = SCALE * (2 * numRows + 1);
+        canvas.width = SCALE * 2 * numCols;
+        canvas.height = SCALE * 2 * numRows;
     } else {
         canvas.width = SCALE * (numCols + 1);
         canvas.height = SCALE * (numRows + 1);
