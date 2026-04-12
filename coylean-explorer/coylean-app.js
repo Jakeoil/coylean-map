@@ -12,6 +12,7 @@ let SCALE = 8;
 let hInitCol = 1;
 let vInitRow = 1;
 let seniority = Seniority.vertical();
+let showInit = false;
 
 // ── DOM references ──
 
@@ -24,6 +25,7 @@ const eleScale = document.querySelector("#scale");
 const eleHInitCol = document.querySelector("#hInitCol");
 const eleVInitRow = document.querySelector("#vInitRow");
 const eleSeniority = document.querySelector("#seniority");
+const eleShowInit = document.querySelector("#showInit");
 
 // ── Controls: Map Type ──
 
@@ -113,14 +115,26 @@ eleSeniority.addEventListener("click", function () {
     coyleanApp();
 });
 
+// ── Controls: Init segments ──
+
+eleShowInit.addEventListener("click", function () {
+    showInit = !showInit;
+    eleShowInit.textContent = showInit ? "On" : "Off";
+    coyleanApp();
+});
+
 // ── Rendering ──
 
 /**
  * Apply stroke style for a line of the given priority.
+ * Init segments (when showInit is on) → red.
  * pri 0 or 1 → blue; pri 100 (infinite) → black, double width; else black.
  */
-function applyPriStyle(p) {
-    if (p === 100) {
+function applyPriStyle(p, isInit) {
+    if (showInit && isInit) {
+        g.strokeStyle = "#c22";
+        g.lineWidth = 2;
+    } else if (p === 100) {
         g.strokeStyle = "#000";
         g.lineWidth = 2;
     } else if (p <= 1) {
@@ -163,7 +177,7 @@ function applyPriStyle(p) {
  *
  * Returns early without drawing when both `down` and `right` are false.
  */
-function cell(down, right, i, j, dx = 1, dy = 1, downPri = -1, rightPri = -1) {
+function cell(down, right, i, j, dx = 1, dy = 1, downPri = -1, rightPri = -1, downInit = false, rightInit = false) {
     if (!down && !right) return;
 
     let x = i * SCALE;
@@ -181,13 +195,13 @@ function cell(down, right, i, j, dx = 1, dy = 1, downPri = -1, rightPri = -1) {
 
     if (down && right) {
         // Two separate strokes so each segment gets its own priority style
-        if (downPri >= 0) applyPriStyle(downPri);
+        if (downPri >= 0) applyPriStyle(downPri, downInit);
         g.beginPath();
         g.moveTo(vx, dy ? y : yp);
         g.lineTo(vx, hy);
         g.stroke();
 
-        if (rightPri >= 0) applyPriStyle(rightPri);
+        if (rightPri >= 0) applyPriStyle(rightPri, rightInit);
         g.beginPath();
         g.moveTo(vx, hy);
         g.lineTo(dx ? x : xp, hy);
@@ -196,7 +210,7 @@ function cell(down, right, i, j, dx = 1, dy = 1, downPri = -1, rightPri = -1) {
     }
 
     if (down) {
-        if (downPri >= 0) applyPriStyle(downPri);
+        if (downPri >= 0) applyPriStyle(downPri, downInit);
         g.beginPath();
         g.moveTo(vx, y);
         g.lineTo(vx, yp);
@@ -204,7 +218,7 @@ function cell(down, right, i, j, dx = 1, dy = 1, downPri = -1, rightPri = -1) {
         return;
     }
 
-    if (rightPri >= 0) applyPriStyle(rightPri);
+    if (rightPri >= 0) applyPriStyle(rightPri, rightInit);
     g.beginPath();
     g.moveTo(x, hy);
     g.lineTo(xp, hy);
@@ -217,7 +231,7 @@ function coyleanExploration(numRows, numCols) {
     for (let j = 0; j < numRows; j++) {
         for (let i = 0; i < numCols; i++) {
             cell(downMatrix[j][i], rightMatrix[i][j], i, j, 1, 1,
-                pri(i + hInitCol), pri(j + vInitRow));
+                pri(i + hInitCol), pri(j + vInitRow), j === 0, i === 0);
         }
     }
 }
@@ -293,7 +307,7 @@ function coyleanUniverse(numRows, numCols) {
     for (let j = 0; j < numRows; j++) {
         for (let i = 0; i < numCols; i++) {
             cell(seDM[j][i], seRM[i][j], numCols - 1 + i, numRows - 1 + j, 1, 1,
-                pri(i + hInitCol), pri(j + vInitRow));
+                pri(i + hInitCol), pri(j + vInitRow), j === 0, i === 0);
         }
     }
     // NE: sₕ — suppress down at j=0 (init row duplicate)
@@ -306,6 +320,7 @@ function coyleanUniverse(numRows, numCols) {
                 numRows - 1 - j,
                 1, 0,
                 pri(i + hInitCol), pri(j + 1 - vInitRow),
+                j === 0, i === 0,
             );
         }
     }
@@ -319,6 +334,7 @@ function coyleanUniverse(numRows, numCols) {
                 numRows - 1 + j,
                 0, 1,
                 pri(i + 1 - hInitCol), pri(j + vInitRow),
+                j === 0, i === 0,
             );
         }
     }
@@ -332,6 +348,7 @@ function coyleanUniverse(numRows, numCols) {
                 numRows - 1 - j,
                 0, 0,
                 pri(i + 1 - hInitCol), pri(j + 1 - vInitRow),
+                j === 0, i === 0,
             );
         }
     }
