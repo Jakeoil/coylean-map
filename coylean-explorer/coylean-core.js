@@ -57,12 +57,30 @@ export class Col extends Array {
 /**
  * The atom of the Coylean algorithm.
  *
- * Two booleans in (vertical arrow, horizontal arrow),
- * two booleans out (do they continue?).
+ * Two arrows enter a cell — one vertical (from above), one horizontal
+ * (from the left). Priority at the cell decides which direction "wins".
+ * The winner continues straight; the loser is deflected. When only one
+ * arrow is present it always continues, and the winner additionally
+ * spawns a new arrow in the perpendicular direction.
  *
- * hInitCol and vInitRow offset the priority grid.
- * The standard map uses (1, 1). Other values shift the
- * priority landscape, producing different maps.
+ * @param {boolean}   vertical   - Is a vertical (down) arrow entering this cell?
+ * @param {boolean}   horizontal - Is a horizontal (right) arrow entering this cell?
+ * @param {number}    i          - Column index of the cell (0-based).
+ * @param {number}    j          - Row index of the cell (0-based).
+ * @param {number}    hInitCol   - Column offset added to i before computing
+ *                                 vertical priority: pri(i + hInitCol). The
+ *                                 standard map uses 1; shifting this value
+ *                                 repositions the priority landscape horizontally.
+ * @param {number}    vInitRow   - Row offset added to j before computing
+ *                                 horizontal priority: pri(j + vInitRow). The
+ *                                 standard map uses 1; shifting this value
+ *                                 repositions the priority landscape vertically.
+ * @param {Seniority} seniority  - Tie-breaking rule when pri(i + hInitCol) equals
+ *                                 pri(j + vInitRow). Vertical (default): the
+ *                                 vertical arrow wins ties (>=). Horizontal: the
+ *                                 horizontal arrow wins ties (strict >).
+ * @returns {[boolean, boolean]}   [vertical out, horizontal out] — which arrows
+ *                                 exit the cell downward and rightward.
  */
 export function reaction(
     vertical,
@@ -71,15 +89,15 @@ export function reaction(
     j,
     hInitCol,
     vInitRow,
-    rightHigh = false,
+    seniority = Seniority.vertical(),
 ) {
     if (!horizontal && !vertical) {
         return [false, false];
     }
 
-    let downWins = rightHigh
-        ? pri(i + hInitCol) > pri(j + vInitRow)
-        : pri(i + hInitCol) >= pri(j + vInitRow);
+    let downWins = seniority.isVertical
+        ? pri(i + hInitCol) >= pri(j + vInitRow)
+        : pri(i + hInitCol) > pri(j + vInitRow);
     if (horizontal && vertical) {
         if (downWins) return [true, false];
         else return [false, true];
@@ -118,7 +136,7 @@ export function propagateFromBoundary(
     initRight,
     hInitCol,
     vInitRow,
-    rightHigh = false,
+    seniority = Seniority.vertical(),
 ) {
     const numColumns = initDown.length;
     const numRows = initRight.length;
@@ -137,7 +155,7 @@ export function propagateFromBoundary(
                 j,
                 hInitCol,
                 vInitRow,
-                rightHigh,
+                seniority,
             );
         }
     }
@@ -163,14 +181,14 @@ export function propagate(
     numColumns,
     hInitCol = 1,
     vInitRow = 1,
-    rightHigh = false,
+    seniority = Seniority.vertical(),
 ) {
     return propagateFromBoundary(
         new Row(numColumns).fill(true),
         new Col(numRows).fill(true),
         hInitCol,
         vInitRow,
-        rightHigh,
+        seniority,
     );
 }
 
@@ -195,11 +213,11 @@ export function propagate(
  * @returns {{ nw, ne, sw, se }}
  *   Each quadrant is a [downMatrix, rightMatrix] pair from propagate().
  */
-export function universalPropagate(numRows, numColumns, rightHigh = false) {
+export function universalPropagate(numRows, numColumns, seniority = Seniority.vertical()) {
     return {
-        nw: propagate(numRows, numColumns, 0, 0, rightHigh),
-        ne: propagate(numRows, numColumns, 1, 0, rightHigh),
-        sw: propagate(numRows, numColumns, 0, 1, rightHigh),
-        se: propagate(numRows, numColumns, 1, 1, rightHigh),
+        nw: propagate(numRows, numColumns, 0, 0, seniority),
+        ne: propagate(numRows, numColumns, 1, 0, seniority),
+        sw: propagate(numRows, numColumns, 0, 1, seniority),
+        se: propagate(numRows, numColumns, 1, 1, seniority),
     };
 }

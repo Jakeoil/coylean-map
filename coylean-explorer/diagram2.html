@@ -141,7 +141,7 @@ svg { cursor: default; }
 }
 .diamond:hover { filter: brightness(1.4); stroke-width: 2.5; }
 
-.arrow-line { stroke-width: 4; pointer-events: none; }
+.arrow-path { pointer-events: none; }
 .flow-line { stroke: #ccc; stroke-width: 1; pointer-events: none; }
 
 .cell-zone {
@@ -192,10 +192,6 @@ svg { cursor: default; }
                 <input type="number" id="vInitRow" value="1" min="-20" max="20">
             </div>
         </div>
-        <div class="control">
-            <label>rightHigh</label>
-            <input type="checkbox" id="rightHigh">
-        </div>
     </div>
 
     <h2>Display</h2>
@@ -205,12 +201,19 @@ svg { cursor: default; }
         <button id="tog-pri">Priority</button>
     </div>
 
+    <div class="control-row" style="margin-top:10px">
+        <div class="control">
+            <label>Seniority</label>
+            <button id="seniority" style="padding:4px 10px;background:#e8e8e8;border:1px solid #ccc;color:#333;border-radius:4px;cursor:pointer;font-size:0.8em">Vertical</button>
+        </div>
+    </div>
+
     <h2>Legend</h2>
     <div class="legend">
         <div class="legend-item">
             <svg class="legend-swatch" viewBox="-12 -12 24 24">
                 <polygon points="0,-10 10,0 0,10 -10,0" fill="#b8e0a8" stroke="#5a9a4a" stroke-width="1.5"/>
-                <line x1="0" y1="-10" x2="0" y2="10" stroke="#3d7a2d" stroke-width="2"/>
+                <path d="M-0.5,-9.5 A0.5,0.5 0 0 1 0.5,-9.5 L0.5,7.7 1.8,6.5 0,9.5 -1.8,6.5 -0.5,7.7Z" fill="#3d7a2d"/>
             </svg>
             <span>downMatrix[j][i] = true</span>
         </div>
@@ -223,7 +226,7 @@ svg { cursor: default; }
         <div class="legend-item">
             <svg class="legend-swatch" viewBox="-12 -12 24 24">
                 <polygon points="0,-10 10,0 0,10 -10,0" fill="#bcd8e8" stroke="#5a8aaa" stroke-width="1.5"/>
-                <line x1="-10" y1="0" x2="10" y2="0" stroke="#3d6a8a" stroke-width="2"/>
+                <path d="M-9.5,-0.5 A0.5,0.5 0 0 0 -9.5,0.5 L7.7,0.5 6.5,1.8 9.5,0 6.5,-1.8 7.7,-0.5Z" fill="#3d6a8a"/>
             </svg>
             <span>rightMatrix[i][j] = true</span>
         </div>
@@ -246,7 +249,7 @@ svg { cursor: default; }
 </div>
 
 <script type="module">
-import { pri, reaction, propagate } from './coylean-core.js';
+import { pri, Seniority, reaction, propagate } from './coylean-core.js';
 
 const S = 96;       // cell spacing
 const D = S / 2;    // diamond half-diagonal — touches neighbors at vertices
@@ -255,13 +258,20 @@ const PAD = 64;     // padding
 const svg = document.getElementById('diagram');
 const info = document.getElementById('info');
 const callSig = document.getElementById('call-sig');
+const seniorityBtn = document.getElementById('seniority');
+
+let seniority = Seniority.vertical();
+seniorityBtn.addEventListener('click', () => {
+    seniority = seniority.isVertical ? Seniority.horizontal() : Seniority.vertical();
+    seniorityBtn.textContent = seniority.isVertical ? 'Vertical' : 'Horizontal';
+    render();
+});
 
 const inputs = {
     numRows:  document.getElementById('numRows'),
     numCols:  document.getElementById('numCols'),
     hInitCol: document.getElementById('hInitCol'),
     vInitRow: document.getElementById('vInitRow'),
-    rightHigh: document.getElementById('rightHigh'),
 };
 
 let showLabels = true, showFlow = false, showPri = false;
@@ -313,6 +323,33 @@ function cellPos(i, j) {
     return [PAD + (i + 0.5) * S, PAD + (j + 0.5) * S];
 }
 
+// ── Arrow paths ──
+// Styled after research/arrow.svg: filled shaft with rounded cap + chevron arrowhead
+
+const ARR_MARGIN = 1.5;  // gap from diamond vertex to arrow tip
+const ARR_SW = 1.25;    // shaft half-width
+const ARR_HL = 8;       // arrowhead length (wings to tip)
+const ARR_HW = 3.5;     // arrowhead half-width
+const ARR_ND = 2.5;     // notch depth
+
+function downArrowPath(cx, cy, doubleHeaded) {
+    const t = cy - D + ARR_MARGIN;
+    const b = cy + D - ARR_MARGIN;
+    if (doubleHeaded) {
+        return `M${cx},${t} L${cx+ARR_HW},${t+ARR_HL} ${cx+ARR_SW},${t+ARR_HL-ARR_ND} ${cx+ARR_SW},${b-ARR_HL+ARR_ND} ${cx+ARR_HW},${b-ARR_HL} ${cx},${b} ${cx-ARR_HW},${b-ARR_HL} ${cx-ARR_SW},${b-ARR_HL+ARR_ND} ${cx-ARR_SW},${t+ARR_HL-ARR_ND} ${cx-ARR_HW},${t+ARR_HL}Z`;
+    }
+    return `M${cx-ARR_SW},${t} A${ARR_SW},${ARR_SW} 0 0 1 ${cx+ARR_SW},${t} L${cx+ARR_SW},${b-ARR_HL+ARR_ND} ${cx+ARR_HW},${b-ARR_HL} ${cx},${b} ${cx-ARR_HW},${b-ARR_HL} ${cx-ARR_SW},${b-ARR_HL+ARR_ND}Z`;
+}
+
+function rightArrowPath(cx, cy, doubleHeaded) {
+    const l = cx - D + ARR_MARGIN;
+    const r = cx + D - ARR_MARGIN;
+    if (doubleHeaded) {
+        return `M${l},${cy} L${l+ARR_HL},${cy-ARR_HW} ${l+ARR_HL-ARR_ND},${cy-ARR_SW} ${r-ARR_HL+ARR_ND},${cy-ARR_SW} ${r-ARR_HL},${cy-ARR_HW} ${r},${cy} ${r-ARR_HL},${cy+ARR_HW} ${r-ARR_HL+ARR_ND},${cy+ARR_SW} ${l+ARR_HL-ARR_ND},${cy+ARR_SW} ${l+ARR_HL},${cy+ARR_HW}Z`;
+    }
+    return `M${l},${cy-ARR_SW} A${ARR_SW},${ARR_SW} 0 0 0 ${l},${cy+ARR_SW} L${r-ARR_HL+ARR_ND},${cy+ARR_SW} ${r-ARR_HL},${cy+ARR_HW} ${r},${cy} ${r-ARR_HL},${cy-ARR_HW} ${r-ARR_HL+ARR_ND},${cy-ARR_SW}Z`;
+}
+
 // ── Info display ──
 
 function valSpan(v) {
@@ -345,13 +382,13 @@ function showRightInfo(i, j, val, hInitCol, vInitRow) {
     `;
 }
 
-function showCellInfo(i, j, dm, rm, hInitCol, vInitRow, rHigh) {
+function showCellInfo(i, j, dm, rm, hInitCol, vInitRow, sen) {
     const dIn = dm[j][i];
     const rIn = rm[i][j];
-    const [dOut, rOut] = reaction(dIn, rIn, i, j, hInitCol, vInitRow, rHigh);
+    const [dOut, rOut] = reaction(dIn, rIn, i, j, hInitCol, vInitRow, sen);
     const pI = pri(i + hInitCol);
     const pJ = pri(j + vInitRow);
-    const winner = (rHigh ? pI > pJ : pI >= pJ) ? 'down wins' : 'right wins';
+    const winner = (sen.isVertical ? pI >= pJ : pI > pJ) ? 'down wins' : 'right wins';
 
     info.innerHTML = `
         <div class="title" style="color:#7c5cb0">Reaction at cell r${j}c${i}</div>
@@ -374,11 +411,9 @@ function render() {
     const nC = +inputs.numCols.value;
     const hInitCol = +inputs.hInitCol.value;
     const vInitRow = +inputs.vInitRow.value;
-    const rHigh = inputs.rightHigh.checked;
+    callSig.textContent = `propagate(${nR}, ${nC}, ${hInitCol}, ${vInitRow})`;
 
-    callSig.textContent = `propagate(${nR}, ${nC}, ${hInitCol}, ${vInitRow}, ${rHigh})`;
-
-    const [dm, rm] = propagate(nR, nC, hInitCol, vInitRow, rHigh);
+    const [dm, rm] = propagate(nR, nC, hInitCol, vInitRow, seniority);
 
     const w = 2 * PAD + nC * S;
     const h = 2 * PAD + nR * S;
@@ -386,24 +421,6 @@ function render() {
     svg.setAttribute('height', h);
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
     svg.innerHTML = '';
-
-    // ── Arrowhead marker definitions ──
-    const defs = svgEl('defs', {});
-    const mkMarker = (id, path, fill) => {
-        const m = svgEl('marker', {
-            id, viewBox: '0 0 10 10',
-            refX: 5, refY: 5,
-            markerWidth: 4, markerHeight: 4,
-            orient: 'auto',
-        });
-        m.appendChild(svgEl('path', { d: path, fill }));
-        return m;
-    };
-    defs.appendChild(mkMarker('arrow-down', 'M 0 0 L 10 5 L 0 10 z', '#3d7a2d'));
-    defs.appendChild(mkMarker('arrow-up',   'M 10 0 L 0 5 L 10 10 z', '#3d7a2d'));
-    defs.appendChild(mkMarker('arrow-right','M 0 0 L 10 5 L 0 10 z', '#3d6a8a'));
-    defs.appendChild(mkMarker('arrow-left', 'M 10 0 L 0 5 L 10 10 z', '#3d6a8a'));
-    svg.appendChild(defs);
 
     // ── Flow lines (subtle connections) ──
     if (showFlow) {
@@ -445,13 +462,11 @@ function render() {
             svg.appendChild(poly);
 
             if (val) {
-                const line = svgEl('line', {
-                    x1: cx, y1: cy - D, x2: cx, y2: cy + D,
-                    class: 'arrow-line', stroke: '#3d7a2d',
-                    'marker-end': 'url(#arrow-down)',
-                });
-                if (j === 0) line.setAttribute('marker-start', 'url(#arrow-up)');
-                svg.appendChild(line);
+                svg.appendChild(svgEl('path', {
+                    d: downArrowPath(cx, cy, j === 0),
+                    class: 'arrow-path',
+                    fill: '#3d7a2d',
+                }));
             }
 
             if (showLabels) {
@@ -481,13 +496,11 @@ function render() {
             svg.appendChild(poly);
 
             if (val) {
-                const line = svgEl('line', {
-                    x1: cx - D, y1: cy, x2: cx + D, y2: cy,
-                    class: 'arrow-line', stroke: '#3d6a8a',
-                    'marker-end': 'url(#arrow-right)',
-                });
-                if (i === 0) line.setAttribute('marker-start', 'url(#arrow-left)');
-                svg.appendChild(line);
+                svg.appendChild(svgEl('path', {
+                    d: rightArrowPath(cx, cy, i === 0),
+                    class: 'arrow-path',
+                    fill: '#3d6a8a',
+                }));
             }
 
             if (showLabels) {
@@ -508,8 +521,8 @@ function render() {
             if (showPri) {
                 const pI = pri(i + hInitCol);
                 const pJ = pri(j + vInitRow);
-                const dw = rHigh ? pI > pJ : pI >= pJ;
-                const cmp = rHigh ? '>' : '≥';
+                const dw = seniority.isVertical ? pI >= pJ : pI > pJ;
+                const cmp = seniority.isVertical ? '≥' : '>';
                 svg.appendChild(Object.assign(svgEl('text', {
                     x: cx, y: cy - 6,
                     class: 'coord-label',

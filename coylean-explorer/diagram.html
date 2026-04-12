@@ -191,10 +191,6 @@ svg { cursor: default; }
                 <input type="number" id="vInitRow" value="1" min="-20" max="20">
             </div>
         </div>
-        <div class="control">
-            <label>rightHigh</label>
-            <input type="checkbox" id="rightHigh">
-        </div>
     </div>
 
     <h2>Display</h2>
@@ -202,6 +198,13 @@ svg { cursor: default; }
         <button id="tog-labels" class="active">Labels</button>
         <button id="tog-flow">Flow</button>
         <button id="tog-pri">Priority</button>
+    </div>
+
+    <div class="control-row" style="margin-top:10px">
+        <div class="control">
+            <label>Seniority</label>
+            <button id="seniority" style="padding:4px 10px;background:#e8e8e8;border:1px solid #ccc;color:#333;border-radius:4px;cursor:pointer;font-size:0.8em">Vertical</button>
+        </div>
     </div>
 
     <h2>Legend</h2>
@@ -245,7 +248,7 @@ svg { cursor: default; }
 </div>
 
 <script type="module">
-import { pri, reaction, propagate } from './coylean-core.js';
+import { pri, Seniority, reaction, propagate } from './coylean-core.js';
 
 const S = 128;      // cell spacing
 const D = 36;       // diamond half-diagonal
@@ -254,13 +257,20 @@ const PAD = 64;     // padding
 const svg = document.getElementById('diagram');
 const info = document.getElementById('info');
 const callSig = document.getElementById('call-sig');
+const seniorityBtn = document.getElementById('seniority');
+
+let seniority = Seniority.vertical();
+seniorityBtn.addEventListener('click', () => {
+    seniority = seniority.isVertical ? Seniority.horizontal() : Seniority.vertical();
+    seniorityBtn.textContent = seniority.isVertical ? 'Vertical' : 'Horizontal';
+    render();
+});
 
 const inputs = {
     numRows:  document.getElementById('numRows'),
     numCols:  document.getElementById('numCols'),
     hInitCol: document.getElementById('hInitCol'),
     vInitRow: document.getElementById('vInitRow'),
-    rightHigh: document.getElementById('rightHigh'),
 };
 
 let showLabels = true, showFlow = false, showPri = false;
@@ -344,13 +354,13 @@ function showRightInfo(i, j, val, hInitCol, vInitRow) {
     `;
 }
 
-function showCellInfo(i, j, dm, rm, hInitCol, vInitRow, rHigh) {
+function showCellInfo(i, j, dm, rm, hInitCol, vInitRow, sen) {
     const dIn = dm[j][i];
     const rIn = rm[i][j];
-    const [dOut, rOut] = reaction(dIn, rIn, i, j, hInitCol, vInitRow, rHigh);
+    const [dOut, rOut] = reaction(dIn, rIn, i, j, hInitCol, vInitRow, sen);
     const pI = pri(i + hInitCol);
     const pJ = pri(j + vInitRow);
-    const winner = (rHigh ? pI > pJ : pI >= pJ) ? 'down wins' : 'right wins';
+    const winner = (sen.isVertical ? pI >= pJ : pI > pJ) ? 'down wins' : 'right wins';
 
     info.innerHTML = `
         <div class="title" style="color:#bc8cff">Reaction at cell (${i}, ${j})</div>
@@ -373,11 +383,9 @@ function render() {
     const nC = +inputs.numCols.value;
     const hInitCol = +inputs.hInitCol.value;
     const vInitRow = +inputs.vInitRow.value;
-    const rHigh = inputs.rightHigh.checked;
+    callSig.textContent = `propagate(${nR}, ${nC}, ${hInitCol}, ${vInitRow})`;
 
-    callSig.textContent = `propagate(${nR}, ${nC}, ${hInitCol}, ${vInitRow}, ${rHigh})`;
-
-    const [dm, rm] = propagate(nR, nC, hInitCol, vInitRow, rHigh);
+    const [dm, rm] = propagate(nR, nC, hInitCol, vInitRow, seniority);
 
     const w = 2 * PAD + nC * S;
     const h = 2 * PAD + nR * S;
@@ -483,15 +491,15 @@ function render() {
                 points: diamondPts(cx, cy),
                 class: 'cell-zone',
             });
-            zone.addEventListener('mouseenter', () => showCellInfo(i, j, dm, rm, hInitCol, vInitRow, rHigh));
+            zone.addEventListener('mouseenter', () => showCellInfo(i, j, dm, rm, hInitCol, vInitRow, seniority));
             zone.addEventListener('mouseleave', clearInfo);
             svg.appendChild(zone);
 
             if (showPri) {
                 const pI = pri(i + hInitCol);
                 const pJ = pri(j + vInitRow);
-                const dw = rHigh ? pI > pJ : pI >= pJ;
-                const cmp = rHigh ? '>' : '≥';
+                const dw = seniority.isVertical ? pI >= pJ : pI > pJ;
+                const cmp = seniority.isVertical ? '≥' : '>';
                 svg.appendChild(Object.assign(svgEl('text', {
                     x: cx, y: cy - 6,
                     class: 'coord-label',

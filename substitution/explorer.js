@@ -246,7 +246,7 @@ assignHLetter(H_CLASSES, 6, 1, "S");
 
 // ── Substitution Table ──
 
-function getSectionData(N, rightHigh = false) {
+function getSectionData(N, seniority = "vertical") {
     const M = N + 1;
     const maxP = computeMaxPri(M, M);
     function pri(i) {
@@ -295,7 +295,7 @@ function getSectionData(N, rightHigh = false) {
                 if (preR) hBound[sr][sc] = true;
             }
 
-            if (rightHigh ? pri(x) > rp : pri(x) >= rp) {
+            if (seniority === "vertical" ? pri(x) >= rp : pri(x) > rp) {
                 if (preD) r[y] = !r[y];
             } else {
                 if (preR) d[x] = !d[x];
@@ -358,9 +358,9 @@ for (let sr = 0; sr < 16; sr++) {
     }
 }
 
-// Build the H substitution table from order 5 → 6 (rightHigh = true)
-const ho5 = getSectionData(32, true);
-const ho6 = getSectionData(64, true);
+// Build the H substitution table from order 5 → 6 (seniority = horizontal)
+const ho5 = getSectionData(32, "horizontal");
+const ho6 = getSectionData(64, "horizontal");
 const H_SUB_TABLE = {};
 const H_REACHABLE = new Set();
 
@@ -386,7 +386,7 @@ for (let sr = 0; sr < 8; sr++) {
     }
 }
 
-const ho7 = getSectionData(128, true);
+const ho7 = getSectionData(128, "horizontal");
 for (let sr = 0; sr < 16; sr++) {
     for (let sc = 0; sc < 16; sc++) {
         const [dc, rc] = ho6.codes[sr][sc];
