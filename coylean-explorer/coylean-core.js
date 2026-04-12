@@ -215,9 +215,9 @@ export function propagate(
  */
 export function universalPropagate(numRows, numColumns, hInitCol = 1, vInitRow = 1, seniority = Seniority.vertical()) {
     return {
-        nw: propagate(numRows, numColumns, hInitCol - 1, vInitRow - 1, seniority),
-        ne: propagate(numRows, numColumns, hInitCol, vInitRow - 1, seniority),
-        sw: propagate(numRows, numColumns, hInitCol - 1, vInitRow, seniority),
+        nw: propagate(numRows, numColumns, 1 - hInitCol, 1 - vInitRow, seniority),
+        ne: propagate(numRows, numColumns, hInitCol, 1 - vInitRow, seniority),
+        sw: propagate(numRows, numColumns, 1 - hInitCol, vInitRow, seniority),
         se: propagate(numRows, numColumns, hInitCol, vInitRow, seniority),
     };
 }

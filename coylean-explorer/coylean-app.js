@@ -305,7 +305,7 @@ function coyleanUniverse(numRows, numCols) {
                 numCols + i,
                 numRows - 1 - j,
                 1, 0,
-                pri(i + hInitCol), pri(j + vInitRow - 1),
+                pri(i + hInitCol), pri(j + 1 - vInitRow),
             );
         }
     }
@@ -318,7 +318,7 @@ function coyleanUniverse(numRows, numCols) {
                 numCols - 1 - i,
                 numRows + j,
                 0, 1,
-                pri(i + hInitCol - 1), pri(j + vInitRow),
+                pri(i + 1 - hInitCol), pri(j + vInitRow),
             );
         }
     }
@@ -331,7 +331,7 @@ function coyleanUniverse(numRows, numCols) {
                 numCols - 1 - i,
                 numRows - 1 - j,
                 0, 0,
-                pri(i + hInitCol - 1), pri(j + vInitRow - 1),
+                pri(i + 1 - hInitCol), pri(j + 1 - vInitRow),
             );
         }
     }
