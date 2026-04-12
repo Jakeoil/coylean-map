@@ -1,5 +1,5 @@
 "use strict";
-import { pri, propagate, universalPropagate } from "./coylean-core.js";
+import { pri, Seniority, propagate, universalPropagate } from "./coylean-core.js";
 
 let g; // canvas 2D context
 
@@ -11,6 +11,7 @@ let numCols = 65;
 let SCALE = 8;
 let hInitCol = 1;
 let vInitRow = 1;
+let seniority = Seniority.vertical();
 
 // ── DOM references ──
 
@@ -19,9 +20,10 @@ const eleActive = document.querySelector("#feature-active");
 const radioButtons = document.querySelectorAll("input[name='feature']");
 const eleNumRows = document.querySelector("#numRows");
 const eleNumCols = document.querySelector("#numCols");
-const eleScaleReset = document.querySelector("#scale-reset");
-const eleHInitCol = document.querySelector("#h-init-col");
-const eleVInitRow = document.querySelector("#v-init-row");
+const eleScale = document.querySelector("#scale");
+const eleHInitCol = document.querySelector("#hInitCol");
+const eleVInitRow = document.querySelector("#vInitRow");
+const eleSeniority = document.querySelector("#seniority");
 
 // ── Controls: Map Type ──
 
@@ -38,7 +40,7 @@ function refreshFeatureActive() {
               ? "Explore"
               : "Legacy";
     for (let ele of elesExplore) {
-        ele.style.display = feature_active === "explore" ? "block" : "none";
+        ele.style.display = feature_active === "legacy" ? "none" : "block";
     }
 }
 
@@ -77,47 +79,37 @@ eleNumCols.addEventListener("input", function () {
 
 // ── Controls: Scale ──
 
-document.querySelector("#scale-dec").addEventListener("click", function () {
-    if (SCALE > 1) SCALE--;
-    eleScaleReset.innerHTML = SCALE;
-    coyleanApp();
-});
-
-document.querySelector("#scale-inc").addEventListener("click", function () {
-    SCALE++;
-    eleScaleReset.innerHTML = SCALE;
-    coyleanApp();
-});
-
-eleScaleReset.addEventListener("click", function () {
-    if (SCALE !== 8) SCALE = 8;
-    eleScaleReset.innerHTML = SCALE;
-    coyleanApp();
+eleScale.addEventListener("input", function () {
+    const v = parseInt(eleScale.value, 10);
+    if (Number.isFinite(v) && v >= 1) {
+        SCALE = v;
+        coyleanApp();
+    }
 });
 
 // ── Controls: Position Offsets ──
 
-document.querySelector("#h-init-col-right").addEventListener("click", function () {
-    hInitCol++;
-    eleHInitCol.innerHTML = hInitCol;
-    coyleanApp();
+eleHInitCol.addEventListener("input", function () {
+    const v = parseInt(eleHInitCol.value, 10);
+    if (Number.isFinite(v)) {
+        hInitCol = v;
+        coyleanApp();
+    }
 });
 
-document.querySelector("#h-init-col-left").addEventListener("click", function () {
-    hInitCol--;
-    eleHInitCol.innerHTML = hInitCol;
-    coyleanApp();
+eleVInitRow.addEventListener("input", function () {
+    const v = parseInt(eleVInitRow.value, 10);
+    if (Number.isFinite(v)) {
+        vInitRow = v;
+        coyleanApp();
+    }
 });
 
-document.querySelector("#v-init-row-up").addEventListener("click", function () {
-    vInitRow--;
-    eleVInitRow.innerHTML = vInitRow;
-    coyleanApp();
-});
+// ── Controls: Seniority ──
 
-document.querySelector("#v-init-row-down").addEventListener("click", function () {
-    vInitRow++;
-    eleVInitRow.innerHTML = vInitRow;
+eleSeniority.addEventListener("click", function () {
+    seniority = seniority.isVertical ? Seniority.horizontal() : Seniority.vertical();
+    eleSeniority.textContent = seniority.isVertical ? "Vertical" : "Horizontal";
     coyleanApp();
 });
 
@@ -192,7 +184,7 @@ function cell(down, right, i, j, dx = 1, dy = 1) {
 }
 
 function coyleanExploration(numRows, numCols) {
-    let [downMatrix, rightMatrix] = propagate(numRows, numCols, hInitCol, vInitRow);
+    let [downMatrix, rightMatrix] = propagate(numRows, numCols, hInitCol, vInitRow, seniority);
 
     for (let j = 0; j < numRows; j++) {
         for (let i = 0; i < numCols; i++) {
@@ -262,7 +254,7 @@ function coyleanLegacy(numRows, numCols) {
 }
 
 function coyleanUniverse(numRows, numCols) {
-    const { nw, ne, sw, se } = universalPropagate(numRows, numCols);
+    const { nw, ne, sw, se } = universalPropagate(numRows, numCols, hInitCol, vInitRow, seniority);
     const [nwDM, nwRM] = nw;
     const [neDM, neRM] = ne;
     const [swDM, swRM] = sw;
@@ -344,7 +336,7 @@ function coyleanApp() {
 refreshFeatureActive();
 eleNumRows.value = numRows;
 eleNumCols.value = numCols;
-eleScaleReset.innerHTML = SCALE;
-eleHInitCol.innerHTML = hInitCol;
-eleVInitRow.innerHTML = vInitRow;
+eleScale.value = SCALE;
+eleHInitCol.value = hInitCol;
+eleVInitRow.value = vInitRow;
 coyleanApp();

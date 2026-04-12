@@ -213,11 +213,11 @@ export function propagate(
  * @returns {{ nw, ne, sw, se }}
  *   Each quadrant is a [downMatrix, rightMatrix] pair from propagate().
  */
-export function universalPropagate(numRows, numColumns, seniority = Seniority.vertical()) {
+export function universalPropagate(numRows, numColumns, hInitCol = 1, vInitRow = 1, seniority = Seniority.vertical()) {
     return {
-        nw: propagate(numRows, numColumns, 0, 0, seniority),
-        ne: propagate(numRows, numColumns, 1, 0, seniority),
-        sw: propagate(numRows, numColumns, 0, 1, seniority),
-        se: propagate(numRows, numColumns, 1, 1, seniority),
+        nw: propagate(numRows, numColumns, hInitCol - 1, vInitRow - 1, seniority),
+        ne: propagate(numRows, numColumns, hInitCol, vInitRow - 1, seniority),
+        sw: propagate(numRows, numColumns, hInitCol - 1, vInitRow, seniority),
+        se: propagate(numRows, numColumns, hInitCol, vInitRow, seniority),
     };
 }

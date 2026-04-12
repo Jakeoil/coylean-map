@@ -30,34 +30,42 @@
                     <label for="universe">Universe</label>
                 </div>
                 <div class="control-group">
-                    <div>
-                        <h4>Size</h4>
-                        <div class="size-control">
-                            <label for="numRows">numRows</label>
+                    <h4>Size</h4>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>numRows</label>
                             <input type="number" id="numRows" value="65" min="1" max="500">
                         </div>
-                        <div class="size-control">
-                            <label for="numCols">numCols</label>
+                        <div class="control">
+                            <label>numCols</label>
                             <input type="number" id="numCols" value="65" min="1" max="500">
                         </div>
                     </div>
-                    <div>
-                        <h4>Scale</h4>
-                        <button id="scale-dec">smaller</button>
-                        <button id="scale-reset"></button>
-                        <button id="scale-inc">larger</button>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>Seniority</label>
+                            <button id="seniority">Vertical</button>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>Scale</label>
+                            <input type="number" id="scale" value="8" min="1" max="50">
+                        </div>
                     </div>
                 </div>
                 <div class="control-group can-explore">
-                    <h4>Horizontal init column</h4>
-                    <button id="h-init-col-left">Left</button>
-                    <label id="h-init-col"></label>
-                    <button id="h-init-col-right">Right</button>
-                    <br />
-                    <h4>Vertical init row</h4>
-                    <button id="v-init-row-up">Up</button>
-                    <label id="v-init-row"></label>
-                    <button id="v-init-row-down">Down</button>
+                    <h4>Position</h4>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>hInitCol</label>
+                            <input type="number" id="hInitCol" value="1" min="-500" max="500">
+                        </div>
+                        <div class="control">
+                            <label>vInitRow</label>
+                            <input type="number" id="vInitRow" value="1" min="-500" max="500">
+                        </div>
+                    </div>
                 </div>
             </div>
             <div id="content">
