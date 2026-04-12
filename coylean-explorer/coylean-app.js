@@ -116,6 +116,23 @@ eleSeniority.addEventListener("click", function () {
 // ── Rendering ──
 
 /**
+ * Apply stroke style for a line of the given priority.
+ * pri 0 or 1 → blue; pri 100 (infinite) → black, double width; else black.
+ */
+function applyPriStyle(p) {
+    if (p === 100) {
+        g.strokeStyle = "#000";
+        g.lineWidth = 2;
+    } else if (p <= 1) {
+        g.strokeStyle = "#22c";
+        g.lineWidth = 1;
+    } else {
+        g.strokeStyle = "#000";
+        g.lineWidth = 1;
+    }
+}
+
+/**
  * Draw the line segments inside one grid cell.
  *
  * Each cell is a SCALE×SCALE square at column `i`, row `j`. The cell carries
@@ -124,16 +141,18 @@ eleSeniority.addEventListener("click", function () {
  * horizontal edges (top or bottom). When both are present they share a corner,
  * forming an L.
  *
- * @param {boolean} down  - true if a vertical (down) segment passes through
- *                          this cell.
- * @param {boolean} right - true if a horizontal (right) segment passes
- *                          through this cell.
- * @param {number}  i     - column index of the cell (x = i * SCALE).
- * @param {number}  j     - row index of the cell    (y = j * SCALE).
- * @param {0|1}     dx    - which vertical edge carries the down segment:
- *                          1 → right edge (x + SCALE), 0 → left edge (x).
- * @param {0|1}     dy    - which horizontal edge carries the right segment:
- *                          1 → bottom edge (y + SCALE), 0 → top edge (y).
+ * @param {boolean} down    - true if a vertical (down) segment passes through
+ *                            this cell.
+ * @param {boolean} right   - true if a horizontal (right) segment passes
+ *                            through this cell.
+ * @param {number}  i       - column index of the cell (x = i * SCALE).
+ * @param {number}  j       - row index of the cell    (y = j * SCALE).
+ * @param {0|1}     dx      - which vertical edge carries the down segment:
+ *                            1 → right edge (x + SCALE), 0 → left edge (x).
+ * @param {0|1}     dy      - which horizontal edge carries the right segment:
+ *                            1 → bottom edge (y + SCALE), 0 → top edge (y).
+ * @param {number}  downPri - priority of the down segment's column (-1 = no styling)
+ * @param {number}  rightPri- priority of the right segment's row (-1 = no styling)
  *
  * The four (dx, dy) combinations correspond to the four quadrants of the
  * universal map and pick which corner of the cell the L wraps around:
@@ -144,7 +163,7 @@ eleSeniority.addEventListener("click", function () {
  *
  * Returns early without drawing when both `down` and `right` are false.
  */
-function cell(down, right, i, j, dx = 1, dy = 1) {
+function cell(down, right, i, j, dx = 1, dy = 1, downPri = -1, rightPri = -1) {
     if (!down && !right) return;
 
     let x = i * SCALE;
@@ -161,15 +180,23 @@ function cell(down, right, i, j, dx = 1, dy = 1) {
     let hy = dy ? yp : y;
 
     if (down && right) {
+        // Two separate strokes so each segment gets its own priority style
+        if (downPri >= 0) applyPriStyle(downPri);
         g.beginPath();
         g.moveTo(vx, dy ? y : yp);
         g.lineTo(vx, hy);
+        g.stroke();
+
+        if (rightPri >= 0) applyPriStyle(rightPri);
+        g.beginPath();
+        g.moveTo(vx, hy);
         g.lineTo(dx ? x : xp, hy);
         g.stroke();
         return;
     }
 
     if (down) {
+        if (downPri >= 0) applyPriStyle(downPri);
         g.beginPath();
         g.moveTo(vx, y);
         g.lineTo(vx, yp);
@@ -177,6 +204,7 @@ function cell(down, right, i, j, dx = 1, dy = 1) {
         return;
     }
 
+    if (rightPri >= 0) applyPriStyle(rightPri);
     g.beginPath();
     g.moveTo(x, hy);
     g.lineTo(xp, hy);
@@ -188,7 +216,8 @@ function coyleanExploration(numRows, numCols) {
 
     for (let j = 0; j < numRows; j++) {
         for (let i = 0; i < numCols; i++) {
-            cell(downMatrix[j][i], rightMatrix[i][j], i, j);
+            cell(downMatrix[j][i], rightMatrix[i][j], i, j, 1, 1,
+                pri(i + hInitCol), pri(j + vInitRow));
         }
     }
 }
@@ -263,7 +292,8 @@ function coyleanUniverse(numRows, numCols) {
     // SE: identity — full range, owns both axes
     for (let j = 0; j < numRows; j++) {
         for (let i = 0; i < numCols; i++) {
-            cell(seDM[j][i], seRM[i][j], numCols + i, numRows + j, 1, 1);
+            cell(seDM[j][i], seRM[i][j], numCols + i, numRows + j, 1, 1,
+                pri(i + hInitCol), pri(j + vInitRow));
         }
     }
     // NE: sₕ — suppress down at j=0 (init row duplicate)
@@ -274,8 +304,8 @@ function coyleanUniverse(numRows, numCols) {
                 neRM[i][j],
                 numCols + i,
                 numRows - 1 - j,
-                1,
-                0,
+                1, 0,
+                pri(i + hInitCol), pri(j + vInitRow - 1),
             );
         }
     }
@@ -287,8 +317,8 @@ function coyleanUniverse(numRows, numCols) {
                 i === 0 ? false : swRM[i][j],
                 numCols - 1 - i,
                 numRows + j,
-                0,
-                1,
+                0, 1,
+                pri(i + hInitCol - 1), pri(j + vInitRow),
             );
         }
     }
@@ -300,8 +330,8 @@ function coyleanUniverse(numRows, numCols) {
                 i === 0 ? false : nwRM[i][j],
                 numCols - 1 - i,
                 numRows - 1 - j,
-                0,
-                0,
+                0, 0,
+                pri(i + hInitCol - 1), pri(j + vInitRow - 1),
             );
         }
     }
