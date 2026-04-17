@@ -82,6 +82,12 @@ export class Col extends Array {
  * @returns {[boolean, boolean]}   [vertical out, horizontal out] — which arrows
  *                                 exit the cell downward and rightward.
  */
+export function verticalWinsPriority(i, j, hInitCol, vInitRow, seniority = Seniority.vertical()) {
+    return seniority.isVertical
+        ? pri(i + hInitCol) >= pri(j + vInitRow)
+        : pri(i + hInitCol) > pri(j + vInitRow);
+}
+
 export function reaction(
     vertical,
     horizontal,
@@ -95,9 +101,7 @@ export function reaction(
         return [false, false];
     }
 
-    let downWins = seniority.isVertical
-        ? pri(i + hInitCol) >= pri(j + vInitRow)
-        : pri(i + hInitCol) > pri(j + vInitRow);
+    let downWins = verticalWinsPriority(i, j, hInitCol, vInitRow, seniority);
     if (horizontal && vertical) {
         if (downWins) return [true, false];
         else return [false, true];
