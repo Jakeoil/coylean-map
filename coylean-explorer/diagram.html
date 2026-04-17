@@ -385,7 +385,7 @@ function render() {
     const vInitRow = +inputs.vInitRow.value;
     callSig.textContent = `propagate(${nR}, ${nC}, ${hInitCol}, ${vInitRow})`;
 
-    const [dm, rm] = propagate(nR, nC, hInitCol, vInitRow, seniority);
+    const { downMatrix: dm, rightMatrix: rm } = propagate(nR, nC, hInitCol, vInitRow, seniority);
 
     const w = 2 * PAD + nC * S;
     const h = 2 * PAD + nR * S;

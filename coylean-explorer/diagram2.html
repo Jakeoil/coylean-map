@@ -561,7 +561,7 @@
                 const vInitRow = +inputs.vInitRow.value;
                 callSig.textContent = `propagate(${nR}, ${nC}, ${hInitCol}, ${vInitRow})`;
 
-                const [dm, rm] = propagate(
+                const { downMatrix: dm, rightMatrix: rm } = propagate(
                     nR,
                     nC,
                     hInitCol,

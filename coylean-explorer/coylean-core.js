@@ -133,7 +133,7 @@ export function reaction(
  * @param {boolean[]} initRight - left-column right inputs (length = numRows)
  * @param {number}    hInitCol  - horizontal priority offset
  * @param {number}    vInitRow  - vertical priority offset
- * @returns {[Row[], Col[]]}    - [downMatrix, rightMatrix]
+ * @returns {{ downMatrix: Row[], rightMatrix: Col[] }}
  */
 export function createDownMatrix(numRows) {
     return [...Array(numRows + 1)].map(() => new Row());
@@ -171,7 +171,7 @@ export function propagateFromBoundary(
             );
         }
     }
-    return [downMatrix, rightMatrix];
+    return { downMatrix, rightMatrix };
 }
 
 /**
@@ -186,7 +186,7 @@ export function propagateFromBoundary(
  * @param {number} numColumns - grid width
  * @param {number} hInitCol   - horizontal priority offset (initial column)
  * @param {number} vInitRow   - vertical priority offset (initial row)
- * @returns {[Row[], Col[]]}  - [downMatrix, rightMatrix]
+ * @returns {{ downMatrix: Row[], rightMatrix: Col[] }}
  */
 export function propagate(
     numRows,
@@ -223,7 +223,7 @@ export function propagate(
  * @param {number} numRows    - cells per quadrant in the vertical direction
  * @param {number} numColumns - cells per quadrant in the horizontal direction
  * @returns {{ nw, ne, sw, se }}
- *   Each quadrant is a [downMatrix, rightMatrix] pair from propagate().
+ *   Each quadrant is a { downMatrix, rightMatrix } object from propagate().
  */
 export function universalPropagate(numRows, numColumns, hInitCol = 1, vInitRow = 1, seniority = Seniority.vertical()) {
     return {

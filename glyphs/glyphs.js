@@ -99,7 +99,7 @@ function drawGlyph(canvas, downCode, rightCode, seniority, fTransform) {
 
     // Propagate the 3×3 glyph using the shared core. hInitCol/vInitRow=1
     // matches the original priority(x+1)/priority(y+1) tie-breaking.
-    const [downMatrix, rightMatrix] = propagateFromBoundary(
+    const { downMatrix, rightMatrix } = propagateFromBoundary(
         bitsToBoundary(downCode, NUM_CELLS),
         bitsToBoundary(rightCode, NUM_CELLS),
         1,
@@ -272,7 +272,7 @@ function buildGrid(tableId, prefix, seniority) {
 //   s_d2 : v'[a][b] = h[3-b][2-a],   h'[a][b] = v[2-b][3-a]
 
 function computePattern(downCode, rightCode, seniority) {
-    const [downMatrix, rightMatrix] = propagateFromBoundary(
+    const { downMatrix, rightMatrix } = propagateFromBoundary(
         bitsToBoundary(downCode, NUM_CELLS),
         bitsToBoundary(rightCode, NUM_CELLS),
         1,
@@ -489,7 +489,7 @@ function drawCoyleanMap(canvasEl, Nr, Nc, cell, opts) {
 
     // hInitCol=vInitRow=0 keeps the axis cells (priority pri(0)=∞) as the
     // first row/column, matching glyphs.js's pri(x)/pri(y) convention.
-    const [downMatrix, rightMatrix] = propagateFromBoundary(
+    const { downMatrix, rightMatrix } = propagateFromBoundary(
         initDown,
         initRight,
         0,
@@ -569,7 +569,7 @@ function drawCoyleanMap(canvasEl, Nr, Nc, cell, opts) {
 
             if (ft) {
                 // Assigned letter: draw overlay lines, dots, and transformed letter
-                const [secDown, secRight] = propagateFromBoundary(
+                const { downMatrix: secDown, rightMatrix: secRight } = propagateFromBoundary(
                     bitsToBoundary(dc, 3),
                     bitsToBoundary(rc, 3),
                     1,
@@ -692,7 +692,7 @@ function getSectionData(Nr, Nc, seniority) {
     if (!seniority.isVertical) initRight[0] = true;
     else initDown[0] = true;
 
-    const [downMatrix, rightMatrix] = propagateFromBoundary(
+    const { downMatrix, rightMatrix } = propagateFromBoundary(
         initDown,
         initRight,
         0,

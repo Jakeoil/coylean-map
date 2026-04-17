@@ -226,7 +226,7 @@ function cell(down, right, i, j, dx = 1, dy = 1, downPri = -1, rightPri = -1, do
 }
 
 function coyleanExploration(numRows, numCols) {
-    let [downMatrix, rightMatrix] = propagate(numRows, numCols, hInitCol, vInitRow, seniority);
+    let { downMatrix, rightMatrix } = propagate(numRows, numCols, hInitCol, vInitRow, seniority);
 
     for (let j = 0; j < numRows; j++) {
         for (let i = 0; i < numCols; i++) {
@@ -298,10 +298,10 @@ function coyleanLegacy(numRows, numCols) {
 
 function coyleanUniverse(numRows, numCols) {
     const { nw, ne, sw, se } = universalPropagate(numRows, numCols, hInitCol, vInitRow, seniority);
-    const [nwDM, nwRM] = nw;
-    const [neDM, neRM] = ne;
-    const [swDM, swRM] = sw;
-    const [seDM, seRM] = se;
+    const { downMatrix: nwDM, rightMatrix: nwRM } = nw;
+    const { downMatrix: neDM, rightMatrix: neRM } = ne;
+    const { downMatrix: swDM, rightMatrix: swRM } = sw;
+    const { downMatrix: seDM, rightMatrix: seRM } = se;
 
     // SE: identity — full range, owns both axes
     for (let j = 0; j < numRows; j++) {
