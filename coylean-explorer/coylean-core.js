@@ -135,6 +135,14 @@ export function reaction(
  * @param {number}    vInitRow  - vertical priority offset
  * @returns {[Row[], Col[]]}    - [downMatrix, rightMatrix]
  */
+export function createDownMatrix(numRows) {
+    return [...Array(numRows + 1)].map(() => new Row());
+}
+
+export function createRightMatrix(numColumns) {
+    return [...Array(numColumns + 1)].map(() => new Col());
+}
+
 export function propagateFromBoundary(
     initDown,
     initRight,
@@ -144,8 +152,8 @@ export function propagateFromBoundary(
 ) {
     const numColumns = initDown.length;
     const numRows = initRight.length;
-    const downMatrix = [...Array(numRows + 1)].map(() => new Row());
-    const rightMatrix = [...Array(numColumns + 1)].map(() => new Col());
+    const downMatrix = createDownMatrix(numRows);
+    const rightMatrix = createRightMatrix(numColumns);
 
     for (let i = 0; i < numColumns; i++) downMatrix[0][i] = initDown[i];
     for (let j = 0; j < numRows; j++) rightMatrix[0][j] = initRight[j];
