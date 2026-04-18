@@ -186,17 +186,19 @@ export function propagateFromBoundary(
     for (let i = 0; i < numColumns; i++) downMatrix[0][i] = initDown[i];
     for (let j = 0; j < numRows; j++) rightMatrix[0][j] = initRight[j];
 
+    const colPriority = [...Array(numColumns)].map((_, i) => pri(i + hInitCol));
+    const rowPriority = [...Array(numRows)].map((_, j) => pri(j + vInitRow));
+
     for (let j = 0; j < numRows; j++) {
         for (let i = 0; i < numColumns; i++) {
-            [downMatrix[j + 1][i], rightMatrix[i + 1][j]] = reaction(
-                downMatrix[j][i],
-                rightMatrix[i][j],
-                i,
-                j,
-                hInitCol,
-                vInitRow,
-                seniority,
-            );
+            [downMatrix[j + 1][i], rightMatrix[i + 1][j]] =
+                reactionFromPriority(
+                    downMatrix[j][i],
+                    rightMatrix[i][j],
+                    colPriority[i],
+                    rowPriority[j],
+                    seniority,
+                );
         }
     }
     return { downMatrix, rightMatrix };
@@ -422,7 +424,9 @@ export class Propagation {
         this.seniority = seniority;
         this.downMatrix = downMatrix;
         this.rightMatrix = rightMatrix;
-        this.colPriority = [...Array(numColumns)].map((_, i) => pri(i + hInitCol));
+        this.colPriority = [...Array(numColumns)].map((_, i) =>
+            pri(i + hInitCol),
+        );
         this.rowPriority = [...Array(numRows)].map((_, j) => pri(j + vInitRow));
     }
 
@@ -621,8 +625,12 @@ export class Universe {
         const numColumns = westExtent + eastExtent - 1;
 
         // Global index → local coordinate (relative to origin) → priority.
-        const colPriority = [...Array(numColumns)].map((_, i) => pri((i - originCol) + hInitCol));
-        const rowPriority = [...Array(numRows)].map((_, j) => pri((j - originRow) + vInitRow));
+        const colPriority = [...Array(numColumns)].map((_, i) =>
+            pri(i - originCol + hInitCol),
+        );
+        const rowPriority = [...Array(numRows)].map((_, j) =>
+            pri(j - originRow + vInitRow),
+        );
 
         const downMatrix = [...Array(numRows)].map(() => {
             const row = new Row(numColumns);
