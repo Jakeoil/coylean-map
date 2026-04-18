@@ -602,6 +602,10 @@ export class Universe {
         const numRows = northExtent + southExtent - 1;
         const numColumns = westExtent + eastExtent - 1;
 
+        // Global index → local coordinate (relative to origin) → priority.
+        const colPriority = [...Array(numColumns)].map((_, i) => pri((i - originCol) + hInitCol));
+        const rowPriority = [...Array(numRows)].map((_, j) => pri((j - originRow) + vInitRow));
+
         const downMatrix = [...Array(numRows)].map(() => {
             const row = new Row(numColumns);
             for (let c = 0; c < numColumns; c++) row[c] = false;
@@ -661,6 +665,8 @@ export class Universe {
             southExtent,
             westExtent,
             eastExtent,
+            colPriority,
+            rowPriority,
         };
     }
 
