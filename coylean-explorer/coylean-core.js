@@ -430,4 +430,14 @@ export class Universe {
             eastExtent,
         };
     }
+
+    debugAssemblySummary() {
+        const { originRow, originCol } = this.assemble();
+        return {
+            totalRows: this.northExtent + this.southExtent,
+            totalCols: this.westExtent + this.eastExtent,
+            originRow,
+            originCol,
+        };
+    }
 }
