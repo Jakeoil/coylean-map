@@ -306,3 +306,59 @@ export class Propagation {
         return this.direction === "nw" || this.direction === "sw";
     }
 }
+
+export class Universe {
+    static fromPropagations({
+        northExtent,
+        southExtent,
+        westExtent,
+        eastExtent,
+        hInitCol,
+        vInitRow,
+        seniority,
+        nw,
+        ne,
+        sw,
+        se,
+    }) {
+        return new Universe(
+            northExtent,
+            southExtent,
+            westExtent,
+            eastExtent,
+            hInitCol,
+            vInitRow,
+            seniority,
+            nw,
+            ne,
+            sw,
+            se,
+        );
+    }
+
+    constructor(
+        northExtent,
+        southExtent,
+        westExtent,
+        eastExtent,
+        hInitCol,
+        vInitRow,
+        seniority,
+        nw,
+        ne,
+        sw,
+        se,
+    ) {
+        this.northExtent = northExtent;
+        this.southExtent = southExtent;
+        this.westExtent = westExtent;
+        this.eastExtent = eastExtent;
+        this.hInitCol = hInitCol;
+        this.vInitRow = vInitRow;
+        this.seniority = seniority;
+        this.nw = nw;
+        this.ne = ne;
+        this.sw = sw;
+        this.se = se;
+    }
+}
