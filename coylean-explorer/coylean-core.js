@@ -82,7 +82,13 @@ export class Col extends Array {
  * @returns {[boolean, boolean]}   [vertical out, horizontal out] — which arrows
  *                                 exit the cell downward and rightward.
  */
-export function verticalWinsPriority(i, j, hInitCol, vInitRow, seniority = Seniority.vertical()) {
+export function verticalWinsPriority(
+    i,
+    j,
+    hInitCol,
+    vInitRow,
+    seniority = Seniority.vertical(),
+) {
     return seniority.isVertical
         ? pri(i + hInitCol) >= pri(j + vInitRow)
         : pri(i + hInitCol) > pri(j + vInitRow);
@@ -135,6 +141,10 @@ export function reaction(
  * @param {number}    vInitRow  - vertical priority offset
  * @returns {{ downMatrix: Row[], rightMatrix: Col[] }}
  */
+// Note: the +1 allocates an extra trailing row/col beyond the grid.
+// Original intent was that this extra slice could seed the init of a
+// subsequent call (a natural continuation of the propagation); the current
+// callers don't use it, so it's effectively unused overhead today.
 export function createDownMatrix(numRows) {
     return [...Array(numRows + 1)].map(() => new Row());
 }
@@ -225,9 +235,21 @@ export function propagate(
  * @returns {{ nw, ne, sw, se }}
  *   Each quadrant is a { downMatrix, rightMatrix } object from propagate().
  */
-export function universalPropagate(numRows, numColumns, hInitCol = 1, vInitRow = 1, seniority = Seniority.vertical()) {
+export function universalPropagate(
+    numRows,
+    numColumns,
+    hInitCol = 1,
+    vInitRow = 1,
+    seniority = Seniority.vertical(),
+) {
     const quadrant = (direction, h, v) => {
-        const { downMatrix, rightMatrix } = propagate(numRows, numColumns, h, v, seniority);
+        const { downMatrix, rightMatrix } = propagate(
+            numRows,
+            numColumns,
+            h,
+            v,
+            seniority,
+        );
         return Propagation.fromMatrices({
             direction,
             numRows,
@@ -247,6 +269,94 @@ export function universalPropagate(numRows, numColumns, hInitCol = 1, vInitRow =
     };
 }
 
+/**
+ * A single directional propagation of the Coylean algorithm.
+ *
+ * A Propagation represents one quadrant of the universe, extending outward
+ * from the central propagation origin. It encapsulates the local grid,
+ * priority offsets, and the resulting arrow matrices for that quadrant.
+ *
+ * The direction determines how this propagation is oriented relative to
+ * the global universe:
+ *   - "se" → positive columns, positive rows
+ *   - "ne" → positive columns, negative rows
+ *   - "sw" → negative columns, positive rows
+ *   - "nw" → negative columns, negative rows
+ *
+ * Each propagation is computed independently using the Coylean rules,
+ * producing two matrices:
+ *   - downMatrix[j][i]  — vertical arrows (flowing downward)
+ *   - rightMatrix[i][j] — horizontal arrows (flowing rightward)
+ *
+ * Priority is evaluated using shifted local coordinates:
+ *   pri(i + hInitCol) and pri(j + vInitRow)
+ *
+ * The offsets (hInitCol, vInitRow) define the placement of the priority
+ * grid relative to the propagation origin. The propagation origin itself
+ * is geometric and independent of the priority lattice.
+ *
+ * A Propagation is a local object: it does not know about other quadrants.
+ * Multiple Propagations are combined by the Universe assembly process
+ * into a single global raster.
+ *
+ * @class Propagation
+ *
+ * @param {"nw"|"ne"|"sw"|"se"} direction
+ *   Directional identity of this propagation.
+ *
+ * @param {number} numRows
+ *   Number of rows in the local grid.
+ *
+ * @param {number} numColumns
+ *   Number of columns in the local grid.
+ *
+ * @param {number} hInitCol
+ *   Horizontal offset applied to column indices when computing priority.
+ *
+ * @param {number} vInitRow
+ *   Vertical offset applied to row indices when computing priority.
+ *
+ * @param {Seniority} seniority
+ *   Tie-breaking rule for priority comparisons.
+ *
+ * @param {Row[]} downMatrix
+ *   Matrix of vertical arrow states: downMatrix[j][i].
+ *
+ * @param {Col[]} rightMatrix
+ *   Matrix of horizontal arrow states: rightMatrix[i][j].
+ *
+ * @static
+ * @method fromMatrices
+ * @param {Object} options
+ * @param {"nw"|"ne"|"sw"|"se"} options.direction
+ * @param {number} options.numRows
+ * @param {number} options.numColumns
+ * @param {number} options.hInitCol
+ * @param {number} options.vInitRow
+ * @param {Seniority} options.seniority
+ * @param {Row[]} options.downMatrix
+ * @param {Col[]} options.rightMatrix
+ * @returns {Propagation}
+ *   Constructs a Propagation from precomputed matrices.
+ *
+ * @property {"nw"|"ne"|"sw"|"se"} direction
+ * @property {number} numRows
+ * @property {number} numColumns
+ * @property {number} hInitCol
+ * @property {number} vInitRow
+ * @property {Seniority} seniority
+ * @property {Row[]} downMatrix
+ * @property {Col[]} rightMatrix
+ *
+ * @readonly
+ * @property {boolean} isNorth
+ * @readonly
+ * @property {boolean} isSouth
+ * @readonly
+ * @property {boolean} isEast
+ * @readonly
+ * @property {boolean} isWest
+ */
 export class Propagation {
     static fromMatrices({
         direction,
@@ -269,7 +379,9 @@ export class Propagation {
             rightMatrix,
         );
     }
-
+    // Convention:
+    // downMatrix[j][i]  → vertical flow
+    // rightMatrix[i][j] → horizontal flow
     constructor(
         direction,
         numRows,
@@ -306,7 +418,106 @@ export class Propagation {
         return this.direction === "nw" || this.direction === "sw";
     }
 }
-
+/**
+ * A composed Coylean universe assembled from four directional propagations.
+ *
+ * A Universe represents a finite rectangular region centered on a propagation
+ * origin, constructed by stitching together four quadrant Propagation objects:
+ *   - nw (northwest)
+ *   - ne (northeast)
+ *   - sw (southwest)
+ *   - se (southeast)
+ *
+ * The universe is defined geometrically by independent extents in each direction:
+ *   - northExtent
+ *   - southExtent
+ *   - westExtent
+ *   - eastExtent
+ *
+ * These extents need not be equal. The propagation origin lies at:
+ *   (originRow = northExtent - 1, originCol = westExtent - 1)
+ *
+ * The priority grid is independent of this geometric center and is positioned
+ * via the offsets:
+ *   pri(i + hInitCol), pri(j + vInitRow)
+ *
+ * Assembly produces a single global raster representation:
+ *   - downMatrix[j][i]  — vertical arrows (flowing downward)
+ *   - rightMatrix[i][j] — horizontal arrows (flowing rightward)
+ *
+ * Quadrant stitching rules:
+ *   - SE owns both axes (written last)
+ *   - NE suppresses vertical arrows at its boundary (j === 0)
+ *   - SW suppresses horizontal arrows at its boundary (i === 0)
+ *   - NW suppresses both
+ *
+ * The renderer consumes only the assembled raster and metadata, without needing
+ * to know about quadrant decomposition.
+ *
+ * @class Universe
+ *
+ * @param {number} northExtent
+ *   Number of rows extending north from the propagation origin.
+ *
+ * @param {number} southExtent
+ *   Number of rows extending south from the propagation origin.
+ *
+ * @param {number} westExtent
+ *   Number of columns extending west from the propagation origin.
+ *
+ * @param {number} eastExtent
+ *   Number of columns extending east from the propagation origin.
+ *
+ * @param {number} hInitCol
+ *   Horizontal offset applied when evaluating priority.
+ *
+ * @param {number} vInitRow
+ *   Vertical offset applied when evaluating priority.
+ *
+ * @param {Seniority} seniority
+ *   Tie-breaking rule for priority comparisons.
+ *
+ * @param {Propagation} nw
+ * @param {Propagation} ne
+ * @param {Propagation} sw
+ * @param {Propagation} se
+ *
+ * @static
+ * @method fromPropagations
+ * @param {Object} options
+ * @param {number} options.northExtent
+ * @param {number} options.southExtent
+ * @param {number} options.westExtent
+ * @param {number} options.eastExtent
+ * @param {number} options.hInitCol
+ * @param {number} options.vInitRow
+ * @param {Seniority} options.seniority
+ * @param {Propagation} options.nw
+ * @param {Propagation} options.ne
+ * @param {Propagation} options.sw
+ * @param {Propagation} options.se
+ * @returns {Universe}
+ *
+ * @method assemble
+ * @returns {Object}
+ * @returns {Row[]} returns.downMatrix
+ * @returns {Col[]} returns.rightMatrix
+ * @returns {number} returns.originRow
+ * @returns {number} returns.originCol
+ * @returns {number} returns.hInitCol
+ * @returns {number} returns.vInitRow
+ * @returns {number} returns.northExtent
+ * @returns {number} returns.southExtent
+ * @returns {number} returns.westExtent
+ * @returns {number} returns.eastExtent
+ *
+ * @method debugAssemblySummary
+ * @returns {Object}
+ * @returns {number} returns.totalRows
+ * @returns {number} returns.totalCols
+ * @returns {number} returns.originRow
+ * @returns {number} returns.originCol
+ */
 export class Universe {
     static fromPropagations({
         northExtent,
@@ -363,9 +574,25 @@ export class Universe {
     }
 
     assemble() {
-        const { northExtent, southExtent, westExtent, eastExtent, hInitCol, vInitRow, nw, ne, sw, se } = this;
+        const {
+            northExtent,
+            southExtent,
+            westExtent,
+            eastExtent,
+            hInitCol,
+            vInitRow,
+            nw,
+            ne,
+            sw,
+            se,
+        } = this;
         const originRow = northExtent - 1;
         const originCol = westExtent - 1;
+        // Convention: northExtent / southExtent / westExtent / eastExtent
+        // each include the origin row/col, so the assembled grid is
+        // northExtent + southExtent - 1 rows × westExtent + eastExtent - 1 cols.
+        // The JSDoc description of these fields is ambiguous; clarify before
+        // consumers rely on the exclusive-of-origin reading.
         const numRows = northExtent + southExtent - 1;
         const numColumns = westExtent + eastExtent - 1;
 
@@ -434,8 +661,8 @@ export class Universe {
     debugAssemblySummary() {
         const { originRow, originCol } = this.assemble();
         return {
-            totalRows: this.northExtent + this.southExtent,
-            totalCols: this.westExtent + this.eastExtent,
+            totalRows: this.northExtent + this.southExtent - 1,
+            totalCols: this.westExtent + this.eastExtent - 1,
             originRow,
             originCol,
         };
