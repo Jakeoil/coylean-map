@@ -361,4 +361,73 @@ export class Universe {
         this.sw = sw;
         this.se = se;
     }
+
+    assemble() {
+        const { northExtent, southExtent, westExtent, eastExtent, hInitCol, vInitRow, nw, ne, sw, se } = this;
+        const originRow = northExtent - 1;
+        const originCol = westExtent - 1;
+        const numRows = northExtent + southExtent - 1;
+        const numColumns = westExtent + eastExtent - 1;
+
+        const downMatrix = [...Array(numRows)].map(() => {
+            const row = new Row(numColumns);
+            for (let c = 0; c < numColumns; c++) row[c] = false;
+            return row;
+        });
+        const rightMatrix = [...Array(numColumns)].map(() => {
+            const col = new Col(numRows);
+            for (let r = 0; r < numRows; r++) col[r] = false;
+            return col;
+        });
+
+        // NW: suppress down at j=0, right at i=0
+        for (let j = 0; j < nw.numRows; j++) {
+            for (let i = 0; i < nw.numColumns; i++) {
+                const r = originRow - j;
+                const c = originCol - i;
+                downMatrix[r][c] = j === 0 ? false : nw.downMatrix[j][i];
+                rightMatrix[c][r] = i === 0 ? false : nw.rightMatrix[i][j];
+            }
+        }
+        // NE: suppress down at j=0
+        for (let j = 0; j < ne.numRows; j++) {
+            for (let i = 0; i < ne.numColumns; i++) {
+                const r = originRow - j;
+                const c = originCol + i;
+                downMatrix[r][c] = j === 0 ? false : ne.downMatrix[j][i];
+                rightMatrix[c][r] = ne.rightMatrix[i][j];
+            }
+        }
+        // SW: suppress right at i=0
+        for (let j = 0; j < sw.numRows; j++) {
+            for (let i = 0; i < sw.numColumns; i++) {
+                const r = originRow + j;
+                const c = originCol - i;
+                downMatrix[r][c] = sw.downMatrix[j][i];
+                rightMatrix[c][r] = i === 0 ? false : sw.rightMatrix[i][j];
+            }
+        }
+        // SE owns both axes (written last)
+        for (let j = 0; j < se.numRows; j++) {
+            for (let i = 0; i < se.numColumns; i++) {
+                const r = originRow + j;
+                const c = originCol + i;
+                downMatrix[r][c] = se.downMatrix[j][i];
+                rightMatrix[c][r] = se.rightMatrix[i][j];
+            }
+        }
+
+        return {
+            downMatrix,
+            rightMatrix,
+            originRow,
+            originCol,
+            hInitCol,
+            vInitRow,
+            northExtent,
+            southExtent,
+            westExtent,
+            eastExtent,
+        };
+    }
 }
