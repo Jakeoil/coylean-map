@@ -235,6 +235,28 @@ export function universalPropagate(numRows, numColumns, hInitCol = 1, vInitRow =
 }
 
 export class Propagation {
+    static fromMatrices({
+        direction,
+        numRows,
+        numColumns,
+        hInitCol,
+        vInitRow,
+        seniority,
+        downMatrix,
+        rightMatrix,
+    }) {
+        return new Propagation(
+            direction,
+            numRows,
+            numColumns,
+            hInitCol,
+            vInitRow,
+            seniority,
+            downMatrix,
+            rightMatrix,
+        );
+    }
+
     constructor(
         direction,
         numRows,
