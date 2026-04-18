@@ -233,3 +233,41 @@ export function universalPropagate(numRows, numColumns, hInitCol = 1, vInitRow =
         se: propagate(numRows, numColumns, hInitCol, vInitRow, seniority),
     };
 }
+
+export class Propagation {
+    constructor(
+        direction,
+        numRows,
+        numColumns,
+        hInitCol,
+        vInitRow,
+        seniority,
+        downMatrix,
+        rightMatrix,
+    ) {
+        this.direction = direction;
+        this.numRows = numRows;
+        this.numColumns = numColumns;
+        this.hInitCol = hInitCol;
+        this.vInitRow = vInitRow;
+        this.seniority = seniority;
+        this.downMatrix = downMatrix;
+        this.rightMatrix = rightMatrix;
+    }
+
+    get isNorth() {
+        return this.direction === "nw" || this.direction === "ne";
+    }
+
+    get isSouth() {
+        return this.direction === "sw" || this.direction === "se";
+    }
+
+    get isEast() {
+        return this.direction === "ne" || this.direction === "se";
+    }
+
+    get isWest() {
+        return this.direction === "nw" || this.direction === "sw";
+    }
+}
