@@ -226,11 +226,24 @@ export function propagate(
  *   Each quadrant is a { downMatrix, rightMatrix } object from propagate().
  */
 export function universalPropagate(numRows, numColumns, hInitCol = 1, vInitRow = 1, seniority = Seniority.vertical()) {
+    const quadrant = (direction, h, v) => {
+        const { downMatrix, rightMatrix } = propagate(numRows, numColumns, h, v, seniority);
+        return Propagation.fromMatrices({
+            direction,
+            numRows,
+            numColumns,
+            hInitCol: h,
+            vInitRow: v,
+            seniority,
+            downMatrix,
+            rightMatrix,
+        });
+    };
     return {
-        nw: propagate(numRows, numColumns, 1 - hInitCol, 1 - vInitRow, seniority),
-        ne: propagate(numRows, numColumns, hInitCol, 1 - vInitRow, seniority),
-        sw: propagate(numRows, numColumns, 1 - hInitCol, vInitRow, seniority),
-        se: propagate(numRows, numColumns, hInitCol, vInitRow, seniority),
+        nw: quadrant("nw", 1 - hInitCol, 1 - vInitRow),
+        ne: quadrant("ne", hInitCol, 1 - vInitRow),
+        sw: quadrant("sw", 1 - hInitCol, vInitRow),
+        se: quadrant("se", hInitCol, vInitRow),
     };
 }
 
