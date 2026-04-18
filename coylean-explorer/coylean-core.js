@@ -347,6 +347,10 @@ export function universalPropagate(
  * @property {Seniority} seniority
  * @property {Row[]} downMatrix
  * @property {Col[]} rightMatrix
+ * @property {number[]} colPriority
+ *   Precomputed priority for each local column: pri(i + hInitCol).
+ * @property {number[]} rowPriority
+ *   Precomputed priority for each local row: pri(j + vInitRow).
  *
  * @readonly
  * @property {boolean} isNorth
@@ -400,6 +404,8 @@ export class Propagation {
         this.seniority = seniority;
         this.downMatrix = downMatrix;
         this.rightMatrix = rightMatrix;
+        this.colPriority = [...Array(numColumns)].map((_, i) => pri(i + hInitCol));
+        this.rowPriority = [...Array(numRows)].map((_, j) => pri(j + vInitRow));
     }
 
     get isNorth() {
