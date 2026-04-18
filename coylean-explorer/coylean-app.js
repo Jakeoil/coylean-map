@@ -298,15 +298,11 @@ function coyleanLegacy(numRows, numCols) {
 
 function coyleanUniverse(numRows, numCols) {
     const { nw, ne, sw, se } = universalPropagate(numRows, numCols, hInitCol, vInitRow, seniority);
-    const { downMatrix: nwDM, rightMatrix: nwRM } = nw;
-    const { downMatrix: neDM, rightMatrix: neRM } = ne;
-    const { downMatrix: swDM, rightMatrix: swRM } = sw;
-    const { downMatrix: seDM, rightMatrix: seRM } = se;
 
     // SE: identity — full range, owns both axes
     for (let j = 0; j < numRows; j++) {
         for (let i = 0; i < numCols; i++) {
-            cell(seDM[j][i], seRM[i][j], numCols - 1 + i, numRows - 1 + j, 1, 1,
+            cell(se.downMatrix[j][i], se.rightMatrix[i][j], numCols - 1 + i, numRows - 1 + j, 1, 1,
                 pri(i + hInitCol), pri(j + vInitRow), j === 0, i === 0);
         }
     }
@@ -314,8 +310,8 @@ function coyleanUniverse(numRows, numCols) {
     for (let j = 0; j < numRows; j++) {
         for (let i = 0; i < numCols; i++) {
             cell(
-                j === 0 ? false : neDM[j][i],
-                neRM[i][j],
+                j === 0 ? false : ne.downMatrix[j][i],
+                ne.rightMatrix[i][j],
                 numCols - 1 + i,
                 numRows - 1 - j,
                 1, 0,
@@ -328,8 +324,8 @@ function coyleanUniverse(numRows, numCols) {
     for (let j = 0; j < numRows; j++) {
         for (let i = 0; i < numCols; i++) {
             cell(
-                swDM[j][i],
-                i === 0 ? false : swRM[i][j],
+                sw.downMatrix[j][i],
+                i === 0 ? false : sw.rightMatrix[i][j],
                 numCols - 1 - i,
                 numRows - 1 + j,
                 0, 1,
@@ -342,8 +338,8 @@ function coyleanUniverse(numRows, numCols) {
     for (let j = 0; j < numRows; j++) {
         for (let i = 0; i < numCols; i++) {
             cell(
-                j === 0 ? false : nwDM[j][i],
-                i === 0 ? false : nwRM[i][j],
+                j === 0 ? false : nw.downMatrix[j][i],
+                i === 0 ? false : nw.rightMatrix[i][j],
                 numCols - 1 - i,
                 numRows - 1 - j,
                 0, 0,
