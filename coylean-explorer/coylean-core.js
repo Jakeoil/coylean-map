@@ -94,20 +94,20 @@ export function verticalWinsPriority(
         : pri(i + hInitCol) > pri(j + vInitRow);
 }
 
-export function reaction(
+function reactionFromPriority(
     vertical,
     horizontal,
-    i,
-    j,
-    hInitCol,
-    vInitRow,
+    colPriority,
+    rowPriority,
     seniority = Seniority.vertical(),
 ) {
     if (!horizontal && !vertical) {
         return [false, false];
     }
 
-    let downWins = verticalWinsPriority(i, j, hInitCol, vInitRow, seniority);
+    const downWins = seniority.isVertical
+        ? colPriority >= rowPriority
+        : colPriority > rowPriority;
     if (horizontal && vertical) {
         if (downWins) return [true, false];
         else return [false, true];
@@ -120,6 +120,24 @@ export function reaction(
         if (downWins) return [false, true];
         else return [true, true];
     }
+}
+
+export function reaction(
+    vertical,
+    horizontal,
+    i,
+    j,
+    hInitCol,
+    vInitRow,
+    seniority = Seniority.vertical(),
+) {
+    return reactionFromPriority(
+        vertical,
+        horizontal,
+        pri(i + hInitCol),
+        pri(j + vInitRow),
+        seniority,
+    );
 }
 
 /**
