@@ -178,29 +178,13 @@ export function propagateFromBoundary(
     vInitRow,
     seniority = Seniority.vertical(),
 ) {
-    const numColumns = initDown.length;
-    const numRows = initRight.length;
-    const downMatrix = createDownMatrix(numRows);
-    const rightMatrix = createRightMatrix(numColumns);
-
-    for (let i = 0; i < numColumns; i++) downMatrix[0][i] = initDown[i];
-    for (let j = 0; j < numRows; j++) rightMatrix[0][j] = initRight[j];
-
-    const colPriority = [...Array(numColumns)].map((_, i) => pri(i + hInitCol));
-    const rowPriority = [...Array(numRows)].map((_, j) => pri(j + vInitRow));
-
-    for (let j = 0; j < numRows; j++) {
-        for (let i = 0; i < numColumns; i++) {
-            [downMatrix[j + 1][i], rightMatrix[i + 1][j]] =
-                reactionFromPriority(
-                    downMatrix[j][i],
-                    rightMatrix[i][j],
-                    colPriority[i],
-                    rowPriority[j],
-                    seniority,
-                );
-        }
-    }
+    const { downMatrix, rightMatrix } = Propagation.computeFromBoundary({
+        initDown,
+        initRight,
+        hInitCol,
+        vInitRow,
+        seniority,
+    });
     return { downMatrix, rightMatrix };
 }
 
@@ -453,15 +437,14 @@ export class Propagation {
         vInitRow,
         seniority = Seniority.vertical(),
     }) {
-        const numColumns = initDown.length;
-        const numRows = initRight.length;
-        const { downMatrix, rightMatrix } = propagateFromBoundary(
-            initDown,
-            initRight,
-            hInitCol,
-            vInitRow,
-            seniority,
-        );
+        const { downMatrix, rightMatrix, numRows, numColumns } =
+            Propagation.computeFromBoundary({
+                initDown,
+                initRight,
+                hInitCol,
+                vInitRow,
+                seniority,
+            });
         return new Propagation(
             direction,
             numRows,
@@ -472,6 +455,51 @@ export class Propagation {
             downMatrix,
             rightMatrix,
         );
+    }
+
+    /**
+     * Core boundary-propagation algorithm. Returns the computed matrices
+     * along with the inferred grid dimensions.
+     *
+     * @param {Object} options
+     * @param {boolean[]} options.initDown
+     * @param {boolean[]} options.initRight
+     * @param {number} options.hInitCol
+     * @param {number} options.vInitRow
+     * @param {Seniority} [options.seniority]
+     * @returns {{ downMatrix: Row[], rightMatrix: Col[], numRows: number, numColumns: number }}
+     */
+    static computeFromBoundary({
+        initDown,
+        initRight,
+        hInitCol,
+        vInitRow,
+        seniority = Seniority.vertical(),
+    }) {
+        const numColumns = initDown.length;
+        const numRows = initRight.length;
+        const downMatrix = createDownMatrix(numRows);
+        const rightMatrix = createRightMatrix(numColumns);
+
+        for (let i = 0; i < numColumns; i++) downMatrix[0][i] = initDown[i];
+        for (let j = 0; j < numRows; j++) rightMatrix[0][j] = initRight[j];
+
+        const colPriority = [...Array(numColumns)].map((_, i) => pri(i + hInitCol));
+        const rowPriority = [...Array(numRows)].map((_, j) => pri(j + vInitRow));
+
+        for (let j = 0; j < numRows; j++) {
+            for (let i = 0; i < numColumns; i++) {
+                [downMatrix[j + 1][i], rightMatrix[i + 1][j]] =
+                    reactionFromPriority(
+                        downMatrix[j][i],
+                        rightMatrix[i][j],
+                        colPriority[i],
+                        rowPriority[j],
+                        seniority,
+                    );
+            }
+        }
+        return { downMatrix, rightMatrix, numRows, numColumns };
     }
     // Convention:
     // downMatrix[j][i]  → vertical flow
