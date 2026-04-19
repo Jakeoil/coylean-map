@@ -728,6 +728,65 @@ export class Universe {
         );
     }
 
+    /**
+     * Primary factory for a fully assembled Universe.
+     *
+     * Builds the four quadrant propagations with per-direction extents, then
+     * runs assemble() and attaches the resulting global raster (downMatrix,
+     * rightMatrix, originRow, originCol, colPriority, rowPriority) directly
+     * onto the instance so callers don't need to call assemble() themselves.
+     *
+     * @param {Object} options
+     * @param {number} options.northExtent
+     * @param {number} options.southExtent
+     * @param {number} options.westExtent
+     * @param {number} options.eastExtent
+     * @param {number} options.hInitCol
+     * @param {number} options.vInitRow
+     * @param {Seniority} [options.seniority]
+     * @returns {Universe}
+     */
+    static create({
+        northExtent,
+        southExtent,
+        westExtent,
+        eastExtent,
+        hInitCol,
+        vInitRow,
+        seniority = Seniority.vertical(),
+    }) {
+        const quadrant = (direction, numRows, numColumns, h, v) =>
+            Propagation.create({
+                direction,
+                numRows,
+                numColumns,
+                hInitCol: h,
+                vInitRow: v,
+                seniority,
+            });
+        const universe = new Universe(
+            northExtent,
+            southExtent,
+            westExtent,
+            eastExtent,
+            hInitCol,
+            vInitRow,
+            seniority,
+            quadrant("nw", northExtent, westExtent, 1 - hInitCol, 1 - vInitRow),
+            quadrant("ne", northExtent, eastExtent, hInitCol, 1 - vInitRow),
+            quadrant("sw", southExtent, westExtent, 1 - hInitCol, vInitRow),
+            quadrant("se", southExtent, eastExtent, hInitCol, vInitRow),
+        );
+        const assembled = universe.assemble();
+        universe.downMatrix = assembled.downMatrix;
+        universe.rightMatrix = assembled.rightMatrix;
+        universe.originRow = assembled.originRow;
+        universe.originCol = assembled.originCol;
+        universe.colPriority = assembled.colPriority;
+        universe.rowPriority = assembled.rowPriority;
+        return universe;
+    }
+
     constructor(
         northExtent,
         southExtent,
