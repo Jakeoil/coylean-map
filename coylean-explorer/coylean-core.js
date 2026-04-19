@@ -403,6 +403,45 @@ export class Propagation {
             rightMatrix,
         );
     }
+
+    /**
+     * Compute a Propagation by running propagate() with the given parameters.
+     *
+     * @param {Object} options
+     * @param {"nw"|"ne"|"sw"|"se"} options.direction
+     * @param {number} options.numRows
+     * @param {number} options.numColumns
+     * @param {number} options.hInitCol
+     * @param {number} options.vInitRow
+     * @param {Seniority} [options.seniority]
+     * @returns {Propagation}
+     */
+    static create({
+        direction,
+        numRows,
+        numColumns,
+        hInitCol,
+        vInitRow,
+        seniority = Seniority.vertical(),
+    }) {
+        const { downMatrix, rightMatrix } = propagate(
+            numRows,
+            numColumns,
+            hInitCol,
+            vInitRow,
+            seniority,
+        );
+        return new Propagation(
+            direction,
+            numRows,
+            numColumns,
+            hInitCol,
+            vInitRow,
+            seniority,
+            downMatrix,
+            rightMatrix,
+        );
+    }
     // Convention:
     // downMatrix[j][i]  → vertical flow
     // rightMatrix[i][j] → horizontal flow
