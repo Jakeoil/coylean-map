@@ -246,21 +246,14 @@ export function universalPropagate(
     vInitRow = 1,
     seniority = Seniority.vertical(),
 ) {
-    const quadrant = (direction, h, v) =>
-        Propagation.create({
-            direction,
-            numRows,
-            numColumns,
-            hInitCol: h,
-            vInitRow: v,
-            seniority,
-        });
-    return {
-        nw: quadrant("nw", 1 - hInitCol, 1 - vInitRow),
-        ne: quadrant("ne", hInitCol, 1 - vInitRow),
-        sw: quadrant("sw", 1 - hInitCol, vInitRow),
-        se: quadrant("se", hInitCol, vInitRow),
-    };
+    const { nw, ne, sw, se } = Universe.createSymmetric(
+        numRows,
+        numColumns,
+        hInitCol,
+        vInitRow,
+        seniority,
+    );
+    return { nw, ne, sw, se };
 }
 
 /**
