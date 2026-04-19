@@ -432,6 +432,47 @@ export class Propagation {
             rightMatrix,
         );
     }
+
+    /**
+     * Compute a Propagation from explicit boundary inputs.
+     *
+     * @param {Object} options
+     * @param {"nw"|"ne"|"sw"|"se"} options.direction
+     * @param {boolean[]} options.initDown   - top-row down inputs (length = numColumns)
+     * @param {boolean[]} options.initRight  - left-column right inputs (length = numRows)
+     * @param {number} options.hInitCol
+     * @param {number} options.vInitRow
+     * @param {Seniority} [options.seniority]
+     * @returns {Propagation}
+     */
+    static fromBoundary({
+        direction,
+        initDown,
+        initRight,
+        hInitCol,
+        vInitRow,
+        seniority = Seniority.vertical(),
+    }) {
+        const numColumns = initDown.length;
+        const numRows = initRight.length;
+        const { downMatrix, rightMatrix } = propagateFromBoundary(
+            initDown,
+            initRight,
+            hInitCol,
+            vInitRow,
+            seniority,
+        );
+        return new Propagation(
+            direction,
+            numRows,
+            numColumns,
+            hInitCol,
+            vInitRow,
+            seniority,
+            downMatrix,
+            rightMatrix,
+        );
+    }
     // Convention:
     // downMatrix[j][i]  → vertical flow
     // rightMatrix[i][j] → horizontal flow
