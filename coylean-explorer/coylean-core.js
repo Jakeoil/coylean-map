@@ -673,6 +673,50 @@ export class Universe {
         );
     }
 
+    /**
+     * Build a symmetric Universe by computing four quadrant propagations.
+     *
+     * The four quadrants share the given numRows × numColumns extent, and
+     * use the same priority-offset assignment as universalPropagate().
+     *
+     * @param {number} numRows
+     * @param {number} numColumns
+     * @param {number} [hInitCol]
+     * @param {number} [vInitRow]
+     * @param {Seniority} [seniority]
+     * @returns {Universe}
+     */
+    static createSymmetric(
+        numRows,
+        numColumns,
+        hInitCol = 1,
+        vInitRow = 1,
+        seniority = Seniority.vertical(),
+    ) {
+        const quadrant = (direction, h, v) =>
+            Propagation.create({
+                direction,
+                numRows,
+                numColumns,
+                hInitCol: h,
+                vInitRow: v,
+                seniority,
+            });
+        return new Universe(
+            numRows,
+            numRows,
+            numColumns,
+            numColumns,
+            hInitCol,
+            vInitRow,
+            seniority,
+            quadrant("nw", 1 - hInitCol, 1 - vInitRow),
+            quadrant("ne", hInitCol, 1 - vInitRow),
+            quadrant("sw", 1 - hInitCol, vInitRow),
+            quadrant("se", hInitCol, vInitRow),
+        );
+    }
+
     constructor(
         northExtent,
         southExtent,
