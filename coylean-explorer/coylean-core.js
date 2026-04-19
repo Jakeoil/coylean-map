@@ -143,6 +143,10 @@ export function reaction(
 /**
  * Propagate arrows through a grid from arbitrary boundary inputs.
  *
+ * Function-style wrapper around Propagation.computeFromBoundary — retained
+ * for callers that want a plain { downMatrix, rightMatrix } result without
+ * constructing a Propagation instance.
+ *
  * downMatrix[j][i]  — vertical arrow entering row j at column i
  * rightMatrix[i][j] — horizontal arrow entering column i at row j
  *
@@ -191,6 +195,9 @@ export function propagateFromBoundary(
 /**
  * Propagate arrows through a grid with all-true boundaries.
  *
+ * Function-style wrapper retained for legacy callers; Propagation.create()
+ * is the class-based equivalent.
+ *
  * Initial conditions: top row all true, left column all true.
  * This is equivalent to the d[0]=true seed after it has propagated
  * through the first row of the standard algorithm (the seed at maximum
@@ -220,6 +227,10 @@ export function propagate(
 
 /**
  * Universal propagation across all four quadrants.
+ *
+ * Function-style wrapper around Universe.createSymmetric — returns the raw
+ * { nw, ne, sw, se } quadrant bundle for callers that don't need the
+ * Universe assembly abstraction.
  *
  * Computes the full Coylean map extending in every direction from the
  * axis crossing point. Each quadrant is an independent propagate() call
@@ -372,7 +383,9 @@ export class Propagation {
     }
 
     /**
-     * Compute a Propagation by running propagate() with the given parameters.
+     * Class-based construction API: compute a Propagation with all-true
+     * boundaries. Preferred over the propagate() function wrapper when the
+     * caller wants a Propagation instance with direction/priority metadata.
      *
      * @param {Object} options
      * @param {"nw"|"ne"|"sw"|"se"} options.direction
@@ -411,7 +424,9 @@ export class Propagation {
     }
 
     /**
-     * Compute a Propagation from explicit boundary inputs.
+     * Class-based construction API: compute a Propagation from explicit
+     * boundary inputs. Preferred over the propagateFromBoundary() function
+     * wrapper when the caller wants a Propagation instance.
      *
      * @param {Object} options
      * @param {"nw"|"ne"|"sw"|"se"} options.direction
@@ -538,7 +553,10 @@ export class Propagation {
     }
 }
 /**
- * A composed Coylean universe assembled from four directional propagations.
+ * Assembly-level abstraction: a composed Coylean universe assembled from
+ * four directional propagations. Where Propagation models a single quadrant,
+ * Universe owns the stitching, origin geometry, and global raster output
+ * that renderers consume.
  *
  * A Universe represents a finite rectangular region centered on a propagation
  * origin, constructed by stitching together four quadrant Propagation objects:
