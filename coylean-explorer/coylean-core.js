@@ -262,25 +262,15 @@ export function universalPropagate(
     vInitRow = 1,
     seniority = Seniority.vertical(),
 ) {
-    const quadrant = (direction, h, v) => {
-        const { downMatrix, rightMatrix } = propagate(
-            numRows,
-            numColumns,
-            h,
-            v,
-            seniority,
-        );
-        return Propagation.fromMatrices({
+    const quadrant = (direction, h, v) =>
+        Propagation.create({
             direction,
             numRows,
             numColumns,
             hInitCol: h,
             vInitRow: v,
             seniority,
-            downMatrix,
-            rightMatrix,
         });
-    };
     return {
         nw: quadrant("nw", 1 - hInitCol, 1 - vInitRow),
         ne: quadrant("ne", hInitCol, 1 - vInitRow),
