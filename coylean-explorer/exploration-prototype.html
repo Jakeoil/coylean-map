@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Coylean Exploration Prototype</title>
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+            }
+            body {
+                font-family: system-ui, sans-serif;
+                background: #f5f5f5;
+                color: #333;
+                display: flex;
+                height: 100vh;
+            }
+
+            .sidebar {
+                width: 320px;
+                min-width: 320px;
+                padding: 20px;
+                background: #fff;
+                border-right: 1px solid #ddd;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+            }
+            h1 {
+                font-size: 1.2em;
+                color: #222;
+            }
+            h2 {
+                font-size: 0.85em;
+                color: #666;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+            .index-link {
+                align-self: flex-start;
+                padding: 4px 12px;
+                background: #1f6feb;
+                color: #fff;
+                border-radius: 6px;
+                text-decoration: none;
+                font-size: 0.85em;
+                font-weight: 600;
+            }
+
+            .call-sig {
+                font-family: monospace;
+                font-size: 0.9em;
+                color: #2a7a3a;
+                padding: 8px 12px;
+                background: #f5f5f5;
+                border-radius: 6px;
+                border: 1px solid #ccc;
+                white-space: pre-wrap;
+            }
+
+            .control-row {
+                display: flex;
+                gap: 10px;
+                justify-content: center;
+            }
+            .control {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                align-items: center;
+            }
+            .control label {
+                font-size: 0.72em;
+                color: #666;
+            }
+            .control input {
+                width: 72px;
+                padding: 4px 8px;
+                background: #f5f5f5;
+                border: 1px solid #ccc;
+                color: #333;
+                border-radius: 4px;
+                font-size: 0.9em;
+                text-align: center;
+            }
+
+            .main {
+                flex: 1;
+                overflow: hidden;
+                padding: 0;
+                background: #fff;
+            }
+
+            #diagram {
+                width: 100%;
+                height: 100%;
+                display: block;
+                touch-action: none;
+                cursor: grab;
+                background: #fff;
+            }
+            #diagram.dragging { cursor: grabbing; }
+            .diamond { stroke-width: 1; }
+            .quadrant-bg {
+                fill: #fafafa;
+                stroke: #ddd;
+                stroke-width: 1;
+            }
+            .quadrant-label {
+                font-family: system-ui, sans-serif;
+                font-size: 13px;
+                font-weight: 700;
+                fill: #888;
+                letter-spacing: 0.12em;
+            }
+
+            /* Hover inspector tooltip */
+            #tooltip {
+                position: fixed;
+                pointer-events: none;
+                background: rgba(30, 30, 30, 0.92);
+                color: #eee;
+                font-family: monospace;
+                font-size: 11px;
+                line-height: 1.45;
+                padding: 8px 10px;
+                border-radius: 6px;
+                border: 1px solid #444;
+                max-width: 340px;
+                z-index: 1000;
+                display: none;
+                white-space: pre;
+            }
+            #tooltip .t-title {
+                font-weight: 600;
+                margin-bottom: 4px;
+            }
+            #tooltip .t-mismatch {
+                color: #ff8c6a;
+                font-weight: 600;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="sidebar">
+            <h1>Exploration Prototype</h1>
+            <a class="index-link" href="index.html">← Index</a>
+
+            <div class="call-sig" id="call-sig"></div>
+
+            <h2>Size (symmetric quadrants)</h2>
+            <div class="control-row">
+                <div class="control">
+                    <label>numRows</label>
+                    <input type="number" id="numRows" value="8" min="1" max="64" />
+                </div>
+                <div class="control">
+                    <label>numCols</label>
+                    <input type="number" id="numCols" value="8" min="1" max="64" />
+                </div>
+            </div>
+
+            <h2>Init</h2>
+            <div class="control-row">
+                <div class="control">
+                    <label>hInitCol</label>
+                    <input type="number" id="hInitCol" value="1" min="-20" max="20" />
+                </div>
+                <div class="control">
+                    <label>vInitRow</label>
+                    <input type="number" id="vInitRow" value="1" min="-20" max="20" />
+                </div>
+            </div>
+
+            <h2>Info</h2>
+            <div class="call-sig" id="info"></div>
+        </div>
+
+        <div class="main">
+            <svg id="diagram"></svg>
+        </div>
+        <div id="tooltip"></div>
+
+        <script type="module">
+            import { Universe, pri } from "./coylean-core.js";
+
+            const S = 32;
+            const D = S / 2;
+            const PAD = 24;       // interior padding of each quadrant
+            const GAP = 48;       // gap between adjacent quadrants
+            const LABEL_H = 22;   // vertical space reserved for quadrant label
+
+            const svg = document.getElementById("diagram");
+            const callSig = document.getElementById("call-sig");
+            const info = document.getElementById("info");
+
+            const inputs = {
+                numRows:  document.getElementById("numRows"),
+                numCols:  document.getElementById("numCols"),
+                hInitCol: document.getElementById("hInitCol"),
+                vInitRow: document.getElementById("vInitRow"),
+            };
+            for (const inp of Object.values(inputs)) {
+                inp.addEventListener("input", render);
+            }
+
+            function svgEl(tag, attrs) {
+                const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+                for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+                return el;
+            }
+
+            function diamondPts(cx, cy) {
+                return `${cx},${cy - D} ${cx + D},${cy} ${cx},${cy + D} ${cx - D},${cy}`;
+            }
+
+            const ARR_MARGIN = 1.5;
+            const ARR_SW = 1.25;
+            const ARR_HL = 6;
+            const ARR_HW = 3;
+            const ARR_ND = 2;
+
+            function downArrowPath(cx, cy, doubleHeaded) {
+                const t = cy - D + ARR_MARGIN;
+                const b = cy + D - ARR_MARGIN;
+                if (doubleHeaded) {
+                    return `M${cx},${t} L${cx + ARR_HW},${t + ARR_HL} ${cx + ARR_SW},${t + ARR_HL - ARR_ND} ${cx + ARR_SW},${b - ARR_HL + ARR_ND} ${cx + ARR_HW},${b - ARR_HL} ${cx},${b} ${cx - ARR_HW},${b - ARR_HL} ${cx - ARR_SW},${b - ARR_HL + ARR_ND} ${cx - ARR_SW},${t + ARR_HL - ARR_ND} ${cx - ARR_HW},${t + ARR_HL}Z`;
+                }
+                return `M${cx - ARR_SW},${t} A${ARR_SW},${ARR_SW} 0 0 1 ${cx + ARR_SW},${t} L${cx + ARR_SW},${b - ARR_HL + ARR_ND} ${cx + ARR_HW},${b - ARR_HL} ${cx},${b} ${cx - ARR_HW},${b - ARR_HL} ${cx - ARR_SW},${b - ARR_HL + ARR_ND}Z`;
+            }
+
+            function rightArrowPath(cx, cy, doubleHeaded) {
+                const l = cx - D + ARR_MARGIN;
+                const r = cx + D - ARR_MARGIN;
+                if (doubleHeaded) {
+                    return `M${l},${cy} L${l + ARR_HL},${cy - ARR_HW} ${l + ARR_HL - ARR_ND},${cy - ARR_SW} ${r - ARR_HL + ARR_ND},${cy - ARR_SW} ${r - ARR_HL},${cy - ARR_HW} ${r},${cy} ${r - ARR_HL},${cy + ARR_HW} ${r - ARR_HL + ARR_ND},${cy + ARR_SW} ${l + ARR_HL - ARR_ND},${cy + ARR_SW} ${l + ARR_HL},${cy + ARR_HW}Z`;
+                }
+                return `M${l},${cy - ARR_SW} A${ARR_SW},${ARR_SW} 0 0 0 ${l},${cy + ARR_SW} L${r - ARR_HL + ARR_ND},${cy + ARR_SW} ${r - ARR_HL},${cy + ARR_HW} ${r},${cy} ${r - ARR_HL},${cy - ARR_HW} ${r - ARR_HL + ARR_ND},${cy - ARR_SW}Z`;
+            }
+
+            // ── Viewport state ──
+            const viewport = { offsetX: 0, offsetY: 0, scale: 1 };
+            let viewportGroup = null;
+
+            function applyTransform() {
+                if (!viewportGroup) return;
+                viewportGroup.setAttribute(
+                    "transform",
+                    `translate(${viewport.offsetX} ${viewport.offsetY}) scale(${viewport.scale})`,
+                );
+            }
+
+            function clientToSvg(clientX, clientY) {
+                const pt = svg.createSVGPoint();
+                pt.x = clientX;
+                pt.y = clientY;
+                const ctm = svg.getScreenCTM();
+                if (!ctm) return { x: clientX, y: clientY };
+                const p = pt.matrixTransform(ctm.inverse());
+                return { x: p.x, y: p.y };
+            }
+
+            function zoomAt(svgX, svgY, factor) {
+                const newScale = Math.max(0.05, Math.min(40, viewport.scale * factor));
+                const worldX = (svgX - viewport.offsetX) / viewport.scale;
+                const worldY = (svgY - viewport.offsetY) / viewport.scale;
+                viewport.scale = newScale;
+                viewport.offsetX = svgX - worldX * newScale;
+                viewport.offsetY = svgY - worldY * newScale;
+                applyTransform();
+            }
+
+            // ── Mouse pan/zoom ──
+            let mousePan = null;
+            svg.addEventListener("mousedown", (e) => {
+                if (e.button !== 0) return;
+                const p = clientToSvg(e.clientX, e.clientY);
+                mousePan = { lastX: p.x, lastY: p.y };
+                svg.classList.add("dragging");
+                e.preventDefault();
+            });
+            window.addEventListener("mousemove", (e) => {
+                if (!mousePan) return;
+                const p = clientToSvg(e.clientX, e.clientY);
+                viewport.offsetX += p.x - mousePan.lastX;
+                viewport.offsetY += p.y - mousePan.lastY;
+                mousePan.lastX = p.x;
+                mousePan.lastY = p.y;
+                applyTransform();
+            });
+            window.addEventListener("mouseup", () => {
+                mousePan = null;
+                svg.classList.remove("dragging");
+            });
+            svg.addEventListener(
+                "wheel",
+                (e) => {
+                    e.preventDefault();
+                    const p = clientToSvg(e.clientX, e.clientY);
+                    const factor = Math.exp(-e.deltaY * 0.0015);
+                    zoomAt(p.x, p.y, factor);
+                },
+                { passive: false },
+            );
+
+            // ── Touch pan/pinch ──
+            let touchState = null;
+            function touchMidDist(touches) {
+                const a = clientToSvg(touches[0].clientX, touches[0].clientY);
+                const b = clientToSvg(touches[1].clientX, touches[1].clientY);
+                return {
+                    midX: (a.x + b.x) / 2,
+                    midY: (a.y + b.y) / 2,
+                    dist: Math.hypot(b.x - a.x, b.y - a.y),
+                };
+            }
+            svg.addEventListener(
+                "touchstart",
+                (e) => {
+                    e.preventDefault();
+                    if (e.touches.length === 1) {
+                        const p = clientToSvg(e.touches[0].clientX, e.touches[0].clientY);
+                        touchState = { mode: "pan", lastX: p.x, lastY: p.y };
+                    } else if (e.touches.length === 2) {
+                        const m = touchMidDist(e.touches);
+                        touchState = {
+                            mode: "pinch",
+                            startDist: m.dist,
+                            startMidX: m.midX,
+                            startMidY: m.midY,
+                            startOffsetX: viewport.offsetX,
+                            startOffsetY: viewport.offsetY,
+                            startScale: viewport.scale,
+                        };
+                    }
+                },
+                { passive: false },
+            );
+            svg.addEventListener(
+                "touchmove",
+                (e) => {
+                    e.preventDefault();
+                    if (!touchState) return;
+                    if (touchState.mode === "pan" && e.touches.length === 1) {
+                        const p = clientToSvg(e.touches[0].clientX, e.touches[0].clientY);
+                        viewport.offsetX += p.x - touchState.lastX;
+                        viewport.offsetY += p.y - touchState.lastY;
+                        touchState.lastX = p.x;
+                        touchState.lastY = p.y;
+                        applyTransform();
+                    } else if (touchState.mode === "pinch" && e.touches.length === 2) {
+                        const m = touchMidDist(e.touches);
+                        const factor = m.dist / touchState.startDist;
+                        const newScale = Math.max(0.05, Math.min(40, touchState.startScale * factor));
+                        const worldMidX = (touchState.startMidX - touchState.startOffsetX) / touchState.startScale;
+                        const worldMidY = (touchState.startMidY - touchState.startOffsetY) / touchState.startScale;
+                        viewport.scale = newScale;
+                        viewport.offsetX = touchState.startMidX - worldMidX * newScale + (m.midX - touchState.startMidX);
+                        viewport.offsetY = touchState.startMidY - worldMidY * newScale + (m.midY - touchState.startMidY);
+                        applyTransform();
+                    }
+                },
+                { passive: false },
+            );
+            svg.addEventListener("touchend", (e) => {
+                if (e.touches.length === 0) {
+                    touchState = null;
+                } else if (e.touches.length === 1) {
+                    const p = clientToSvg(e.touches[0].clientX, e.touches[0].clientY);
+                    touchState = { mode: "pan", lastX: p.x, lastY: p.y };
+                }
+            });
+
+            // ── Hover inspector ──
+            // currentQuads[].p is a Propagation whose local downMatrix[j][i],
+            // rightMatrix[i][j], colPriority[i], rowPriority[j], hInitCol, and
+            // vInitRow the tooltip reads directly.
+            let currentQuads = null;
+            const tooltip = document.getElementById("tooltip");
+
+            function formatTooltip(el) {
+                if (!currentQuads) return null;
+                const quadName = el.dataset.quad;
+                const source = el.dataset.source;
+                if (!quadName || (source !== "down" && source !== "right")) return null;
+                const q = currentQuads.find((qq) => qq.name === quadName);
+                if (!q) return null;
+                const p = q.p;
+                const i = +el.dataset.i;
+                const j = +el.dataset.j;
+
+                const val = source === "down"
+                    ? p.downMatrix[j][i]
+                    : p.rightMatrix[i][j];
+
+                // Local-col priority only meaningful for i < numColumns; the
+                // rightmost right-column (i === numColumns) has no colPriority slot.
+                const cachedCol = i < p.numColumns ? p.colPriority[i] : null;
+                const cachedRow = j < p.numRows ? p.rowPriority[j] : null;
+                const directCol = pri(i + p.hInitCol);
+                const directRow = pri(j + p.vInitRow);
+                const colMismatch = cachedCol !== null && cachedCol !== directCol;
+                const rowMismatch = cachedRow !== null && cachedRow !== directRow;
+
+                const matrixRef = source === "down"
+                    ? `downMatrix[${j}][${i}]`
+                    : `rightMatrix[${i}][${j}]`;
+                const mark = (ok) => ok ? "" : ' <span class="t-mismatch">≠</span>';
+                const colLine = cachedCol === null
+                    ? `colPriority[${i}] n/a (boundary)` +
+                      `  direct=pri(${i}+${p.hInitCol})=${directCol}`
+                    : `colPriority[${i}] cached=${cachedCol}` +
+                      `  direct=pri(${i}+${p.hInitCol})=${directCol}${mark(!colMismatch)}`;
+                const rowLine = cachedRow === null
+                    ? `rowPriority[${j}] n/a (boundary)` +
+                      `  direct=pri(${j}+${p.vInitRow})=${directRow}`
+                    : `rowPriority[${j}] cached=${cachedRow}` +
+                      `  direct=pri(${j}+${p.vInitRow})=${directRow}${mark(!rowMismatch)}`;
+
+                return `<div class="t-title">${quadName.toUpperCase()} · ${source === "down" ? "Down" : "Right"} diamond</div>` +
+                    `${matrixRef} = ${val}\n` +
+                    `local: j=${j} i=${i}\n` +
+                    `quadrant hInitCol=${p.hInitCol} vInitRow=${p.vInitRow}\n` +
+                    colLine + `\n` +
+                    rowLine;
+            }
+
+            function positionTooltip(clientX, clientY) {
+                const pad = 12;
+                const rect = tooltip.getBoundingClientRect();
+                let x = clientX + pad;
+                let y = clientY + pad;
+                if (x + rect.width > window.innerWidth) x = clientX - rect.width - pad;
+                if (y + rect.height > window.innerHeight) y = clientY - rect.height - pad;
+                tooltip.style.left = x + "px";
+                tooltip.style.top = y + "px";
+            }
+            function hideTooltip() { tooltip.style.display = "none"; }
+
+            svg.addEventListener("mouseover", (e) => {
+                if (mousePan) return;
+                const el = e.target;
+                if (!el || !el.dataset || !el.dataset.source) return;
+                const html = formatTooltip(el);
+                if (!html) return;
+                tooltip.innerHTML = html;
+                tooltip.style.display = "block";
+                positionTooltip(e.clientX, e.clientY);
+            });
+            svg.addEventListener("mousemove", (e) => {
+                if (mousePan) { hideTooltip(); return; }
+                if (tooltip.style.display === "block") {
+                    positionTooltip(e.clientX, e.clientY);
+                }
+            });
+            svg.addEventListener("mouseout", (e) => {
+                const el = e.target;
+                if (!el || !el.dataset || !el.dataset.source) return;
+                hideTooltip();
+            });
+            svg.addEventListener("mouseleave", hideTooltip);
+
+            // ── Draw one quadrant panel ──
+            // Each quadrant is shown as a standalone matrix, but laid out so its
+            // origin corner (local (0,0) = axis-adjacent) points toward the centre
+            // of the 2×2 mosaic. flipJ/flipI handle the corresponding reflection.
+            // Arrow polygons keep their panel-local down/right orientation, so the
+            // four panels read as they would inside an assembled universe.
+            function drawQuadrant(parent, quad, cellX, cellY, numRows, numCols) {
+                const { p, name, flipJ, flipI } = quad;
+                const panelW = 2 * PAD + numCols * S;
+                const panelH = 2 * PAD + numRows * S;
+
+                const group = svgEl("g", {});
+                parent.appendChild(group);
+
+                // Background + label block sits above the cells area.
+                group.appendChild(svgEl("rect", {
+                    x: cellX,
+                    y: cellY - LABEL_H,
+                    width: panelW,
+                    height: panelH + LABEL_H,
+                    class: "quadrant-bg",
+                }));
+                const label = svgEl("text", {
+                    x: cellX + 12,
+                    y: cellY - 6,
+                    class: "quadrant-label",
+                });
+                label.textContent = name.toUpperCase();
+                group.appendChild(label);
+
+                const draw = (tag, attrs) => {
+                    const el = svgEl(tag, attrs);
+                    group.appendChild(el);
+                    return el;
+                };
+
+                // Down diamonds: j in [0, numRows], i in [0, numCols).
+                // Init row (local j=0) rendered double-headed — it always lands on
+                // the panel edge closest to the mosaic centre because of the flip.
+                for (let j = 0; j <= numRows; j++) {
+                    for (let i = 0; i < numCols; i++) {
+                        const pj = flipJ ? (numRows - j) : j;
+                        const pi = flipI ? (numCols - 1 - i) : i;
+                        const cx = cellX + PAD + (pi + 0.5) * S;
+                        const cy = cellY + PAD + pj * S;
+                        const val = p.downMatrix[j][i];
+                        draw("polygon", {
+                            points: diamondPts(cx, cy),
+                            class: "diamond",
+                            fill: val ? "#e0a8a8" : "#fff",
+                            stroke: "#9a4a4a",
+                            "data-quad": name,
+                            "data-source": "down",
+                            "data-i": i,
+                            "data-j": j,
+                        });
+                        if (val) {
+                            draw("path", {
+                                d: downArrowPath(cx, cy, j === 0),
+                                fill: "#7a2d2d",
+                                "pointer-events": "none",
+                            });
+                        }
+                    }
+                }
+
+                // Right diamonds: i in [0, numCols], j in [0, numRows).
+                for (let i = 0; i <= numCols; i++) {
+                    for (let j = 0; j < numRows; j++) {
+                        const pj = flipJ ? (numRows - 1 - j) : j;
+                        const pi = flipI ? (numCols - i) : i;
+                        const cx = cellX + PAD + pi * S;
+                        const cy = cellY + PAD + (pj + 0.5) * S;
+                        const val = p.rightMatrix[i][j];
+                        draw("polygon", {
+                            points: diamondPts(cx, cy),
+                            class: "diamond",
+                            fill: val ? "#bcd8e8" : "#fff",
+                            stroke: "#5a8aaa",
+                            "data-quad": name,
+                            "data-source": "right",
+                            "data-i": i,
+                            "data-j": j,
+                        });
+                        if (val) {
+                            draw("path", {
+                                d: rightArrowPath(cx, cy, i === 0),
+                                fill: "#3d6a8a",
+                                "pointer-events": "none",
+                            });
+                        }
+                    }
+                }
+            }
+
+            function render() {
+                const numRows = +inputs.numRows.value;
+                const numCols = +inputs.numCols.value;
+                const hInitCol = +inputs.hInitCol.value;
+                const vInitRow = +inputs.vInitRow.value;
+
+                callSig.textContent =
+                    `Universe.createSymmetric(\n` +
+                    `  ${numRows},  // numRows\n` +
+                    `  ${numCols},  // numCols\n` +
+                    `  ${hInitCol},  // hInitCol\n` +
+                    `  ${vInitRow},  // vInitRow\n` +
+                    `)  // unstitched`;
+
+                const u = Universe.createSymmetric(
+                    numRows, numCols, hInitCol, vInitRow,
+                );
+
+                // Flip flags place each quadrant's local (0,0) — the axis-adjacent
+                // corner — toward the centre of the 2×2 mosaic.
+                //   NW is top-left    → origin corner at bottom-right (flip both)
+                //   NE is top-right   → origin corner at bottom-left  (flip j)
+                //   SW is bottom-left → origin corner at top-right    (flip i)
+                //   SE is bottom-right→ origin corner at top-left     (no flip)
+                const quads = [
+                    { p: u.nw, name: "nw", flipJ: true,  flipI: true  },
+                    { p: u.ne, name: "ne", flipJ: true,  flipI: false },
+                    { p: u.sw, name: "sw", flipJ: false, flipI: true  },
+                    { p: u.se, name: "se", flipJ: false, flipI: false },
+                ];
+                currentQuads = quads;
+                hideTooltip();
+
+                info.textContent =
+                    `per-quadrant: ${numRows}×${numCols}\n` +
+                    `nw h/v: ${u.nw.hInitCol}/${u.nw.vInitRow}\n` +
+                    `ne h/v: ${u.ne.hInitCol}/${u.ne.vInitRow}\n` +
+                    `sw h/v: ${u.sw.hInitCol}/${u.sw.vInitRow}\n` +
+                    `se h/v: ${u.se.hInitCol}/${u.se.vInitRow}`;
+
+                const panelW = 2 * PAD + numCols * S;
+                const panelH = 2 * PAD + numRows * S;
+                const blockH = LABEL_H + panelH;
+                const totalW = 2 * panelW + GAP;
+                const totalH = 2 * blockH + GAP;
+
+                svg.setAttribute("viewBox", `0 0 ${totalW} ${totalH}`);
+                svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+                svg.innerHTML = "";
+
+                viewportGroup = svgEl("g", { id: "viewport" });
+                svg.appendChild(viewportGroup);
+                applyTransform();
+
+                const positions = {
+                    nw: { cellX: 0,              cellY: LABEL_H },
+                    ne: { cellX: panelW + GAP,   cellY: LABEL_H },
+                    sw: { cellX: 0,              cellY: blockH + GAP + LABEL_H },
+                    se: { cellX: panelW + GAP,   cellY: blockH + GAP + LABEL_H },
+                };
+                for (const quad of quads) {
+                    const pos = positions[quad.name];
+                    drawQuadrant(viewportGroup, quad, pos.cellX, pos.cellY, numRows, numCols);
+                }
+            }
+
+            render();
+        </script>
+    </body>
+</html>
