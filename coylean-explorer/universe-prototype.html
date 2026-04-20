@@ -101,12 +101,20 @@
 
             .main {
                 flex: 1;
-                overflow: auto;
-                padding: 24px;
+                overflow: hidden;
+                padding: 0;
                 background: #fff;
             }
 
-            svg { cursor: default; }
+            #diagram {
+                width: 100%;
+                height: 100%;
+                display: block;
+                touch-action: none;
+                cursor: grab;
+                background: #fff;
+            }
+            #diagram.dragging { cursor: grabbing; }
             .diamond { stroke-width: 1; }
             .coord-label {
                 font-size: 11px;
@@ -232,6 +240,175 @@
                 return `M${l},${cy - ARR_SW} A${ARR_SW},${ARR_SW} 0 0 0 ${l},${cy + ARR_SW} L${r - ARR_HL + ARR_ND},${cy + ARR_SW} ${r - ARR_HL},${cy + ARR_HW} ${r},${cy} ${r - ARR_HL},${cy - ARR_HW} ${r - ARR_HL + ARR_ND},${cy - ARR_SW}Z`;
             }
 
+            // ── Viewport state ──
+            // offsetX/offsetY: translation applied to the <g> viewport (svg user units).
+            // scale: zoom factor. Identity = { offsetX: 0, offsetY: 0, scale: 1 }.
+            const viewport = { offsetX: 0, offsetY: 0, scale: 1 };
+            let viewportGroup = null;
+
+            function applyTransform() {
+                if (!viewportGroup) return;
+                viewportGroup.setAttribute(
+                    "transform",
+                    `translate(${viewport.offsetX} ${viewport.offsetY}) scale(${viewport.scale})`,
+                );
+            }
+
+            // Convert a client (mouse/touch) point to svg user coordinates.
+            function clientToSvg(clientX, clientY) {
+                const pt = svg.createSVGPoint();
+                pt.x = clientX;
+                pt.y = clientY;
+                const ctm = svg.getScreenCTM();
+                if (!ctm) return { x: clientX, y: clientY };
+                const p = pt.matrixTransform(ctm.inverse());
+                return { x: p.x, y: p.y };
+            }
+
+            // Zoom centered on an svg-coord point: keeps that world point under the cursor.
+            function zoomAt(svgX, svgY, factor) {
+                const newScale = Math.max(0.05, Math.min(40, viewport.scale * factor));
+                const worldX = (svgX - viewport.offsetX) / viewport.scale;
+                const worldY = (svgY - viewport.offsetY) / viewport.scale;
+                viewport.scale = newScale;
+                viewport.offsetX = svgX - worldX * newScale;
+                viewport.offsetY = svgY - worldY * newScale;
+                applyTransform();
+            }
+
+            // ── Mouse handlers ──
+            let mousePan = null; // { lastX, lastY } in svg coords
+
+            svg.addEventListener("mousedown", (e) => {
+                if (e.button !== 0) return;
+                const p = clientToSvg(e.clientX, e.clientY);
+                mousePan = { lastX: p.x, lastY: p.y };
+                svg.classList.add("dragging");
+                e.preventDefault();
+            });
+            window.addEventListener("mousemove", (e) => {
+                if (!mousePan) return;
+                const p = clientToSvg(e.clientX, e.clientY);
+                viewport.offsetX += p.x - mousePan.lastX;
+                viewport.offsetY += p.y - mousePan.lastY;
+                mousePan.lastX = p.x;
+                mousePan.lastY = p.y;
+                applyTransform();
+            });
+            window.addEventListener("mouseup", () => {
+                mousePan = null;
+                svg.classList.remove("dragging");
+            });
+
+            svg.addEventListener(
+                "wheel",
+                (e) => {
+                    e.preventDefault();
+                    const p = clientToSvg(e.clientX, e.clientY);
+                    const factor = Math.exp(-e.deltaY * 0.0015);
+                    zoomAt(p.x, p.y, factor);
+                },
+                { passive: false },
+            );
+
+            // ── Touch handlers ──
+            // One finger: pan. Two fingers: pinch zoom around midpoint.
+            let touchState = null;
+
+            function touchMidDist(touches) {
+                const a = clientToSvg(touches[0].clientX, touches[0].clientY);
+                const b = clientToSvg(touches[1].clientX, touches[1].clientY);
+                const midX = (a.x + b.x) / 2;
+                const midY = (a.y + b.y) / 2;
+                const dist = Math.hypot(b.x - a.x, b.y - a.y);
+                return { midX, midY, dist };
+            }
+
+            svg.addEventListener(
+                "touchstart",
+                (e) => {
+                    e.preventDefault();
+                    if (e.touches.length === 1) {
+                        const p = clientToSvg(
+                            e.touches[0].clientX,
+                            e.touches[0].clientY,
+                        );
+                        touchState = { mode: "pan", lastX: p.x, lastY: p.y };
+                    } else if (e.touches.length === 2) {
+                        const m = touchMidDist(e.touches);
+                        touchState = {
+                            mode: "pinch",
+                            startDist: m.dist,
+                            startMidX: m.midX,
+                            startMidY: m.midY,
+                            startOffsetX: viewport.offsetX,
+                            startOffsetY: viewport.offsetY,
+                            startScale: viewport.scale,
+                        };
+                    }
+                },
+                { passive: false },
+            );
+
+            svg.addEventListener(
+                "touchmove",
+                (e) => {
+                    e.preventDefault();
+                    if (!touchState) return;
+                    if (touchState.mode === "pan" && e.touches.length === 1) {
+                        const p = clientToSvg(
+                            e.touches[0].clientX,
+                            e.touches[0].clientY,
+                        );
+                        viewport.offsetX += p.x - touchState.lastX;
+                        viewport.offsetY += p.y - touchState.lastY;
+                        touchState.lastX = p.x;
+                        touchState.lastY = p.y;
+                        applyTransform();
+                    } else if (
+                        touchState.mode === "pinch" &&
+                        e.touches.length === 2
+                    ) {
+                        const m = touchMidDist(e.touches);
+                        const factor = m.dist / touchState.startDist;
+                        const newScale = Math.max(
+                            0.05,
+                            Math.min(40, touchState.startScale * factor),
+                        );
+                        // Zoom anchored on the initial midpoint, then translate by midpoint drift.
+                        const worldMidX =
+                            (touchState.startMidX - touchState.startOffsetX) /
+                            touchState.startScale;
+                        const worldMidY =
+                            (touchState.startMidY - touchState.startOffsetY) /
+                            touchState.startScale;
+                        viewport.scale = newScale;
+                        viewport.offsetX =
+                            touchState.startMidX -
+                            worldMidX * newScale +
+                            (m.midX - touchState.startMidX);
+                        viewport.offsetY =
+                            touchState.startMidY -
+                            worldMidY * newScale +
+                            (m.midY - touchState.startMidY);
+                        applyTransform();
+                    }
+                },
+                { passive: false },
+            );
+
+            svg.addEventListener("touchend", (e) => {
+                if (e.touches.length === 0) {
+                    touchState = null;
+                } else if (e.touches.length === 1) {
+                    const p = clientToSvg(
+                        e.touches[0].clientX,
+                        e.touches[0].clientY,
+                    );
+                    touchState = { mode: "pan", lastX: p.x, lastY: p.y };
+                }
+            });
+
             function render() {
                 const northExtent = +inputs.northExtent.value;
                 const southExtent = +inputs.southExtent.value;
@@ -264,10 +441,19 @@
 
                 const w = 2 * PAD + nC * S;
                 const h = 2 * PAD + nR * S;
-                svg.setAttribute("width", w);
-                svg.setAttribute("height", h);
                 svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+                svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
                 svg.innerHTML = "";
+
+                // All drawn content lives inside a transform group controlled by viewport.
+                viewportGroup = svgEl("g", { id: "viewport" });
+                svg.appendChild(viewportGroup);
+                applyTransform();
+                const draw = (tag, attrs) => {
+                    const el = svgEl(tag, attrs);
+                    viewportGroup.appendChild(el);
+                    return el;
+                };
 
                 const dm = u.downMatrix;
                 const rm = u.rightMatrix;
@@ -275,29 +461,29 @@
                 // Origin crosshair
                 const [ox] = [PAD + u.originCol * S + S / 2];
                 const [oy] = [PAD + u.originRow * S + S / 2];
-                svg.appendChild(svgEl("line", {
+                draw("line", {
                     x1: ox, y1: PAD, x2: ox, y2: PAD + nR * S, class: "origin-line",
-                }));
-                svg.appendChild(svgEl("line", {
+                });
+                draw("line", {
                     x1: PAD, y1: oy, x2: PAD + nC * S, y2: oy, class: "origin-line",
-                }));
+                });
 
                 // Down diamonds
                 for (let j = 0; j < nR; j++) {
                     for (let i = 0; i < nC; i++) {
                         const [cx, cy] = downPos(i, j);
                         const val = dm[j][i];
-                        svg.appendChild(svgEl("polygon", {
+                        draw("polygon", {
                             points: diamondPts(cx, cy),
                             class: "diamond",
                             fill: val ? "#e0a8a8" : "#fff",
                             stroke: "#9a4a4a",
-                        }));
+                        });
                         if (val) {
-                            svg.appendChild(svgEl("path", {
+                            draw("path", {
                                 d: downArrowPath(cx, cy, j === u.originRow),
                                 fill: "#7a2d2d",
-                            }));
+                            });
                         }
                     }
                 }
@@ -307,17 +493,17 @@
                     for (let j = 0; j < nR; j++) {
                         const [cx, cy] = rightPos(i, j);
                         const val = rm[i][j];
-                        svg.appendChild(svgEl("polygon", {
+                        draw("polygon", {
                             points: diamondPts(cx, cy),
                             class: "diamond",
                             fill: val ? "#bcd8e8" : "#fff",
                             stroke: "#5a8aaa",
-                        }));
+                        });
                         if (val) {
-                            svg.appendChild(svgEl("path", {
+                            draw("path", {
                                 d: rightArrowPath(cx, cy, i === u.originCol),
                                 fill: "#3d6a8a",
-                            }));
+                            });
                         }
                     }
                 }
