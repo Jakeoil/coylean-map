@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Coylean Universal Propagate Prototype</title>
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+            }
+            body {
+                font-family: system-ui, sans-serif;
+                background: #f5f5f5;
+                color: #333;
+                display: flex;
+                height: 100vh;
+            }
+
+            .sidebar {
+                width: 320px;
+                min-width: 320px;
+                padding: 20px;
+                background: #fff;
+                border-right: 1px solid #ddd;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+            }
+            h1 {
+                font-size: 1.2em;
+                color: #222;
+            }
+            h2 {
+                font-size: 0.85em;
+                color: #666;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+
+            .call-sig {
+                font-family: monospace;
+                font-size: 0.9em;
+                color: #2a7a3a;
+                padding: 8px 12px;
+                background: #f5f5f5;
+                border-radius: 6px;
+                border: 1px solid #ccc;
+                white-space: pre-wrap;
+            }
+
+            .control-row {
+                display: flex;
+                gap: 10px;
+                justify-content: center;
+            }
+            .control {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                align-items: center;
+            }
+            .control label {
+                font-size: 0.72em;
+                color: #666;
+            }
+            .control input {
+                width: 72px;
+                padding: 4px 8px;
+                background: #f5f5f5;
+                border: 1px solid #ccc;
+                color: #333;
+                border-radius: 4px;
+                font-size: 0.9em;
+                text-align: center;
+            }
+
+            .main {
+                flex: 1;
+                overflow: hidden;
+                padding: 0;
+                background: #fff;
+            }
+
+            #diagram {
+                width: 100%;
+                height: 100%;
+                display: block;
+                touch-action: none;
+                cursor: grab;
+                background: #fff;
+            }
+            #diagram.dragging { cursor: grabbing; }
+            .diamond { stroke-width: 1; }
+            .origin-line {
+                stroke: #bc8cff;
+                stroke-width: 1;
+                stroke-dasharray: 3 3;
+            }
+
+            /* Hover inspector tooltip */
+            #tooltip {
+                position: fixed;
+                pointer-events: none;
+                background: rgba(30, 30, 30, 0.92);
+                color: #eee;
+                font-family: monospace;
+                font-size: 11px;
+                line-height: 1.45;
+                padding: 8px 10px;
+                border-radius: 6px;
+                border: 1px solid #444;
+                max-width: 340px;
+                z-index: 1000;
+                display: none;
+                white-space: pre;
+            }
+            #tooltip .t-title {
+                font-weight: 600;
+                margin-bottom: 4px;
+            }
+            #tooltip .t-mismatch {
+                color: #ff8c6a;
+                font-weight: 600;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="sidebar">
+            <h1>Universal Propagate Prototype</h1>
+
+            <div class="call-sig" id="call-sig"></div>
+
+            <h2>Size (symmetric quadrants)</h2>
+            <div class="control-row">
+                <div class="control">
+                    <label>numRows</label>
+                    <input type="number" id="numRows" value="8" min="1" max="64" />
+                </div>
+                <div class="control">
+                    <label>numCols</label>
+                    <input type="number" id="numCols" value="8" min="1" max="64" />
+                </div>
+            </div>
+
+            <h2>Init</h2>
+            <div class="control-row">
+                <div class="control">
+                    <label>hInitCol</label>
+                    <input type="number" id="hInitCol" value="1" min="-20" max="20" />
+                </div>
+                <div class="control">
+                    <label>vInitRow</label>
+                    <input type="number" id="vInitRow" value="1" min="-20" max="20" />
+                </div>
+            </div>
+
+            <h2>Info</h2>
+            <div class="call-sig" id="info"></div>
+        </div>
+
+        <div class="main">
+            <svg id="diagram"></svg>
+        </div>
+        <div id="tooltip"></div>
+
+        <script type="module">
+            import { Universe, pri } from "./coylean-core.js";
+
+            const S = 32;
+            const D = S / 2;
+            const PAD = 40;
+
+            const svg = document.getElementById("diagram");
+            const callSig = document.getElementById("call-sig");
+            const info = document.getElementById("info");
+
+            const inputs = {
+                numRows:   document.getElementById("numRows"),
+                numCols:   document.getElementById("numCols"),
+                hInitCol:  document.getElementById("hInitCol"),
+                vInitRow:  document.getElementById("vInitRow"),
+            };
+
+            for (const inp of Object.values(inputs)) {
+                inp.addEventListener("input", render);
+            }
+
+            function svgEl(tag, attrs) {
+                const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+                for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+                return el;
+            }
+
+            function diamondPts(cx, cy) {
+                return `${cx},${cy - D} ${cx + D},${cy} ${cx},${cy + D} ${cx - D},${cy}`;
+            }
+
+            function downPos(i, j) { return [PAD + (i + 0.5) * S, PAD + j * S]; }
+            function rightPos(i, j) { return [PAD + i * S, PAD + (j + 0.5) * S]; }
+
+            const ARR_MARGIN = 1.5;
+            const ARR_SW = 1.25;
+            const ARR_HL = 6;
+            const ARR_HW = 3;
+            const ARR_ND = 2;
+
+            function downArrowPath(cx, cy, doubleHeaded) {
+                const t = cy - D + ARR_MARGIN;
+                const b = cy + D - ARR_MARGIN;
+                if (doubleHeaded) {
+                    return `M${cx},${t} L${cx + ARR_HW},${t + ARR_HL} ${cx + ARR_SW},${t + ARR_HL - ARR_ND} ${cx + ARR_SW},${b - ARR_HL + ARR_ND} ${cx + ARR_HW},${b - ARR_HL} ${cx},${b} ${cx - ARR_HW},${b - ARR_HL} ${cx - ARR_SW},${b - ARR_HL + ARR_ND} ${cx - ARR_SW},${t + ARR_HL - ARR_ND} ${cx - ARR_HW},${t + ARR_HL}Z`;
+                }
+                return `M${cx - ARR_SW},${t} A${ARR_SW},${ARR_SW} 0 0 1 ${cx + ARR_SW},${t} L${cx + ARR_SW},${b - ARR_HL + ARR_ND} ${cx + ARR_HW},${b - ARR_HL} ${cx},${b} ${cx - ARR_HW},${b - ARR_HL} ${cx - ARR_SW},${b - ARR_HL + ARR_ND}Z`;
+            }
+
+            function rightArrowPath(cx, cy, doubleHeaded) {
+                const l = cx - D + ARR_MARGIN;
+                const r = cx + D - ARR_MARGIN;
+                if (doubleHeaded) {
+                    return `M${l},${cy} L${l + ARR_HL},${cy - ARR_HW} ${l + ARR_HL - ARR_ND},${cy - ARR_SW} ${r - ARR_HL + ARR_ND},${cy - ARR_SW} ${r - ARR_HL},${cy - ARR_HW} ${r},${cy} ${r - ARR_HL},${cy + ARR_HW} ${r - ARR_HL + ARR_ND},${cy + ARR_SW} ${l + ARR_HL - ARR_ND},${cy + ARR_SW} ${l + ARR_HL},${cy + ARR_HW}Z`;
+                }
+                return `M${l},${cy - ARR_SW} A${ARR_SW},${ARR_SW} 0 0 0 ${l},${cy + ARR_SW} L${r - ARR_HL + ARR_ND},${cy + ARR_SW} ${r - ARR_HL},${cy + ARR_HW} ${r},${cy} ${r - ARR_HL},${cy - ARR_HW} ${r - ARR_HL + ARR_ND},${cy - ARR_SW}Z`;
+            }
+
+            // ── Viewport state ──
+            // offsetX/offsetY: translation applied to the <g> viewport (svg user units).
+            // scale: zoom factor. Identity = { offsetX: 0, offsetY: 0, scale: 1 }.
+            const viewport = { offsetX: 0, offsetY: 0, scale: 1 };
+            let viewportGroup = null;
+
+            function applyTransform() {
+                if (!viewportGroup) return;
+                viewportGroup.setAttribute(
+                    "transform",
+                    `translate(${viewport.offsetX} ${viewport.offsetY}) scale(${viewport.scale})`,
+                );
+            }
+
+            function clientToSvg(clientX, clientY) {
+                const pt = svg.createSVGPoint();
+                pt.x = clientX;
+                pt.y = clientY;
+                const ctm = svg.getScreenCTM();
+                if (!ctm) return { x: clientX, y: clientY };
+                const p = pt.matrixTransform(ctm.inverse());
+                return { x: p.x, y: p.y };
+            }
+
+            function zoomAt(svgX, svgY, factor) {
+                const newScale = Math.max(0.05, Math.min(40, viewport.scale * factor));
+                const worldX = (svgX - viewport.offsetX) / viewport.scale;
+                const worldY = (svgY - viewport.offsetY) / viewport.scale;
+                viewport.scale = newScale;
+                viewport.offsetX = svgX - worldX * newScale;
+                viewport.offsetY = svgY - worldY * newScale;
+                applyTransform();
+            }
+
+            // ── Mouse pan/zoom ──
+            let mousePan = null;
+
+            svg.addEventListener("mousedown", (e) => {
+                if (e.button !== 0) return;
+                const p = clientToSvg(e.clientX, e.clientY);
+                mousePan = { lastX: p.x, lastY: p.y };
+                svg.classList.add("dragging");
+                e.preventDefault();
+            });
+            window.addEventListener("mousemove", (e) => {
+                if (!mousePan) return;
+                const p = clientToSvg(e.clientX, e.clientY);
+                viewport.offsetX += p.x - mousePan.lastX;
+                viewport.offsetY += p.y - mousePan.lastY;
+                mousePan.lastX = p.x;
+                mousePan.lastY = p.y;
+                applyTransform();
+            });
+            window.addEventListener("mouseup", () => {
+                mousePan = null;
+                svg.classList.remove("dragging");
+            });
+
+            svg.addEventListener(
+                "wheel",
+                (e) => {
+                    e.preventDefault();
+                    const p = clientToSvg(e.clientX, e.clientY);
+                    const factor = Math.exp(-e.deltaY * 0.0015);
+                    zoomAt(p.x, p.y, factor);
+                },
+                { passive: false },
+            );
+
+            // ── Touch pan/pinch ──
+            let touchState = null;
+
+            function touchMidDist(touches) {
+                const a = clientToSvg(touches[0].clientX, touches[0].clientY);
+                const b = clientToSvg(touches[1].clientX, touches[1].clientY);
+                const midX = (a.x + b.x) / 2;
+                const midY = (a.y + b.y) / 2;
+                const dist = Math.hypot(b.x - a.x, b.y - a.y);
+                return { midX, midY, dist };
+            }
+
+            svg.addEventListener(
+                "touchstart",
+                (e) => {
+                    e.preventDefault();
+                    if (e.touches.length === 1) {
+                        const p = clientToSvg(
+                            e.touches[0].clientX,
+                            e.touches[0].clientY,
+                        );
+                        touchState = { mode: "pan", lastX: p.x, lastY: p.y };
+                    } else if (e.touches.length === 2) {
+                        const m = touchMidDist(e.touches);
+                        touchState = {
+                            mode: "pinch",
+                            startDist: m.dist,
+                            startMidX: m.midX,
+                            startMidY: m.midY,
+                            startOffsetX: viewport.offsetX,
+                            startOffsetY: viewport.offsetY,
+                            startScale: viewport.scale,
+                        };
+                    }
+                },
+                { passive: false },
+            );
+
+            svg.addEventListener(
+                "touchmove",
+                (e) => {
+                    e.preventDefault();
+                    if (!touchState) return;
+                    if (touchState.mode === "pan" && e.touches.length === 1) {
+                        const p = clientToSvg(
+                            e.touches[0].clientX,
+                            e.touches[0].clientY,
+                        );
+                        viewport.offsetX += p.x - touchState.lastX;
+                        viewport.offsetY += p.y - touchState.lastY;
+                        touchState.lastX = p.x;
+                        touchState.lastY = p.y;
+                        applyTransform();
+                    } else if (
+                        touchState.mode === "pinch" &&
+                        e.touches.length === 2
+                    ) {
+                        const m = touchMidDist(e.touches);
+                        const factor = m.dist / touchState.startDist;
+                        const newScale = Math.max(
+                            0.05,
+                            Math.min(40, touchState.startScale * factor),
+                        );
+                        const worldMidX =
+                            (touchState.startMidX - touchState.startOffsetX) /
+                            touchState.startScale;
+                        const worldMidY =
+                            (touchState.startMidY - touchState.startOffsetY) /
+                            touchState.startScale;
+                        viewport.scale = newScale;
+                        viewport.offsetX =
+                            touchState.startMidX -
+                            worldMidX * newScale +
+                            (m.midX - touchState.startMidX);
+                        viewport.offsetY =
+                            touchState.startMidY -
+                            worldMidY * newScale +
+                            (m.midY - touchState.startMidY);
+                        applyTransform();
+                    }
+                },
+                { passive: false },
+            );
+
+            svg.addEventListener("touchend", (e) => {
+                if (e.touches.length === 0) {
+                    touchState = null;
+                } else if (e.touches.length === 1) {
+                    const p = clientToSvg(
+                        e.touches[0].clientX,
+                        e.touches[0].clientY,
+                    );
+                    touchState = { mode: "pan", lastX: p.x, lastY: p.y };
+                }
+            });
+
+            // ── Hover inspector ──
+            // currentUniverse holds the latest Universe + assembled raster so handlers
+            // can read matrices/priorities without re-running assembly.
+            let currentUniverse = null;
+            const tooltip = document.getElementById("tooltip");
+
+            function formatTooltip(el) {
+                const u = currentUniverse;
+                if (!u) return null;
+                const source = el.dataset.source;
+                if (source !== "down" && source !== "right") return null;
+                const i = +el.dataset.i;
+                const j = +el.dataset.j;
+
+                const row = j;
+                const col = i;
+                const val =
+                    source === "down" ? u.downMatrix[j][i] : u.rightMatrix[i][j];
+
+                const cachedCol = u.colPriority[col];
+                const cachedRow = u.rowPriority[row];
+                const directCol = pri((col - u.originCol) + u.hInitCol);
+                const directRow = pri((row - u.originRow) + u.vInitRow);
+                const colMismatch = cachedCol !== directCol;
+                const rowMismatch = cachedRow !== directRow;
+
+                const matrixRef =
+                    source === "down"
+                        ? `downMatrix[${j}][${i}]`
+                        : `rightMatrix[${i}][${j}]`;
+                const mark = (ok) =>
+                    ok ? "" : ' <span class="t-mismatch">≠</span>';
+
+                return `<div class="t-title">${source === "down" ? "Down" : "Right"} diamond</div>` +
+                    `${matrixRef} = ${val}\n` +
+                    `global: row=${row} col=${col}\n` +
+                    `origin: row=${u.originRow} col=${u.originCol}\n` +
+                    `hInitCol=${u.hInitCol} vInitRow=${u.vInitRow}\n` +
+                    `colPriority[${col}] cached=${cachedCol}` +
+                    `  direct=pri((${col}-${u.originCol})+${u.hInitCol})=${directCol}${mark(!colMismatch)}\n` +
+                    `rowPriority[${row}] cached=${cachedRow}` +
+                    `  direct=pri((${row}-${u.originRow})+${u.vInitRow})=${directRow}${mark(!rowMismatch)}`;
+            }
+
+            function positionTooltip(clientX, clientY) {
+                const pad = 12;
+                const rect = tooltip.getBoundingClientRect();
+                let x = clientX + pad;
+                let y = clientY + pad;
+                if (x + rect.width > window.innerWidth)
+                    x = clientX - rect.width - pad;
+                if (y + rect.height > window.innerHeight)
+                    y = clientY - rect.height - pad;
+                tooltip.style.left = x + "px";
+                tooltip.style.top = y + "px";
+            }
+
+            function hideTooltip() { tooltip.style.display = "none"; }
+
+            svg.addEventListener("mouseover", (e) => {
+                if (mousePan) return;
+                const el = e.target;
+                if (!el || !el.dataset || !el.dataset.source) return;
+                const html = formatTooltip(el);
+                if (!html) return;
+                tooltip.innerHTML = html;
+                tooltip.style.display = "block";
+                positionTooltip(e.clientX, e.clientY);
+            });
+            svg.addEventListener("mousemove", (e) => {
+                if (mousePan) { hideTooltip(); return; }
+                if (tooltip.style.display === "block") {
+                    positionTooltip(e.clientX, e.clientY);
+                }
+            });
+            svg.addEventListener("mouseout", (e) => {
+                const el = e.target;
+                if (!el || !el.dataset || !el.dataset.source) return;
+                hideTooltip();
+            });
+            svg.addEventListener("mouseleave", hideTooltip);
+
+            function render() {
+                const numRows = +inputs.numRows.value;
+                const numCols = +inputs.numCols.value;
+                const hInitCol = +inputs.hInitCol.value;
+                const vInitRow = +inputs.vInitRow.value;
+
+                callSig.textContent =
+                    `Universe.createSymmetric(\n` +
+                    `  ${numRows},  // numRows\n` +
+                    `  ${numCols},  // numCols\n` +
+                    `  ${hInitCol},  // hInitCol\n` +
+                    `  ${vInitRow},  // vInitRow\n` +
+                    `)`;
+
+                // Build a symmetric Universe (four identical-extent quadrants) and
+                // assemble the global raster. Mirror the field attachment that
+                // Universe.create does so the hover inspector can read downMatrix,
+                // rightMatrix, originRow/Col, colPriority, rowPriority off the same
+                // instance.
+                const u = Universe.createSymmetric(
+                    numRows, numCols, hInitCol, vInitRow,
+                );
+                const assembled = u.assemble();
+                u.downMatrix   = assembled.downMatrix;
+                u.rightMatrix  = assembled.rightMatrix;
+                u.originRow    = assembled.originRow;
+                u.originCol    = assembled.originCol;
+                u.colPriority  = assembled.colPriority;
+                u.rowPriority  = assembled.rowPriority;
+
+                currentUniverse = u;
+                hideTooltip();
+
+                const nR = u.northExtent + u.southExtent - 1;
+                const nC = u.westExtent + u.eastExtent - 1;
+
+                info.textContent =
+                    `rows: ${nR}  cols: ${nC}\n` +
+                    `origin: r${u.originRow} c${u.originCol}\n` +
+                    `extents: N=${u.northExtent} S=${u.southExtent} W=${u.westExtent} E=${u.eastExtent}`;
+
+                const w = 2 * PAD + nC * S;
+                const h = 2 * PAD + nR * S;
+                svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+                svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+                svg.innerHTML = "";
+
+                viewportGroup = svgEl("g", { id: "viewport" });
+                svg.appendChild(viewportGroup);
+                applyTransform();
+                const draw = (tag, attrs) => {
+                    const el = svgEl(tag, attrs);
+                    viewportGroup.appendChild(el);
+                    return el;
+                };
+
+                const dm = u.downMatrix;
+                const rm = u.rightMatrix;
+
+                // Origin crosshair
+                const ox = PAD + u.originCol * S + S / 2;
+                const oy = PAD + u.originRow * S + S / 2;
+                draw("line", {
+                    x1: ox, y1: PAD, x2: ox, y2: PAD + nR * S, class: "origin-line",
+                });
+                draw("line", {
+                    x1: PAD, y1: oy, x2: PAD + nC * S, y2: oy, class: "origin-line",
+                });
+
+                // Down diamonds
+                for (let j = 0; j < nR; j++) {
+                    for (let i = 0; i < nC; i++) {
+                        const [cx, cy] = downPos(i, j);
+                        const val = dm[j][i];
+                        draw("polygon", {
+                            points: diamondPts(cx, cy),
+                            class: "diamond",
+                            fill: val ? "#e0a8a8" : "#fff",
+                            stroke: "#9a4a4a",
+                            "data-source": "down",
+                            "data-i": i,
+                            "data-j": j,
+                        });
+                        if (val) {
+                            draw("path", {
+                                d: downArrowPath(cx, cy, j === u.originRow),
+                                fill: "#7a2d2d",
+                                "pointer-events": "none",
+                            });
+                        }
+                    }
+                }
+
+                // Right diamonds
+                for (let i = 0; i < nC; i++) {
+                    for (let j = 0; j < nR; j++) {
+                        const [cx, cy] = rightPos(i, j);
+                        const val = rm[i][j];
+                        draw("polygon", {
+                            points: diamondPts(cx, cy),
+                            class: "diamond",
+                            fill: val ? "#bcd8e8" : "#fff",
+                            stroke: "#5a8aaa",
+                            "data-source": "right",
+                            "data-i": i,
+                            "data-j": j,
+                        });
+                        if (val) {
+                            draw("path", {
+                                d: rightArrowPath(cx, cy, i === u.originCol),
+                                fill: "#3d6a8a",
+                                "pointer-events": "none",
+                            });
+                        }
+                    }
+                }
+            }
+
+            render();
+        </script>
+    </body>
+</html>
