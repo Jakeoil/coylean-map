@@ -61,10 +61,16 @@
         </style>
     </head>
     <body class="layout-sidebar">
+        <nav class="breadcrumb">
+            <a href="index.html">Index</a>
+            <span class="sep">›</span>
+            <span class="current">Propagation Diagram 2</span>
+        </nav>
+        <div class="layout-body">
         <div class="sidebar">
             <h1>Propagation Diagram</h1>
 
-            <div class="call-sig" id="call-sig">propagate(4, 4, 1, 1)</div>
+            <div class="call-sig" id="call-sig">propagate(4, 4, 1, 1, Seniority.vertical())</div>
 
             <div class="controls">
                 <div class="control-row">
@@ -111,6 +117,12 @@
                         />
                     </div>
                 </div>
+                <div class="control-row">
+                    <div class="control">
+                        <label>Seniority</label>
+                        <button id="seniority" class="btn">Vertical</button>
+                    </div>
+                </div>
             </div>
 
             <h2>Display</h2>
@@ -120,13 +132,6 @@
                 <button id="tog-pri">Priority</button>
                 <button id="tog-minimize">Minimize</button>
                 <button id="tog-encroach">Encroach</button>
-            </div>
-
-            <div class="control-row" style="margin-top: 10px">
-                <div class="control">
-                    <label>Seniority</label>
-                    <button id="seniority" class="btn">Vertical</button>
-                </div>
             </div>
 
             <h2>Legend</h2>
@@ -193,6 +198,7 @@
 
         <div class="main">
             <svg id="diagram"></svg>
+        </div>
         </div>
 
         <script type="module">

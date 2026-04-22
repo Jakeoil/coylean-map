@@ -14,12 +14,40 @@ body {
 /* Two page layouts: sidebar-on-left, or header-on-top. Pick one on <body>. */
 body.layout-sidebar {
     display: flex;
+    flex-direction: column;
     height: 100vh;
+}
+body.layout-sidebar .layout-body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
 }
 body.layout-header {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+}
+
+/* ── Breadcrumb ── */
+.breadcrumb {
+    background: #fff;
+    border-bottom: 1px solid #ddd;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85em;
+    flex-shrink: 0;
+}
+.breadcrumb a {
+    color: #1f6feb;
+    text-decoration: none;
+}
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb .sep { color: #aaa; }
+.breadcrumb .current {
+    color: #444;
+    font-weight: 600;
 }
 
 /* ── Sidebar layout ── */
