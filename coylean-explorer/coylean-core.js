@@ -729,6 +729,54 @@ export class Universe {
     }
 
     /**
+     * Build the four quadrant propagations spanning
+     * [minRow, maxRow] × [minCol, maxCol] (inclusive, signed about the
+     * origin), returned unstitched.
+     *
+     * Shared-edge sizes: nw/sw share westExtent, ne/se share eastExtent,
+     * nw/ne share northExtent, sw/se share southExtent. When the range
+     * is not symmetric about the origin the four quadrants differ in
+     * size accordingly.
+     *
+     * @param {[number, number]} rowRange  [minRow, maxRow] with minRow <= 0 <= maxRow
+     * @param {[number, number]} colRange  [minCol, maxCol] with minCol <= 0 <= maxCol
+     * @param {number} [hInitCol]
+     * @param {number} [vInitRow]
+     * @param {Seniority} [seniority]
+     * @returns {{ nw: Propagation, ne: Propagation, sw: Propagation, se: Propagation }}
+     */
+    static createUniverseQuadrants(
+        rowRange,
+        colRange,
+        hInitCol = 1,
+        vInitRow = 1,
+        seniority = Seniority.vertical(),
+    ) {
+        const [minRow, maxRow] = rowRange;
+        const [minCol, maxCol] = colRange;
+        const northExtent = 1 - minRow;
+        const southExtent = maxRow + 1;
+        const westExtent = 1 - minCol;
+        const eastExtent = maxCol + 1;
+
+        const quadrant = (direction, numRows, numColumns, h, v) =>
+            Propagation.create({
+                direction,
+                numRows,
+                numColumns,
+                hInitCol: h,
+                vInitRow: v,
+                seniority,
+            });
+        return {
+            nw: quadrant("nw", northExtent, westExtent, 1 - hInitCol, 1 - vInitRow),
+            ne: quadrant("ne", northExtent, eastExtent, hInitCol, 1 - vInitRow),
+            sw: quadrant("sw", southExtent, westExtent, 1 - hInitCol, vInitRow),
+            se: quadrant("se", southExtent, eastExtent, hInitCol, vInitRow),
+        };
+    }
+
+    /**
      * Primary factory for a fully assembled Universe.
      *
      * Builds the four quadrant propagations with per-direction extents, then
