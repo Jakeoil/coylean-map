@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Four Canvases</title>
+        <link rel="stylesheet" href="prototype.css" />
+        <style>
+            /* Page-specific: 2x2 canvas grid fills .main completely. */
+            .main.canvas-grid {
+                padding: 0;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: 1fr 1fr;
+                gap: 1px;
+                background: #ddd;
+                overflow: hidden;
+                align-items: stretch;
+                justify-content: stretch;
+            }
+            .canvas-cell {
+                background: #fff;
+                position: relative;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                min-width: 0;
+                min-height: 0;
+            }
+            .canvas-cell .label {
+                position: absolute;
+                top: 6px;
+                left: 8px;
+                font-size: 0.8em;
+                color: #666;
+                background: rgba(255, 255, 255, 0.85);
+                padding: 2px 6px;
+                border-radius: 3px;
+                pointer-events: none;
+                z-index: 1;
+            }
+            .canvas-cell canvas {
+                flex: 1;
+                width: 100%;
+                height: 100%;
+                display: block;
+                cursor: grab;
+                touch-action: none;
+            }
+            .canvas-cell canvas:active { cursor: grabbing; }
+        </style>
+    </head>
+    <body class="layout-sidebar">
+        <nav class="breadcrumb">
+            <a href="index.html">Index</a>
+            <span class="sep">›</span>
+            <span class="current">Four Canvases</span>
+        </nav>
+        <div class="layout-body">
+            <div class="sidebar">
+                <h1>Four Canvases</h1>
+
+                <h2>Controls</h2>
+                <div class="toggle-row">
+                    <button id="reset-all" class="btn">Reset all views</button>
+                </div>
+
+                <h2>Legend</h2>
+                <div class="legend">
+                    <div class="legend-item">Drag to pan</div>
+                    <div class="legend-item">Scroll wheel to zoom</div>
+                    <div class="legend-item">Each canvas is independent</div>
+                </div>
+
+                <h2>Details</h2>
+                <div class="info-panel" id="info">
+                    <div style="color:#888">Hover a canvas to inspect</div>
+                </div>
+            </div>
+
+            <div class="main canvas-grid">
+                <div class="canvas-cell">
+                    <div class="label">A</div>
+                    <canvas data-id="A"></canvas>
+                </div>
+                <div class="canvas-cell">
+                    <div class="label">B</div>
+                    <canvas data-id="B"></canvas>
+                </div>
+                <div class="canvas-cell">
+                    <div class="label">C</div>
+                    <canvas data-id="C"></canvas>
+                </div>
+                <div class="canvas-cell">
+                    <div class="label">D</div>
+                    <canvas data-id="D"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <script type="module">
+            import { init } from "./src/app/four-canvas-page.js";
+            init();
+        </script>
+    </body>
+</html>
