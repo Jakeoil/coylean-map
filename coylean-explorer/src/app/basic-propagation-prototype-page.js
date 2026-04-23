@@ -1,5 +1,6 @@
 import { Seniority, propagate } from "../../coylean-core.js";
 import { renderPropagation } from "../display/render-propagation.js";
+import { attachSvgPanZoom } from "../display/svg-pan-zoom.js";
 import { makeInfo } from "./basic-propagation-prototype-info.js";
 
 export function init() {
@@ -99,4 +100,6 @@ export function init() {
     });
 
     render();
+
+    attachSvgPanZoom(svg, svg.querySelector("g.viewport"));
 }

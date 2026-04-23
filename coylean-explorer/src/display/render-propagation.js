@@ -18,7 +18,14 @@ export function renderPropagation(svg, config, result, flags, hooks) {
     svg.setAttribute("width", w);
     svg.setAttribute("height", h);
     svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
-    svg.innerHTML = "";
+
+    // Render into a stable viewport group so pan/zoom transforms persist across renders.
+    let vp = svg.querySelector("g.viewport");
+    if (!vp) {
+        vp = svgEl("g", { class: "viewport" });
+        svg.appendChild(vp);
+    }
+    vp.innerHTML = "";
 
     // ── Flow lines (subtle connections) ──
     if (showFlow) {
@@ -72,7 +79,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                 );
             }
         }
-        svg.appendChild(g);
+        vp.appendChild(g);
     }
 
     // ── Down diamonds ──
@@ -91,10 +98,10 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                 onEnterDown(i, j, val),
             );
             poly.addEventListener("mouseleave", onLeave);
-            svg.appendChild(poly);
+            vp.appendChild(poly);
 
             if (val && !showMinimize) {
-                svg.appendChild(
+                vp.appendChild(
                     svgEl("path", {
                         d: downArrowPath(cx, cy, j === 0),
                         class: "arrow-path",
@@ -104,7 +111,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             }
 
             if (showLabels) {
-                svg.appendChild(
+                vp.appendChild(
                     Object.assign(
                         svgEl("text", {
                             x: cx,
@@ -135,10 +142,10 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                 onEnterRight(i, j, val),
             );
             poly.addEventListener("mouseleave", onLeave);
-            svg.appendChild(poly);
+            vp.appendChild(poly);
 
             if (val && !showMinimize) {
-                svg.appendChild(
+                vp.appendChild(
                     svgEl("path", {
                         d: rightArrowPath(cx, cy, i === 0),
                         class: "arrow-path",
@@ -148,7 +155,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             }
 
             if (showLabels) {
-                svg.appendChild(
+                vp.appendChild(
                     Object.assign(
                         svgEl("text", {
                             x: cx,
@@ -177,19 +184,19 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                 const leftFill = nw && sw;
                 const rightFill = ne && se;
                 if (leftFill) {
-                    svg.appendChild(svgEl("polygon", {
+                    vp.appendChild(svgEl("polygon", {
                         points: `${cx},${cy-D} ${cx},${cy+D} ${cx-D},${cy}`,
                         fill: "#e0a8a8", stroke: "none",
                     }));
                 }
                 if (rightFill) {
-                    svg.appendChild(svgEl("polygon", {
+                    vp.appendChild(svgEl("polygon", {
                         points: `${cx},${cy-D} ${cx+D},${cy} ${cx},${cy+D}`,
                         fill: "#e0a8a8", stroke: "none",
                     }));
                 }
                 if (leftFill || rightFill) {
-                    svg.appendChild(svgEl("line", {
+                    vp.appendChild(svgEl("line", {
                         x1: cx, y1: cy-D, x2: cx, y2: cy+D,
                         stroke: "#7a2d2d", "stroke-width": "1.5",
                     }));
@@ -208,19 +215,19 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                 const topFill = nw && ne;
                 const bottomFill = sw && se;
                 if (topFill) {
-                    svg.appendChild(svgEl("polygon", {
+                    vp.appendChild(svgEl("polygon", {
                         points: `${cx},${cy-D} ${cx+D},${cy} ${cx-D},${cy}`,
                         fill: "#bcd8e8", stroke: "none",
                     }));
                 }
                 if (bottomFill) {
-                    svg.appendChild(svgEl("polygon", {
+                    vp.appendChild(svgEl("polygon", {
                         points: `${cx-D},${cy} ${cx+D},${cy} ${cx},${cy+D}`,
                         fill: "#bcd8e8", stroke: "none",
                     }));
                 }
                 if (topFill || bottomFill) {
-                    svg.appendChild(svgEl("line", {
+                    vp.appendChild(svgEl("line", {
                         x1: cx-D, y1: cy, x2: cx+D, y2: cy,
                         stroke: "#3d6a8a", "stroke-width": "1.5",
                     }));
@@ -236,7 +243,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                 const ne = (i < nC)              ? dm[j][i]     : false;
                 const sw = (i >= 1 && j+1 <= nR) ? dm[j+1][i-1] : false;
                 const se = (i < nC && j+1 <= nR) ? dm[j+1][i]   : false;
-                const edge = (x1, y1, x2, y2) => svg.appendChild(svgEl("line", {
+                const edge = (x1, y1, x2, y2) => vp.appendChild(svgEl("line", {
                     x1, y1, x2, y2,
                     stroke: "#7a2d2d", "stroke-width": "2.5",
                 }));
@@ -255,7 +262,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                 const ne = (j >= 1 && i+1 <= nC) ? rm[i+1][j-1] : false;
                 const sw = (j < nR)              ? rm[i][j]     : false;
                 const se = (j < nR && i+1 <= nC) ? rm[i+1][j]   : false;
-                const edge = (x1, y1, x2, y2) => svg.appendChild(svgEl("line", {
+                const edge = (x1, y1, x2, y2) => vp.appendChild(svgEl("line", {
                     x1, y1, x2, y2,
                     stroke: "#3d6a8a", "stroke-width": "2.5",
                 }));
@@ -279,7 +286,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                     ? pI >= pJ
                     : pI > pJ;
                 const cmp = seniority.isVertical ? "≥" : ">";
-                svg.appendChild(
+                vp.appendChild(
                     Object.assign(
                         svgEl("text", {
                             x: cx,
@@ -291,7 +298,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                         { textContent: `${pI}${cmp}${pJ}?` },
                     ),
                 );
-                svg.appendChild(
+                vp.appendChild(
                     Object.assign(
                         svgEl("text", {
                             x: cx,

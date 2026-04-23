@@ -75,11 +75,7 @@ body.layout-header {
 
 .main {
     flex: 1;
-    overflow: auto;
-    padding: 24px;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
+    overflow: hidden;
     background: #fff;
 }
 

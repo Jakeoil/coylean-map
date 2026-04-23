@@ -27,9 +27,15 @@
                 color: #dc2626;
             }
 
-            svg {
-                cursor: default;
+            #diagram {
+                width: 100%;
+                height: 100%;
+                display: block;
+                cursor: grab;
+                touch-action: none;
+                background: #fff;
             }
+            #diagram.dragging { cursor: grabbing; }
 
             .diamond {
                 stroke-width: 1.5;
