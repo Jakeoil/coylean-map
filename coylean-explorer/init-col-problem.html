@@ -182,7 +182,7 @@
             function downPos(i, j) { return [PAD + (i + 0.5) * S, PAD + j * S]; }
             function rightPos(i, j) { return [PAD + i * S, PAD + (j + 0.5) * S]; }
 
-            // ── Arrow paths (same style as diagram2) ──
+            // ── Arrow paths (same style as basic-propagation-prototype) ──
             const ARR_MARGIN = 1.5, ARR_SW = 1.25, ARR_HL = 8, ARR_HW = 3.5, ARR_ND = 2.5;
 
             function downArrowPath(cx, cy, dbl) {
@@ -259,11 +259,11 @@
                 const vInitRow = +inputs.vInitRow.value;
 
                 document.getElementById("sub-legacy").textContent =
-                    `propagate(${nR}, ${nC}, ${hInitCol}, ${vInitRow})  // diagram2 path`;
+                    `propagate(${nR}, ${nC}, ${hInitCol}, ${vInitRow})  // basic-propagation-prototype path`;
                 document.getElementById("sub-new").textContent =
                     `Propagation.create({ ${nR}, ${nC}, hInitCol=${hInitCol}, vInitRow=${vInitRow} })  // Universe path`;
 
-                // Left panel — the working path used by diagram2.
+                // Left panel — the working path used by basic-propagation-prototype.
                 const leg = propagate(
                     nR, nC, hInitCol, vInitRow, Seniority.vertical(),
                 );

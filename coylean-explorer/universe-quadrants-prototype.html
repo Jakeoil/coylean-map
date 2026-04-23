@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Coylean Universe-Quadrants Prototype</title>
+        <title>Coylean Universe-Quadrants</title>
         <style>
             * {
                 box-sizing: border-box;
@@ -14,7 +14,33 @@
                 background: #f5f5f5;
                 color: #333;
                 display: flex;
+                flex-direction: column;
                 height: 100vh;
+            }
+            .layout-body {
+                flex: 1;
+                display: flex;
+                min-height: 0;
+            }
+            .breadcrumb {
+                background: #fff;
+                border-bottom: 1px solid #ddd;
+                padding: 10px 20px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 0.85em;
+                flex-shrink: 0;
+            }
+            .breadcrumb a {
+                color: #1f6feb;
+                text-decoration: none;
+            }
+            .breadcrumb a:hover { text-decoration: underline; }
+            .breadcrumb .sep { color: #aaa; }
+            .breadcrumb .current {
+                color: #444;
+                font-weight: 600;
             }
 
             .sidebar {
@@ -101,8 +127,12 @@
                 cursor: grab;
                 background: #fff;
             }
-            #diagram.dragging { cursor: grabbing; }
-            .diamond { stroke-width: 1; }
+            #diagram.dragging {
+                cursor: grabbing;
+            }
+            .diamond {
+                stroke-width: 1;
+            }
             .quadrant-bg {
                 fill: #fafafa;
                 stroke: #ddd;
@@ -139,9 +169,22 @@
         </style>
     </head>
     <body>
+        <nav class="breadcrumb">
+            <a href="index.html">Index</a>
+            <span class="sep">›</span>
+            <a href="basic-propagation-prototype.html">Basic Propagation</a>
+            <span class="sep">›</span>
+            <a href="exploration-prototype.html">Exploration Prototype</a>
+            <span class="sep">›</span>
+            <a href="universe-quadrants-prototype.html" class="current">Universe-Quadrants</a>
+            <span class="sep">›</span>
+            <a href="universal-propagate-prototype.html">Universal Propagate Prototype</a>
+            <span class="sep">›</span>
+            <a href="universe-prototype.html">Universe Prototype</a>
+        </nav>
+        <div class="layout-body">
         <div class="sidebar">
-            <h1>Universe-Quadrants Prototype</h1>
-            <a class="index-link" href="index.html">← Index</a>
+            <h1>Universe-Quadrants</h1>
 
             <div class="call-sig" id="call-sig"></div>
 
@@ -149,11 +192,23 @@
             <div class="control-row">
                 <div class="control">
                     <label>minRow</label>
-                    <input type="number" id="minRow" value="-6" min="-32" max="0" />
+                    <input
+                        type="number"
+                        id="minRow"
+                        value="-6"
+                        min="-32"
+                        max="0"
+                    />
                 </div>
                 <div class="control">
                     <label>maxRow</label>
-                    <input type="number" id="maxRow" value="10" min="0" max="32" />
+                    <input
+                        type="number"
+                        id="maxRow"
+                        value="10"
+                        min="0"
+                        max="32"
+                    />
                 </div>
             </div>
 
@@ -161,11 +216,23 @@
             <div class="control-row">
                 <div class="control">
                     <label>minCol</label>
-                    <input type="number" id="minCol" value="-6" min="-32" max="0" />
+                    <input
+                        type="number"
+                        id="minCol"
+                        value="-6"
+                        min="-32"
+                        max="0"
+                    />
                 </div>
                 <div class="control">
                     <label>maxCol</label>
-                    <input type="number" id="maxCol" value="10" min="0" max="32" />
+                    <input
+                        type="number"
+                        id="maxCol"
+                        value="10"
+                        min="0"
+                        max="32"
+                    />
                 </div>
             </div>
 
@@ -173,11 +240,23 @@
             <div class="control-row">
                 <div class="control">
                     <label>hInitCol</label>
-                    <input type="number" id="hInitCol" value="1" min="-20" max="20" />
+                    <input
+                        type="number"
+                        id="hInitCol"
+                        value="1"
+                        min="-20"
+                        max="20"
+                    />
                 </div>
                 <div class="control">
                     <label>vInitRow</label>
-                    <input type="number" id="vInitRow" value="1" min="-20" max="20" />
+                    <input
+                        type="number"
+                        id="vInitRow"
+                        value="1"
+                        min="-20"
+                        max="20"
+                    />
                 </div>
             </div>
 
@@ -187,6 +266,7 @@
 
         <div class="main">
             <svg id="diagram"></svg>
+        </div>
         </div>
         <div id="tooltip"></div>
 
@@ -204,10 +284,10 @@
             const info = document.getElementById("info");
 
             const inputs = {
-                minRow:   document.getElementById("minRow"),
-                maxRow:   document.getElementById("maxRow"),
-                minCol:   document.getElementById("minCol"),
-                maxCol:   document.getElementById("maxCol"),
+                minRow: document.getElementById("minRow"),
+                maxRow: document.getElementById("maxRow"),
+                minCol: document.getElementById("minCol"),
+                maxCol: document.getElementById("maxCol"),
                 hInitCol: document.getElementById("hInitCol"),
                 vInitRow: document.getElementById("vInitRow"),
             };
@@ -216,8 +296,12 @@
             }
 
             function svgEl(tag, attrs) {
-                const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
-                for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+                const el = document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    tag,
+                );
+                for (const [k, v] of Object.entries(attrs))
+                    el.setAttribute(k, v);
                 return el;
             }
 
@@ -272,7 +356,10 @@
             }
 
             function zoomAt(svgX, svgY, factor) {
-                const newScale = Math.max(0.05, Math.min(40, viewport.scale * factor));
+                const newScale = Math.max(
+                    0.05,
+                    Math.min(40, viewport.scale * factor),
+                );
                 const worldX = (svgX - viewport.offsetX) / viewport.scale;
                 const worldY = (svgY - viewport.offsetY) / viewport.scale;
                 viewport.scale = newScale;
@@ -322,26 +409,31 @@
                 if (!currentQuads) return null;
                 const quadName = el.dataset.quad;
                 const source = el.dataset.source;
-                if (!quadName || (source !== "down" && source !== "right")) return null;
+                if (!quadName || (source !== "down" && source !== "right"))
+                    return null;
                 const q = currentQuads.find((qq) => qq.name === quadName);
                 if (!q) return null;
                 const p = q.p;
                 const i = +el.dataset.i;
                 const j = +el.dataset.j;
 
-                const val = source === "down"
-                    ? p.downMatrix[j][i]
-                    : p.rightMatrix[i][j];
+                const val =
+                    source === "down"
+                        ? p.downMatrix[j][i]
+                        : p.rightMatrix[i][j];
 
-                const matrixRef = source === "down"
-                    ? `downMatrix[${j}][${i}]`
-                    : `rightMatrix[${i}][${j}]`;
+                const matrixRef =
+                    source === "down"
+                        ? `downMatrix[${j}][${i}]`
+                        : `rightMatrix[${i}][${j}]`;
 
-                return `<div class="t-title">${quadName.toUpperCase()} · ${source === "down" ? "Down" : "Right"} diamond</div>` +
+                return (
+                    `<div class="t-title">${quadName.toUpperCase()} · ${source === "down" ? "Down" : "Right"} diamond</div>` +
                     `${matrixRef} = ${val}\n` +
                     `local: j=${j} i=${i}\n` +
                     `size: ${p.numRows}×${p.numColumns}\n` +
-                    `quadrant hInitCol=${p.hInitCol} vInitRow=${p.vInitRow}`;
+                    `quadrant hInitCol=${p.hInitCol} vInitRow=${p.vInitRow}`
+                );
             }
 
             function positionTooltip(clientX, clientY) {
@@ -349,12 +441,16 @@
                 const rect = tooltip.getBoundingClientRect();
                 let x = clientX + pad;
                 let y = clientY + pad;
-                if (x + rect.width > window.innerWidth) x = clientX - rect.width - pad;
-                if (y + rect.height > window.innerHeight) y = clientY - rect.height - pad;
+                if (x + rect.width > window.innerWidth)
+                    x = clientX - rect.width - pad;
+                if (y + rect.height > window.innerHeight)
+                    y = clientY - rect.height - pad;
                 tooltip.style.left = x + "px";
                 tooltip.style.top = y + "px";
             }
-            function hideTooltip() { tooltip.style.display = "none"; }
+            function hideTooltip() {
+                tooltip.style.display = "none";
+            }
 
             svg.addEventListener("mouseover", (e) => {
                 if (mousePan) return;
@@ -367,7 +463,10 @@
                 positionTooltip(e.clientX, e.clientY);
             });
             svg.addEventListener("mousemove", (e) => {
-                if (mousePan) { hideTooltip(); return; }
+                if (mousePan) {
+                    hideTooltip();
+                    return;
+                }
                 if (tooltip.style.display === "block") {
                     positionTooltip(e.clientX, e.clientY);
                 }
@@ -394,13 +493,15 @@
                 const group = svgEl("g", {});
                 parent.appendChild(group);
 
-                group.appendChild(svgEl("rect", {
-                    x: cellX,
-                    y: cellY - LABEL_H,
-                    width: panelW,
-                    height: panelH + LABEL_H,
-                    class: "quadrant-bg",
-                }));
+                group.appendChild(
+                    svgEl("rect", {
+                        x: cellX,
+                        y: cellY - LABEL_H,
+                        width: panelW,
+                        height: panelH + LABEL_H,
+                        class: "quadrant-bg",
+                    }),
+                );
                 const label = svgEl("text", {
                     x: cellX + 12,
                     y: cellY - 6,
@@ -417,8 +518,8 @@
 
                 for (let j = 0; j <= numRows; j++) {
                     for (let i = 0; i < numCols; i++) {
-                        const pj = flipJ ? (numRows - j) : j;
-                        const pi = flipI ? (numCols - 1 - i) : i;
+                        const pj = flipJ ? numRows - j : j;
+                        const pi = flipI ? numCols - 1 - i : i;
                         const cx = cellX + PAD + (pi + 0.5) * S;
                         const cy = cellY + PAD + pj * S;
                         const val = p.downMatrix[j][i];
@@ -444,8 +545,8 @@
 
                 for (let i = 0; i <= numCols; i++) {
                     for (let j = 0; j < numRows; j++) {
-                        const pj = flipJ ? (numRows - 1 - j) : j;
-                        const pi = flipI ? (numCols - i) : i;
+                        const pj = flipJ ? numRows - 1 - j : j;
+                        const pi = flipI ? numCols - i : i;
                         const cx = cellX + PAD + pi * S;
                         const cy = cellY + PAD + (pj + 0.5) * S;
                         const val = p.rightMatrix[i][j];
@@ -500,9 +601,9 @@
                 );
 
                 const quads = [
-                    { p: nw, name: "nw", flipJ: true,  flipI: true  },
-                    { p: ne, name: "ne", flipJ: true,  flipI: false },
-                    { p: sw, name: "sw", flipJ: false, flipI: true  },
+                    { p: nw, name: "nw", flipJ: true, flipI: true },
+                    { p: ne, name: "ne", flipJ: true, flipI: false },
+                    { p: sw, name: "sw", flipJ: false, flipI: true },
                     { p: se, name: "se", flipJ: false, flipI: false },
                 ];
                 currentQuads = quads;
@@ -522,8 +623,7 @@
                 const sPanelH = 2 * PAD + sw.numRows * S;
 
                 const totalW = wPanelW + GAP + ePanelW;
-                const totalH =
-                    LABEL_H + nPanelH + GAP + LABEL_H + sPanelH;
+                const totalH = LABEL_H + nPanelH + GAP + LABEL_H + sPanelH;
 
                 svg.setAttribute("viewBox", `0 0 ${totalW} ${totalH}`);
                 svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
@@ -535,10 +635,10 @@
 
                 const sRowY = LABEL_H + nPanelH + GAP + LABEL_H;
                 const positions = {
-                    nw: { cellX: 0,              cellY: LABEL_H },
-                    ne: { cellX: wPanelW + GAP,  cellY: LABEL_H },
-                    sw: { cellX: 0,              cellY: sRowY },
-                    se: { cellX: wPanelW + GAP,  cellY: sRowY },
+                    nw: { cellX: 0, cellY: LABEL_H },
+                    ne: { cellX: wPanelW + GAP, cellY: LABEL_H },
+                    sw: { cellX: 0, cellY: sRowY },
+                    se: { cellX: wPanelW + GAP, cellY: sRowY },
                 };
                 for (const quad of quads) {
                     const pos = positions[quad.name];

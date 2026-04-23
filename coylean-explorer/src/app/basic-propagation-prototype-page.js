@@ -1,6 +1,6 @@
 import { Seniority, propagate } from "../../coylean-core.js";
 import { renderPropagation } from "../display/render-propagation.js";
-import { makeInfo } from "./diagram2-info.js";
+import { makeInfo } from "./basic-propagation-prototype-info.js";
 
 export function init() {
     const svg = document.getElementById("diagram");

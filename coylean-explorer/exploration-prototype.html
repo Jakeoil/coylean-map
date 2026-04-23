@@ -14,7 +14,33 @@
                 background: #f5f5f5;
                 color: #333;
                 display: flex;
+                flex-direction: column;
                 height: 100vh;
+            }
+            .layout-body {
+                flex: 1;
+                display: flex;
+                min-height: 0;
+            }
+            .breadcrumb {
+                background: #fff;
+                border-bottom: 1px solid #ddd;
+                padding: 10px 20px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 0.85em;
+                flex-shrink: 0;
+            }
+            .breadcrumb a {
+                color: #1f6feb;
+                text-decoration: none;
+            }
+            .breadcrumb a:hover { text-decoration: underline; }
+            .breadcrumb .sep { color: #aaa; }
+            .breadcrumb .current {
+                color: #444;
+                font-weight: 600;
             }
 
             .sidebar {
@@ -144,9 +170,22 @@
         </style>
     </head>
     <body>
+        <nav class="breadcrumb">
+            <a href="index.html">Index</a>
+            <span class="sep">›</span>
+            <a href="basic-propagation-prototype.html">Basic Propagation</a>
+            <span class="sep">›</span>
+            <a href="exploration-prototype.html" class="current">Exploration Prototype</a>
+            <span class="sep">›</span>
+            <a href="universe-quadrants-prototype.html">Universe-Quadrants</a>
+            <span class="sep">›</span>
+            <a href="universal-propagate-prototype.html">Universal Propagate Prototype</a>
+            <span class="sep">›</span>
+            <a href="universe-prototype.html">Universe Prototype</a>
+        </nav>
+        <div class="layout-body">
         <div class="sidebar">
             <h1>Exploration Prototype</h1>
-            <a class="index-link" href="index.html">← Index</a>
 
             <div class="call-sig" id="call-sig"></div>
 
@@ -180,6 +219,7 @@
 
         <div class="main">
             <svg id="diagram"></svg>
+        </div>
         </div>
         <div id="tooltip"></div>
 
