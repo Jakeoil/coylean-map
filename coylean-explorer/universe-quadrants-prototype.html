@@ -272,6 +272,7 @@
 
         <script type="module">
             import { Universe, pri } from "./coylean-core.js";
+            import { attachSvgPanZoom } from "./src/display/svg-pan-zoom.js";
 
             const S = 32;
             const D = S / 2;
@@ -333,74 +334,6 @@
                 return `M${l},${cy - ARR_SW} A${ARR_SW},${ARR_SW} 0 0 0 ${l},${cy + ARR_SW} L${r - ARR_HL + ARR_ND},${cy + ARR_SW} ${r - ARR_HL},${cy + ARR_HW} ${r},${cy} ${r - ARR_HL},${cy - ARR_HW} ${r - ARR_HL + ARR_ND},${cy - ARR_SW}Z`;
             }
 
-            // ── Viewport state ──
-            const viewport = { offsetX: 0, offsetY: 0, scale: 1 };
-            let viewportGroup = null;
-
-            function applyTransform() {
-                if (!viewportGroup) return;
-                viewportGroup.setAttribute(
-                    "transform",
-                    `translate(${viewport.offsetX} ${viewport.offsetY}) scale(${viewport.scale})`,
-                );
-            }
-
-            function clientToSvg(clientX, clientY) {
-                const pt = svg.createSVGPoint();
-                pt.x = clientX;
-                pt.y = clientY;
-                const ctm = svg.getScreenCTM();
-                if (!ctm) return { x: clientX, y: clientY };
-                const p = pt.matrixTransform(ctm.inverse());
-                return { x: p.x, y: p.y };
-            }
-
-            function zoomAt(svgX, svgY, factor) {
-                const newScale = Math.max(
-                    0.05,
-                    Math.min(40, viewport.scale * factor),
-                );
-                const worldX = (svgX - viewport.offsetX) / viewport.scale;
-                const worldY = (svgY - viewport.offsetY) / viewport.scale;
-                viewport.scale = newScale;
-                viewport.offsetX = svgX - worldX * newScale;
-                viewport.offsetY = svgY - worldY * newScale;
-                applyTransform();
-            }
-
-            // ── Mouse pan/zoom ──
-            let mousePan = null;
-            svg.addEventListener("mousedown", (e) => {
-                if (e.button !== 0) return;
-                const p = clientToSvg(e.clientX, e.clientY);
-                mousePan = { lastX: p.x, lastY: p.y };
-                svg.classList.add("dragging");
-                e.preventDefault();
-            });
-            window.addEventListener("mousemove", (e) => {
-                if (!mousePan) return;
-                const p = clientToSvg(e.clientX, e.clientY);
-                viewport.offsetX += p.x - mousePan.lastX;
-                viewport.offsetY += p.y - mousePan.lastY;
-                mousePan.lastX = p.x;
-                mousePan.lastY = p.y;
-                applyTransform();
-            });
-            window.addEventListener("mouseup", () => {
-                mousePan = null;
-                svg.classList.remove("dragging");
-            });
-            svg.addEventListener(
-                "wheel",
-                (e) => {
-                    e.preventDefault();
-                    const p = clientToSvg(e.clientX, e.clientY);
-                    const factor = Math.exp(-e.deltaY * 0.0015);
-                    zoomAt(p.x, p.y, factor);
-                },
-                { passive: false },
-            );
-
             // ── Hover inspector ──
             let currentQuads = null;
             const tooltip = document.getElementById("tooltip");
@@ -453,7 +386,7 @@
             }
 
             svg.addEventListener("mouseover", (e) => {
-                if (mousePan) return;
+                if (svg.classList.contains("dragging")) return;
                 const el = e.target;
                 if (!el || !el.dataset || !el.dataset.source) return;
                 const html = formatTooltip(el);
@@ -463,7 +396,7 @@
                 positionTooltip(e.clientX, e.clientY);
             });
             svg.addEventListener("mousemove", (e) => {
-                if (mousePan) {
+                if (svg.classList.contains("dragging")) {
                     hideTooltip();
                     return;
                 }
@@ -627,11 +560,13 @@
 
                 svg.setAttribute("viewBox", `0 0 ${totalW} ${totalH}`);
                 svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-                svg.innerHTML = "";
 
-                viewportGroup = svgEl("g", { id: "viewport" });
-                svg.appendChild(viewportGroup);
-                applyTransform();
+                let viewportGroup = svg.querySelector("g.viewport");
+                if (!viewportGroup) {
+                    viewportGroup = svgEl("g", { class: "viewport" });
+                    svg.appendChild(viewportGroup);
+                }
+                viewportGroup.innerHTML = "";
 
                 const sRowY = LABEL_H + nPanelH + GAP + LABEL_H;
                 const positions = {
@@ -647,6 +582,7 @@
             }
 
             render();
+            attachSvgPanZoom(svg, svg.querySelector("g.viewport"));
         </script>
     </body>
 </html>
