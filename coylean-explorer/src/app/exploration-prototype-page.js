@@ -26,6 +26,7 @@ export function init() {
 
     const flags = {
         showLabels: false,
+        showArrows: true,
         showPri: false,
         showMinimize: false,
         showEncroach: false,
@@ -101,12 +102,19 @@ export function init() {
     }
 
     wireToggle("tog-labels", "showLabels");
+    wireToggle("tog-arrows", "showArrows");
     wireToggle("tog-pri", "showPri");
     wireToggle("tog-minimize", "showMinimize");
     wireToggle("tog-encroach", "showEncroach", () => {
-        if (flags.showEncroach && !flags.showMinimize) {
-            flags.showMinimize = true;
-            document.getElementById("tog-minimize").classList.add("active");
+        if (flags.showEncroach) {
+            if (!flags.showMinimize) {
+                flags.showMinimize = true;
+                document.getElementById("tog-minimize").classList.add("active");
+            }
+            if (flags.showArrows) {
+                flags.showArrows = false;
+                document.getElementById("tog-arrows").classList.remove("active");
+            }
         }
     });
 

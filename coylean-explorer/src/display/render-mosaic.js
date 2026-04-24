@@ -7,7 +7,7 @@ const S = 96;          // cell size (basic-propagation scale)
 const D = S / 2;       // diamond half-diagonal
 const PAD = 64;        // interior padding — must be >= D so edge diamonds stay inside the quad rect
 const GAP = 48;        // gap between adjacent panels
-const LABEL_H = 22;    // vertical space reserved for the panel label
+const LABEL_H = 44;    // vertical space reserved for the panel label
 
 // Diamond-style colours match basic-propagation: stroke-less tiles, true vs
 // false distinguished only by arrow presence.
@@ -19,7 +19,7 @@ const ARROW_RIGHT = "#3d6a8a";
 // Render a 2x2 mosaic of four propagation panels.
 //   svg:    the <svg> element to render into
 //   quads:  array of { p, name, flipJ, flipI } where name is "nw"|"ne"|"sw"|"se"
-//   flags:  { showLabels, showPri, showMinimize, showEncroach } — display toggles
+//   flags:  { showLabels, showArrows, showPri, showMinimize, showEncroach } — display toggles
 //   hooks:  { onEnterDown(name,i,j,val), onEnterRight(name,i,j,val), onLeave() }
 //
 // Each panel is sized from its own p.numRows / p.numColumns.
@@ -71,7 +71,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
     const { p, name, flipJ, flipI } = quad;
     const numRows = p.numRows;
     const numCols = p.numColumns;
-    const { showLabels, showPri, showMinimize, showEncroach } = flags;
+    const { showLabels, showPri, showMinimize, showEncroach, showArrows = true } = flags;
     const { onEnterDown, onEnterRight, onLeave } = hooks;
 
     const group = svgEl("g", {});
@@ -82,9 +82,9 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
         class: "quadrant-bg",
     }));
     const label = svgEl("text", {
-        x: x + 12, y: y - 6, class: "quadrant-label",
+        x: x + 12, y: y - 10, class: "quadrant-label",
     });
-    label.textContent = name.toUpperCase();
+    label.textContent = `${name.toUpperCase()}  ${numRows}×${numCols}`;
     group.appendChild(label);
 
     // Visual offsets — used by encroach and priority glyphs to flip with the panel.
@@ -134,7 +134,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
             }
             group.appendChild(poly);
 
-            if (val && !showMinimize) {
+            if (val && showArrows) {
                 group.appendChild(svgEl("path", {
                     d: downArrowPath(cx, cy, j === 0, D),
                     fill: ARROW_DOWN,
@@ -178,7 +178,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
             }
             group.appendChild(poly);
 
-            if (val && !showMinimize) {
+            if (val && showArrows) {
                 group.appendChild(svgEl("path", {
                     d: rightArrowPath(cx, cy, i === 0, D),
                     fill: ARROW_RIGHT,
