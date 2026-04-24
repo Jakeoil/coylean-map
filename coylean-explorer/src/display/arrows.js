@@ -1,25 +1,40 @@
-import { D } from "./diagram-coords.js";
+import { D as DEFAULT_D } from "./diagram-coords.js";
 
 // Styled after research/arrow.svg: filled shaft with rounded cap + chevron arrowhead
 
-const ARR_MARGIN = 1.5; // gap from diamond vertex to arrow tip
-const ARR_SW = 1.25;    // shaft half-width
-const ARR_HL = 8;       // arrowhead length (wings to tip)
-const ARR_HW = 3.5;     // arrowhead half-width
-const ARR_ND = 2.5;     // notch depth
+// Baseline constants tuned for d = DEFAULT_D (= 48). Arrow size scales linearly
+// with d so a smaller diamond still gets a proportional arrow.
+const BASE_MARGIN = 4.5;
+const BASE_SW = 3.75;
+const BASE_HL = 18;
+const BASE_HW = 9;
+const BASE_ND = 6;
 
-export function downArrowPath(cx, cy, doubleHeaded) {
-    const t = cy - D + ARR_MARGIN;
-    const b = cy + D - ARR_MARGIN;
+function consts(d) {
+    const k = d / DEFAULT_D;
+    return {
+        ARR_MARGIN: BASE_MARGIN * k,
+        ARR_SW: BASE_SW * k,
+        ARR_HL: BASE_HL * k,
+        ARR_HW: BASE_HW * k,
+        ARR_ND: BASE_ND * k,
+    };
+}
+
+export function downArrowPath(cx, cy, doubleHeaded, d = DEFAULT_D) {
+    const { ARR_MARGIN, ARR_SW, ARR_HL, ARR_HW, ARR_ND } = consts(d);
+    const t = cy - d + ARR_MARGIN;
+    const b = cy + d - ARR_MARGIN;
     if (doubleHeaded) {
         return `M${cx},${t} L${cx + ARR_HW},${t + ARR_HL} ${cx + ARR_SW},${t + ARR_HL - ARR_ND} ${cx + ARR_SW},${b - ARR_HL + ARR_ND} ${cx + ARR_HW},${b - ARR_HL} ${cx},${b} ${cx - ARR_HW},${b - ARR_HL} ${cx - ARR_SW},${b - ARR_HL + ARR_ND} ${cx - ARR_SW},${t + ARR_HL - ARR_ND} ${cx - ARR_HW},${t + ARR_HL}Z`;
     }
     return `M${cx - ARR_SW},${t} A${ARR_SW},${ARR_SW} 0 0 1 ${cx + ARR_SW},${t} L${cx + ARR_SW},${b - ARR_HL + ARR_ND} ${cx + ARR_HW},${b - ARR_HL} ${cx},${b} ${cx - ARR_HW},${b - ARR_HL} ${cx - ARR_SW},${b - ARR_HL + ARR_ND}Z`;
 }
 
-export function rightArrowPath(cx, cy, doubleHeaded) {
-    const l = cx - D + ARR_MARGIN;
-    const r = cx + D - ARR_MARGIN;
+export function rightArrowPath(cx, cy, doubleHeaded, d = DEFAULT_D) {
+    const { ARR_MARGIN, ARR_SW, ARR_HL, ARR_HW, ARR_ND } = consts(d);
+    const l = cx - d + ARR_MARGIN;
+    const r = cx + d - ARR_MARGIN;
     if (doubleHeaded) {
         return `M${l},${cy} L${l + ARR_HL},${cy - ARR_HW} ${l + ARR_HL - ARR_ND},${cy - ARR_SW} ${r - ARR_HL + ARR_ND},${cy - ARR_SW} ${r - ARR_HL},${cy - ARR_HW} ${r},${cy} ${r - ARR_HL},${cy + ARR_HW} ${r - ARR_HL + ARR_ND},${cy + ARR_SW} ${l + ARR_HL - ARR_ND},${cy + ARR_SW} ${l + ARR_HL},${cy + ARR_HW}Z`;
     }
