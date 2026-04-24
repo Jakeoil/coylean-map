@@ -377,3 +377,144 @@ Example colors (only examples!):
 - white label background: rgba(255, 255, 255, 0.85)
 
 Keep the implementation simple.
+
+---
+
+## Step 3: Migrate basic/exploration changes to universe-quadrants
+
+Carry the work done on `basic-propagation` and `exploration` over to
+`universe-quadrants-prototype.html`. The shared display layer (`render-mosaic.js`,
+`svg.js`, `arrows.js`, `svg-pan-zoom.js`) and the shared info helper
+(`mosaic-info.js`) are already in place and fit universe-quadrants as-is —
+both pages render a 2x2 mosaic of four `Propagation` instances with the same
+`{ p, name, flipJ, flipI }` shape. This step is structurally a repeat of
+Step 2, adjusted for the range-based input surface.
+
+### What universe-quadrants is missing today
+
+Compared to the migrated `exploration` page, `universe-quadrants-prototype.html`
+still has:
+
+- Inline `<style>` block (breadcrumb, sidebar, controls, call-sig, tooltip,
+  diamond/quadrant SVG styles) — duplicated across the older pages.
+- Inline `<script type="module">` that re-implements `svgEl`, `diamondPts`,
+  `downArrowPath`, `rightArrowPath`, `drawQuadrant`, and the panel layout.
+- `S=32` / `PAD=24` diamond geometry (overflows quad rect; small/thin arrows).
+- Floating `#tooltip` (`mouseover`/`mouseout`/`mouseleave`) instead of the
+  sidebar `.info-panel`.
+- No `Seniority` control (hard-coded `Seniority.vertical()` via the factory
+  default).
+- No Display toggles (Labels, Arrow, Priority, Minimize, Encroach).
+- No Legend block.
+- `Universe.createUniverseQuadrants` already accepts a `seniority` argument
+  (`coylean-core.js:753`), so this migration adds no new factory plumbing.
+
+### New files
+
+- `src/app/universe-quadrants-prototype-page.js` — page wiring module.
+  Structurally mirrors `src/app/exploration-prototype-page.js`, with these
+  differences:
+    - Inputs: `minRow`, `maxRow`, `minCol`, `maxCol`, `hInitCol`, `vInitRow`
+      (range-based, not `numRows`/`numCols`).
+    - Input clamping: force `minRow <= 0 <= maxRow` and `minCol <= 0 <= maxCol`
+      (preserves the existing guard that ranges must bracket the origin).
+    - Factory call: `Universe.createUniverseQuadrants([minRow, maxRow],
+[minCol, maxCol], hInitCol, vInitRow, seniority)` returns `{ nw, ne, sw,
+se }` directly — build the `quads` array with the same flip flags as
+      exploration.
+    - `callSig` shows `Universe.createUniverseQuadrants(...)` with the four
+      range arguments plus the seniority line (matches exploration's format).
+    - Everything else — `flags` object, `renderMosaic(svg, quads, flags,
+infoHooks)`, `makeMosaicInfo(info, () => ({ quads }))`, seniority button
+      handler, `wireToggle` for all five toggles with the Encroach
+      side-effects (auto-enable Minimize, auto-disable Arrow), and the
+      `attachSvgPanZoom` call after the initial render — is copy-equivalent
+      to exploration.
+
+### Modified files
+
+`universe-quadrants-prototype.html`:
+
+1. **Drop the entire inline `<style>` block.** Link `prototype.css`. Keep
+   only page-specific SVG rules the shared stylesheet doesn't cover — same
+   subset as exploration kept (`.info-panel .title/.row/.dim/.val-*`,
+   `#diagram` cursor + dragging state, `.diamond:hover` brightness,
+   `.quadrant-bg`, `.quadrant-label`, `.coord-label`). Remove the `#tooltip`
+   rules entirely.
+2. **Remove the `<div id="tooltip">`** from the body markup.
+3. **Add `<body class="layout-sidebar">`** and wrap content in `<div
+class="layout-body">` to match exploration's shared structure.
+4. **Rework the sidebar markup** to mirror exploration:
+    - `<h1>Universe-Quadrants</h1>`
+    - `<div class="call-sig" id="call-sig"></div>`
+    - `<div class="controls">` containing:
+        - Row-range `control-row` (minRow, maxRow)
+        - Col-range `control-row` (minCol, maxCol)
+        - Init `control-row` (hInitCol, vInitRow)
+        - Seniority `control-row` with `<button id="seniority" class="btn">
+Vertical</button>` — placed at the bottom of the signature block, per
+          the Step 2 decision.
+    - `<h2>Display</h2>` with the five-button `.toggle-row` (same IDs:
+      `tog-labels`, `tog-arrows` with `class="active"`, `tog-pri`,
+      `tog-minimize`, `tog-encroach`).
+    - `<h2>Legend</h2>` block — copy verbatim from exploration (four
+      legend-items with inline swatch SVGs for downMatrix true/false and
+      rightMatrix true/false).
+    - `<h2>Details</h2>` with `<div class="info-panel" id="info"></div>`.
+5. **Replace the inline `<script>`** with:
+    ```html
+    <script type="module">
+        import { init } from "./src/app/universe-quadrants-prototype-page.js";
+        init();
+    </script>
+    ```
+
+### What `render-mosaic.js` / `mosaic-info.js` already handle
+
+No changes needed to the shared modules. Confirmed by inspection:
+
+- `renderMosaic` sizes each panel from `p.numRows`/`p.numColumns`, so the
+  four quadrants can differ in size (which happens whenever the row/col
+  ranges are asymmetric around the origin) — already supported.
+- `makeMosaicInfo` keys on `quad.name` + `data-source`/`data-i`/`data-j`,
+  which the mosaic renderer emits identically for every caller.
+- `S=96`, `PAD=64`, and the heavier arrow baseline from Step 2 become the
+  universe-quadrants defaults automatically once it switches to
+  `renderMosaic`.
+- Label backgrounds (commit a12dca3) apply automatically.
+- Encroach's auto-enable-Minimize / auto-disable-Arrow behavior lives in
+  the page module (in `wireToggle`), so it'll come across when the page
+  module is cloned from exploration.
+
+### Out of scope for Step 3
+
+- `universal-propagate-prototype.html` and `universe-prototype.html` — per
+  the Step 2 decision to "stop here" after universe-quadrants.
+- Dropping the ranges-must-bracket-origin clamp (keep current behavior).
+- Any info-panel content beyond what `mosaic-info.js` produces today
+  (the old tooltip showed cached-vs-direct priority mismatch; exploration
+  does not — keep them aligned).
+
+### Check-in order
+
+1. Create `src/app/universe-quadrants-prototype-page.js` by cloning
+   `exploration-prototype-page.js` and swapping the input set + factory call.
+2. Rewrite `universe-quadrants-prototype.html` (styles, markup, script tag).
+3. Pause for review.
+
+### Summary
+
+Appended the Step 3 plan to coylean-explorer/prototype-pages-integration.md:380. It covers:
+
+- What's missing in universe-quadrants vs. migrated exploration (inline styles, inline script, S=32, floating tooltip, no seniority, no toggles, no legend).
+- New file: src/app/universe-quadrants-prototype-page.js — clones exploration-prototype-page.js, swaps in the range-based inputs (minRow/maxRow/minCol/maxCol), the
+  origin-bracket clamp, and the Universe.createUniverseQuadrants(...) factory call (which already accepts seniority).
+- HTML rewrite: drop the inline <style> block, link prototype.css, remove #tooltip, add layout-sidebar body + layout-body wrapper, seniority button at the bottom
+  of the signature block, five-button toggle-row, legend, Details info-panel.
+- Shared modules untouched: renderMosaic already handles per-quadrant sizing for asymmetric ranges; mosaic-info.js fits as-is; S=96/PAD=64/heavy arrows/label
+  backgrounds come along for free.
+- Out of scope: the two "defective" pages, and the tooltip-only cached-vs-direct priority mismatch (keep parity with exploration).
+- Check-in order: create the page module, rewrite the HTML, pause for your review.  
+
+
+✻ Churned for 1m 57s

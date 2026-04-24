@@ -4,135 +4,47 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Coylean Universe-Quadrants</title>
+        <link rel="stylesheet" href="prototype.css" />
         <style>
-            * {
-                box-sizing: border-box;
-                margin: 0;
-            }
-            body {
-                font-family: system-ui, sans-serif;
-                background: #f5f5f5;
-                color: #333;
-                display: flex;
-                flex-direction: column;
-                height: 100vh;
-            }
-            .layout-body {
-                flex: 1;
-                display: flex;
-                min-height: 0;
-            }
-            .breadcrumb {
-                background: #fff;
-                border-bottom: 1px solid #ddd;
-                padding: 10px 20px;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                font-size: 0.85em;
-                flex-shrink: 0;
-            }
-            .breadcrumb a {
-                color: #1f6feb;
-                text-decoration: none;
-            }
-            .breadcrumb a:hover { text-decoration: underline; }
-            .breadcrumb .sep { color: #aaa; }
-            .breadcrumb .current {
-                color: #444;
+            /* Page-specific: details-panel content styling + SVG rendering. */
+            .info-panel .title {
                 font-weight: 600;
+                margin-bottom: 6px;
+                color: #2e7d32;
             }
-
-            .sidebar {
-                width: 320px;
-                min-width: 320px;
-                padding: 20px;
-                background: #fff;
-                border-right: 1px solid #ddd;
-                overflow-y: auto;
-                display: flex;
-                flex-direction: column;
-                gap: 16px;
-            }
-            h1 {
-                font-size: 1.2em;
-                color: #222;
-            }
-            h2 {
-                font-size: 0.85em;
-                color: #666;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-            }
-            .index-link {
-                align-self: flex-start;
-                padding: 4px 12px;
-                background: #1f6feb;
-                color: #fff;
-                border-radius: 6px;
-                text-decoration: none;
-                font-size: 0.85em;
-                font-weight: 600;
-            }
-
-            .call-sig {
+            .info-panel .row {
                 font-family: monospace;
-                font-size: 0.9em;
-                color: #2a7a3a;
-                padding: 8px 12px;
-                background: #f5f5f5;
-                border-radius: 6px;
-                border: 1px solid #ccc;
-                white-space: pre-wrap;
-            }
-
-            .control-row {
-                display: flex;
-                gap: 10px;
-                justify-content: center;
-            }
-            .control {
-                display: flex;
-                flex-direction: column;
-                gap: 2px;
-                align-items: center;
-            }
-            .control label {
-                font-size: 0.72em;
-                color: #666;
-            }
-            .control input {
-                width: 72px;
-                padding: 4px 8px;
-                background: #f5f5f5;
-                border: 1px solid #ccc;
+                margin: 3px 0;
                 color: #333;
-                border-radius: 4px;
-                font-size: 0.9em;
-                text-align: center;
             }
-
-            .main {
-                flex: 1;
-                overflow: hidden;
-                padding: 0;
-                background: #fff;
+            .info-panel .dim {
+                color: #888;
+            }
+            .info-panel .val-true {
+                color: #16a34a;
+            }
+            .info-panel .val-false {
+                color: #dc2626;
             }
 
             #diagram {
                 width: 100%;
                 height: 100%;
                 display: block;
-                touch-action: none;
                 cursor: grab;
+                touch-action: none;
                 background: #fff;
             }
-            #diagram.dragging {
-                cursor: grabbing;
-            }
+            #diagram.dragging { cursor: grabbing; }
+
             .diamond {
-                stroke-width: 1;
+                cursor: pointer;
+                transition: filter 0.1s;
             }
+            .diamond:hover {
+                filter: brightness(1.4);
+            }
+
             .quadrant-bg {
                 fill: #fafafa;
                 stroke: #ddd;
@@ -140,35 +52,21 @@
             }
             .quadrant-label {
                 font-family: system-ui, sans-serif;
-                font-size: 13px;
+                font-size: 36px;
                 font-weight: 700;
                 fill: #888;
                 letter-spacing: 0.12em;
             }
 
-            #tooltip {
-                position: fixed;
-                pointer-events: none;
-                background: rgba(30, 30, 30, 0.92);
-                color: #eee;
+            .coord-label {
+                font-size: 14px;
                 font-family: monospace;
-                font-size: 11px;
-                line-height: 1.45;
-                padding: 8px 10px;
-                border-radius: 6px;
-                border: 1px solid #444;
-                max-width: 340px;
-                z-index: 1000;
-                display: none;
-                white-space: pre;
-            }
-            #tooltip .t-title {
-                font-weight: 600;
-                margin-bottom: 4px;
+                pointer-events: none;
+                text-anchor: middle;
             }
         </style>
     </head>
-    <body>
+    <body class="layout-sidebar">
         <nav class="breadcrumb">
             <a href="index.html">Index</a>
             <span class="sep">›</span>
@@ -183,406 +81,127 @@
             <a href="universe-prototype.html">Universe Prototype</a>
         </nav>
         <div class="layout-body">
-        <div class="sidebar">
-            <h1>Universe-Quadrants</h1>
+            <div class="sidebar">
+                <h1>Universe-Quadrants</h1>
 
-            <div class="call-sig" id="call-sig"></div>
+                <div class="call-sig" id="call-sig"></div>
 
-            <h2>Row range [minRow, maxRow]</h2>
-            <div class="control-row">
-                <div class="control">
-                    <label>minRow</label>
-                    <input
-                        type="number"
-                        id="minRow"
-                        value="-6"
-                        min="-32"
-                        max="0"
-                    />
+                <div class="controls">
+                    <div class="control-row">
+                        <div class="control">
+                            <label>minRow</label>
+                            <input type="number" id="minRow" value="-6" min="-32" max="0" />
+                        </div>
+                        <div class="control">
+                            <label>maxRow</label>
+                            <input type="number" id="maxRow" value="10" min="0" max="32" />
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>minCol</label>
+                            <input type="number" id="minCol" value="-6" min="-32" max="0" />
+                        </div>
+                        <div class="control">
+                            <label>maxCol</label>
+                            <input type="number" id="maxCol" value="10" min="0" max="32" />
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>hInitCol</label>
+                            <input type="number" id="hInitCol" value="1" min="-20" max="20" />
+                        </div>
+                        <div class="control">
+                            <label>vInitRow</label>
+                            <input type="number" id="vInitRow" value="1" min="-20" max="20" />
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>Seniority</label>
+                            <button id="seniority" class="btn">Vertical</button>
+                        </div>
+                    </div>
                 </div>
-                <div class="control">
-                    <label>maxRow</label>
-                    <input
-                        type="number"
-                        id="maxRow"
-                        value="10"
-                        min="0"
-                        max="32"
-                    />
+
+                <h2>Display</h2>
+                <div class="toggle-row">
+                    <button id="tog-labels">Labels</button>
+                    <button id="tog-arrows" class="active">Arrow</button>
+                    <button id="tog-pri">Priority</button>
+                    <button id="tog-minimize">Minimize</button>
+                    <button id="tog-encroach">Encroach</button>
                 </div>
+
+                <h2>Legend</h2>
+                <div class="legend">
+                    <div class="legend-item">
+                        <svg class="legend-swatch" viewBox="-12 -12 24 24">
+                            <polygon
+                                points="0,-10 10,0 0,10 -10,0"
+                                fill="#e0a8a8"
+                                stroke="#9a4a4a"
+                                stroke-width="1.5"
+                            />
+                            <path
+                                d="M-0.5,-9.5 A0.5,0.5 0 0 1 0.5,-9.5 L0.5,7.7 1.8,6.5 0,9.5 -1.8,6.5 -0.5,7.7Z"
+                                fill="#7a2d2d"
+                            />
+                        </svg>
+                        <span>downMatrix[j][i] = true</span>
+                    </div>
+                    <div class="legend-item">
+                        <svg class="legend-swatch" viewBox="-12 -12 24 24">
+                            <polygon
+                                points="0,-10 10,0 0,10 -10,0"
+                                fill="#fff"
+                                stroke="#9a4a4a"
+                                stroke-width="1.5"
+                            />
+                        </svg>
+                        <span>downMatrix[j][i] = false</span>
+                    </div>
+                    <div class="legend-item">
+                        <svg class="legend-swatch" viewBox="-12 -12 24 24">
+                            <polygon
+                                points="0,-10 10,0 0,10 -10,0"
+                                fill="#bcd8e8"
+                                stroke="#5a8aaa"
+                                stroke-width="1.5"
+                            />
+                            <path
+                                d="M-9.5,-0.5 A0.5,0.5 0 0 0 -9.5,0.5 L7.7,0.5 6.5,1.8 9.5,0 6.5,-1.8 7.7,-0.5Z"
+                                fill="#3d6a8a"
+                            />
+                        </svg>
+                        <span>rightMatrix[i][j] = true</span>
+                    </div>
+                    <div class="legend-item">
+                        <svg class="legend-swatch" viewBox="-12 -12 24 24">
+                            <polygon
+                                points="0,-10 10,0 0,10 -10,0"
+                                fill="#fff"
+                                stroke="#5a8aaa"
+                                stroke-width="1.5"
+                            />
+                        </svg>
+                        <span>rightMatrix[i][j] = false</span>
+                    </div>
+                </div>
+
+                <h2>Details</h2>
+                <div class="info-panel" id="info"></div>
             </div>
 
-            <h2>Col range [minCol, maxCol]</h2>
-            <div class="control-row">
-                <div class="control">
-                    <label>minCol</label>
-                    <input
-                        type="number"
-                        id="minCol"
-                        value="-6"
-                        min="-32"
-                        max="0"
-                    />
-                </div>
-                <div class="control">
-                    <label>maxCol</label>
-                    <input
-                        type="number"
-                        id="maxCol"
-                        value="10"
-                        min="0"
-                        max="32"
-                    />
-                </div>
+            <div class="main">
+                <svg id="diagram"></svg>
             </div>
-
-            <h2>Init</h2>
-            <div class="control-row">
-                <div class="control">
-                    <label>hInitCol</label>
-                    <input
-                        type="number"
-                        id="hInitCol"
-                        value="1"
-                        min="-20"
-                        max="20"
-                    />
-                </div>
-                <div class="control">
-                    <label>vInitRow</label>
-                    <input
-                        type="number"
-                        id="vInitRow"
-                        value="1"
-                        min="-20"
-                        max="20"
-                    />
-                </div>
-            </div>
-
-            <h2>Info</h2>
-            <div class="call-sig" id="info"></div>
         </div>
-
-        <div class="main">
-            <svg id="diagram"></svg>
-        </div>
-        </div>
-        <div id="tooltip"></div>
 
         <script type="module">
-            import { Universe, pri } from "./coylean-core.js";
-            import { attachSvgPanZoom } from "./src/display/svg-pan-zoom.js";
-
-            const S = 32;
-            const D = S / 2;
-            const PAD = 24;
-            const GAP = 48;
-            const LABEL_H = 22;
-
-            const svg = document.getElementById("diagram");
-            const callSig = document.getElementById("call-sig");
-            const info = document.getElementById("info");
-
-            const inputs = {
-                minRow: document.getElementById("minRow"),
-                maxRow: document.getElementById("maxRow"),
-                minCol: document.getElementById("minCol"),
-                maxCol: document.getElementById("maxCol"),
-                hInitCol: document.getElementById("hInitCol"),
-                vInitRow: document.getElementById("vInitRow"),
-            };
-            for (const inp of Object.values(inputs)) {
-                inp.addEventListener("input", render);
-            }
-
-            function svgEl(tag, attrs) {
-                const el = document.createElementNS(
-                    "http://www.w3.org/2000/svg",
-                    tag,
-                );
-                for (const [k, v] of Object.entries(attrs))
-                    el.setAttribute(k, v);
-                return el;
-            }
-
-            function diamondPts(cx, cy) {
-                return `${cx},${cy - D} ${cx + D},${cy} ${cx},${cy + D} ${cx - D},${cy}`;
-            }
-
-            const ARR_MARGIN = 1.5;
-            const ARR_SW = 1.25;
-            const ARR_HL = 6;
-            const ARR_HW = 3;
-            const ARR_ND = 2;
-
-            function downArrowPath(cx, cy, doubleHeaded) {
-                const t = cy - D + ARR_MARGIN;
-                const b = cy + D - ARR_MARGIN;
-                if (doubleHeaded) {
-                    return `M${cx},${t} L${cx + ARR_HW},${t + ARR_HL} ${cx + ARR_SW},${t + ARR_HL - ARR_ND} ${cx + ARR_SW},${b - ARR_HL + ARR_ND} ${cx + ARR_HW},${b - ARR_HL} ${cx},${b} ${cx - ARR_HW},${b - ARR_HL} ${cx - ARR_SW},${b - ARR_HL + ARR_ND} ${cx - ARR_SW},${t + ARR_HL - ARR_ND} ${cx - ARR_HW},${t + ARR_HL}Z`;
-                }
-                return `M${cx - ARR_SW},${t} A${ARR_SW},${ARR_SW} 0 0 1 ${cx + ARR_SW},${t} L${cx + ARR_SW},${b - ARR_HL + ARR_ND} ${cx + ARR_HW},${b - ARR_HL} ${cx},${b} ${cx - ARR_HW},${b - ARR_HL} ${cx - ARR_SW},${b - ARR_HL + ARR_ND}Z`;
-            }
-
-            function rightArrowPath(cx, cy, doubleHeaded) {
-                const l = cx - D + ARR_MARGIN;
-                const r = cx + D - ARR_MARGIN;
-                if (doubleHeaded) {
-                    return `M${l},${cy} L${l + ARR_HL},${cy - ARR_HW} ${l + ARR_HL - ARR_ND},${cy - ARR_SW} ${r - ARR_HL + ARR_ND},${cy - ARR_SW} ${r - ARR_HL},${cy - ARR_HW} ${r},${cy} ${r - ARR_HL},${cy + ARR_HW} ${r - ARR_HL + ARR_ND},${cy + ARR_SW} ${l + ARR_HL - ARR_ND},${cy + ARR_SW} ${l + ARR_HL},${cy + ARR_HW}Z`;
-                }
-                return `M${l},${cy - ARR_SW} A${ARR_SW},${ARR_SW} 0 0 0 ${l},${cy + ARR_SW} L${r - ARR_HL + ARR_ND},${cy + ARR_SW} ${r - ARR_HL},${cy + ARR_HW} ${r},${cy} ${r - ARR_HL},${cy - ARR_HW} ${r - ARR_HL + ARR_ND},${cy - ARR_SW}Z`;
-            }
-
-            // ── Hover inspector ──
-            let currentQuads = null;
-            const tooltip = document.getElementById("tooltip");
-
-            function formatTooltip(el) {
-                if (!currentQuads) return null;
-                const quadName = el.dataset.quad;
-                const source = el.dataset.source;
-                if (!quadName || (source !== "down" && source !== "right"))
-                    return null;
-                const q = currentQuads.find((qq) => qq.name === quadName);
-                if (!q) return null;
-                const p = q.p;
-                const i = +el.dataset.i;
-                const j = +el.dataset.j;
-
-                const val =
-                    source === "down"
-                        ? p.downMatrix[j][i]
-                        : p.rightMatrix[i][j];
-
-                const matrixRef =
-                    source === "down"
-                        ? `downMatrix[${j}][${i}]`
-                        : `rightMatrix[${i}][${j}]`;
-
-                return (
-                    `<div class="t-title">${quadName.toUpperCase()} · ${source === "down" ? "Down" : "Right"} diamond</div>` +
-                    `${matrixRef} = ${val}\n` +
-                    `local: j=${j} i=${i}\n` +
-                    `size: ${p.numRows}×${p.numColumns}\n` +
-                    `quadrant hInitCol=${p.hInitCol} vInitRow=${p.vInitRow}`
-                );
-            }
-
-            function positionTooltip(clientX, clientY) {
-                const pad = 12;
-                const rect = tooltip.getBoundingClientRect();
-                let x = clientX + pad;
-                let y = clientY + pad;
-                if (x + rect.width > window.innerWidth)
-                    x = clientX - rect.width - pad;
-                if (y + rect.height > window.innerHeight)
-                    y = clientY - rect.height - pad;
-                tooltip.style.left = x + "px";
-                tooltip.style.top = y + "px";
-            }
-            function hideTooltip() {
-                tooltip.style.display = "none";
-            }
-
-            svg.addEventListener("mouseover", (e) => {
-                if (svg.classList.contains("dragging")) return;
-                const el = e.target;
-                if (!el || !el.dataset || !el.dataset.source) return;
-                const html = formatTooltip(el);
-                if (!html) return;
-                tooltip.innerHTML = html;
-                tooltip.style.display = "block";
-                positionTooltip(e.clientX, e.clientY);
-            });
-            svg.addEventListener("mousemove", (e) => {
-                if (svg.classList.contains("dragging")) {
-                    hideTooltip();
-                    return;
-                }
-                if (tooltip.style.display === "block") {
-                    positionTooltip(e.clientX, e.clientY);
-                }
-            });
-            svg.addEventListener("mouseout", (e) => {
-                const el = e.target;
-                if (!el || !el.dataset || !el.dataset.source) return;
-                hideTooltip();
-            });
-            svg.addEventListener("mouseleave", hideTooltip);
-
-            // ── Draw one quadrant panel ──
-            // Flip flags orient each quadrant so its local (0,0) — the
-            // axis-adjacent corner — points toward the centre of the 2×2
-            // mosaic. Each panel is sized from its own p.numRows/numColumns,
-            // so the four may differ.
-            function drawQuadrant(parent, quad, cellX, cellY) {
-                const { p, name, flipJ, flipI } = quad;
-                const numRows = p.numRows;
-                const numCols = p.numColumns;
-                const panelW = 2 * PAD + numCols * S;
-                const panelH = 2 * PAD + numRows * S;
-
-                const group = svgEl("g", {});
-                parent.appendChild(group);
-
-                group.appendChild(
-                    svgEl("rect", {
-                        x: cellX,
-                        y: cellY - LABEL_H,
-                        width: panelW,
-                        height: panelH + LABEL_H,
-                        class: "quadrant-bg",
-                    }),
-                );
-                const label = svgEl("text", {
-                    x: cellX + 12,
-                    y: cellY - 6,
-                    class: "quadrant-label",
-                });
-                label.textContent = `${name.toUpperCase()}  ${numRows}×${numCols}`;
-                group.appendChild(label);
-
-                const draw = (tag, attrs) => {
-                    const el = svgEl(tag, attrs);
-                    group.appendChild(el);
-                    return el;
-                };
-
-                for (let j = 0; j <= numRows; j++) {
-                    for (let i = 0; i < numCols; i++) {
-                        const pj = flipJ ? numRows - j : j;
-                        const pi = flipI ? numCols - 1 - i : i;
-                        const cx = cellX + PAD + (pi + 0.5) * S;
-                        const cy = cellY + PAD + pj * S;
-                        const val = p.downMatrix[j][i];
-                        draw("polygon", {
-                            points: diamondPts(cx, cy),
-                            class: "diamond",
-                            fill: val ? "#e0a8a8" : "#fff",
-                            stroke: "#9a4a4a",
-                            "data-quad": name,
-                            "data-source": "down",
-                            "data-i": i,
-                            "data-j": j,
-                        });
-                        if (val) {
-                            draw("path", {
-                                d: downArrowPath(cx, cy, j === 0),
-                                fill: "#7a2d2d",
-                                "pointer-events": "none",
-                            });
-                        }
-                    }
-                }
-
-                for (let i = 0; i <= numCols; i++) {
-                    for (let j = 0; j < numRows; j++) {
-                        const pj = flipJ ? numRows - 1 - j : j;
-                        const pi = flipI ? numCols - i : i;
-                        const cx = cellX + PAD + pi * S;
-                        const cy = cellY + PAD + (pj + 0.5) * S;
-                        const val = p.rightMatrix[i][j];
-                        draw("polygon", {
-                            points: diamondPts(cx, cy),
-                            class: "diamond",
-                            fill: val ? "#bcd8e8" : "#fff",
-                            stroke: "#5a8aaa",
-                            "data-quad": name,
-                            "data-source": "right",
-                            "data-i": i,
-                            "data-j": j,
-                        });
-                        if (val) {
-                            draw("path", {
-                                d: rightArrowPath(cx, cy, i === 0),
-                                fill: "#3d6a8a",
-                                "pointer-events": "none",
-                            });
-                        }
-                    }
-                }
-            }
-
-            function render() {
-                let minRow = +inputs.minRow.value;
-                let maxRow = +inputs.maxRow.value;
-                let minCol = +inputs.minCol.value;
-                let maxCol = +inputs.maxCol.value;
-                const hInitCol = +inputs.hInitCol.value;
-                const vInitRow = +inputs.vInitRow.value;
-
-                // Ranges must bracket the origin.
-                if (minRow > 0) minRow = 0;
-                if (maxRow < 0) maxRow = 0;
-                if (minCol > 0) minCol = 0;
-                if (maxCol < 0) maxCol = 0;
-
-                callSig.textContent =
-                    `Universe.createUniverseQuadrants(\n` +
-                    `  [${minRow}, ${maxRow}],  // rowRange\n` +
-                    `  [${minCol}, ${maxCol}],  // colRange\n` +
-                    `  ${hInitCol},  // hInitCol\n` +
-                    `  ${vInitRow},  // vInitRow\n` +
-                    `)`;
-
-                const { nw, ne, sw, se } = Universe.createUniverseQuadrants(
-                    [minRow, maxRow],
-                    [minCol, maxCol],
-                    hInitCol,
-                    vInitRow,
-                );
-
-                const quads = [
-                    { p: nw, name: "nw", flipJ: true, flipI: true },
-                    { p: ne, name: "ne", flipJ: true, flipI: false },
-                    { p: sw, name: "sw", flipJ: false, flipI: true },
-                    { p: se, name: "se", flipJ: false, flipI: false },
-                ];
-                currentQuads = quads;
-                hideTooltip();
-
-                info.textContent =
-                    `nw: ${nw.numRows}×${nw.numColumns}  h/v=${nw.hInitCol}/${nw.vInitRow}\n` +
-                    `ne: ${ne.numRows}×${ne.numColumns}  h/v=${ne.hInitCol}/${ne.vInitRow}\n` +
-                    `sw: ${sw.numRows}×${sw.numColumns}  h/v=${sw.hInitCol}/${sw.vInitRow}\n` +
-                    `se: ${se.numRows}×${se.numColumns}  h/v=${se.hInitCol}/${se.vInitRow}`;
-
-                // nw/sw share westExtent (= nw.numColumns); ne/se share eastExtent.
-                // nw/ne share northExtent (= nw.numRows); sw/se share southExtent.
-                const wPanelW = 2 * PAD + nw.numColumns * S;
-                const ePanelW = 2 * PAD + ne.numColumns * S;
-                const nPanelH = 2 * PAD + nw.numRows * S;
-                const sPanelH = 2 * PAD + sw.numRows * S;
-
-                const totalW = wPanelW + GAP + ePanelW;
-                const totalH = LABEL_H + nPanelH + GAP + LABEL_H + sPanelH;
-
-                svg.setAttribute("viewBox", `0 0 ${totalW} ${totalH}`);
-                svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-
-                let viewportGroup = svg.querySelector("g.viewport");
-                if (!viewportGroup) {
-                    viewportGroup = svgEl("g", { class: "viewport" });
-                    svg.appendChild(viewportGroup);
-                }
-                viewportGroup.innerHTML = "";
-
-                const sRowY = LABEL_H + nPanelH + GAP + LABEL_H;
-                const positions = {
-                    nw: { cellX: 0, cellY: LABEL_H },
-                    ne: { cellX: wPanelW + GAP, cellY: LABEL_H },
-                    sw: { cellX: 0, cellY: sRowY },
-                    se: { cellX: wPanelW + GAP, cellY: sRowY },
-                };
-                for (const quad of quads) {
-                    const pos = positions[quad.name];
-                    drawQuadrant(viewportGroup, quad, pos.cellX, pos.cellY);
-                }
-            }
-
-            render();
-            attachSvgPanZoom(svg, svg.querySelector("g.viewport"));
+            import { init } from "./src/app/universe-quadrants-prototype-page.js";
+            init();
         </script>
     </body>
 </html>
