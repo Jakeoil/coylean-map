@@ -3,6 +3,34 @@ import { svgEl, diamondPts } from "./svg.js";
 import { S, D, PAD, downPos, rightPos, cellPos } from "./diagram-coords.js";
 import { downArrowPath, rightArrowPath } from "./arrows.js";
 
+const LABEL_BG_DOWN  = "rgba(224, 168, 168, 0.85)";
+const LABEL_BG_RIGHT = "rgba(188, 216, 232, 0.85)";
+const LABEL_BG_WHITE = "rgba(255, 255, 255, 0.85)";
+
+// Append a coord-label with a semi-opaque rectangular background.
+// Font-size / family matches the .coord-label CSS (16px monospace).
+function appendLabelWithBg(parent, cx, cy, text, bgFill) {
+    const fontSize = 16;
+    const charWidth = fontSize * 0.6;
+    const padX = 3, padY = 2;
+    const w = text.length * charWidth + 2 * padX;
+    const h = fontSize + 2 * padY;
+    parent.appendChild(svgEl("rect", {
+        x: cx - w / 2, y: cy - h / 2,
+        width: w, height: h,
+        fill: bgFill,
+        "pointer-events": "none",
+    }));
+    parent.appendChild(Object.assign(
+        svgEl("text", {
+            x: cx, y: cy + 5,
+            class: "coord-label",
+            fill: "#000",
+        }),
+        { textContent: text },
+    ));
+}
+
 // config: { numRows, numCols, hInitCol, vInitRow, seniority }  — propagation input
 // result: { downMatrix, rightMatrix }                          — propagate() output
 // flags:  { showLabels, showFlow, showPri, showMinimize, showEncroach }
@@ -111,17 +139,8 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             }
 
             if (showLabels) {
-                vp.appendChild(
-                    Object.assign(
-                        svgEl("text", {
-                            x: cx,
-                            y: cy + 5,
-                            class: "coord-label",
-                            fill: "#5a1e1e",
-                        }),
-                        { textContent: `r${j}c${i}` },
-                    ),
-                );
+                const bg = (!val && showMinimize) ? LABEL_BG_WHITE : LABEL_BG_DOWN;
+                appendLabelWithBg(vp, cx, cy, `r${j}c${i}`, bg);
             }
         }
     }
@@ -155,17 +174,8 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             }
 
             if (showLabels) {
-                vp.appendChild(
-                    Object.assign(
-                        svgEl("text", {
-                            x: cx,
-                            y: cy + 5,
-                            class: "coord-label",
-                            fill: "#1e4a6a",
-                        }),
-                        { textContent: `c${i}r${j}` },
-                    ),
-                );
+                const bg = (!val && showMinimize) ? LABEL_BG_WHITE : LABEL_BG_RIGHT;
+                appendLabelWithBg(vp, cx, cy, `c${i}r${j}`, bg);
             }
         }
     }

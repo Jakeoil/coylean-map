@@ -336,3 +336,44 @@ Make a new toggle: arrow, placed after label. Default to true.
 Change minimize toggle behavior. It will not affect the arrows.
 Make sure encroach turns on minimize and turns off arrows.
 In the heading field of the mozaic in explorer. It should show the quad name and dimension the same size as quadrants.
+
+For diamond labels, draw a semi-opaque rectangular background behind the label text.
+
+Requirements:
+
+- The label background should be drawn before the text.
+- It can be a simple rectangle, not rounded.
+- The background color should match the diamond's family (rights true/downs true/false):
+    - light red → semi-opaque light red
+    - light blue → semi-opaque light blue
+    - white cell → semi-opaque white
+- Use enough opacity that black text is readable over arrows/errors.
+- Keep the rectangle only slightly larger than the text.
+- Use ctx.measureText() to size the rectangle.
+- Then draw the black label text centered over it.
+
+Do not change the diamond colors or arrow rendering.
+Only improve label readability.
+Update the canvas label drawing code so each label is rendered like this:
+
+Outline
+
+1. Set the font.
+2. Measure the text using ctx.measureText(label).
+3. Compute a small padded rectangle centered at the label position.
+4. Fill that rectangle with a semi-opaque background color that matches the cell color.
+5. Draw the label text in black on top.
+
+Use a helper like:
+
+drawLabelWithBackground(ctx, label, x, y, backgroundColor)
+
+The rectangle can be square-cornered. No rounded corners needed.
+
+Example colors (only examples!):
+
+- light red label background: rgba(r, g, b, 0.85)
+- blue label background: rgba(r, g, b, 0.85)
+- white label background: rgba(255, 255, 255, 0.85)
+
+Keep the implementation simple.
