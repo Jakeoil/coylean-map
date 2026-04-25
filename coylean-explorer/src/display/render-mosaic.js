@@ -15,6 +15,8 @@ const FILL_DOWN = "#e0a8a8";
 const FILL_RIGHT = "#bcd8e8";
 const ARROW_DOWN = "#7a2d2d";
 const ARROW_RIGHT = "#3d6a8a";
+const STROKE_DOWN = "#9a4a4a";
+const STROKE_RIGHT = "#5a8aaa";
 
 // Semi-opaque label backgrounds matching the three diamond families.
 const LABEL_BG_DOWN  = "rgba(224, 168, 168, 0.85)";
@@ -100,7 +102,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
     const { p, name, flipJ, flipI } = quad;
     const numRows = p.numRows;
     const numCols = p.numColumns;
-    const { showLabels, showPri, showMinimize, showEncroach, showArrows = true } = flags;
+    const { showLabels, showPri, showMinimize, showEncroach, showArrows = true, showBorders } = flags;
     const { onEnterDown, onEnterRight, onLeave } = hooks;
 
     const group = svgEl("g", {});
@@ -151,7 +153,8 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
                 points: diamondPts(cx, cy, D),
                 class: "diamond",
                 fill: !val && showMinimize ? "#fff" : FILL_DOWN,
-                stroke: "none",
+                stroke: showBorders ? STROKE_DOWN : "none",
+                "stroke-width": showBorders ? 1.5 : 0,
                 "data-quad": name,
                 "data-source": "down",
                 "data-i": i,
@@ -189,7 +192,8 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
                 points: diamondPts(cx, cy, D),
                 class: "diamond",
                 fill: !val && showMinimize ? "#fff" : FILL_RIGHT,
-                stroke: "none",
+                stroke: showBorders ? STROKE_RIGHT : "none",
+                "stroke-width": showBorders ? 1.5 : 0,
                 "data-quad": name,
                 "data-source": "right",
                 "data-i": i,

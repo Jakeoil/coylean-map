@@ -34,6 +34,7 @@ export function init() {
         showPri: false,
         showMinimize: false,
         showEncroach: false,
+        showBorders: false,
     };
 
     let quads = [];
@@ -132,6 +133,7 @@ export function init() {
             }
         }
     });
+    wireToggle("tog-borders", "showBorders");
 
     render();
 
