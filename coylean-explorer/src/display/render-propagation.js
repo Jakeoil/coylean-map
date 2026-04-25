@@ -38,7 +38,7 @@ function appendLabelWithBg(parent, cx, cy, text, bgFill) {
 export function renderPropagation(svg, config, result, flags, hooks) {
     const { numRows: nR, numCols: nC, hInitCol, vInitRow, seniority } = config;
     const { downMatrix: dm, rightMatrix: rm } = result;
-    const { showLabels, showFlow, showPri, showMinimize, showEncroach, showBorders } = flags;
+    const { showLabels, showFlow, showPri, showMinimize, showEncroach, showBorders, showArrows = true } = flags;
     const { onEnterDown, onEnterRight, onLeave } = hooks;
 
     const w = 2 * PAD + nC * S;
@@ -129,7 +129,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             poly.addEventListener("mouseleave", onLeave);
             vp.appendChild(poly);
 
-            if (val && !showMinimize) {
+            if (val && showArrows) {
                 vp.appendChild(
                     svgEl("path", {
                         d: downArrowPath(cx, cy, j === 0),
@@ -165,7 +165,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             poly.addEventListener("mouseleave", onLeave);
             vp.appendChild(poly);
 
-            if (val && !showMinimize) {
+            if (val && showArrows) {
                 vp.appendChild(
                     svgEl("path", {
                         d: rightArrowPath(cx, cy, i === 0),
