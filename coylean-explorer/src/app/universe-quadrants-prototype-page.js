@@ -62,15 +62,15 @@ export function init() {
     function render() {
         syncNumericInputs();
         const seniorityCall = config.seniority.isVertical
-            ? "Seniority.vertical()"
-            : "Seniority.horizontal()";
+            ? "Seniority.vertical"
+            : "Seniority.horizontal";
         callSig.textContent =
             `Universe.createUniverseQuadrants(\n` +
-            `  [${config.minRow}, ${config.maxRow}],  // rowRange\n` +
-            `  [${config.minCol}, ${config.maxCol}],  // colRange\n` +
-            `  ${config.hInitCol},  // hInitCol\n` +
-            `  ${config.vInitRow},  // vInitRow\n` +
-            `  ${seniorityCall},\n` +
+            `  rowRange = [${config.minRow}, ${config.maxRow}],\n` +
+            `  colRange = [${config.minCol}, ${config.maxCol}],\n` +
+            `  hInitCol = ${config.hInitCol},\n` +
+            `  vInitRow = ${config.vInitRow},\n` +
+            `  seniority = ${seniorityCall},\n` +
             `)`;
 
         const { nw, ne, sw, se } = Universe.createUniverseQuadrants(

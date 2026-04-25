@@ -1,4 +1,4 @@
-import { Seniority, propagate } from "../../coylean-core.js";
+import { Seniority, Propagation } from "../../coylean-core.js";
 import { renderPropagation } from "../display/render-propagation.js";
 import { attachSvgPanZoom } from "../display/svg-pan-zoom.js";
 import { makeInfo } from "./basic-propagation-prototype-info.js";
@@ -49,17 +49,25 @@ export function init() {
 
     function render() {
         syncNumericInputs();
-        result = propagate(
-            config.numRows,
-            config.numCols,
-            config.hInitCol,
-            config.vInitRow,
-            config.seniority,
-        );
+        const prop = Propagation.create({
+            direction: "se",
+            numRows: config.numRows,
+            numColumns: config.numCols,
+            hInitCol: config.hInitCol,
+            vInitRow: config.vInitRow,
+            seniority: config.seniority,
+        });
+        result = { downMatrix: prop.downMatrix, rightMatrix: prop.rightMatrix };
         const seniorityCall = config.seniority.isVertical
             ? "Seniority.vertical()"
             : "Seniority.horizontal()";
-        callSig.textContent = `propagate(${config.numRows}, ${config.numCols}, ${config.hInitCol}, ${config.vInitRow}, ${seniorityCall})`;
+        callSig.textContent = `Propagation.create({
+  numRows: ${config.numRows},
+  numColumns: ${config.numCols},
+  hInitCol: ${config.hInitCol},
+  vInitRow: ${config.vInitRow},
+  ${seniorityCall},
+})`;
         renderPropagation(svg, config, result, flags, infoHooks);
     }
 

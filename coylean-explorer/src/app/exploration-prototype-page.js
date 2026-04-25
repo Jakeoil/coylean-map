@@ -47,16 +47,15 @@ export function init() {
     function render() {
         syncNumericInputs();
         const seniorityCall = config.seniority.isVertical
-            ? "Seniority.vertical()"
-            : "Seniority.horizontal()";
+            ? "Seniority.vertical"
+            : "Seniority.horizontal";
         callSig.textContent =
             `Universe.createSymmetric(\n` +
-            `  ${config.numRows},  // numRows\n` +
-            `  ${config.numCols},  // numCols\n` +
-            `  ${config.hInitCol},  // hInitCol\n` +
-            `  ${config.vInitRow},  // vInitRow\n` +
-            `  ${seniorityCall},\n` +
-            `)  // unstitched`;
+            `  numRows = ${config.numRows},\n` +
+            `  numColumns = ${config.numCols},\n` +
+            `  hInitCol = ${config.hInitCol},\n` +
+            `  vInitRow = ${config.vInitRow},\n` +
+            `  ${seniorityCall})`;
 
         const u = Universe.createSymmetric(
             config.numRows,

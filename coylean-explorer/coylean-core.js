@@ -404,13 +404,13 @@ export class Propagation {
         vInitRow,
         seniority = Seniority.vertical(),
     }) {
-        const { downMatrix, rightMatrix } = propagate(
-            numRows,
-            numColumns,
+        const { downMatrix, rightMatrix } = Propagation.computeFromBoundary({
+            initDown: new Row(numColumns).fill(true),
+            initRight: new Col(numRows).fill(true),
             hInitCol,
             vInitRow,
             seniority,
-        );
+        });
         return new Propagation(
             direction,
             numRows,
@@ -492,8 +492,12 @@ export class Propagation {
         for (let i = 0; i < numColumns; i++) downMatrix[0][i] = initDown[i];
         for (let j = 0; j < numRows; j++) rightMatrix[0][j] = initRight[j];
 
-        const colPriority = [...Array(numColumns)].map((_, i) => pri(i + hInitCol));
-        const rowPriority = [...Array(numRows)].map((_, j) => pri(j + vInitRow));
+        const colPriority = [...Array(numColumns)].map((_, i) =>
+            pri(i + hInitCol),
+        );
+        const rowPriority = [...Array(numRows)].map((_, j) =>
+            pri(j + vInitRow),
+        );
 
         for (let j = 0; j < numRows; j++) {
             for (let i = 0; i < numColumns; i++) {
@@ -769,7 +773,13 @@ export class Universe {
                 seniority,
             });
         return {
-            nw: quadrant("nw", northExtent, westExtent, 1 - hInitCol, 1 - vInitRow),
+            nw: quadrant(
+                "nw",
+                northExtent,
+                westExtent,
+                1 - hInitCol,
+                1 - vInitRow,
+            ),
             ne: quadrant("ne", northExtent, eastExtent, hInitCol, 1 - vInitRow),
             sw: quadrant("sw", southExtent, westExtent, 1 - hInitCol, vInitRow),
             se: quadrant("se", southExtent, eastExtent, hInitCol, vInitRow),
