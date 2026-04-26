@@ -65,6 +65,29 @@
                 pointer-events: none;
                 text-anchor: middle;
             }
+
+            /* Cross formation for N/S/W/E extents */
+            .extent-cross {
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr;
+                grid-template-rows: auto auto auto;
+                gap: 6px;
+                justify-items: center;
+                align-items: center;
+            }
+            .extent-cross .slot-n { grid-column: 2; grid-row: 1; }
+            .extent-cross .slot-w { grid-column: 1; grid-row: 2; }
+            .extent-cross .slot-c { grid-column: 2; grid-row: 2; }
+            .extent-cross .slot-e { grid-column: 3; grid-row: 2; }
+            .extent-cross .slot-s { grid-column: 2; grid-row: 3; }
+            .extent-cross .control { align-items: center; }
+            .slot-c .origin-marker {
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                background: #bc8cff;
+                border: 1px solid #7c5cb0;
+            }
         </style>
     </head>
     <body class="layout-sidebar">
@@ -90,22 +113,53 @@
                 <div class="controls">
                     <div class="control-row">
                         <div class="control">
-                            <label>minRow</label>
-                            <input type="number" id="minRow" value="-6" min="-32" max="0" />
-                        </div>
-                        <div class="control">
-                            <label>maxRow</label>
-                            <input type="number" id="maxRow" value="10" min="0" max="32" />
+                            <label>Mode</label>
+                            <button id="mode" class="btn">Range</button>
                         </div>
                     </div>
-                    <div class="control-row">
-                        <div class="control">
-                            <label>minCol</label>
-                            <input type="number" id="minCol" value="-6" min="-32" max="0" />
+                    <div id="range-controls">
+                        <div class="control-row">
+                            <div class="control">
+                                <label>minRow</label>
+                                <input type="number" id="minRow" value="-6" min="-32" max="0" />
+                            </div>
+                            <div class="control">
+                                <label>maxRow</label>
+                                <input type="number" id="maxRow" value="10" min="0" max="32" />
+                            </div>
                         </div>
-                        <div class="control">
-                            <label>maxCol</label>
-                            <input type="number" id="maxCol" value="10" min="0" max="32" />
+                        <div class="control-row">
+                            <div class="control">
+                                <label>minCol</label>
+                                <input type="number" id="minCol" value="-6" min="-32" max="0" />
+                            </div>
+                            <div class="control">
+                                <label>maxCol</label>
+                                <input type="number" id="maxCol" value="10" min="0" max="32" />
+                            </div>
+                        </div>
+                    </div>
+                    <div id="extents-controls" hidden>
+                        <div class="extent-cross">
+                            <div class="slot-n control">
+                                <label>north</label>
+                                <input type="number" id="northExtent" value="8" min="1" max="32" />
+                            </div>
+                            <div class="slot-w control">
+                                <label>west</label>
+                                <input type="number" id="westExtent" value="8" min="1" max="32" />
+                            </div>
+                            <div class="slot-c" title="origin">
+                                <div class="origin-marker"></div>
+                            </div>
+                            <div class="slot-e control">
+                                <label>east</label>
+                                <input type="number" id="eastExtent" value="8" min="1" max="32" />
+                            </div>
+                            <div class="slot-s control">
+                                <label>south</label>
+                                <input type="number" id="southExtent" value="8" min="1" max="32" />
+                            </div>
                         </div>
                     </div>
                     <div class="control-row">

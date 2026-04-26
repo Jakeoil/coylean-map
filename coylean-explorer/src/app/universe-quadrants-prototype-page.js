@@ -8,21 +8,33 @@ export function init() {
     const info = document.getElementById("info");
     const callSig = document.getElementById("call-sig");
     const seniorityBtn = document.getElementById("seniority");
+    const modeBtn = document.getElementById("mode");
+    const rangeControls = document.getElementById("range-controls");
+    const extentsControls = document.getElementById("extents-controls");
 
     const inputs = {
         minRow: document.getElementById("minRow"),
         maxRow: document.getElementById("maxRow"),
         minCol: document.getElementById("minCol"),
         maxCol: document.getElementById("maxCol"),
+        northExtent: document.getElementById("northExtent"),
+        southExtent: document.getElementById("southExtent"),
+        westExtent: document.getElementById("westExtent"),
+        eastExtent: document.getElementById("eastExtent"),
         hInitCol: document.getElementById("hInitCol"),
         vInitRow: document.getElementById("vInitRow"),
     };
 
     const config = {
+        mode: "range", // "range" | "extents"
         minRow: +inputs.minRow.value,
         maxRow: +inputs.maxRow.value,
         minCol: +inputs.minCol.value,
         maxCol: +inputs.maxCol.value,
+        northExtent: +inputs.northExtent.value,
+        southExtent: +inputs.southExtent.value,
+        westExtent: +inputs.westExtent.value,
+        eastExtent: +inputs.eastExtent.value,
         hInitCol: +inputs.hInitCol.value,
         vInitRow: +inputs.vInitRow.value,
         seniority: Seniority.vertical(),
@@ -55,6 +67,10 @@ export function init() {
         config.maxRow = maxRow;
         config.minCol = minCol;
         config.maxCol = maxCol;
+        config.northExtent = +inputs.northExtent.value;
+        config.southExtent = +inputs.southExtent.value;
+        config.westExtent = +inputs.westExtent.value;
+        config.eastExtent = +inputs.eastExtent.value;
         config.hInitCol = +inputs.hInitCol.value;
         config.vInitRow = +inputs.vInitRow.value;
     }
@@ -64,22 +80,46 @@ export function init() {
         const seniorityCall = config.seniority.isVertical
             ? "Seniority.vertical"
             : "Seniority.horizontal";
-        callSig.textContent =
-            `Universe.createUniverseQuadrants(\n` +
-            `  rowRange = [${config.minRow}, ${config.maxRow}],\n` +
-            `  colRange = [${config.minCol}, ${config.maxCol}],\n` +
-            `  hInitCol = ${config.hInitCol},\n` +
-            `  vInitRow = ${config.vInitRow},\n` +
-            `  seniority = ${seniorityCall},\n` +
-            `)`;
 
-        const { nw, ne, sw, se } = Universe.createUniverseQuadrants(
-            [config.minRow, config.maxRow],
-            [config.minCol, config.maxCol],
-            config.hInitCol,
-            config.vInitRow,
-            config.seniority,
-        );
+        let result;
+        if (config.mode === "range") {
+            callSig.textContent =
+                `Universe.createUniverseQuadrants(\n` +
+                `  rowRange = [${config.minRow}, ${config.maxRow}],\n` +
+                `  colRange = [${config.minCol}, ${config.maxCol}],\n` +
+                `  hInitCol = ${config.hInitCol},\n` +
+                `  vInitRow = ${config.vInitRow},\n` +
+                `  seniority = ${seniorityCall},\n` +
+                `)`;
+            result = Universe.createUniverseQuadrants(
+                [config.minRow, config.maxRow],
+                [config.minCol, config.maxCol],
+                config.hInitCol,
+                config.vInitRow,
+                config.seniority,
+            );
+        } else {
+            callSig.textContent =
+                `Universe.createUniverseExtents(\n` +
+                `  northExtent = ${config.northExtent},\n` +
+                `  southExtent = ${config.southExtent},\n` +
+                `  westExtent  = ${config.westExtent},\n` +
+                `  eastExtent  = ${config.eastExtent},\n` +
+                `  hInitCol = ${config.hInitCol},\n` +
+                `  vInitRow = ${config.vInitRow},\n` +
+                `  seniority = ${seniorityCall},\n` +
+                `)`;
+            result = Universe.createUniverseExtents(
+                config.northExtent,
+                config.southExtent,
+                config.westExtent,
+                config.eastExtent,
+                config.hInitCol,
+                config.vInitRow,
+                config.seniority,
+            );
+        }
+        const { nw, ne, sw, se } = result;
 
         // Flip flags place each quadrant's local (0,0) — the axis-adjacent
         // corner — toward the centre of the 2×2 mosaic.
@@ -105,6 +145,15 @@ export function init() {
         seniorityBtn.textContent = config.seniority.isVertical
             ? "Vertical"
             : "Horizontal";
+        render();
+    });
+
+    modeBtn.addEventListener("click", () => {
+        config.mode = config.mode === "range" ? "extents" : "range";
+        const isRange = config.mode === "range";
+        modeBtn.textContent = isRange ? "Range" : "Extents";
+        rangeControls.hidden = !isRange;
+        extentsControls.hidden = isRange;
         render();
     });
 
