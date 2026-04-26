@@ -82,16 +82,32 @@ export class Col extends Array {
  * @returns {[boolean, boolean]}   [vertical out, horizontal out] — which arrows
  *                                 exit the cell downward and rightward.
  */
-export function verticalWinsPriority(i, j, hInitCol, vInitRow, seniority = Seniority.vertical()) {
-    return seniority.isVertical ? pri(i + hInitCol) >= pri(j + vInitRow) : pri(i + hInitCol) > pri(j + vInitRow);
+export function verticalWinsPriority(
+    i,
+    j,
+    hInitCol,
+    vInitRow,
+    seniority = Seniority.vertical(),
+) {
+    return seniority.isVertical
+        ? pri(i + hInitCol) >= pri(j + vInitRow)
+        : pri(i + hInitCol) > pri(j + vInitRow);
 }
 
-function reactionFromPriority(vertical, horizontal, colPriority, rowPriority, seniority = Seniority.vertical()) {
+function reactionFromPriority(
+    vertical,
+    horizontal,
+    colPriority,
+    rowPriority,
+    seniority = Seniority.vertical(),
+) {
     if (!horizontal && !vertical) {
         return [false, false];
     }
 
-    const downWins = seniority.isVertical ? colPriority >= rowPriority : colPriority > rowPriority;
+    const downWins = seniority.isVertical
+        ? colPriority >= rowPriority
+        : colPriority > rowPriority;
     if (horizontal && vertical) {
         if (downWins) return [true, false];
         else return [false, true];
@@ -106,8 +122,22 @@ function reactionFromPriority(vertical, horizontal, colPriority, rowPriority, se
     }
 }
 
-export function reaction(vertical, horizontal, i, j, hInitCol, vInitRow, seniority = Seniority.vertical()) {
-    return reactionFromPriority(vertical, horizontal, pri(i + hInitCol), pri(j + vInitRow), seniority);
+export function reaction(
+    vertical,
+    horizontal,
+    i,
+    j,
+    hInitCol,
+    vInitRow,
+    seniority = Seniority.vertical(),
+) {
+    return reactionFromPriority(
+        vertical,
+        horizontal,
+        pri(i + hInitCol),
+        pri(j + vInitRow),
+        seniority,
+    );
 }
 
 /**
@@ -145,7 +175,13 @@ export function createRightMatrix(numColumns) {
     return [...Array(numColumns + 1)].map(() => new Col());
 }
 
-export function propagateFromBoundary(initDown, initRight, hInitCol, vInitRow, seniority = Seniority.vertical()) {
+export function propagateFromBoundary(
+    initDown,
+    initRight,
+    hInitCol,
+    vInitRow,
+    seniority = Seniority.vertical(),
+) {
     const { downMatrix, rightMatrix } = Propagation.computeFromBoundary({
         initDown,
         initRight,
@@ -173,7 +209,13 @@ export function propagateFromBoundary(initDown, initRight, hInitCol, vInitRow, s
  * @param {number} vInitRow   - vertical priority offset (initial row)
  * @returns {{ downMatrix: Row[], rightMatrix: Col[] }}
  */
-export function propagate(numRows, numColumns, hInitCol = 1, vInitRow = 1, seniority = Seniority.vertical()) {
+export function propagate(
+    numRows,
+    numColumns,
+    hInitCol = 1,
+    vInitRow = 1,
+    seniority = Seniority.vertical(),
+) {
     return propagateFromBoundary(
         new Row(numColumns).fill(true),
         new Col(numRows).fill(true),
@@ -208,8 +250,20 @@ export function propagate(numRows, numColumns, hInitCol = 1, vInitRow = 1, senio
  * @returns {{ nw, ne, sw, se }}
  *   Each quadrant is a { downMatrix, rightMatrix } object from propagate().
  */
-export function universalPropagate(numRows, numColumns, hInitCol = 1, vInitRow = 1, seniority = Seniority.vertical()) {
-    const { nw, ne, sw, se } = Universe.createSymmetric(numRows, numColumns, hInitCol, vInitRow, seniority);
+export function universalPropagate(
+    numRows,
+    numColumns,
+    hInitCol = 1,
+    vInitRow = 1,
+    seniority = Seniority.vertical(),
+) {
+    const { nw, ne, sw, se } = Universe.createSymmetric(
+        numRows,
+        numColumns,
+        hInitCol,
+        vInitRow,
+        seniority,
+    );
     return { nw, ne, sw, se };
 }
 
@@ -306,8 +360,26 @@ export function universalPropagate(numRows, numColumns, hInitCol = 1, vInitRow =
  * @property {boolean} isWest
  */
 export class Propagation {
-    static fromMatrices({ direction, numRows, numColumns, hInitCol, vInitRow, seniority, downMatrix, rightMatrix }) {
-        return new Propagation(direction, numRows, numColumns, hInitCol, vInitRow, seniority, downMatrix, rightMatrix);
+    static fromMatrices({
+        direction,
+        numRows,
+        numColumns,
+        hInitCol,
+        vInitRow,
+        seniority,
+        downMatrix,
+        rightMatrix,
+    }) {
+        return new Propagation(
+            direction,
+            numRows,
+            numColumns,
+            hInitCol,
+            vInitRow,
+            seniority,
+            downMatrix,
+            rightMatrix,
+        );
     }
 
     /**
@@ -324,7 +396,14 @@ export class Propagation {
      * @param {Seniority} [options.seniority]
      * @returns {Propagation}
      */
-    static create({ direction, numRows, numColumns, hInitCol, vInitRow, seniority = Seniority.vertical() }) {
+    static create({
+        direction,
+        numRows,
+        numColumns,
+        hInitCol,
+        vInitRow,
+        seniority = Seniority.vertical(),
+    }) {
         const { downMatrix, rightMatrix } = Propagation.computeFromBoundary({
             initDown: new Row(numColumns).fill(true),
             initRight: new Col(numRows).fill(true),
@@ -332,7 +411,16 @@ export class Propagation {
             vInitRow,
             seniority,
         });
-        return new Propagation(direction, numRows, numColumns, hInitCol, vInitRow, seniority, downMatrix, rightMatrix);
+        return new Propagation(
+            direction,
+            numRows,
+            numColumns,
+            hInitCol,
+            vInitRow,
+            seniority,
+            downMatrix,
+            rightMatrix,
+        );
     }
 
     /**
@@ -349,15 +437,32 @@ export class Propagation {
      * @param {Seniority} [options.seniority]
      * @returns {Propagation}
      */
-    static fromBoundary({ direction, initDown, initRight, hInitCol, vInitRow, seniority = Seniority.vertical() }) {
-        const { downMatrix, rightMatrix, numRows, numColumns } = Propagation.computeFromBoundary({
-            initDown,
-            initRight,
+    static fromBoundary({
+        direction,
+        initDown,
+        initRight,
+        hInitCol,
+        vInitRow,
+        seniority = Seniority.vertical(),
+    }) {
+        const { downMatrix, rightMatrix, numRows, numColumns } =
+            Propagation.computeFromBoundary({
+                initDown,
+                initRight,
+                hInitCol,
+                vInitRow,
+                seniority,
+            });
+        return new Propagation(
+            direction,
+            numRows,
+            numColumns,
             hInitCol,
             vInitRow,
             seniority,
-        });
-        return new Propagation(direction, numRows, numColumns, hInitCol, vInitRow, seniority, downMatrix, rightMatrix);
+            downMatrix,
+            rightMatrix,
+        );
     }
 
     /**
@@ -372,7 +477,13 @@ export class Propagation {
      * @param {Seniority} [options.seniority]
      * @returns {{ downMatrix: Row[], rightMatrix: Col[], numRows: number, numColumns: number }}
      */
-    static computeFromBoundary({ initDown, initRight, hInitCol, vInitRow, seniority = Seniority.vertical() }) {
+    static computeFromBoundary({
+        initDown,
+        initRight,
+        hInitCol,
+        vInitRow,
+        seniority = Seniority.vertical(),
+    }) {
         const numColumns = initDown.length;
         const numRows = initRight.length;
         const downMatrix = createDownMatrix(numRows);
@@ -381,18 +492,23 @@ export class Propagation {
         for (let i = 0; i < numColumns; i++) downMatrix[0][i] = initDown[i];
         for (let j = 0; j < numRows; j++) rightMatrix[0][j] = initRight[j];
 
-        const colPriority = [...Array(numColumns)].map((_, i) => pri(i + hInitCol));
-        const rowPriority = [...Array(numRows)].map((_, j) => pri(j + vInitRow));
+        const colPriority = [...Array(numColumns)].map((_, i) =>
+            pri(i + hInitCol),
+        );
+        const rowPriority = [...Array(numRows)].map((_, j) =>
+            pri(j + vInitRow),
+        );
 
         for (let j = 0; j < numRows; j++) {
             for (let i = 0; i < numColumns; i++) {
-                [downMatrix[j + 1][i], rightMatrix[i + 1][j]] = reactionFromPriority(
-                    downMatrix[j][i],
-                    rightMatrix[i][j],
-                    colPriority[i],
-                    rowPriority[j],
-                    seniority,
-                );
+                [downMatrix[j + 1][i], rightMatrix[i + 1][j]] =
+                    reactionFromPriority(
+                        downMatrix[j][i],
+                        rightMatrix[i][j],
+                        colPriority[i],
+                        rowPriority[j],
+                        seniority,
+                    );
             }
         }
         return { downMatrix, rightMatrix, numRows, numColumns };
@@ -400,7 +516,16 @@ export class Propagation {
     // Convention:
     // downMatrix[j][i]  → vertical flow
     // rightMatrix[i][j] → horizontal flow
-    constructor(direction, numRows, numColumns, hInitCol, vInitRow, seniority, downMatrix, rightMatrix) {
+    constructor(
+        direction,
+        numRows,
+        numColumns,
+        hInitCol,
+        vInitRow,
+        seniority,
+        downMatrix,
+        rightMatrix,
+    ) {
         this.direction = direction;
         this.numRows = numRows;
         this.numColumns = numColumns;
@@ -409,7 +534,9 @@ export class Propagation {
         this.seniority = seniority;
         this.downMatrix = downMatrix;
         this.rightMatrix = rightMatrix;
-        this.colPriority = [...Array(numColumns)].map((_, i) => pri(i + hInitCol));
+        this.colPriority = [...Array(numColumns)].map((_, i) =>
+            pri(i + hInitCol),
+        );
         this.rowPriority = [...Array(numRows)].map((_, j) => pri(j + vInitRow));
     }
 
@@ -574,7 +701,13 @@ export class Universe {
      * @param {Seniority} [seniority]
      * @returns {Universe}
      */
-    static createSymmetric(numRows, numColumns, hInitCol = 1, vInitRow = 1, seniority = Seniority.vertical()) {
+    static createSymmetric(
+        numRows,
+        numColumns,
+        hInitCol = 1,
+        vInitRow = 1,
+        seniority = Seniority.vertical(),
+    ) {
         const quadrant = (direction, h, v) =>
             Propagation.create({
                 direction,
@@ -616,7 +749,13 @@ export class Universe {
      * @param {Seniority} [seniority]
      * @returns {{ nw: Propagation, ne: Propagation, sw: Propagation, se: Propagation }}
      */
-    static createUniverseQuadrants(rowRange, colRange, hInitCol = 1, vInitRow = 1, seniority = Seniority.vertical()) {
+    static createUniverseQuadrants(
+        rowRange,
+        colRange,
+        hInitCol = 1,
+        vInitRow = 1,
+        seniority = Seniority.vertical(),
+    ) {
         const [minRow, maxRow] = rowRange;
         const [minCol, maxCol] = colRange;
         const northExtent = 1 - minRow;
@@ -633,11 +772,12 @@ export class Universe {
                 vInitRow: v,
                 seniority,
             });
+        // prettier-ignore
         return {
             nw: quadrant("nw", northExtent, westExtent, 1 - hInitCol, 1 - vInitRow),
-            ne: quadrant("ne", northExtent, eastExtent, hInitCol, 1 - vInitRow),
+            ne: quadrant("ne", northExtent, eastExtent, hInitCol,     1 - vInitRow),
             sw: quadrant("sw", southExtent, westExtent, 1 - hInitCol, vInitRow),
-            se: quadrant("se", southExtent, eastExtent, hInitCol, vInitRow),
+            se: quadrant("se", southExtent, eastExtent, hInitCol,     vInitRow),
         };
     }
 
@@ -676,11 +816,12 @@ export class Universe {
                 vInitRow: v,
                 seniority,
             });
+        // prettier-ignore
         return {
             nw: quadrant("nw", northExtent, westExtent, 1 - hInitCol, 1 - vInitRow),
-            ne: quadrant("ne", northExtent, eastExtent, hInitCol, 1 - vInitRow),
+            ne: quadrant("ne", northExtent, eastExtent, hInitCol,     1 - vInitRow),
             sw: quadrant("sw", southExtent, westExtent, 1 - hInitCol, vInitRow),
-            se: quadrant("se", southExtent, eastExtent, hInitCol, vInitRow),
+            se: quadrant("se", southExtent, eastExtent, hInitCol,     vInitRow),
         };
     }
     /**
@@ -742,7 +883,19 @@ export class Universe {
         return universe;
     }
 
-    constructor(northExtent, southExtent, westExtent, eastExtent, hInitCol, vInitRow, seniority, nw, ne, sw, se) {
+    constructor(
+        northExtent,
+        southExtent,
+        westExtent,
+        eastExtent,
+        hInitCol,
+        vInitRow,
+        seniority,
+        nw,
+        ne,
+        sw,
+        se,
+    ) {
         this.northExtent = northExtent;
         this.southExtent = southExtent;
         this.westExtent = westExtent;
@@ -757,7 +910,18 @@ export class Universe {
     }
 
     assemble() {
-        const { northExtent, southExtent, westExtent, eastExtent, hInitCol, vInitRow, nw, ne, sw, se } = this;
+        const {
+            northExtent,
+            southExtent,
+            westExtent,
+            eastExtent,
+            hInitCol,
+            vInitRow,
+            nw,
+            ne,
+            sw,
+            se,
+        } = this;
         const originRow = northExtent - 1;
         const originCol = westExtent - 1;
         // Convention: northExtent / southExtent / westExtent / eastExtent
@@ -769,8 +933,12 @@ export class Universe {
         const numColumns = westExtent + eastExtent - 1;
 
         // Global index → local coordinate (relative to origin) → priority.
-        const colPriority = [...Array(numColumns)].map((_, i) => pri(i - originCol + hInitCol));
-        const rowPriority = [...Array(numRows)].map((_, j) => pri(j - originRow + vInitRow));
+        const colPriority = [...Array(numColumns)].map((_, i) =>
+            pri(i - originCol + hInitCol),
+        );
+        const rowPriority = [...Array(numRows)].map((_, j) =>
+            pri(j - originRow + vInitRow),
+        );
 
         const downMatrix = [...Array(numRows)].map(() => {
             const row = new Row(numColumns);
