@@ -49,7 +49,7 @@ export function init() {
 
     function render() {
         syncNumericInputs();
-        const prop = Propagation.create({
+        const prop = new Propagation({
             direction: "se",
             numRows: config.numRows,
             numColumns: config.numCols,
@@ -61,7 +61,7 @@ export function init() {
         const seniorityCall = config.seniority.isVertical
             ? "Seniority.vertical()"
             : "Seniority.horizontal()";
-        callSig.textContent = `Propagation.create({
+        callSig.textContent = `new Propagation({
   numRows: ${config.numRows},
   numColumns: ${config.numCols},
   hInitCol: ${config.hInitCol},

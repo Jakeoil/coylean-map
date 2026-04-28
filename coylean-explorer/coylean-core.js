@@ -143,7 +143,7 @@ export function reaction(
 /**
  * Propagate arrows through a grid from arbitrary boundary inputs.
  *
- * Function-style wrapper around Propagation.computeFromBoundary — retained
+ * Function-style wrapper around the Propagation constructor — retained
  * for callers that want a plain { downMatrix, rightMatrix } result without
  * constructing a Propagation instance.
  *
@@ -182,12 +182,12 @@ export function propagateFromBoundary(
     vInitRow,
     seniority = Seniority.vertical(),
 ) {
-    const { downMatrix, rightMatrix } = Propagation.computeFromBoundary({
-        initDown,
-        initRight,
+    const { downMatrix, rightMatrix } = new Propagation({
         hInitCol,
         vInitRow,
         seniority,
+        initDown,
+        initRight,
     });
     return { downMatrix, rightMatrix };
 }
@@ -195,7 +195,7 @@ export function propagateFromBoundary(
 /**
  * Propagate arrows through a grid with all-true boundaries.
  *
- * Function-style wrapper retained for legacy callers; Propagation.create()
+ * Function-style wrapper retained for legacy callers; new Propagation({...})
  * is the class-based equivalent.
  *
  * Initial conditions: top row all true, left column all true.
@@ -299,43 +299,26 @@ export function universalPropagate(
  *
  * @class Propagation
  *
- * @param {"nw"|"ne"|"sw"|"se"} direction
- *   Directional identity of this propagation.
- *
- * @param {number} numRows
- *   Number of rows in the local grid.
- *
- * @param {number} numColumns
- *   Number of columns in the local grid.
- *
- * @param {number} hInitCol
- *   Horizontal offset applied to column indices when computing priority.
- *
- * @param {number} vInitRow
- *   Vertical offset applied to row indices when computing priority.
- *
- * @param {Seniority} seniority
- *   Tie-breaking rule for priority comparisons.
- *
- * @param {Row[]} downMatrix
- *   Matrix of vertical arrow states: downMatrix[j][i].
- *
- * @param {Col[]} rightMatrix
- *   Matrix of horizontal arrow states: rightMatrix[i][j].
- *
- * @static
- * @method fromMatrices
  * @param {Object} options
- * @param {"nw"|"ne"|"sw"|"se"} options.direction
- * @param {number} options.numRows
- * @param {number} options.numColumns
+ * @param {"nw"|"ne"|"sw"|"se"} [options.direction]
+ *   Directional identity of this propagation. Optional; only consulted by
+ *   the isNorth/isSouth/isEast/isWest accessors.
+ * @param {number} [options.numRows]
+ *   Number of rows in the local grid. Required unless initRight is given
+ *   (in which case numRows = initRight.length).
+ * @param {number} [options.numColumns]
+ *   Number of columns in the local grid. Required unless initDown is given
+ *   (in which case numColumns = initDown.length).
  * @param {number} options.hInitCol
+ *   Horizontal offset applied to column indices when computing priority.
  * @param {number} options.vInitRow
- * @param {Seniority} options.seniority
- * @param {Row[]} options.downMatrix
- * @param {Col[]} options.rightMatrix
- * @returns {Propagation}
- *   Constructs a Propagation from precomputed matrices.
+ *   Vertical offset applied to row indices when computing priority.
+ * @param {Seniority} [options.seniority]
+ *   Tie-breaking rule for priority comparisons. Defaults to vertical.
+ * @param {boolean[]} [options.initDown]
+ *   Top-row down inputs (length = numColumns). Defaults to all-true.
+ * @param {boolean[]} [options.initRight]
+ *   Left-column right inputs (length = numRows). Defaults to all-true.
  *
  * @property {"nw"|"ne"|"sw"|"se"} direction
  * @property {number} numRows
@@ -345,159 +328,52 @@ export function universalPropagate(
  * @property {Seniority} seniority
  * @property {Row[]} downMatrix
  * @property {Col[]} rightMatrix
- * @property {number[]} colPriority
- *   Precomputed priority for each local column: pri(i + hInitCol).
- * @property {number[]} rowPriority
- *   Precomputed priority for each local row: pri(j + vInitRow).
+ * @property {number[]} colPriority  Precomputed pri(i + hInitCol) per column.
+ * @property {number[]} rowPriority  Precomputed pri(j + vInitRow) per row.
  *
- * @readonly
- * @property {boolean} isNorth
- * @readonly
- * @property {boolean} isSouth
- * @readonly
- * @property {boolean} isEast
- * @readonly
- * @property {boolean} isWest
+ * @readonly @property {boolean[]} initDown   First row of downMatrix.
+ * @readonly @property {boolean[]} initRight  First column of rightMatrix.
+ * @readonly @property {boolean} isNorth
+ * @readonly @property {boolean} isSouth
+ * @readonly @property {boolean} isEast
+ * @readonly @property {boolean} isWest
  */
 export class Propagation {
-    static fromMatrices({
-        direction,
-        numRows,
-        numColumns,
-        hInitCol,
-        vInitRow,
-        seniority,
-        downMatrix,
-        rightMatrix,
-    }) {
-        return new Propagation(
-            direction,
-            numRows,
-            numColumns,
-            hInitCol,
-            vInitRow,
-            seniority,
-            downMatrix,
-            rightMatrix,
-        );
-    }
-
-    /**
-     * Class-based construction API: compute a Propagation with all-true
-     * boundaries. Preferred over the propagate() function wrapper when the
-     * caller wants a Propagation instance with direction/priority metadata.
-     *
-     * @param {Object} options
-     * @param {"nw"|"ne"|"sw"|"se"} options.direction
-     * @param {number} options.numRows
-     * @param {number} options.numColumns
-     * @param {number} options.hInitCol
-     * @param {number} options.vInitRow
-     * @param {Seniority} [options.seniority]
-     * @returns {Propagation}
-     */
-    static create({
+    // Convention:
+    // downMatrix[j][i]  → vertical flow
+    // rightMatrix[i][j] → horizontal flow
+    constructor({
         direction,
         numRows,
         numColumns,
         hInitCol,
         vInitRow,
         seniority = Seniority.vertical(),
-    }) {
-        const { downMatrix, rightMatrix } = Propagation.computeFromBoundary({
-            initDown: new Row(numColumns).fill(true),
-            initRight: new Col(numRows).fill(true),
-            hInitCol,
-            vInitRow,
-            seniority,
-        });
-        return new Propagation(
-            direction,
-            numRows,
-            numColumns,
-            hInitCol,
-            vInitRow,
-            seniority,
-            downMatrix,
-            rightMatrix,
-        );
-    }
-
-    /**
-     * Class-based construction API: compute a Propagation from explicit
-     * boundary inputs. Preferred over the propagateFromBoundary() function
-     * wrapper when the caller wants a Propagation instance.
-     *
-     * @param {Object} options
-     * @param {"nw"|"ne"|"sw"|"se"} options.direction
-     * @param {boolean[]} options.initDown   - top-row down inputs (length = numColumns)
-     * @param {boolean[]} options.initRight  - left-column right inputs (length = numRows)
-     * @param {number} options.hInitCol
-     * @param {number} options.vInitRow
-     * @param {Seniority} [options.seniority]
-     * @returns {Propagation}
-     */
-    static fromBoundary({
-        direction,
         initDown,
         initRight,
-        hInitCol,
-        vInitRow,
-        seniority = Seniority.vertical(),
     }) {
-        const { downMatrix, rightMatrix, numRows, numColumns } =
-            Propagation.computeFromBoundary({
-                initDown,
-                initRight,
-                hInitCol,
-                vInitRow,
-                seniority,
-            });
-        return new Propagation(
-            direction,
-            numRows,
-            numColumns,
-            hInitCol,
-            vInitRow,
-            seniority,
-            downMatrix,
-            rightMatrix,
-        );
-    }
+        if (initDown === undefined)
+            initDown = new Row(numColumns).fill(true);
+        if (initRight === undefined)
+            initRight = new Col(numRows).fill(true);
+        if (numColumns === undefined) numColumns = initDown.length;
+        if (numRows === undefined) numRows = initRight.length;
 
-    /**
-     * Core boundary-propagation algorithm. Returns the computed matrices
-     * along with the inferred grid dimensions.
-     *
-     * @param {Object} options
-     * @param {boolean[]} options.initDown
-     * @param {boolean[]} options.initRight
-     * @param {number} options.hInitCol
-     * @param {number} options.vInitRow
-     * @param {Seniority} [options.seniority]
-     * @returns {{ downMatrix: Row[], rightMatrix: Col[], numRows: number, numColumns: number }}
-     */
-    static computeFromBoundary({
-        initDown,
-        initRight,
-        hInitCol,
-        vInitRow,
-        seniority = Seniority.vertical(),
-    }) {
-        const numColumns = initDown.length;
-        const numRows = initRight.length;
-        const downMatrix = createDownMatrix(numRows);
-        const rightMatrix = createRightMatrix(numColumns);
-
-        for (let i = 0; i < numColumns; i++) downMatrix[0][i] = initDown[i];
-        for (let j = 0; j < numRows; j++) rightMatrix[0][j] = initRight[j];
-
-        const colPriority = [...Array(numColumns)].map((_, i) =>
+        this.direction = direction;
+        this.numRows = numRows;
+        this.numColumns = numColumns;
+        this.hInitCol = hInitCol;
+        this.vInitRow = vInitRow;
+        this.seniority = seniority;
+        this.colPriority = [...Array(numColumns)].map((_, i) =>
             pri(i + hInitCol),
         );
-        const rowPriority = [...Array(numRows)].map((_, j) =>
-            pri(j + vInitRow),
-        );
+        this.rowPriority = [...Array(numRows)].map((_, j) => pri(j + vInitRow));
+
+        const downMatrix = createDownMatrix(numRows);
+        const rightMatrix = createRightMatrix(numColumns);
+        for (let i = 0; i < numColumns; i++) downMatrix[0][i] = initDown[i];
+        for (let j = 0; j < numRows; j++) rightMatrix[0][j] = initRight[j];
 
         for (let j = 0; j < numRows; j++) {
             for (let i = 0; i < numColumns; i++) {
@@ -505,39 +381,22 @@ export class Propagation {
                     reactionFromPriority(
                         downMatrix[j][i],
                         rightMatrix[i][j],
-                        colPriority[i],
-                        rowPriority[j],
+                        this.colPriority[i],
+                        this.rowPriority[j],
                         seniority,
                     );
             }
         }
-        return { downMatrix, rightMatrix, numRows, numColumns };
-    }
-    // Convention:
-    // downMatrix[j][i]  → vertical flow
-    // rightMatrix[i][j] → horizontal flow
-    constructor(
-        direction,
-        numRows,
-        numColumns,
-        hInitCol,
-        vInitRow,
-        seniority,
-        downMatrix,
-        rightMatrix,
-    ) {
-        this.direction = direction;
-        this.numRows = numRows;
-        this.numColumns = numColumns;
-        this.hInitCol = hInitCol;
-        this.vInitRow = vInitRow;
-        this.seniority = seniority;
         this.downMatrix = downMatrix;
         this.rightMatrix = rightMatrix;
-        this.colPriority = [...Array(numColumns)].map((_, i) =>
-            pri(i + hInitCol),
-        );
-        this.rowPriority = [...Array(numRows)].map((_, j) => pri(j + vInitRow));
+    }
+
+    get initDown() {
+        return this.downMatrix[0];
+    }
+
+    get initRight() {
+        return this.rightMatrix[0];
     }
 
     get isNorth() {
@@ -709,7 +568,7 @@ export class Universe {
         seniority = Seniority.vertical(),
     ) {
         const quadrant = (direction, h, v) =>
-            Propagation.create({
+            new Propagation({
                 direction,
                 numRows,
                 numColumns,
@@ -764,7 +623,7 @@ export class Universe {
         const eastExtent = maxCol + 1;
 
         const quadrant = (direction, numRows, numColumns, h, v) =>
-            Propagation.create({
+            new Propagation({
                 direction,
                 numRows,
                 numColumns,
@@ -808,7 +667,7 @@ export class Universe {
         seniority = Seniority.vertical(),
     ) {
         const quadrant = (direction, numRows, numColumns, h, v) =>
-            Propagation.create({
+            new Propagation({
                 direction,
                 numRows,
                 numColumns,
@@ -852,7 +711,7 @@ export class Universe {
         seniority = Seniority.vertical(),
     }) {
         const quadrant = (direction, numRows, numColumns, h, v) =>
-            Propagation.create({
+            new Propagation({
                 direction,
                 numRows,
                 numColumns,
