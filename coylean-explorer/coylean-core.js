@@ -437,11 +437,23 @@ export class Propagation {
      *   initDown  = reverse(nw.resultDown)  ++ ne.resultDown   (W → E)
      *   initRight = reverse(nw.resultRight) ++ sw.resultRight  (N → S)
      *
-     * Priority offsets are shifted so the priority lattice references the
-     * universe's far-northwest corner instead of NE's local origin:
+     * Priority offsets extend SE's lattice (the universe's south-east-
+     * propagating quadrant) westward and northward:
      *
-     *   hInitCol = ne.hInitCol - westExtent
-     *   vInitRow = ne.vInitRow - northExtent
+     *   hInitCol = se.hInitCol - westExtent
+     *   vInitRow = se.vInitRow - northExtent
+     *
+     * Why SE and not NE? The integrated propagation flows south-east just
+     * like SE, so SE's offsets (= the universe's hInitCol / vInitRow) give
+     * a symmetric result — e.g. h=-7, v=-7 for an 8/8/8/8 universe with
+     * hInitCol=vInitRow=1.
+     *
+     * NE looks tempting because it shares the integrated propagation's
+     * eastward column direction, and indeed ne.hInitCol = hInitCol works
+     * fine for the horizontal axis. But NE's lattice is flipped vertically:
+     * its local j=0 is the southern (origin) boundary, so
+     *   ne.vInitRow = 1 - vInitRow (≠ vInitRow)
+     * and using ne.vInitRow here would yield an asymmetric -8 instead of -7.
      *
      * Pure boundary extraction — no quadrant stitching or mosaic assembly.
      * The returned Propagation carries metadata.source = "universe-boundary".
@@ -450,7 +462,7 @@ export class Propagation {
      * @returns {Propagation}
      */
     static fromUniverseBoundary(universe) {
-        const { nw, ne, sw } = universe;
+        const { nw, ne, sw, se } = universe;
         const westExtent = nw.numColumns;
         const northExtent = nw.numRows;
 
@@ -463,8 +475,8 @@ export class Propagation {
             ...sw.resultRight,
         ]);
 
-        const hInitCol = ne.hInitCol - westExtent;
-        const vInitRow = ne.vInitRow - northExtent;
+        const hInitCol = se.hInitCol - westExtent;
+        const vInitRow = se.vInitRow - northExtent;
 
         const propagation = new Propagation({
             hInitCol,
