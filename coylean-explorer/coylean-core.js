@@ -331,8 +331,12 @@ export function universalPropagate(
  * @property {number[]} colPriority  Precomputed pri(i + hInitCol) per column.
  * @property {number[]} rowPriority  Precomputed pri(j + vInitRow) per row.
  *
- * @readonly @property {boolean[]} initDown   First row of downMatrix.
- * @readonly @property {boolean[]} initRight  First column of rightMatrix.
+ * @readonly @property {boolean[]} initDown    First row of downMatrix.
+ * @readonly @property {boolean[]} initRight   First column of rightMatrix.
+ * @readonly @property {boolean[]} resultDown  Last row of downMatrix; the
+ *   trailing slice that can seed initDown of a continuing propagation.
+ * @readonly @property {boolean[]} resultRight Last column of rightMatrix;
+ *   the trailing slice that can seed initRight of a continuing propagation.
  * @readonly @property {boolean} isNorth
  * @readonly @property {boolean} isSouth
  * @readonly @property {boolean} isEast
@@ -399,6 +403,14 @@ export class Propagation {
         return this.rightMatrix[0];
     }
 
+    get resultDown() {
+        return this.downMatrix[this.numRows];
+    }
+
+    get resultRight() {
+        return this.rightMatrix[this.numColumns];
+    }
+
     get isNorth() {
         return this.direction === "nw" || this.direction === "ne";
     }
@@ -413,6 +425,56 @@ export class Propagation {
 
     get isWest() {
         return this.direction === "nw" || this.direction === "sw";
+    }
+
+    /**
+     * Build a new Propagation from the outer boundary of an existing universe.
+     *
+     * Pulls the universe's far-north and far-west boundary slices (via the
+     * resultDown / resultRight getters on the quadrants) and uses them to
+     * seed a fresh Propagation:
+     *
+     *   initDown  = reverse(nw.resultDown)  ++ ne.resultDown   (W → E)
+     *   initRight = reverse(nw.resultRight) ++ sw.resultRight  (N → S)
+     *
+     * Priority offsets are shifted so the priority lattice references the
+     * universe's far-northwest corner instead of NE's local origin:
+     *
+     *   hInitCol = ne.hInitCol - westExtent
+     *   vInitRow = ne.vInitRow - northExtent
+     *
+     * Pure boundary extraction — no quadrant stitching or mosaic assembly.
+     * The returned Propagation carries metadata.source = "universe-boundary".
+     *
+     * @param {Object} universe  universe-shaped bundle exposing nw, ne, sw, se
+     * @returns {Propagation}
+     */
+    static fromUniverseBoundary(universe) {
+        const { nw, ne, sw } = universe;
+        const westExtent = nw.numColumns;
+        const northExtent = nw.numRows;
+
+        const initDown = Row.from([
+            ...[...nw.resultDown].reverse(),
+            ...ne.resultDown,
+        ]);
+        const initRight = Col.from([
+            ...[...nw.resultRight].reverse(),
+            ...sw.resultRight,
+        ]);
+
+        const hInitCol = ne.hInitCol - westExtent;
+        const vInitRow = ne.vInitRow - northExtent;
+
+        const propagation = new Propagation({
+            hInitCol,
+            vInitRow,
+            seniority: nw.seniority,
+            initDown,
+            initRight,
+        });
+        propagation.metadata = { source: "universe-boundary" };
+        return propagation;
     }
 }
 /**

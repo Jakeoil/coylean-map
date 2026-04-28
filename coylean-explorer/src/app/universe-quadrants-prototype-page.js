@@ -1,5 +1,5 @@
-import { Seniority, Universe } from "../../coylean-core.js";
-import { renderMosaic } from "../display/render-mosaic.js";
+import { Propagation, Seniority, Universe } from "../../coylean-core.js";
+import { renderIntegrated, renderMosaic } from "../display/render-mosaic.js";
 import { attachSvgPanZoom } from "../display/svg-pan-zoom.js";
 import { makeMosaicInfo } from "./mosaic-info.js";
 
@@ -9,6 +9,7 @@ export function init() {
     const callSig = document.getElementById("call-sig");
     const seniorityBtn = document.getElementById("seniority");
     const modeBtn = document.getElementById("mode");
+    const viewBtn = document.getElementById("view");
     const rangeControls = document.getElementById("range-controls");
     const extentsControls = document.getElementById("extents-controls");
 
@@ -27,6 +28,7 @@ export function init() {
 
     const config = {
         mode: "range", // "range" | "extents"
+        view: "mosaic", // "mosaic" | "integrated"
         minRow: +inputs.minRow.value,
         maxRow: +inputs.maxRow.value,
         minCol: +inputs.minCol.value,
@@ -82,8 +84,9 @@ export function init() {
             : "Seniority.horizontal";
 
         let result;
+        let baseSig;
         if (config.mode === "range") {
-            callSig.textContent =
+            baseSig =
                 `Universe.createUniverseQuadrants(\n` +
                 `  rowRange = [${config.minRow}, ${config.maxRow}],\n` +
                 `  colRange = [${config.minCol}, ${config.maxCol}],\n` +
@@ -99,7 +102,7 @@ export function init() {
                 config.seniority,
             );
         } else {
-            callSig.textContent =
+            baseSig =
                 `Universe.createUniverseExtents(\n` +
                 `  northExtent = ${config.northExtent},\n` +
                 `  southExtent = ${config.southExtent},\n` +
@@ -123,14 +126,30 @@ export function init() {
 
         // Flip flags place each quadrant's local (0,0) — the axis-adjacent
         // corner — toward the centre of the 2×2 mosaic.
-        quads = [
+        const baseQuads = [
             { p: nw, name: "nw", flipJ: true,  flipI: true  },
             { p: ne, name: "ne", flipJ: true,  flipI: false },
             { p: sw, name: "sw", flipJ: false, flipI: true  },
             { p: se, name: "se", flipJ: false, flipI: false },
         ];
 
-        renderMosaic(svg, quads, flags, infoHooks);
+        if (config.view === "integrated") {
+            const boundary = Propagation.fromUniverseBoundary(result);
+            const integrated = {
+                p: boundary,
+                name: "integrated",
+                flipJ: false,
+                flipI: false,
+            };
+            quads = [...baseQuads, integrated];
+            callSig.textContent =
+                baseSig + `\nPropagation.fromUniverseBoundary(universe)`;
+            renderIntegrated(svg, baseQuads, integrated, flags, infoHooks);
+        } else {
+            quads = baseQuads;
+            callSig.textContent = baseSig;
+            renderMosaic(svg, baseQuads, flags, infoHooks);
+        }
         infoHooks.showDefault();
     }
 
@@ -154,6 +173,13 @@ export function init() {
         modeBtn.textContent = isRange ? "Range" : "Extents";
         rangeControls.hidden = !isRange;
         extentsControls.hidden = isRange;
+        render();
+    });
+
+    viewBtn.addEventListener("click", () => {
+        config.view = config.view === "mosaic" ? "integrated" : "mosaic";
+        viewBtn.textContent =
+            config.view === "mosaic" ? "Mosaic" : "Integrated";
         render();
     });
 

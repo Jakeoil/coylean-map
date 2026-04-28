@@ -98,6 +98,46 @@ export function renderMosaic(svg, quads, flags = {}, hooks = {}) {
     }
 }
 
+// Render a single boundary-extracted propagation in the same viewport
+// dimensions as renderMosaic, positioned so its far-SE cell coincides with
+// the SE quadrant's far-SE cell — the panel "clicks into" the SE corner of
+// the mosaic layout while extending up-and-left to span the full universe.
+//
+// quads:      the four-quadrant reference bundle (used to size the viewport
+//             so toggling between mosaic and integrated keeps the SE corner
+//             pinned in place).
+// integrated: { p, name, flipJ, flipI } for the boundary propagation —
+//             typically { p, name: "integrated", flipJ: false, flipI: false }.
+export function renderIntegrated(svg, quads, integrated, flags = {}, hooks = {}) {
+    const byName = Object.fromEntries(quads.map((q) => [q.name, q]));
+    const nw = byName.nw, ne = byName.ne, sw = byName.sw;
+
+    const wW = 2 * PAD + nw.p.numColumns * S;
+    const eW = 2 * PAD + ne.p.numColumns * S;
+    const nH = 2 * PAD + nw.p.numRows * S;
+    const sH = 2 * PAD + sw.p.numRows * S;
+    const totalW = wW + GAP + eW;
+    const totalH = LABEL_H + nH + GAP + LABEL_H + sH;
+
+    svg.setAttribute("viewBox", `0 0 ${totalW} ${totalH}`);
+    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+    let viewport = svg.querySelector("g.viewport");
+    if (!viewport) {
+        viewport = svgEl("g", { class: "viewport" });
+        svg.appendChild(viewport);
+    }
+    viewport.innerHTML = "";
+
+    const intP = integrated.p;
+    const intW = 2 * PAD + intP.numColumns * S;
+    const intH = 2 * PAD + intP.numRows * S;
+    const x = totalW - intW;
+    const y = totalH - intH;
+
+    renderQuadrant(viewport, integrated, x, y, intW, intH, flags, hooks);
+}
+
 function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
     const { p, name, flipJ, flipI } = quad;
     const numRows = p.numRows;
