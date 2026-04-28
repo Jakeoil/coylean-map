@@ -5,7 +5,7 @@ let g; // canvas 2D context
 
 // ── State ──
 
-let feature_active = "legacy"; // "legacy", "explore", "universe"
+let feature_active = "universe"; // "legacy", "explore", "universe"
 let numRows = 65;
 let numCols = 65;
 let SCALE = 8;
@@ -17,8 +17,7 @@ let showInit = false;
 // ── DOM references ──
 
 const elesExplore = document.querySelectorAll(".can-explore");
-const eleActive = document.querySelector("#feature-active");
-const radioButtons = document.querySelectorAll("input[name='feature']");
+const mapTypeButtons = document.querySelectorAll("button.map-type");
 const eleNumRows = document.querySelector("#numRows");
 const eleNumCols = document.querySelector("#numCols");
 const eleScale = document.querySelector("#scale");
@@ -29,33 +28,18 @@ const eleShowInit = document.querySelector("#showInit");
 
 // ── Controls: Map Type ──
 
-const MODES = ["legacy", "explore", "universe"];
-
 function refreshFeatureActive() {
-    for (let button of radioButtons) {
-        button.checked = button.id === feature_active;
+    for (let btn of mapTypeButtons) {
+        btn.classList.toggle("active", btn.dataset.mode === feature_active);
     }
-    eleActive.innerHTML =
-        feature_active === "universe"
-            ? "Universe"
-            : feature_active === "explore"
-              ? "Explore"
-              : "Legacy";
     for (let ele of elesExplore) {
         ele.style.display = feature_active === "legacy" ? "none" : "block";
     }
 }
 
-eleActive.addEventListener("click", function () {
-    let idx = MODES.indexOf(feature_active);
-    feature_active = MODES[(idx + 1) % MODES.length];
-    refreshFeatureActive();
-    coyleanApp();
-});
-
-for (let button of radioButtons) {
-    button.addEventListener("click", function () {
-        feature_active = button.id;
+for (let btn of mapTypeButtons) {
+    btn.addEventListener("click", function () {
+        feature_active = btn.dataset.mode;
         refreshFeatureActive();
         coyleanApp();
     });

@@ -21,14 +21,11 @@
                 <h3>Controls</h3>
                 <div class="control-group" id="feature">
                     <h4>Map Type</h4>
-                    <button id="feature-active"></button>
-                    <br />
-                    <input type="radio" name="feature" id="legacy" />
-                    <label for="legacy">Legacy</label>
-                    <input type="radio" name="feature" id="explore" />
-                    <label for="explore">Explore</label>
-                    <input type="radio" name="feature" id="universe" />
-                    <label for="universe">Universe</label>
+                    <div class="control-row map-type-row">
+                        <button class="map-type" data-mode="legacy">Legacy</button>
+                        <button class="map-type" data-mode="explore">Explore</button>
+                        <button class="map-type active" data-mode="universe">Universe</button>
+                    </div>
                 </div>
                 <div class="control-group">
                     <h4>Size</h4>

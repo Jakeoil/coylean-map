@@ -83,6 +83,26 @@ canvas.apple-ii {
     display: block;
 }
 
+.map-type-row { gap: 4px; }
+.map-type-row .map-type {
+    flex: 1;
+    padding: 5px 8px;
+    background: #f5f5f5;
+    border: 1px solid #c5d8e2;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85em;
+    color: #333;
+    transition: background 0.1s, border-color 0.1s;
+}
+.map-type-row .map-type:hover { background: #e0eaf0; }
+.map-type-row .map-type.active {
+    background: #5c8cb0;
+    border-color: #3d6a8a;
+    color: #fff;
+    font-weight: 600;
+}
+
 #content {
     flex: 6;
     margin-left: 10px;
