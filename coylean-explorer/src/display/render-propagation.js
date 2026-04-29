@@ -140,13 +140,13 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                 const se = (i < nC && j+1 <= nR) ? dm[j+1][i]   : false;
                 const leftFill = nw && sw;
                 const rightFill = ne && se;
-                if (leftFill) {
+                if (leftFill && showFill) {
                     vp.appendChild(svgEl("polygon", {
                         points: `${cx},${cy-D} ${cx},${cy+D} ${cx-D},${cy}`,
                         fill: "#e0a8a8", stroke: "none",
                     }));
                 }
-                if (rightFill) {
+                if (rightFill && showFill) {
                     vp.appendChild(svgEl("polygon", {
                         points: `${cx},${cy-D} ${cx+D},${cy} ${cx},${cy+D}`,
                         fill: "#e0a8a8", stroke: "none",
@@ -171,13 +171,13 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                 const se = (j < nR && i+1 <= nC) ? rm[i+1][j]   : false;
                 const topFill = nw && ne;
                 const bottomFill = sw && se;
-                if (topFill) {
+                if (topFill && showFill) {
                     vp.appendChild(svgEl("polygon", {
                         points: `${cx},${cy-D} ${cx+D},${cy} ${cx-D},${cy}`,
                         fill: "#bcd8e8", stroke: "none",
                     }));
                 }
-                if (bottomFill) {
+                if (bottomFill && showFill) {
                     vp.appendChild(svgEl("polygon", {
                         points: `${cx-D},${cy} ${cx+D},${cy} ${cx},${cy+D}`,
                         fill: "#bcd8e8", stroke: "none",

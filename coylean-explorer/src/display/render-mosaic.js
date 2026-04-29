@@ -279,13 +279,13 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
 
                 const leftFill = nw && sw;     // logical west pair both true
                 const rightFill = ne && se;    // logical east pair both true
-                if (leftFill) {
+                if (leftFill && showFill) {
                     group.appendChild(svgEl("polygon", {
                         points: `${cx},${cy-D} ${cx},${cy+D} ${wX(cx)},${cy}`,
                         fill: FILL_DOWN, stroke: "none",
                     }));
                 }
-                if (rightFill) {
+                if (rightFill && showFill) {
                     group.appendChild(svgEl("polygon", {
                         points: `${cx},${cy-D} ${eX(cx)},${cy} ${cx},${cy+D}`,
                         fill: FILL_DOWN, stroke: "none",
@@ -313,13 +313,13 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
 
                 const topFill = nw && ne;
                 const bottomFill = sw && se;
-                if (topFill) {
+                if (topFill && showFill) {
                     group.appendChild(svgEl("polygon", {
                         points: `${cx},${nY(cy)} ${cx+D},${cy} ${cx-D},${cy}`,
                         fill: FILL_RIGHT, stroke: "none",
                     }));
                 }
-                if (bottomFill) {
+                if (bottomFill && showFill) {
                     group.appendChild(svgEl("polygon", {
                         points: `${cx-D},${cy} ${cx+D},${cy} ${cx},${sY(cy)}`,
                         fill: FILL_RIGHT, stroke: "none",
