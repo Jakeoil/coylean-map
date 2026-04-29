@@ -187,12 +187,15 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
         return [x + PAD + (pi + 0.5) * S, y + PAD + (pj + 0.5) * S];
     };
 
-    // ── Down diamonds ──
+    // Layered draw order: polygons (with borders) → arrows → encroach →
+    // labels → priority. Keeps borders from overdrawing arrows of adjacent
+    // diamonds, and keeps labels/priority on top of everything else.
+
+    // ── Pass 1: down-diamond polygons (fill + optional border) ──
     for (let j = 0; j <= numRows; j++) {
         for (let i = 0; i < numCols; i++) {
             const [cx, cy] = downC(i, j);
             const val = p.downMatrix[j][i];
-
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy, D),
                 class: "diamond",
@@ -209,37 +212,14 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
                 if (onLeave) poly.addEventListener("mouseleave", onLeave);
             }
             group.appendChild(poly);
-
-            if (val && showArrows) {
-                if (arrowMode === "line") {
-                    group.appendChild(svgEl("line", {
-                        ...downLineSeg(cx, cy, D),
-                        stroke: ARROW_DOWN,
-                        "pointer-events": "none",
-                    }));
-                } else {
-                    group.appendChild(svgEl("path", {
-                        d: downArrowPath(cx, cy, j === 0, D),
-                        fill: ARROW_DOWN,
-                        "pointer-events": "none",
-                        transform: flipJ ? `rotate(180 ${cx} ${cy})` : null,
-                    }));
-                }
-            }
-
-            if (showLabels) {
-                const bg = (!showFill || (!val && showMinimize)) ? LABEL_BG_WHITE : LABEL_BG_DOWN;
-                appendLabelWithBg(group, cx, cy, `r${j}c${i}`, bg);
-            }
         }
     }
 
-    // ── Right diamonds ──
+    // ── Pass 1: right-diamond polygons (fill + optional border) ──
     for (let i = 0; i <= numCols; i++) {
         for (let j = 0; j < numRows; j++) {
             const [cx, cy] = rightC(i, j);
             const val = p.rightMatrix[i][j];
-
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy, D),
                 class: "diamond",
@@ -256,8 +236,39 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
                 if (onLeave) poly.addEventListener("mouseleave", onLeave);
             }
             group.appendChild(poly);
+        }
+    }
 
-            if (val && showArrows) {
+    // ── Pass 2: down arrows ──
+    if (showArrows) {
+        for (let j = 0; j <= numRows; j++) {
+            for (let i = 0; i < numCols; i++) {
+                if (!p.downMatrix[j][i]) continue;
+                const [cx, cy] = downC(i, j);
+                if (arrowMode === "line") {
+                    group.appendChild(svgEl("line", {
+                        ...downLineSeg(cx, cy, D),
+                        stroke: ARROW_DOWN,
+                        "pointer-events": "none",
+                    }));
+                } else {
+                    group.appendChild(svgEl("path", {
+                        d: downArrowPath(cx, cy, j === 0, D),
+                        fill: ARROW_DOWN,
+                        "pointer-events": "none",
+                        transform: flipJ ? `rotate(180 ${cx} ${cy})` : null,
+                    }));
+                }
+            }
+        }
+    }
+
+    // ── Pass 2: right arrows ──
+    if (showArrows) {
+        for (let i = 0; i <= numCols; i++) {
+            for (let j = 0; j < numRows; j++) {
+                if (!p.rightMatrix[i][j]) continue;
+                const [cx, cy] = rightC(i, j);
                 if (arrowMode === "line") {
                     group.appendChild(svgEl("line", {
                         ...rightLineSeg(cx, cy, D),
@@ -272,11 +283,6 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
                         transform: flipI ? `rotate(180 ${cx} ${cy})` : null,
                     }));
                 }
-            }
-
-            if (showLabels) {
-                const bg = (!showFill || (!val && showMinimize)) ? LABEL_BG_WHITE : LABEL_BG_RIGHT;
-                appendLabelWithBg(group, cx, cy, `c${i}r${j}`, bg);
             }
         }
     }
@@ -394,6 +400,26 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
                 if (ne) edge(cx, nY(cy), eX(cx), cy);
                 if (sw) edge(cx, sY(cy), wX(cx), cy);
                 if (se) edge(cx, sY(cy), eX(cx), cy);
+            }
+        }
+    }
+
+    // ── Pass 4: labels (drawn after arrows and encroach so they sit on top) ──
+    if (showLabels) {
+        for (let j = 0; j <= numRows; j++) {
+            for (let i = 0; i < numCols; i++) {
+                const [cx, cy] = downC(i, j);
+                const val = p.downMatrix[j][i];
+                const bg = (!showFill || (!val && showMinimize)) ? LABEL_BG_WHITE : LABEL_BG_DOWN;
+                appendLabelWithBg(group, cx, cy, `r${j}c${i}`, bg);
+            }
+        }
+        for (let i = 0; i <= numCols; i++) {
+            for (let j = 0; j < numRows; j++) {
+                const [cx, cy] = rightC(i, j);
+                const val = p.rightMatrix[i][j];
+                const bg = (!showFill || (!val && showMinimize)) ? LABEL_BG_WHITE : LABEL_BG_RIGHT;
+                appendLabelWithBg(group, cx, cy, `c${i}r${j}`, bg);
             }
         }
     }

@@ -59,12 +59,15 @@ export function renderPropagation(svg, config, result, flags, hooks) {
     }
     vp.innerHTML = "";
 
-    // ── Down diamonds ──
+    // Layered draw order: polygons (with borders) → arrows → encroach →
+    // labels → priority. Keeps borders from overdrawing arrows of adjacent
+    // diamonds, and keeps labels/priority on top of everything else.
+
+    // ── Pass 1: down-diamond polygons ──
     for (let j = 0; j <= nR; j++) {
         for (let i = 0; i < nC; i++) {
             const [cx, cy] = downPos(i, j);
             const val = dm[j][i];
-
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy),
                 class: "diamond",
@@ -72,13 +75,36 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                 stroke: showBorders ? "#9a4a4a" : "none",
                 "stroke-width": showBorders ? 1.5 : 0,
             });
-            poly.addEventListener("mouseenter", () =>
-                onEnterDown(i, j, val),
-            );
+            poly.addEventListener("mouseenter", () => onEnterDown(i, j, val));
             poly.addEventListener("mouseleave", onLeave);
             vp.appendChild(poly);
+        }
+    }
 
-            if (val && showArrows) {
+    // ── Pass 1: right-diamond polygons ──
+    for (let i = 0; i <= nC; i++) {
+        for (let j = 0; j < nR; j++) {
+            const [cx, cy] = rightPos(i, j);
+            const val = rm[i][j];
+            const poly = svgEl("polygon", {
+                points: diamondPts(cx, cy),
+                class: "diamond",
+                fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : "#bcd8e8"),
+                stroke: showBorders ? "#5a8aaa" : "none",
+                "stroke-width": showBorders ? 1.5 : 0,
+            });
+            poly.addEventListener("mouseenter", () => onEnterRight(i, j, val));
+            poly.addEventListener("mouseleave", onLeave);
+            vp.appendChild(poly);
+        }
+    }
+
+    // ── Pass 2: down arrows ──
+    if (showArrows) {
+        for (let j = 0; j <= nR; j++) {
+            for (let i = 0; i < nC; i++) {
+                if (!dm[j][i]) continue;
+                const [cx, cy] = downPos(i, j);
                 if (arrowMode === "line") {
                     vp.appendChild(svgEl("line", {
                         ...downLineSeg(cx, cy),
@@ -93,34 +119,15 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                     }));
                 }
             }
-
-            if (showLabels) {
-                const bg = (!showFill || (!val && showMinimize)) ? LABEL_BG_WHITE : LABEL_BG_DOWN;
-                appendLabelWithBg(vp, cx, cy, `r${j}c${i}`, bg);
-            }
         }
     }
 
-    // ── Right diamonds ──
-    for (let i = 0; i <= nC; i++) {
-        for (let j = 0; j < nR; j++) {
-            const [cx, cy] = rightPos(i, j);
-            const val = rm[i][j];
-
-            const poly = svgEl("polygon", {
-                points: diamondPts(cx, cy),
-                class: "diamond",
-                fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : "#bcd8e8"),
-                stroke: showBorders ? "#5a8aaa" : "none",
-                "stroke-width": showBorders ? 1.5 : 0,
-            });
-            poly.addEventListener("mouseenter", () =>
-                onEnterRight(i, j, val),
-            );
-            poly.addEventListener("mouseleave", onLeave);
-            vp.appendChild(poly);
-
-            if (val && showArrows) {
+    // ── Pass 2: right arrows ──
+    if (showArrows) {
+        for (let i = 0; i <= nC; i++) {
+            for (let j = 0; j < nR; j++) {
+                if (!rm[i][j]) continue;
+                const [cx, cy] = rightPos(i, j);
                 if (arrowMode === "line") {
                     vp.appendChild(svgEl("line", {
                         ...rightLineSeg(cx, cy),
@@ -134,11 +141,6 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                         fill: "#3d6a8a",
                     }));
                 }
-            }
-
-            if (showLabels) {
-                const bg = (!showFill || (!val && showMinimize)) ? LABEL_BG_WHITE : LABEL_BG_RIGHT;
-                appendLabelWithBg(vp, cx, cy, `c${i}r${j}`, bg);
             }
         }
     }
@@ -250,7 +252,27 @@ export function renderPropagation(svg, config, result, flags, hooks) {
         }
     }
 
-    // ── Cell center hover zones (small invisible) for reaction info ──
+    // ── Pass 4: labels (drawn after arrows and encroach so they sit on top) ──
+    if (showLabels) {
+        for (let j = 0; j <= nR; j++) {
+            for (let i = 0; i < nC; i++) {
+                const [cx, cy] = downPos(i, j);
+                const val = dm[j][i];
+                const bg = (!showFill || (!val && showMinimize)) ? LABEL_BG_WHITE : LABEL_BG_DOWN;
+                appendLabelWithBg(vp, cx, cy, `r${j}c${i}`, bg);
+            }
+        }
+        for (let i = 0; i <= nC; i++) {
+            for (let j = 0; j < nR; j++) {
+                const [cx, cy] = rightPos(i, j);
+                const val = rm[i][j];
+                const bg = (!showFill || (!val && showMinimize)) ? LABEL_BG_WHITE : LABEL_BG_RIGHT;
+                appendLabelWithBg(vp, cx, cy, `c${i}r${j}`, bg);
+            }
+        }
+    }
+
+    // ── Pass 5: priority overlay (cell-center text) ──
     for (let j = 0; j < nR; j++) {
         for (let i = 0; i < nC; i++) {
             const [cx, cy] = cellPos(i, j);
