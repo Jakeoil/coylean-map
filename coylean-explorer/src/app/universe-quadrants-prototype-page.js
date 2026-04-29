@@ -48,6 +48,7 @@ export function init() {
         showPri: false,
         showMinimize: false,
         showEncroach: false,
+        showFill: true,
         showBorders: false,
     };
 
@@ -208,6 +209,7 @@ export function init() {
             }
         }
     });
+    wireToggle("tog-fill", "showFill");
     wireToggle("tog-borders", "showBorders");
 
     render();

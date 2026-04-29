@@ -142,7 +142,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
     const { p, name, flipJ, flipI } = quad;
     const numRows = p.numRows;
     const numCols = p.numColumns;
-    const { showLabels, showPri, showMinimize, showEncroach, showArrows = true, showBorders } = flags;
+    const { showLabels, showPri, showMinimize, showEncroach, showArrows = true, showBorders, showFill = true } = flags;
     const { onEnterDown, onEnterRight, onLeave } = hooks;
 
     const group = svgEl("g", {});
@@ -189,12 +189,13 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
             const [cx, cy] = downC(i, j);
             const val = p.downMatrix[j][i];
 
+            const showStroke = showBorders || !showFill;
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy, D),
                 class: "diamond",
-                fill: !val && showMinimize ? "#fff" : FILL_DOWN,
-                stroke: showBorders ? STROKE_DOWN : "none",
-                "stroke-width": showBorders ? 1.5 : 0,
+                fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : FILL_DOWN),
+                stroke: showStroke ? STROKE_DOWN : "none",
+                "stroke-width": showStroke ? 1.5 : 0,
                 "data-quad": name,
                 "data-source": "down",
                 "data-i": i,
@@ -228,12 +229,13 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
             const [cx, cy] = rightC(i, j);
             const val = p.rightMatrix[i][j];
 
+            const showStroke = showBorders || !showFill;
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy, D),
                 class: "diamond",
-                fill: !val && showMinimize ? "#fff" : FILL_RIGHT,
-                stroke: showBorders ? STROKE_RIGHT : "none",
-                "stroke-width": showBorders ? 1.5 : 0,
+                fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : FILL_RIGHT),
+                stroke: showStroke ? STROKE_RIGHT : "none",
+                "stroke-width": showStroke ? 1.5 : 0,
                 "data-quad": name,
                 "data-source": "right",
                 "data-i": i,

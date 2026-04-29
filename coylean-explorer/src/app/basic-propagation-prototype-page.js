@@ -33,6 +33,7 @@ export function init() {
         showPri: false,
         showMinimize: false,
         showEncroach: false,
+        showFill: true,
         showBorders: false,
     };
 
@@ -109,6 +110,7 @@ export function init() {
             document.getElementById("tog-minimize").classList.add("active");
         }
     });
+    wireToggle("tog-fill", "showFill");
     wireToggle("tog-borders", "showBorders");
 
     render();

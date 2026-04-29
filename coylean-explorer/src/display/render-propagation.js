@@ -38,7 +38,7 @@ function appendLabelWithBg(parent, cx, cy, text, bgFill) {
 export function renderPropagation(svg, config, result, flags, hooks) {
     const { numRows: nR, numCols: nC, hInitCol, vInitRow, seniority } = config;
     const { downMatrix: dm, rightMatrix: rm } = result;
-    const { showLabels, showFlow, showPri, showMinimize, showEncroach, showBorders, showArrows = true } = flags;
+    const { showLabels, showFlow, showPri, showMinimize, showEncroach, showBorders, showArrows = true, showFill = true } = flags;
     const { onEnterDown, onEnterRight, onLeave } = hooks;
 
     const w = 2 * PAD + nC * S;
@@ -116,12 +116,13 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             const [cx, cy] = downPos(i, j);
             const val = dm[j][i];
 
+            const showStroke = showBorders || !showFill;
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy),
                 class: "diamond",
-                fill: !val && showMinimize ? "#fff" : "#e0a8a8",
-                stroke: showBorders ? "#9a4a4a" : "none",
-                "stroke-width": showBorders ? 1.5 : 0,
+                fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : "#e0a8a8"),
+                stroke: showStroke ? "#9a4a4a" : "none",
+                "stroke-width": showStroke ? 1.5 : 0,
             });
             poly.addEventListener("mouseenter", () =>
                 onEnterDown(i, j, val),
@@ -152,12 +153,13 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             const [cx, cy] = rightPos(i, j);
             const val = rm[i][j];
 
+            const showStroke = showBorders || !showFill;
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy),
                 class: "diamond",
-                fill: !val && showMinimize ? "#fff" : "#bcd8e8",
-                stroke: showBorders ? "#5a8aaa" : "none",
-                "stroke-width": showBorders ? 1.5 : 0,
+                fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : "#bcd8e8"),
+                stroke: showStroke ? "#5a8aaa" : "none",
+                "stroke-width": showStroke ? 1.5 : 0,
             });
             poly.addEventListener("mouseenter", () =>
                 onEnterRight(i, j, val),
