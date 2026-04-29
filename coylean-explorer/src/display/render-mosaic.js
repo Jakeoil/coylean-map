@@ -189,13 +189,12 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
             const [cx, cy] = downC(i, j);
             const val = p.downMatrix[j][i];
 
-            const showStroke = showBorders || !showFill;
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy, D),
                 class: "diamond",
                 fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : FILL_DOWN),
-                stroke: showStroke ? STROKE_DOWN : "none",
-                "stroke-width": showStroke ? 1.5 : 0,
+                stroke: showBorders ? STROKE_DOWN : "none",
+                "stroke-width": showBorders ? 1.5 : 0,
                 "data-quad": name,
                 "data-source": "down",
                 "data-i": i,
@@ -217,7 +216,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
             }
 
             if (showLabels) {
-                const bg = (!val && showMinimize) ? LABEL_BG_WHITE : LABEL_BG_DOWN;
+                const bg = (!showFill || (!val && showMinimize)) ? LABEL_BG_WHITE : LABEL_BG_DOWN;
                 appendLabelWithBg(group, cx, cy, `r${j}c${i}`, bg);
             }
         }
@@ -229,13 +228,12 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
             const [cx, cy] = rightC(i, j);
             const val = p.rightMatrix[i][j];
 
-            const showStroke = showBorders || !showFill;
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy, D),
                 class: "diamond",
                 fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : FILL_RIGHT),
-                stroke: showStroke ? STROKE_RIGHT : "none",
-                "stroke-width": showStroke ? 1.5 : 0,
+                stroke: showBorders ? STROKE_RIGHT : "none",
+                "stroke-width": showBorders ? 1.5 : 0,
                 "data-quad": name,
                 "data-source": "right",
                 "data-i": i,
@@ -257,7 +255,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
             }
 
             if (showLabels) {
-                const bg = (!val && showMinimize) ? LABEL_BG_WHITE : LABEL_BG_RIGHT;
+                const bg = (!showFill || (!val && showMinimize)) ? LABEL_BG_WHITE : LABEL_BG_RIGHT;
                 appendLabelWithBg(group, cx, cy, `c${i}r${j}`, bg);
             }
         }

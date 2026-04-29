@@ -29,7 +29,6 @@ export function init() {
     const flags = {
         showLabels: true,
         showArrows: true,
-        showFlow: false,
         showPri: false,
         showMinimize: false,
         showEncroach: false,
@@ -101,7 +100,6 @@ export function init() {
 
     wireToggle("tog-labels", "showLabels");
     wireToggle("tog-arrows", "showArrows");
-    wireToggle("tog-flow", "showFlow");
     wireToggle("tog-pri", "showPri");
     wireToggle("tog-minimize", "showMinimize");
     wireToggle("tog-encroach", "showEncroach", () => {

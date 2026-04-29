@@ -41,6 +41,7 @@
                 stroke-width: 1.5;
                 cursor: pointer;
                 transition: filter 0.1s;
+                pointer-events: all;
             }
             .diamond:hover {
                 filter: brightness(1.4);
@@ -48,11 +49,6 @@
             }
 
             .arrow-path {
-                pointer-events: none;
-            }
-            .flow-line {
-                stroke: #ccc;
-                stroke-width: 1;
                 pointer-events: none;
             }
 
@@ -157,7 +153,6 @@
                 <div class="toggle-row">
                     <button id="tog-labels" class="active">Labels</button>
                     <button id="tog-arrows" class="active">Arrow</button>
-                    <button id="tog-flow">Flow</button>
                     <button id="tog-pri">Priority</button>
                     <button id="tog-minimize">Minimize</button>
                     <button id="tog-encroach">Encroach</button>

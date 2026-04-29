@@ -33,12 +33,12 @@ function appendLabelWithBg(parent, cx, cy, text, bgFill) {
 
 // config: { numRows, numCols, hInitCol, vInitRow, seniority }  — propagation input
 // result: { downMatrix, rightMatrix }                          — propagate() output
-// flags:  { showLabels, showFlow, showPri, showMinimize, showEncroach }
+// flags:  { showLabels, showPri, showMinimize, showEncroach }
 // hooks:  { onEnterDown(i, j, val), onEnterRight(i, j, val), onLeave() }
 export function renderPropagation(svg, config, result, flags, hooks) {
     const { numRows: nR, numCols: nC, hInitCol, vInitRow, seniority } = config;
     const { downMatrix: dm, rightMatrix: rm } = result;
-    const { showLabels, showFlow, showPri, showMinimize, showEncroach, showBorders, showArrows = true, showFill = true } = flags;
+    const { showLabels, showPri, showMinimize, showEncroach, showBorders, showArrows = true, showFill = true } = flags;
     const { onEnterDown, onEnterRight, onLeave } = hooks;
 
     const w = 2 * PAD + nC * S;
@@ -55,74 +55,18 @@ export function renderPropagation(svg, config, result, flags, hooks) {
     }
     vp.innerHTML = "";
 
-    // ── Flow lines (subtle connections) ──
-    if (showFlow) {
-        const g = svgEl("g", {});
-        for (let j = 0; j < nR; j++) {
-            for (let i = 0; i < nC; i++) {
-                const [cx, cy] = cellPos(i, j);
-                // down in
-                const [dx0, dy0] = downPos(i, j);
-                g.appendChild(
-                    svgEl("line", {
-                        x1: dx0,
-                        y1: dy0,
-                        x2: cx,
-                        y2: cy,
-                        class: "flow-line",
-                    }),
-                );
-                // down out
-                const [dx1, dy1] = downPos(i, j + 1);
-                g.appendChild(
-                    svgEl("line", {
-                        x1: cx,
-                        y1: cy,
-                        x2: dx1,
-                        y2: dy1,
-                        class: "flow-line",
-                    }),
-                );
-                // right in
-                const [rx0, ry0] = rightPos(i, j);
-                g.appendChild(
-                    svgEl("line", {
-                        x1: rx0,
-                        y1: ry0,
-                        x2: cx,
-                        y2: cy,
-                        class: "flow-line",
-                    }),
-                );
-                // right out
-                const [rx1, ry1] = rightPos(i + 1, j);
-                g.appendChild(
-                    svgEl("line", {
-                        x1: cx,
-                        y1: cy,
-                        x2: rx1,
-                        y2: ry1,
-                        class: "flow-line",
-                    }),
-                );
-            }
-        }
-        vp.appendChild(g);
-    }
-
     // ── Down diamonds ──
     for (let j = 0; j <= nR; j++) {
         for (let i = 0; i < nC; i++) {
             const [cx, cy] = downPos(i, j);
             const val = dm[j][i];
 
-            const showStroke = showBorders || !showFill;
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy),
                 class: "diamond",
                 fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : "#e0a8a8"),
-                stroke: showStroke ? "#9a4a4a" : "none",
-                "stroke-width": showStroke ? 1.5 : 0,
+                stroke: showBorders ? "#9a4a4a" : "none",
+                "stroke-width": showBorders ? 1.5 : 0,
             });
             poly.addEventListener("mouseenter", () =>
                 onEnterDown(i, j, val),
@@ -141,7 +85,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             }
 
             if (showLabels) {
-                const bg = (!val && showMinimize) ? LABEL_BG_WHITE : LABEL_BG_DOWN;
+                const bg = (!showFill || (!val && showMinimize)) ? LABEL_BG_WHITE : LABEL_BG_DOWN;
                 appendLabelWithBg(vp, cx, cy, `r${j}c${i}`, bg);
             }
         }
@@ -153,13 +97,12 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             const [cx, cy] = rightPos(i, j);
             const val = rm[i][j];
 
-            const showStroke = showBorders || !showFill;
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy),
                 class: "diamond",
                 fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : "#bcd8e8"),
-                stroke: showStroke ? "#5a8aaa" : "none",
-                "stroke-width": showStroke ? 1.5 : 0,
+                stroke: showBorders ? "#5a8aaa" : "none",
+                "stroke-width": showBorders ? 1.5 : 0,
             });
             poly.addEventListener("mouseenter", () =>
                 onEnterRight(i, j, val),
@@ -178,7 +121,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             }
 
             if (showLabels) {
-                const bg = (!val && showMinimize) ? LABEL_BG_WHITE : LABEL_BG_RIGHT;
+                const bg = (!showFill || (!val && showMinimize)) ? LABEL_BG_WHITE : LABEL_BG_RIGHT;
                 appendLabelWithBg(vp, cx, cy, `c${i}r${j}`, bg);
             }
         }
