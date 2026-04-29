@@ -40,3 +40,25 @@ export function rightArrowPath(cx, cy, doubleHeaded, d = DEFAULT_D) {
     }
     return `M${l},${cy - ARR_SW} A${ARR_SW},${ARR_SW} 0 0 0 ${l},${cy + ARR_SW} L${r - ARR_HL + ARR_ND},${cy + ARR_SW} ${r - ARR_HL},${cy + ARR_HW} ${r},${cy} ${r - ARR_HL},${cy - ARR_HW} ${r - ARR_HL + ARR_ND},${cy - ARR_SW}Z`;
 }
+
+// Plain line segments (no arrowheads) spanning the same diamond extent
+// the arrow shaft would cover. Used by the "line" arrow mode.
+export function downLineSeg(cx, cy, d = DEFAULT_D) {
+    const { ARR_MARGIN, ARR_SW } = consts(d);
+    return {
+        x1: cx, y1: cy - d + ARR_MARGIN,
+        x2: cx, y2: cy + d - ARR_MARGIN,
+        "stroke-width": 2 * ARR_SW,
+        "stroke-linecap": "round",
+    };
+}
+
+export function rightLineSeg(cx, cy, d = DEFAULT_D) {
+    const { ARR_MARGIN, ARR_SW } = consts(d);
+    return {
+        x1: cx - d + ARR_MARGIN, y1: cy,
+        x2: cx + d - ARR_MARGIN, y2: cy,
+        "stroke-width": 2 * ARR_SW,
+        "stroke-linecap": "round",
+    };
+}

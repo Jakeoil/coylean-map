@@ -26,10 +26,10 @@ export function init() {
 
     const flags = {
         showLabels: false,
-        showArrows: true,
+        arrowMode: "full",
         showPri: false,
         showMinimize: false,
-        showEncroach: false,
+        encroachMode: "off",
         showFill: true,
         showBorders: false,
     };
@@ -103,21 +103,38 @@ export function init() {
     }
 
     wireToggle("tog-labels", "showLabels");
-    wireToggle("tog-arrows", "showArrows");
     wireToggle("tog-pri", "showPri");
+
+    const arrowBtn = document.getElementById("tog-arrows");
+    const ARROW_CYCLE = ["off", "full", "line"];
+    arrowBtn.onclick = () => {
+        const next = (ARROW_CYCLE.indexOf(flags.arrowMode) + 1) % ARROW_CYCLE.length;
+        flags.arrowMode = ARROW_CYCLE[next];
+        arrowBtn.classList.toggle("active", flags.arrowMode !== "off");
+        arrowBtn.textContent = flags.arrowMode === "line" ? "Arrow ─" : "Arrow";
+        render();
+    };
     wireToggle("tog-minimize", "showMinimize");
-    wireToggle("tog-encroach", "showEncroach", () => {
-        if (flags.showEncroach) {
+    const encroachBtn = document.getElementById("tog-encroach");
+    const ENCROACH_CYCLE = ["off", "full", "half"];
+    encroachBtn.onclick = () => {
+        const next = (ENCROACH_CYCLE.indexOf(flags.encroachMode) + 1) % ENCROACH_CYCLE.length;
+        flags.encroachMode = ENCROACH_CYCLE[next];
+        encroachBtn.classList.toggle("active", flags.encroachMode !== "off");
+        encroachBtn.textContent = flags.encroachMode === "half" ? "Encroach ½" : "Encroach";
+        if (flags.encroachMode !== "off") {
             if (!flags.showMinimize) {
                 flags.showMinimize = true;
                 document.getElementById("tog-minimize").classList.add("active");
             }
-            if (flags.showArrows) {
-                flags.showArrows = false;
-                document.getElementById("tog-arrows").classList.remove("active");
+            if (flags.arrowMode !== "off") {
+                flags.arrowMode = "off";
+                arrowBtn.classList.remove("active");
+                arrowBtn.textContent = "Arrow";
             }
         }
-    });
+        render();
+    };
     wireToggle("tog-fill", "showFill");
     wireToggle("tog-borders", "showBorders");
 

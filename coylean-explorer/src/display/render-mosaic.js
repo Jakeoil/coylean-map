@@ -1,6 +1,6 @@
 import { pri } from "../../coylean-core.js";
 import { svgEl, diamondPts } from "./svg.js";
-import { downArrowPath, rightArrowPath } from "./arrows.js";
+import { downArrowPath, rightArrowPath, downLineSeg, rightLineSeg } from "./arrows.js";
 
 // Layout constants for the 2x2 quadrant mosaic.
 const S = 96;          // cell size (basic-propagation scale)
@@ -50,7 +50,9 @@ function appendLabelWithBg(parent, cx, cy, text, bgFill) {
 // Render a 2x2 mosaic of four propagation panels.
 //   svg:    the <svg> element to render into
 //   quads:  array of { p, name, flipJ, flipI } where name is "nw"|"ne"|"sw"|"se"
-//   flags:  { showLabels, showArrows, showPri, showMinimize, showEncroach } — display toggles
+//   flags:  { showLabels, arrowMode, showPri, showMinimize, encroachMode } — display toggles
+//          arrowMode:    "off" | "full" | "line"
+//          encroachMode: "off" | "full" | "half"
 //   hooks:  { onEnterDown(name,i,j,val), onEnterRight(name,i,j,val), onLeave() }
 //
 // Each panel is sized from its own p.numRows / p.numColumns.
@@ -142,7 +144,9 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
     const { p, name, flipJ, flipI } = quad;
     const numRows = p.numRows;
     const numCols = p.numColumns;
-    const { showLabels, showPri, showMinimize, showEncroach, showArrows = true, showBorders, showFill = true } = flags;
+    const { showLabels, showPri, showMinimize, encroachMode = "off", arrowMode = "full", showBorders, showFill = true } = flags;
+    const showEncroach = encroachMode !== "off";
+    const showArrows = arrowMode !== "off";
     const { onEnterDown, onEnterRight, onLeave } = hooks;
 
     const group = svgEl("g", {});
@@ -207,12 +211,20 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
             group.appendChild(poly);
 
             if (val && showArrows) {
-                group.appendChild(svgEl("path", {
-                    d: downArrowPath(cx, cy, j === 0, D),
-                    fill: ARROW_DOWN,
-                    "pointer-events": "none",
-                    transform: flipJ ? `rotate(180 ${cx} ${cy})` : null,
-                }));
+                if (arrowMode === "line") {
+                    group.appendChild(svgEl("line", {
+                        ...downLineSeg(cx, cy, D),
+                        stroke: ARROW_DOWN,
+                        "pointer-events": "none",
+                    }));
+                } else {
+                    group.appendChild(svgEl("path", {
+                        d: downArrowPath(cx, cy, j === 0, D),
+                        fill: ARROW_DOWN,
+                        "pointer-events": "none",
+                        transform: flipJ ? `rotate(180 ${cx} ${cy})` : null,
+                    }));
+                }
             }
 
             if (showLabels) {
@@ -246,12 +258,20 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
             group.appendChild(poly);
 
             if (val && showArrows) {
-                group.appendChild(svgEl("path", {
-                    d: rightArrowPath(cx, cy, i === 0, D),
-                    fill: ARROW_RIGHT,
-                    "pointer-events": "none",
-                    transform: flipI ? `rotate(180 ${cx} ${cy})` : null,
-                }));
+                if (arrowMode === "line") {
+                    group.appendChild(svgEl("line", {
+                        ...rightLineSeg(cx, cy, D),
+                        stroke: ARROW_RIGHT,
+                        "pointer-events": "none",
+                    }));
+                } else {
+                    group.appendChild(svgEl("path", {
+                        d: rightArrowPath(cx, cy, i === 0, D),
+                        fill: ARROW_RIGHT,
+                        "pointer-events": "none",
+                        transform: flipI ? `rotate(180 ${cx} ${cy})` : null,
+                    }));
+                }
             }
 
             if (showLabels) {
@@ -262,6 +282,9 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
     }
 
     // ── Encroachment overlays ──
+    // Encroach bisecting lines and incursion edges are intentionally
+    // independent of the Border toggle: they are structural cues for the
+    // overlay, not part of the diamond outline.
     if (showEncroach) {
         const dm = p.downMatrix;
         const rm = p.rightMatrix;

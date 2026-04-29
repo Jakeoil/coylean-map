@@ -1,7 +1,7 @@
 import { pri } from "../../coylean-core.js";
 import { svgEl, diamondPts } from "./svg.js";
 import { S, D, PAD, downPos, rightPos, cellPos } from "./diagram-coords.js";
-import { downArrowPath, rightArrowPath } from "./arrows.js";
+import { downArrowPath, rightArrowPath, downLineSeg, rightLineSeg } from "./arrows.js";
 
 const LABEL_BG_DOWN  = "rgba(224, 168, 168, 0.85)";
 const LABEL_BG_RIGHT = "rgba(188, 216, 232, 0.85)";
@@ -33,12 +33,16 @@ function appendLabelWithBg(parent, cx, cy, text, bgFill) {
 
 // config: { numRows, numCols, hInitCol, vInitRow, seniority }  — propagation input
 // result: { downMatrix, rightMatrix }                          — propagate() output
-// flags:  { showLabels, showPri, showMinimize, showEncroach }
+// flags:  { showLabels, arrowMode, showPri, showMinimize, encroachMode }
+//         arrowMode:    "off" | "full" | "line"
+//         encroachMode: "off" | "full" | "half"
 // hooks:  { onEnterDown(i, j, val), onEnterRight(i, j, val), onLeave() }
 export function renderPropagation(svg, config, result, flags, hooks) {
     const { numRows: nR, numCols: nC, hInitCol, vInitRow, seniority } = config;
     const { downMatrix: dm, rightMatrix: rm } = result;
-    const { showLabels, showPri, showMinimize, showEncroach, showBorders, showArrows = true, showFill = true } = flags;
+    const { showLabels, showPri, showMinimize, encroachMode = "off", arrowMode = "full", showBorders, showFill = true } = flags;
+    const showEncroach = encroachMode !== "off";
+    const showArrows = arrowMode !== "off";
     const { onEnterDown, onEnterRight, onLeave } = hooks;
 
     const w = 2 * PAD + nC * S;
@@ -75,13 +79,19 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             vp.appendChild(poly);
 
             if (val && showArrows) {
-                vp.appendChild(
-                    svgEl("path", {
+                if (arrowMode === "line") {
+                    vp.appendChild(svgEl("line", {
+                        ...downLineSeg(cx, cy),
+                        stroke: "#7a2d2d",
+                        class: "arrow-path",
+                    }));
+                } else {
+                    vp.appendChild(svgEl("path", {
                         d: downArrowPath(cx, cy, j === 0),
                         class: "arrow-path",
                         fill: "#7a2d2d",
-                    }),
-                );
+                    }));
+                }
             }
 
             if (showLabels) {
@@ -111,13 +121,19 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             vp.appendChild(poly);
 
             if (val && showArrows) {
-                vp.appendChild(
-                    svgEl("path", {
+                if (arrowMode === "line") {
+                    vp.appendChild(svgEl("line", {
+                        ...rightLineSeg(cx, cy),
+                        stroke: "#3d6a8a",
+                        class: "arrow-path",
+                    }));
+                } else {
+                    vp.appendChild(svgEl("path", {
                         d: rightArrowPath(cx, cy, i === 0),
                         class: "arrow-path",
                         fill: "#3d6a8a",
-                    }),
-                );
+                    }));
+                }
             }
 
             if (showLabels) {
@@ -128,6 +144,9 @@ export function renderPropagation(svg, config, result, flags, hooks) {
     }
 
     // ── Encroachment overlays ──
+    // Encroach bisecting lines and incursion edges are intentionally
+    // independent of the Border toggle: they are structural cues for the
+    // overlay, not part of the diamond outline.
     if (showEncroach) {
         // False blue (right) diamonds: check red (down) neighbors
         for (let i = 0; i <= nC; i++) {
