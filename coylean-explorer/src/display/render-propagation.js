@@ -2,6 +2,7 @@ import { pri } from "../../coylean-core.js";
 import { svgEl, diamondPts } from "./svg.js";
 import { S, D, PAD, downPos, rightPos, cellPos } from "./diagram-coords.js";
 import { downArrowPath, rightArrowPath, downLineSeg, rightLineSeg } from "./arrows.js";
+import { renderEncroach } from "./encroach.js";
 
 const LABEL_BG_DOWN  = "rgba(224, 168, 168, 0.85)";
 const LABEL_BG_RIGHT = "rgba(188, 216, 232, 0.85)";
@@ -150,106 +151,13 @@ export function renderPropagation(svg, config, result, flags, hooks) {
     // independent of the Border toggle: they are structural cues for the
     // overlay, not part of the diamond outline.
     if (showEncroach) {
-        // False blue (right) diamonds: check red (down) neighbors
-        for (let i = 0; i <= nC; i++) {
-            for (let j = 0; j < nR; j++) {
-                if (rm[i][j]) continue;
-                const [cx, cy] = rightPos(i, j);
-                const nw = (i >= 1)              ? dm[j][i-1]   : false;
-                const ne = (i < nC)              ? dm[j][i]     : false;
-                const sw = (i >= 1 && j+1 <= nR) ? dm[j+1][i-1] : false;
-                const se = (i < nC && j+1 <= nR) ? dm[j+1][i]   : false;
-                const leftFill = nw && sw;
-                const rightFill = ne && se;
-                if (leftFill && showFill) {
-                    vp.appendChild(svgEl("polygon", {
-                        points: `${cx},${cy-D} ${cx},${cy+D} ${cx-D},${cy}`,
-                        fill: "#e0a8a8", stroke: "none",
-                    }));
-                }
-                if (rightFill && showFill) {
-                    vp.appendChild(svgEl("polygon", {
-                        points: `${cx},${cy-D} ${cx+D},${cy} ${cx},${cy+D}`,
-                        fill: "#e0a8a8", stroke: "none",
-                    }));
-                }
-                if (leftFill || rightFill) {
-                    vp.appendChild(svgEl("line", {
-                        x1: cx, y1: cy-D, x2: cx, y2: cy+D,
-                        stroke: "#7a2d2d", "stroke-width": "1.5",
-                    }));
-                }
-            }
-        }
-        // False red (down) diamonds: check blue (right) neighbors
-        for (let j = 0; j <= nR; j++) {
-            for (let i = 0; i < nC; i++) {
-                if (dm[j][i]) continue;
-                const [cx, cy] = downPos(i, j);
-                const nw = (j >= 1)              ? rm[i][j-1]   : false;
-                const ne = (j >= 1 && i+1 <= nC) ? rm[i+1][j-1] : false;
-                const sw = (j < nR)              ? rm[i][j]     : false;
-                const se = (j < nR && i+1 <= nC) ? rm[i+1][j]   : false;
-                const topFill = nw && ne;
-                const bottomFill = sw && se;
-                if (topFill && showFill) {
-                    vp.appendChild(svgEl("polygon", {
-                        points: `${cx},${cy-D} ${cx+D},${cy} ${cx-D},${cy}`,
-                        fill: "#bcd8e8", stroke: "none",
-                    }));
-                }
-                if (bottomFill && showFill) {
-                    vp.appendChild(svgEl("polygon", {
-                        points: `${cx-D},${cy} ${cx+D},${cy} ${cx},${cy+D}`,
-                        fill: "#bcd8e8", stroke: "none",
-                    }));
-                }
-                if (topFill || bottomFill) {
-                    vp.appendChild(svgEl("line", {
-                        x1: cx-D, y1: cy, x2: cx+D, y2: cy,
-                        stroke: "#3d6a8a", "stroke-width": "1.5",
-                    }));
-                }
-            }
-        }
-        // Incursions: true blue diamonds get dark-red edges facing true red neighbors
-        for (let i = 0; i <= nC; i++) {
-            for (let j = 0; j < nR; j++) {
-                if (!rm[i][j]) continue;
-                const [cx, cy] = rightPos(i, j);
-                const nw = (i >= 1)              ? dm[j][i-1]   : false;
-                const ne = (i < nC)              ? dm[j][i]     : false;
-                const sw = (i >= 1 && j+1 <= nR) ? dm[j+1][i-1] : false;
-                const se = (i < nC && j+1 <= nR) ? dm[j+1][i]   : false;
-                const edge = (x1, y1, x2, y2) => vp.appendChild(svgEl("line", {
-                    x1, y1, x2, y2,
-                    stroke: "#7a2d2d", "stroke-width": "2.5",
-                }));
-                if (nw) edge(cx, cy-D, cx-D, cy);
-                if (ne) edge(cx, cy-D, cx+D, cy);
-                if (sw) edge(cx, cy+D, cx-D, cy);
-                if (se) edge(cx, cy+D, cx+D, cy);
-            }
-        }
-        // Incursions: true red diamonds get dark-blue edges facing true blue neighbors
-        for (let j = 0; j <= nR; j++) {
-            for (let i = 0; i < nC; i++) {
-                if (!dm[j][i]) continue;
-                const [cx, cy] = downPos(i, j);
-                const nw = (j >= 1)              ? rm[i][j-1]   : false;
-                const ne = (j >= 1 && i+1 <= nC) ? rm[i+1][j-1] : false;
-                const sw = (j < nR)              ? rm[i][j]     : false;
-                const se = (j < nR && i+1 <= nC) ? rm[i+1][j]   : false;
-                const edge = (x1, y1, x2, y2) => vp.appendChild(svgEl("line", {
-                    x1, y1, x2, y2,
-                    stroke: "#3d6a8a", "stroke-width": "2.5",
-                }));
-                if (nw) edge(cx, cy-D, cx-D, cy);
-                if (ne) edge(cx, cy-D, cx+D, cy);
-                if (sw) edge(cx, cy+D, cx-D, cy);
-                if (se) edge(cx, cy+D, cx+D, cy);
-            }
-        }
+        renderEncroach(vp, {
+            dm, rm, nR, nC,
+            downC: downPos, rightC: rightPos,
+            wX: (cx) => cx - D, eX: (cx) => cx + D,
+            nY: (cy) => cy - D, sY: (cy) => cy + D,
+            showFill,
+        });
     }
 
     // ── Pass 4: labels (drawn after arrows and encroach so they sit on top) ──

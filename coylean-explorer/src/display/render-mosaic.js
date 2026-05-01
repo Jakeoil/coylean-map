@@ -1,6 +1,7 @@
 import { pri } from "../../coylean-core.js";
 import { svgEl, diamondPts } from "./svg.js";
 import { downArrowPath, rightArrowPath, downLineSeg, rightLineSeg } from "./arrows.js";
+import { renderEncroach } from "./encroach.js";
 
 // Layout constants for the 2x2 quadrant mosaic.
 const S = 96;          // cell size (basic-propagation scale)
@@ -292,116 +293,13 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
     // independent of the Border toggle: they are structural cues for the
     // overlay, not part of the diamond outline.
     if (showEncroach) {
-        const dm = p.downMatrix;
-        const rm = p.rightMatrix;
-
-        // False right diamonds: half-fill toward true down neighbors.
-        for (let i = 0; i <= numCols; i++) {
-            for (let j = 0; j < numRows; j++) {
-                if (rm[i][j]) continue;
-                const [cx, cy] = rightC(i, j);
-
-                const nw = (i >= 1)               ? dm[j][i-1]   : false;
-                const ne = (i < numCols)          ? dm[j][i]     : false;
-                const sw = (i >= 1 && j+1 <= numRows) ? dm[j+1][i-1] : false;
-                const se = (i < numCols && j+1 <= numRows) ? dm[j+1][i] : false;
-
-                const leftFill = nw && sw;     // logical west pair both true
-                const rightFill = ne && se;    // logical east pair both true
-                if (leftFill && showFill) {
-                    group.appendChild(svgEl("polygon", {
-                        points: `${cx},${cy-D} ${cx},${cy+D} ${wX(cx)},${cy}`,
-                        fill: FILL_DOWN, stroke: "none",
-                    }));
-                }
-                if (rightFill && showFill) {
-                    group.appendChild(svgEl("polygon", {
-                        points: `${cx},${cy-D} ${eX(cx)},${cy} ${cx},${cy+D}`,
-                        fill: FILL_DOWN, stroke: "none",
-                    }));
-                }
-                if (leftFill || rightFill) {
-                    group.appendChild(svgEl("line", {
-                        x1: cx, y1: cy-D, x2: cx, y2: cy+D,
-                        stroke: "#7a2d2d", "stroke-width": "1.5",
-                    }));
-                }
-            }
-        }
-
-        // False down diamonds: half-fill toward true right neighbors.
-        for (let j = 0; j <= numRows; j++) {
-            for (let i = 0; i < numCols; i++) {
-                if (dm[j][i]) continue;
-                const [cx, cy] = downC(i, j);
-
-                const nw = (j >= 1)              ? rm[i][j-1]   : false;
-                const ne = (j >= 1 && i+1 <= numCols) ? rm[i+1][j-1] : false;
-                const sw = (j < numRows)         ? rm[i][j]     : false;
-                const se = (j < numRows && i+1 <= numCols) ? rm[i+1][j] : false;
-
-                const topFill = nw && ne;
-                const bottomFill = sw && se;
-                if (topFill && showFill) {
-                    group.appendChild(svgEl("polygon", {
-                        points: `${cx},${nY(cy)} ${cx+D},${cy} ${cx-D},${cy}`,
-                        fill: FILL_RIGHT, stroke: "none",
-                    }));
-                }
-                if (bottomFill && showFill) {
-                    group.appendChild(svgEl("polygon", {
-                        points: `${cx-D},${cy} ${cx+D},${cy} ${cx},${sY(cy)}`,
-                        fill: FILL_RIGHT, stroke: "none",
-                    }));
-                }
-                if (topFill || bottomFill) {
-                    group.appendChild(svgEl("line", {
-                        x1: cx-D, y1: cy, x2: cx+D, y2: cy,
-                        stroke: "#3d6a8a", "stroke-width": "1.5",
-                    }));
-                }
-            }
-        }
-
-        // True right diamonds: thick edges toward true down neighbors.
-        for (let i = 0; i <= numCols; i++) {
-            for (let j = 0; j < numRows; j++) {
-                if (!rm[i][j]) continue;
-                const [cx, cy] = rightC(i, j);
-                const nw = (i >= 1)               ? dm[j][i-1]   : false;
-                const ne = (i < numCols)          ? dm[j][i]     : false;
-                const sw = (i >= 1 && j+1 <= numRows) ? dm[j+1][i-1] : false;
-                const se = (i < numCols && j+1 <= numRows) ? dm[j+1][i] : false;
-                const edge = (x1, y1, x2, y2) => group.appendChild(svgEl("line", {
-                    x1, y1, x2, y2,
-                    stroke: "#7a2d2d", "stroke-width": "2.5",
-                }));
-                if (nw) edge(cx, nY(cy), wX(cx), cy);
-                if (ne) edge(cx, nY(cy), eX(cx), cy);
-                if (sw) edge(cx, sY(cy), wX(cx), cy);
-                if (se) edge(cx, sY(cy), eX(cx), cy);
-            }
-        }
-
-        // True down diamonds: thick edges toward true right neighbors.
-        for (let j = 0; j <= numRows; j++) {
-            for (let i = 0; i < numCols; i++) {
-                if (!dm[j][i]) continue;
-                const [cx, cy] = downC(i, j);
-                const nw = (j >= 1)              ? rm[i][j-1]   : false;
-                const ne = (j >= 1 && i+1 <= numCols) ? rm[i+1][j-1] : false;
-                const sw = (j < numRows)         ? rm[i][j]     : false;
-                const se = (j < numRows && i+1 <= numCols) ? rm[i+1][j] : false;
-                const edge = (x1, y1, x2, y2) => group.appendChild(svgEl("line", {
-                    x1, y1, x2, y2,
-                    stroke: "#3d6a8a", "stroke-width": "2.5",
-                }));
-                if (nw) edge(cx, nY(cy), wX(cx), cy);
-                if (ne) edge(cx, nY(cy), eX(cx), cy);
-                if (sw) edge(cx, sY(cy), wX(cx), cy);
-                if (se) edge(cx, sY(cy), eX(cx), cy);
-            }
-        }
+        renderEncroach(group, {
+            dm: p.downMatrix, rm: p.rightMatrix,
+            nR: numRows, nC: numCols,
+            downC, rightC,
+            wX, eX, nY, sY,
+            showFill,
+        });
     }
 
     // ── Pass 4: labels (drawn after arrows and encroach so they sit on top) ──
