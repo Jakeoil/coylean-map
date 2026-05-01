@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Coylean Pipe Junction Reference</title>
+        <link rel="icon" type="image/png" href="map-icon.png" />
+        <link rel="stylesheet" href="prototype.css" />
+        <style>
+            #canvas {
+                display: block;
+                margin: 24px auto;
+                background: #fff;
+                border: 1px solid #ddd;
+            }
+            .control input[type="range"] { width: 180px; }
+            .control .value {
+                font-family: monospace;
+                color: #555;
+                margin-left: 6px;
+            }
+            .description {
+                font-size: 14px;
+                color: #444;
+                line-height: 1.5;
+            }
+            .description p { margin: 8px 0; }
+        </style>
+    </head>
+    <body class="layout-sidebar">
+        <nav class="breadcrumb">
+            <a href="index.html">Index</a>
+            <span class="sep">›</span>
+            <a href="basic-propagation-prototype.html">Basic Propagation</a>
+            <span class="sep">›</span>
+            <a href="pipe-junction-prototype.html" class="current">Pipe Junction</a>
+        </nav>
+        <div class="layout-body">
+            <div class="sidebar">
+                <h1>Pipe Junction</h1>
+                <div class="description">
+                    <p>Reference geometry for the line-polygon model of
+                       encroachment: a junior (red, vertical) line meeting a
+                       senior (blue, horizontal) line, projected as two
+                       cylinders sharing a common top plane.</p>
+                    <p>For equal diameters the taper is a 45° chevron whose
+                       tip sits at the intersection. For unequal diameters
+                       the junior runs flat for a moment, then converges.
+                       This page is a static reference for future expansion
+                       of the Encroach overlay.</p>
+                </div>
+
+                <h2>Controls</h2>
+                <div class="controls">
+                    <div class="control-row">
+                        <div class="control">
+                            <label>blueD (senior)</label>
+                            <input type="range" id="blueD"
+                                   min="0.1" max="1" step="0.05" value="1" />
+                            <span class="value" id="blueD-val">1.00</span>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>redD (junior)</label>
+                            <input type="range" id="redD"
+                                   min="0.1" max="1" step="0.05" value="0.5" />
+                            <span class="value" id="redD-val">0.50</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="main">
+                <canvas id="canvas" width="600" height="600"></canvas>
+            </div>
+        </div>
+
+        <script type="module">
+            import { drawPipeJunction } from "./src/display/encroach.js";
+
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+            const blueD = document.getElementById("blueD");
+            const redD = document.getElementById("redD");
+            const blueDVal = document.getElementById("blueD-val");
+            const redDVal = document.getElementById("redD-val");
+
+            function render() {
+                const b = parseFloat(blueD.value);
+                const r = parseFloat(redD.value);
+                blueDVal.textContent = b.toFixed(2);
+                redDVal.textContent = r.toFixed(2);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawPipeJunction(ctx, 50, 50, 500, b, r);
+            }
+
+            blueD.addEventListener("input", render);
+            redD.addEventListener("input", render);
+            render();
+        </script>
+    </body>
+</html>
