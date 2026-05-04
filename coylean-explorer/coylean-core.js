@@ -675,12 +675,18 @@ export class Universe {
      * is not symmetric about the origin the four quadrants differ in
      * size accordingly.
      *
-     * @param {[number, number]} rowRange  [minRow, maxRow] with minRow <= 0 <= maxRow
-     * @param {[number, number]} colRange  [minCol, maxCol] with minCol <= 0 <= maxCol
+     * Empty-side endpoints suppress the quadrants on that side: minRow=1
+     * gives northExtent=0 (NW/NE absent), maxRow=-1 gives southExtent=0
+     * (SW/SE absent), and the col equivalents zero out W/E. Missing
+     * quadrants are returned as null. Throws if the result has no
+     * quadrants at all.
+     *
+     * @param {[number, number]} rowRange  [minRow, maxRow] with minRow ≤ 1, maxRow ≥ -1
+     * @param {[number, number]} colRange  [minCol, maxCol] with minCol ≤ 1, maxCol ≥ -1
      * @param {number} [hInitCol]
      * @param {number} [vInitRow]
      * @param {Seniority} [seniority]
-     * @returns {{ nw: Propagation, ne: Propagation, sw: Propagation, se: Propagation }}
+     * @returns {{ nw: Propagation|null, ne: Propagation|null, sw: Propagation|null, se: Propagation|null }}
      */
     static createUniverseQuadrants(
         rowRange,
@@ -691,45 +697,39 @@ export class Universe {
     ) {
         const [minRow, maxRow] = rowRange;
         const [minCol, maxCol] = colRange;
+        // Empty-side ranges: minRow=1 (no north), maxRow=-1 (no south),
+        // and the col equivalents. The 1-minRow / maxRow+1 arithmetic
+        // already collapses to 0 for those endpoints.
         const northExtent = 1 - minRow;
         const southExtent = maxRow + 1;
         const westExtent = 1 - minCol;
         const eastExtent = maxCol + 1;
-
-        const quadrant = (direction, numRows, numColumns, h, v) =>
-            new Propagation({
-                direction,
-                numRows,
-                numColumns,
-                hInitCol: h,
-                vInitRow: v,
-                seniority,
-            });
-        // prettier-ignore
-        return {
-            nw: quadrant("nw", northExtent, westExtent, 1 - hInitCol, 1 - vInitRow),
-            ne: quadrant("ne", northExtent, eastExtent, hInitCol,     1 - vInitRow),
-            sw: quadrant("sw", southExtent, westExtent, 1 - hInitCol, vInitRow),
-            se: quadrant("se", southExtent, eastExtent, hInitCol,     vInitRow),
-        };
+        return Universe.createUniverseExtents(
+            northExtent, southExtent, westExtent, eastExtent,
+            hInitCol, vInitRow, seniority,
+        );
     }
 
     /**
-     * Build the four quadrant propagations with extents
-     * [minRow, maxRow] × [minCol, maxCol] (inclusive, signed about the
-     * origin), returned unstitched.
+     * Build up to four quadrant propagations with the given extents,
+     * returned unstitched. A quadrant exists iff both of its bounding
+     * extents are non-zero; absent quadrants come back as null.
      *
      * Shared-edge sizes: nw/sw share westExtent, ne/se share eastExtent,
-     * nw/ne share northExtent, sw/se share southExtent. When the range
-     * is not symmetric about the origin the four quadrants differ in
-     * size accordingly.
+     * nw/ne share northExtent, sw/se share southExtent. Asymmetric extents
+     * yield differently-sized quadrants; zero on a side suppresses both
+     * quadrants there.
      *
-     * @param {[number, number]} rowRange  [minRow, maxRow] with minRow <= 0 <= maxRow
-     * @param {[number, number]} colRange  [minCol, maxCol] with minCol <= 0 <= maxCol
+     * Throws if all extents on either axis are zero (no quadrants).
+     *
+     * @param {number} northExtent  ≥ 0; 0 suppresses NW and NE
+     * @param {number} southExtent  ≥ 0; 0 suppresses SW and SE
+     * @param {number} westExtent   ≥ 0; 0 suppresses NW and SW
+     * @param {number} eastExtent   ≥ 0; 0 suppresses NE and SE
      * @param {number} [hInitCol]
      * @param {number} [vInitRow]
      * @param {Seniority} [seniority]
-     * @returns {{ nw: Propagation, ne: Propagation, sw: Propagation, se: Propagation }}
+     * @returns {{ nw: Propagation|null, ne: Propagation|null, sw: Propagation|null, se: Propagation|null }}
      */
     static createUniverseExtents(
         northExtent,
@@ -740,15 +740,21 @@ export class Universe {
         vInitRow = 1,
         seniority = Seniority.vertical(),
     ) {
+        if (northExtent < 0 || southExtent < 0 || westExtent < 0 || eastExtent < 0) {
+            throw new Error("Universe extents must be non-negative");
+        }
+        if (northExtent + southExtent === 0 || westExtent + eastExtent === 0) {
+            throw new Error("Universe must contain at least one quadrant");
+        }
+        // A quadrant exists iff both of its bounding extents are non-zero.
+        // Missing quadrants are returned as null.
         const quadrant = (direction, numRows, numColumns, h, v) =>
-            new Propagation({
-                direction,
-                numRows,
-                numColumns,
-                hInitCol: h,
-                vInitRow: v,
-                seniority,
-            });
+            (numRows && numColumns)
+                ? new Propagation({
+                    direction, numRows, numColumns,
+                    hInitCol: h, vInitRow: v, seniority,
+                })
+                : null;
         // prettier-ignore
         return {
             nw: quadrant("nw", northExtent, westExtent, 1 - hInitCol, 1 - vInitRow),

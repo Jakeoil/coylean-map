@@ -57,15 +57,16 @@ export function init() {
     const infoHooks = makeMosaicInfo(info, () => ({ quads }));
 
     function syncNumericInputs() {
-        // Ranges must bracket the origin.
+        // Range endpoints clamp to ±1 so a side can collapse to zero
+        // extent (minRow=1 ⇒ no north, maxRow=-1 ⇒ no south, etc).
         let minRow = +inputs.minRow.value;
         let maxRow = +inputs.maxRow.value;
         let minCol = +inputs.minCol.value;
         let maxCol = +inputs.maxCol.value;
-        if (minRow > 0) minRow = 0;
-        if (maxRow < 0) maxRow = 0;
-        if (minCol > 0) minCol = 0;
-        if (maxCol < 0) maxCol = 0;
+        if (minRow > 1) minRow = 1;
+        if (maxRow < -1) maxRow = -1;
+        if (minCol > 1) minCol = 1;
+        if (maxCol < -1) maxCol = -1;
         config.minRow = minRow;
         config.maxRow = maxRow;
         config.minCol = minCol;
@@ -126,15 +127,18 @@ export function init() {
         const { nw, ne, sw, se } = result;
 
         // Flip flags place each quadrant's local (0,0) — the axis-adjacent
-        // corner — toward the centre of the 2×2 mosaic.
+        // corner — toward the centre of the 2×2 mosaic. Filter out
+        // quadrants suppressed by zero-valued extents.
+        // prettier-ignore
         const baseQuads = [
             { p: nw, name: "nw", flipJ: true,  flipI: true  },
             { p: ne, name: "ne", flipJ: true,  flipI: false },
             { p: sw, name: "sw", flipJ: false, flipI: true  },
             { p: se, name: "se", flipJ: false, flipI: false },
-        ];
+        ].filter((q) => q.p);
 
-        if (config.view === "integrated") {
+        const allFour = baseQuads.length === 4;
+        if (config.view === "integrated" && allFour) {
             const boundary = Propagation.fromUniverseBoundary(result);
             const integrated = {
                 p: boundary,

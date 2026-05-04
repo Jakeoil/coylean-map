@@ -67,15 +67,22 @@ export function renderMosaic(svg, quads, flags = {}, hooks = {}) {
     const byName = Object.fromEntries(quads.map((q) => [q.name, q]));
     const nw = byName.nw, ne = byName.ne, sw = byName.sw, se = byName.se;
 
-    // West column shares nw/sw width; east shares ne/se width.
-    // North row shares nw/ne height; south shares sw/se height.
-    const wW = 2 * PAD + nw.p.numColumns * S;
-    const eW = 2 * PAD + ne.p.numColumns * S;
-    const nH = 2 * PAD + nw.p.numRows * S;
-    const sH = 2 * PAD + sw.p.numRows * S;
+    // West/east columns and north/south rows each take their dimension
+    // from whichever quadrant is present on that side. Missing sides
+    // collapse to width/height 0 (and their gap drops out).
+    const panelW = (q) => q ? 2 * PAD + q.p.numColumns * S : 0;
+    const panelH = (q) => q ? 2 * PAD + q.p.numRows * S : 0;
+    const wW = Math.max(panelW(nw), panelW(sw));
+    const eW = Math.max(panelW(ne), panelW(se));
+    const nH = Math.max(panelH(nw), panelH(ne));
+    const sH = Math.max(panelH(sw), panelH(se));
 
-    const totalW = wW + GAP + eW;
-    const totalH = LABEL_H + nH + GAP + LABEL_H + sH;
+    const colGap = (wW && eW) ? GAP : 0;
+    const rowGap = (nH && sH) ? GAP : 0;
+    const nLabelH = (nH ? LABEL_H : 0);
+    const sLabelH = (sH ? LABEL_H : 0);
+    const totalW = wW + colGap + eW;
+    const totalH = nLabelH + nH + rowGap + sLabelH + sH;
 
     svg.setAttribute("viewBox", `0 0 ${totalW} ${totalH}`);
     svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
@@ -87,15 +94,16 @@ export function renderMosaic(svg, quads, flags = {}, hooks = {}) {
     }
     viewport.innerHTML = "";
 
-    const sRowY = LABEL_H + nH + GAP + LABEL_H;
+    const sRowY = nLabelH + nH + rowGap + sLabelH;
+    // prettier-ignore
     const positions = {
-        nw: { x: 0,        y: LABEL_H, w: wW, h: nH },
-        ne: { x: wW + GAP, y: LABEL_H, w: eW, h: nH },
-        sw: { x: 0,        y: sRowY,   w: wW, h: sH },
-        se: { x: wW + GAP, y: sRowY,   w: eW, h: sH },
+        nw: { x: 0,             y: nLabelH, w: wW, h: nH },
+        ne: { x: wW + colGap,   y: nLabelH, w: eW, h: nH },
+        sw: { x: 0,             y: sRowY,   w: wW, h: sH },
+        se: { x: wW + colGap,   y: sRowY,   w: eW, h: sH },
     };
 
-    for (const quad of [nw, ne, sw, se]) {
+    for (const quad of quads) {
         const pos = positions[quad.name];
         renderQuadrant(viewport, quad, pos.x, pos.y, pos.w, pos.h, flags, hooks);
     }
