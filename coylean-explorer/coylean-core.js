@@ -430,58 +430,99 @@ export class Propagation {
     /**
      * Build a new Propagation from the outer boundary of an existing universe.
      *
-     * Pulls the universe's far-north and far-west boundary slices (via the
-     * resultDown / resultRight getters on the quadrants) and uses them to
-     * seed a fresh Propagation:
+     * Stitches the universe's far-N row (W → E) and far-W column (N → S),
+     * then runs them as the top/left seed of a fresh SE-flowing
+     * propagation. The result spans the whole universe rectangle.
      *
-     *   initDown  = reverse(nw.resultDown)  ++ ne.resultDown   (W → E)
-     *   initRight = reverse(nw.resultRight) ++ sw.resultRight  (N → S)
+     * Sparse universes (some quadrants null after zero-extent
+     * suppression) are supported. If neither north quadrant exists,
+     * the universe's "far-N row" collapses to the origin row, which
+     * we read from the south quadrants' initDown instead of nw/ne's
+     * resultDown. The W-column stitching is the symmetric story.
      *
-     * Priority offsets extend SE's lattice (the universe's south-east-
-     * propagating quadrant) westward and northward:
+     * Priority offsets extend the universe's lattice from origin
+     * westward and northward:
      *
-     *   hInitCol = se.hInitCol - westExtent
-     *   vInitRow = se.vInitRow - northExtent
+     *   hInitCol  = hInitCol_user - westExtent
+     *   vInitRow  = vInitRow_user - northExtent
      *
-     * Why SE and not NE? The integrated propagation flows south-east just
-     * like SE, so SE's offsets (= the universe's hInitCol / vInitRow) give
-     * a symmetric result — e.g. h=-7, v=-7 for an 8/8/8/8 universe with
-     * hInitCol=vInitRow=1.
+     * The user's hInitCol / vInitRow are recovered from any surviving
+     * quadrant via the createUniverseExtents inversion (eastern
+     * quadrants store hInitCol_user directly; western ones store
+     * 1 - hInitCol_user — same shape vertically).
      *
-     * NE looks tempting because it shares the integrated propagation's
-     * eastward column direction, and indeed ne.hInitCol = hInitCol works
-     * fine for the horizontal axis. But NE's lattice is flipped vertically:
-     * its local j=0 is the southern (origin) boundary, so
-     *   ne.vInitRow = 1 - vInitRow (≠ vInitRow)
-     * and using ne.vInitRow here would yield an asymmetric -8 instead of -7.
+     * Pure boundary extraction — no quadrant stitching or mosaic
+     * assembly. The returned Propagation carries
+     * metadata.source = "universe-boundary".
      *
-     * Pure boundary extraction — no quadrant stitching or mosaic assembly.
-     * The returned Propagation carries metadata.source = "universe-boundary".
-     *
-     * @param {Object} universe  universe-shaped bundle exposing nw, ne, sw, se
+     * @param {Object} universe  bundle exposing { nw, ne, sw, se }
+     *                           with each quadrant either a Propagation
+     *                           or null (missing). At least one non-null
+     *                           quadrant is required.
      * @returns {Propagation}
      */
     static fromUniverseBoundary(universe) {
         const { nw, ne, sw, se } = universe;
-        const westExtent = nw.numColumns;
-        const northExtent = nw.numRows;
+        const anyQuad = nw || ne || sw || se;
+        if (!anyQuad) {
+            throw new Error("fromUniverseBoundary: no surviving quadrants");
+        }
 
-        const initDown = Row.from([
-            ...[...nw.resultDown].reverse(),
-            ...ne.resultDown,
-        ]);
-        const initRight = Col.from([
-            ...[...nw.resultRight].reverse(),
-            ...sw.resultRight,
-        ]);
+        const westExtent  = (nw || sw)?.numColumns ?? 0;
+        const northExtent = (nw || ne)?.numRows ?? 0;
 
-        const hInitCol = se.hInitCol - westExtent;
-        const vInitRow = se.vInitRow - northExtent;
+        // Far-N row, W → E. Prefer N-quadrants' resultDown (true far-N
+        // edge); when N is empty, the origin row plays the role of
+        // far-N and lives on S-quadrants' initDown instead.
+        let initDown;
+        if (nw && ne) {
+            initDown = Row.from([...[...nw.resultDown].reverse(), ...ne.resultDown]);
+        } else if (nw) {
+            initDown = Row.from([...nw.resultDown].reverse());
+        } else if (ne) {
+            initDown = Row.from([...ne.resultDown]);
+        } else if (sw && se) {
+            initDown = Row.from([...[...sw.initDown].reverse(), ...se.initDown]);
+        } else if (sw) {
+            initDown = Row.from([...sw.initDown].reverse());
+        } else {
+            initDown = Row.from([...se.initDown]);
+        }
+
+        // Far-W column, N → S. Symmetric: W-quadrants' resultRight, or
+        // E-quadrants' initRight as the origin-column fallback.
+        let initRight;
+        if (nw && sw) {
+            initRight = Col.from([...[...nw.resultRight].reverse(), ...sw.resultRight]);
+        } else if (nw) {
+            initRight = Col.from([...nw.resultRight].reverse());
+        } else if (sw) {
+            initRight = Col.from([...sw.resultRight]);
+        } else if (ne && se) {
+            initRight = Col.from([...[...ne.initRight].reverse(), ...se.initRight]);
+        } else if (ne) {
+            initRight = Col.from([...ne.initRight].reverse());
+        } else {
+            initRight = Col.from([...se.initRight]);
+        }
+
+        // Recover hInitCol_user / vInitRow_user. Eastern quadrants
+        // (ne, se) store it directly; western quadrants store its
+        // 1's-complement. Symmetric for v on south vs. north.
+        const hInitColUser = (se || ne)
+            ? (se || ne).hInitCol
+            : 1 - (sw || nw).hInitCol;
+        const vInitRowUser = (se || sw)
+            ? (se || sw).vInitRow
+            : 1 - (ne || nw).vInitRow;
+
+        const hInitCol = hInitColUser - westExtent;
+        const vInitRow = vInitRowUser - northExtent;
 
         const propagation = new Propagation({
             hInitCol,
             vInitRow,
-            seniority: nw.seniority,
+            seniority: anyQuad.seniority,
             initDown,
             initRight,
         });

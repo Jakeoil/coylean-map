@@ -137,8 +137,7 @@ export function init() {
             { p: se, name: "se", flipJ: false, flipI: false },
         ].filter((q) => q.p);
 
-        const allFour = baseQuads.length === 4;
-        if (config.view === "integrated" && allFour) {
+        if (config.view === "integrated") {
             const boundary = Propagation.fromUniverseBoundary(result);
             const integrated = {
                 p: boundary,

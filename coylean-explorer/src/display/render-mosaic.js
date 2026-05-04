@@ -121,14 +121,22 @@ export function renderMosaic(svg, quads, flags = {}, hooks = {}) {
 //             typically { p, name: "integrated", flipJ: false, flipI: false }.
 export function renderIntegrated(svg, quads, integrated, flags = {}, hooks = {}) {
     const byName = Object.fromEntries(quads.map((q) => [q.name, q]));
-    const nw = byName.nw, ne = byName.ne, sw = byName.sw;
+    const nw = byName.nw, ne = byName.ne, sw = byName.sw, se = byName.se;
 
-    const wW = 2 * PAD + nw.p.numColumns * S;
-    const eW = 2 * PAD + ne.p.numColumns * S;
-    const nH = 2 * PAD + nw.p.numRows * S;
-    const sH = 2 * PAD + sw.p.numRows * S;
-    const totalW = wW + GAP + eW;
-    const totalH = LABEL_H + nH + GAP + LABEL_H + sH;
+    // Mirror renderMosaic's sparse layout so the SE corner stays pinned
+    // when the user toggles between mosaic and integrated.
+    const panelW = (q) => q ? 2 * PAD + q.p.numColumns * S : 0;
+    const panelH = (q) => q ? 2 * PAD + q.p.numRows * S : 0;
+    const wW = Math.max(panelW(nw), panelW(sw));
+    const eW = Math.max(panelW(ne), panelW(se));
+    const nH = Math.max(panelH(nw), panelH(ne));
+    const sH = Math.max(panelH(sw), panelH(se));
+    const colGap = (wW && eW) ? GAP : 0;
+    const rowGap = (nH && sH) ? GAP : 0;
+    const nLabelH = nH ? LABEL_H : 0;
+    const sLabelH = sH ? LABEL_H : 0;
+    const totalW = wW + colGap + eW;
+    const totalH = nLabelH + nH + rowGap + sLabelH + sH;
 
     svg.setAttribute("viewBox", `0 0 ${totalW} ${totalH}`);
     svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
