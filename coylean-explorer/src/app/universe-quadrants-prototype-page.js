@@ -2,6 +2,7 @@ import { Propagation, Seniority, Universe } from "../../coylean-core.js";
 import { renderIntegrated, renderMosaic } from "../display/render-mosaic.js";
 import { attachSvgPanZoom } from "../display/svg-pan-zoom.js";
 import { makeMosaicInfo } from "./mosaic-info.js";
+import { attachWheelStep } from "./wheel-input.js";
 
 export function init() {
     const svg = document.getElementById("diagram");
@@ -27,7 +28,7 @@ export function init() {
     };
 
     const config = {
-        mode: "range", // "range" | "extents"
+        mode: "extents", // "range" | "extents"
         view: "mosaic", // "mosaic" | "integrated"
         minRow: +inputs.minRow.value,
         maxRow: +inputs.maxRow.value,
@@ -157,8 +158,9 @@ export function init() {
         infoHooks.showDefault();
     }
 
-    for (const inp of Object.values(inputs)) {
+    for (const [key, inp] of Object.entries(inputs)) {
         inp.addEventListener("input", render);
+        attachWheelStep(inp, { invert: key === "southExtent" });
     }
 
     seniorityBtn.addEventListener("click", () => {

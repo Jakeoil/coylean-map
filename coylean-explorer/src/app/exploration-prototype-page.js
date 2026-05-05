@@ -2,6 +2,7 @@ import { Seniority, Universe } from "../../coylean-core.js";
 import { renderMosaic } from "../display/render-mosaic.js";
 import { attachSvgPanZoom } from "../display/svg-pan-zoom.js";
 import { makeMosaicInfo } from "./mosaic-info.js";
+import { attachWheelStep } from "./wheel-input.js";
 
 export function init() {
     const svg = document.getElementById("diagram");
@@ -81,6 +82,7 @@ export function init() {
 
     for (const inp of Object.values(inputs)) {
         inp.addEventListener("input", render);
+        attachWheelStep(inp);
     }
 
     seniorityBtn.addEventListener("click", () => {

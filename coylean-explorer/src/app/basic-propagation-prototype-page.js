@@ -3,6 +3,7 @@ import { renderPropagation } from "../display/render-propagation.js";
 import { attachSvgPanZoom } from "../display/svg-pan-zoom.js";
 import { makeInfo } from "./basic-propagation-prototype-info.js";
 import { boolsToHex, hexToBools } from "./init-hex.js";
+import { attachWheelStep } from "./wheel-input.js";
 
 export function init() {
     const svg = document.getElementById("diagram");
@@ -136,6 +137,7 @@ export function init() {
     // Numeric inputs render on every keystroke; text init inputs commit on blur/Enter only.
     for (const key of ["numRows", "numCols", "hInitCol", "vInitRow"]) {
         inputs[key].addEventListener("input", render);
+        attachWheelStep(inputs[key]);
     }
 
     // ── Init mode toggle + hex commit ──
