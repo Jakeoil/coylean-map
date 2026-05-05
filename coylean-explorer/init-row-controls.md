@@ -7,6 +7,7 @@ direct click-to-toggle on the init-row/column diamonds.
 Commits on `main`:
 - `777b05c` Phase 1 — hex display & text editing.
 - `3e809e0` Phase 2 — click init-row diamonds to toggle bits.
+- `88bf1ca` Phase 3 — gate clicks on Set mode; bright init arrows.
 
 ## Naming
 
@@ -66,8 +67,10 @@ monospace. `.hex-input.error` flags invalid input.
   (blur or Enter). On valid input: updates `config[arrayKey]`,
   `config[dimKey]`, the matching numeric input's value, then `render()`.
   On invalid input: marks `.error` and leaves the value alone.
-- `Show` / `Set` toggle flips `readOnly` on both inputs and discards
-  any pending text on the way back to Show.
+- `Show` / `Set` toggle flips `readOnly` on both inputs, sets
+  `flags.initEditable`, and re-renders so the diagram repaints with
+  the new arrow colors and (un)wired click handlers. Switching back to
+  Show repaints the inputs and discards any pending typed text.
 - Numeric inputs render on every `input` keystroke; init-hex inputs
   commit on `change` only.
 
@@ -75,19 +78,35 @@ monospace. `.hex-input.error` flags invalid input.
 
 `coylean-explorer/src/display/render-propagation.js`
 
-`renderPropagation`'s `hooks` arg now accepts optional
-`onClickDown(i, j)` and `onClickRight(i, j)`. They're attached only to
-init cells (`j === 0` for down, `i === 0` for right), which also pick
-up an `init-cell` class.
+`renderPropagation`'s `hooks` arg accepts optional `onClickDown(i, j)`
+and `onClickRight(i, j)`. They're attached only to init cells
+(`j === 0` for down, `i === 0` for right), which also pick up an
+`init-cell` class.
 
 `coylean-explorer/src/app/basic-propagation-prototype-page.js`
 
-`clickHooks` flips the matching bit in `config.initDown` /
-`config.initRight` and calls `render()`. Hex inputs repaint live —
-clicks win even in Set mode (any pending typed text is overwritten).
+The page passes `clickHooks` only when `flags.initEditable === true`
+(Set mode); in Show mode the renderer omits the click listener
+entirely. `clickHooks` flips the matching bit in `config.initDown` /
+`config.initRight` and calls `render()`. Hex inputs repaint live, so
+clicks win over any pending typed text in Set mode.
 
 `basic-propagation-prototype-info.js` — hover hint changed from "always
-true" to "click to toggle" for init cells, since they're now editable.
+true" to "click to toggle" for init cells, since they're now editable
+(in Set mode).
+
+## Set-mode visuals
+
+`renderPropagation` reads `flags.initEditable` and recolors the init
+arrows when it's true:
+- init-row down arrows (`j === 0`): `#f00` (pure red), normally
+  `#7a2d2d` (dark red).
+- init-column right arrows (`i === 0`): `#00f` (pure blue), normally
+  `#3d6a8a` (dark blue).
+
+Diamond polygon fills are unchanged in either mode — only the arrow
+color changes. Both `arrowMode === "full"` and `arrowMode === "line"`
+respect the override.
 
 ## Granularity
 
