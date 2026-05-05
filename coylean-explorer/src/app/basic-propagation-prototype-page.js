@@ -45,6 +45,7 @@ export function init() {
         encroachMode: "off",
         showFill: true,
         showBorders: false,
+        initEditable: false, // tracks initMode === "set" for renderer
     };
 
     let result = null;
@@ -52,7 +53,8 @@ export function init() {
     const infoHooks = makeInfo(info, () => ({ config, result }));
 
     // Click hooks — only fire on init cells (renderPropagation enforces this).
-    // Clicks always win, including in Set mode: render() repaints the hex inputs.
+    // Only attached when initMode === "set"; in Show mode the renderer omits
+    // the click listener entirely.
     const clickHooks = {
         onClickDown: (i, _j) => {
             config.initDown[i] = !config.initDown[i];
@@ -63,7 +65,6 @@ export function init() {
             render();
         },
     };
-    const hooks = { ...infoHooks, ...clickHooks };
 
     // Resize a boolean array to `len`: extend with `true`, truncate from end.
     // (Matches the implicit default — Propagation fills missing init with true.)
@@ -124,6 +125,9 @@ export function init() {
   ${seniorityCall},
 })`;
         paintInitInputs();
+        const hooks = flags.initEditable
+            ? { ...infoHooks, ...clickHooks }
+            : infoHooks;
         renderPropagation(svg, config, result, flags, hooks);
     }
 
@@ -143,7 +147,8 @@ export function init() {
         const readonly = initMode === "show";
         inputs.initDown.readOnly = readonly;
         inputs.initRight.readOnly = readonly;
-        if (readonly) paintInitInputs(); // discard any pending text on switch back
+        flags.initEditable = !readonly;
+        render(); // repaints diagram (init tint + click handlers) and hex inputs
     };
 
     function commitHex(inputEl, dimKey, arrayKey) {

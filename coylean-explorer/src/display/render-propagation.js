@@ -34,9 +34,11 @@ function appendLabelWithBg(parent, cx, cy, text, bgFill) {
 
 // config: { numRows, numCols, hInitCol, vInitRow, seniority }  — propagation input
 // result: { downMatrix, rightMatrix }                          — propagate() output
-// flags:  { showLabels, arrowMode, showPri, showMinimize, encroachMode }
+// flags:  { showLabels, arrowMode, showPri, showMinimize, encroachMode, initEditable }
 //         arrowMode:    "off" | "full" | "line"
 //         encroachMode: "off" | "full" | "half"
+//         initEditable: when true, init cells get dark fills (red for down,
+//                       blue for right) so the editable row/column stands out.
 // hooks:  { onEnterDown(i, j, val), onEnterRight(i, j, val), onLeave(),
 //           onClickDown?(i, j), onClickRight?(i, j) }
 //         Click hooks are only attached to init cells (j === 0 for down,
@@ -44,7 +46,7 @@ function appendLabelWithBg(parent, cx, cy, text, bgFill) {
 export function renderPropagation(svg, config, result, flags, hooks) {
     const { numRows: nR, numCols: nC, hInitCol, vInitRow, seniority } = config;
     const { downMatrix: dm, rightMatrix: rm } = result;
-    const { showLabels, showPri, showMinimize, encroachMode = "off", arrowMode = "full", showBorders, showFill = true } = flags;
+    const { showLabels, showPri, showMinimize, encroachMode = "off", arrowMode = "full", showBorders, showFill = true, initEditable = false } = flags;
     const showEncroach = encroachMode !== "off";
     const showArrows = arrowMode !== "off";
     const { onEnterDown, onEnterRight, onLeave, onClickDown, onClickRight } = hooks;
@@ -112,22 +114,24 @@ export function renderPropagation(svg, config, result, flags, hooks) {
     }
 
     // ── Pass 2: down arrows ──
+    // Init-row arrows (j === 0) take pure red in Set mode to flag toggleability.
     if (showArrows) {
         for (let j = 0; j <= nR; j++) {
             for (let i = 0; i < nC; i++) {
                 if (!dm[j][i]) continue;
                 const [cx, cy] = downPos(i, j);
+                const arrowColor = initEditable && j === 0 ? "#f00" : "#7a2d2d";
                 if (arrowMode === "line") {
                     vp.appendChild(svgEl("line", {
                         ...downLineSeg(cx, cy),
-                        stroke: "#7a2d2d",
+                        stroke: arrowColor,
                         class: "arrow-path",
                     }));
                 } else {
                     vp.appendChild(svgEl("path", {
                         d: downArrowPath(cx, cy, j === 0),
                         class: "arrow-path",
-                        fill: "#7a2d2d",
+                        fill: arrowColor,
                     }));
                 }
             }
@@ -135,22 +139,24 @@ export function renderPropagation(svg, config, result, flags, hooks) {
     }
 
     // ── Pass 2: right arrows ──
+    // Init-column arrows (i === 0) take pure blue in Set mode to flag toggleability.
     if (showArrows) {
         for (let i = 0; i <= nC; i++) {
             for (let j = 0; j < nR; j++) {
                 if (!rm[i][j]) continue;
                 const [cx, cy] = rightPos(i, j);
+                const arrowColor = initEditable && i === 0 ? "#00f" : "#3d6a8a";
                 if (arrowMode === "line") {
                     vp.appendChild(svgEl("line", {
                         ...rightLineSeg(cx, cy),
-                        stroke: "#3d6a8a",
+                        stroke: arrowColor,
                         class: "arrow-path",
                     }));
                 } else {
                     vp.appendChild(svgEl("path", {
                         d: rightArrowPath(cx, cy, i === 0),
                         class: "arrow-path",
-                        fill: "#3d6a8a",
+                        fill: arrowColor,
                     }));
                 }
             }
