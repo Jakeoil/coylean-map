@@ -51,6 +51,20 @@ export function init() {
 
     const infoHooks = makeInfo(info, () => ({ config, result }));
 
+    // Click hooks — only fire on init cells (renderPropagation enforces this).
+    // Clicks always win, including in Set mode: render() repaints the hex inputs.
+    const clickHooks = {
+        onClickDown: (i, _j) => {
+            config.initDown[i] = !config.initDown[i];
+            render();
+        },
+        onClickRight: (_i, j) => {
+            config.initRight[j] = !config.initRight[j];
+            render();
+        },
+    };
+    const hooks = { ...infoHooks, ...clickHooks };
+
     // Resize a boolean array to `len`: extend with `true`, truncate from end.
     // (Matches the implicit default — Propagation fills missing init with true.)
     function resizeBools(arr, len) {
@@ -110,7 +124,7 @@ export function init() {
   ${seniorityCall},
 })`;
         paintInitInputs();
-        renderPropagation(svg, config, result, flags, infoHooks);
+        renderPropagation(svg, config, result, flags, hooks);
     }
 
     // ── Controls ──

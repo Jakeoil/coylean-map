@@ -37,14 +37,17 @@ function appendLabelWithBg(parent, cx, cy, text, bgFill) {
 // flags:  { showLabels, arrowMode, showPri, showMinimize, encroachMode }
 //         arrowMode:    "off" | "full" | "line"
 //         encroachMode: "off" | "full" | "half"
-// hooks:  { onEnterDown(i, j, val), onEnterRight(i, j, val), onLeave() }
+// hooks:  { onEnterDown(i, j, val), onEnterRight(i, j, val), onLeave(),
+//           onClickDown?(i, j), onClickRight?(i, j) }
+//         Click hooks are only attached to init cells (j === 0 for down,
+//         i === 0 for right). Pass them in to enable init-bit toggling.
 export function renderPropagation(svg, config, result, flags, hooks) {
     const { numRows: nR, numCols: nC, hInitCol, vInitRow, seniority } = config;
     const { downMatrix: dm, rightMatrix: rm } = result;
     const { showLabels, showPri, showMinimize, encroachMode = "off", arrowMode = "full", showBorders, showFill = true } = flags;
     const showEncroach = encroachMode !== "off";
     const showArrows = arrowMode !== "off";
-    const { onEnterDown, onEnterRight, onLeave } = hooks;
+    const { onEnterDown, onEnterRight, onLeave, onClickDown, onClickRight } = hooks;
 
     const w = 2 * PAD + nC * S;
     const h = 2 * PAD + nR * S;
@@ -69,15 +72,19 @@ export function renderPropagation(svg, config, result, flags, hooks) {
         for (let i = 0; i < nC; i++) {
             const [cx, cy] = downPos(i, j);
             const val = dm[j][i];
+            const isInit = j === 0;
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy),
-                class: "diamond",
+                class: isInit ? "diamond init-cell" : "diamond",
                 fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : "#e0a8a8"),
                 stroke: showBorders ? "#9a4a4a" : "none",
                 "stroke-width": showBorders ? 1.5 : 0,
             });
             poly.addEventListener("mouseenter", () => onEnterDown(i, j, val));
             poly.addEventListener("mouseleave", onLeave);
+            if (isInit && onClickDown) {
+                poly.addEventListener("click", () => onClickDown(i, j));
+            }
             vp.appendChild(poly);
         }
     }
@@ -87,15 +94,19 @@ export function renderPropagation(svg, config, result, flags, hooks) {
         for (let j = 0; j < nR; j++) {
             const [cx, cy] = rightPos(i, j);
             const val = rm[i][j];
+            const isInit = i === 0;
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy),
-                class: "diamond",
+                class: isInit ? "diamond init-cell" : "diamond",
                 fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : "#bcd8e8"),
                 stroke: showBorders ? "#5a8aaa" : "none",
                 "stroke-width": showBorders ? 1.5 : 0,
             });
             poly.addEventListener("mouseenter", () => onEnterRight(i, j, val));
             poly.addEventListener("mouseleave", onLeave);
+            if (isInit && onClickRight) {
+                poly.addEventListener("click", () => onClickRight(i, j));
+            }
             vp.appendChild(poly);
         }
     }

@@ -17,7 +17,7 @@ export function makeInfo(info, getCtx) {
         <div class="row dim">vertical arrow entering row ${j} at column ${i}</div>
         <div class="row">pri(${i} + ${hInitCol}) = pri(${i + hInitCol}) = ${pI}</div>
         <div class="row">pri(${j} + ${vInitRow}) = pri(${j + vInitRow}) = ${pJ}</div>
-        <div class="row dim">${j === 0 ? "(init row — always true)" : ""}</div>
+        <div class="row dim">${j === 0 ? "(init row — click to toggle)" : ""}</div>
     `;
     }
 
@@ -32,7 +32,7 @@ export function makeInfo(info, getCtx) {
         <div class="row dim">horizontal arrow entering column ${i} at row ${j}</div>
         <div class="row">pri(${i} + ${hInitCol}) = pri(${i + hInitCol}) = ${pI}</div>
         <div class="row">pri(${j} + ${vInitRow}) = pri(${j + vInitRow}) = ${pJ}</div>
-        <div class="row dim">${i === 0 ? "(init column — always true)" : ""}</div>
+        <div class="row dim">${i === 0 ? "(init column — click to toggle)" : ""}</div>
     `;
     }
 
