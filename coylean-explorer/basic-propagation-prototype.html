@@ -73,6 +73,16 @@
                 pointer-events: none;
                 fill: #888;
             }
+
+            /* Wider input for the init hex boxes; default .control input is 64px. */
+            .control input.hex-input {
+                width: 220px;
+                font-family: monospace;
+            }
+            .control input.hex-input.error {
+                border-color: #c33;
+                background: #fdecec;
+            }
         </style>
     </head>
     <body class="layout-sidebar">
@@ -142,6 +152,28 @@
                         <div class="control">
                             <label>Seniority</label>
                             <button id="seniority" class="btn">Vertical</button>
+                        </div>
+                    </div>
+                </div>
+
+                <h2>Init</h2>
+                <div class="controls">
+                    <div class="control-row">
+                        <div class="control">
+                            <label>Mode</label>
+                            <button id="init-mode" class="btn">Show</button>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>initDown (V, length numCols)</label>
+                            <input type="text" id="initDown" class="hex-input" readonly />
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>initRight (H, length numRows)</label>
+                            <input type="text" id="initRight" class="hex-input" readonly />
                         </div>
                     </div>
                 </div>

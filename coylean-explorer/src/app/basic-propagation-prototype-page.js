@@ -2,6 +2,7 @@ import { Seniority, Propagation } from "../../coylean-core.js";
 import { renderPropagation } from "../display/render-propagation.js";
 import { attachSvgPanZoom } from "../display/svg-pan-zoom.js";
 import { makeInfo } from "./basic-propagation-prototype-info.js";
+import { boolsToHex, hexToBools } from "./init-hex.js";
 
 export function init() {
     const svg = document.getElementById("diagram");
@@ -14,16 +15,26 @@ export function init() {
         numCols: document.getElementById("numCols"),
         hInitCol: document.getElementById("hInitCol"),
         vInitRow: document.getElementById("vInitRow"),
+        initDown: document.getElementById("initDown"),
+        initRight: document.getElementById("initRight"),
     };
+    const initModeBtn = document.getElementById("init-mode");
 
-    // Propagation input — the 5 values that determine what propagate() produces.
+    // Propagation input — the values that determine what propagate() produces.
     const config = {
         numRows: +inputs.numRows.value,
         numCols: +inputs.numCols.value,
         hInitCol: +inputs.hInitCol.value,
         vInitRow: +inputs.vInitRow.value,
         seniority: Seniority.vertical(),
+        // Boolean init arrays (top row of downMatrix, left column of rightMatrix).
+        initDown: Array(+inputs.numCols.value).fill(true),
+        initRight: Array(+inputs.numRows.value).fill(true),
     };
+
+    // "show" → text inputs are readonly mirrors of config.
+    // "set"  → user can type hex; commit on blur/Enter.
+    let initMode = "show";
 
     // Display toggles — do not affect propagation, only rendering.
     const flags = {
@@ -40,11 +51,37 @@ export function init() {
 
     const infoHooks = makeInfo(info, () => ({ config, result }));
 
+    // Resize a boolean array to `len`: extend with `true`, truncate from end.
+    // (Matches the implicit default — Propagation fills missing init with true.)
+    function resizeBools(arr, len) {
+        if (arr.length === len) return arr;
+        if (arr.length < len) {
+            return arr.concat(Array(len - arr.length).fill(true));
+        }
+        return arr.slice(0, len);
+    }
+
     function syncNumericInputs() {
-        config.numRows = +inputs.numRows.value;
-        config.numCols = +inputs.numCols.value;
+        const newNumRows = +inputs.numRows.value;
+        const newNumCols = +inputs.numCols.value;
+        if (newNumCols !== config.numCols) {
+            config.initDown = resizeBools(config.initDown, newNumCols);
+        }
+        if (newNumRows !== config.numRows) {
+            config.initRight = resizeBools(config.initRight, newNumRows);
+        }
+        config.numRows = newNumRows;
+        config.numCols = newNumCols;
         config.hInitCol = +inputs.hInitCol.value;
         config.vInitRow = +inputs.vInitRow.value;
+    }
+
+    function paintInitInputs() {
+        // Always repaint in canonical byte-pair format, regardless of mode.
+        inputs.initDown.value = boolsToHex(config.initDown);
+        inputs.initRight.value = boolsToHex(config.initRight);
+        inputs.initDown.classList.remove("error");
+        inputs.initRight.classList.remove("error");
     }
 
     function render() {
@@ -56,6 +93,8 @@ export function init() {
             hInitCol: config.hInitCol,
             vInitRow: config.vInitRow,
             seniority: config.seniority,
+            initDown: config.initDown,
+            initRight: config.initRight,
         });
         result = { downMatrix: prop.downMatrix, rightMatrix: prop.rightMatrix };
         const seniorityCall = config.seniority.isVertical
@@ -66,15 +105,56 @@ export function init() {
   numColumns: ${config.numCols},
   hInitCol: ${config.hInitCol},
   vInitRow: ${config.vInitRow},
+  initDown:  ${boolsToHex(config.initDown)},
+  initRight: ${boolsToHex(config.initRight)},
   ${seniorityCall},
 })`;
+        paintInitInputs();
         renderPropagation(svg, config, result, flags, infoHooks);
     }
 
     // ── Controls ──
 
-    for (const inp of Object.values(inputs)) {
-        inp.addEventListener("input", render);
+    // Numeric inputs render on every keystroke; text init inputs commit on blur/Enter only.
+    for (const key of ["numRows", "numCols", "hInitCol", "vInitRow"]) {
+        inputs[key].addEventListener("input", render);
+    }
+
+    // ── Init mode toggle + hex commit ──
+
+    initModeBtn.onclick = () => {
+        initMode = initMode === "show" ? "set" : "show";
+        initModeBtn.textContent = initMode === "show" ? "Show" : "Set";
+        initModeBtn.classList.toggle("active", initMode === "set");
+        const readonly = initMode === "show";
+        inputs.initDown.readOnly = readonly;
+        inputs.initRight.readOnly = readonly;
+        if (readonly) paintInitInputs(); // discard any pending text on switch back
+    };
+
+    function commitHex(inputEl, dimKey, arrayKey) {
+        const parsed = hexToBools(inputEl.value);
+        if (parsed === null) {
+            inputEl.classList.add("error");
+            return;
+        }
+        config[arrayKey] = parsed.bits;
+        config[dimKey] = parsed.length;
+        inputs[dimKey].value = String(parsed.length);
+        render();
+    }
+
+    inputs.initDown.addEventListener("change", () =>
+        commitHex(inputs.initDown, "numCols", "initDown"),
+    );
+    inputs.initRight.addEventListener("change", () =>
+        commitHex(inputs.initRight, "numRows", "initRight"),
+    );
+    // Enter commits (change fires on blur, but Enter in a text input also fires change).
+    for (const el of [inputs.initDown, inputs.initRight]) {
+        el.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") el.blur();
+        });
     }
 
     seniorityBtn.addEventListener("click", () => {
