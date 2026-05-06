@@ -98,6 +98,26 @@ export function init() {
 
     const infoHooks = makeMosaicInfo(info, () => ({ quads }));
 
+    // Init-cell click hooks. Each click toggles one entry in the shared
+    // central-axis array; the next render shows the change in *both*
+    // quadrants that consume that array.
+    const clickHooks = {
+        onClickDown: (name, i, _j) => {
+            const arr = (name === "nw" || name === "sw")
+                ? config.westInitDown
+                : config.eastInitDown;
+            arr[i] = !arr[i];
+            render();
+        },
+        onClickRight: (name, _i, j) => {
+            const arr = (name === "nw" || name === "ne")
+                ? config.northInitRight
+                : config.southInitRight;
+            arr[j] = !arr[j];
+            render();
+        },
+    };
+
     // Resize a boolean array to `len`: extend with `true`, truncate from end.
     // Matches the implicit Propagation default (missing init defaults to true).
     function resizeBools(arr, len) {
@@ -240,11 +260,18 @@ export function init() {
             quads = [...baseQuads, integrated];
             callSig.textContent =
                 baseSig + `\nPropagation.fromUniverseBoundary(universe)`;
+            // Integrated view: clicks not wired (deferred — its boundary
+            // arrays are derived from the universe, not the shared central
+            // arrays the sidebar edits).
             renderIntegrated(svg, baseQuads, integrated, flags, infoHooks);
         } else {
             quads = baseQuads;
             callSig.textContent = baseSig;
-            renderMosaic(svg, baseQuads, flags, infoHooks);
+            // Click hooks attach only in Set mode; Show mode is read-only.
+            const hooks = flags.initEditable
+                ? { ...infoHooks, ...clickHooks }
+                : infoHooks;
+            renderMosaic(svg, baseQuads, flags, hooks);
         }
         paintInitInputs();
         infoHooks.showDefault();

@@ -54,7 +54,10 @@ function appendLabelWithBg(parent, cx, cy, text, bgFill) {
 //   flags:  { showLabels, arrowMode, showPri, showMinimize, encroachMode } — display toggles
 //          arrowMode:    "off" | "full" | "line"
 //          encroachMode: "off" | "full" | "half"
-//   hooks:  { onEnterDown(name,i,j,val), onEnterRight(name,i,j,val), onLeave() }
+//   hooks:  { onEnterDown(name,i,j,val), onEnterRight(name,i,j,val), onLeave(),
+//            onClickDown?(name,i,j), onClickRight?(name,i,j) }
+//          Click hooks fire only on init cells (j === 0 for down, i === 0
+//          for right). Init cells also pick up the "init-cell" class.
 //
 // Each panel is sized from its own p.numRows / p.numColumns.
 //
@@ -161,10 +164,10 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
     const { p, name, flipJ, flipI } = quad;
     const numRows = p.numRows;
     const numCols = p.numColumns;
-    const { showLabels, showPri, showMinimize, encroachMode = "off", arrowMode = "full", showBorders, showFill = true } = flags;
+    const { showLabels, showPri, showMinimize, encroachMode = "off", arrowMode = "full", showBorders, showFill = true, initEditable = false } = flags;
     const showEncroach = encroachMode !== "off";
     const showArrows = arrowMode !== "off";
-    const { onEnterDown, onEnterRight, onLeave } = hooks;
+    const { onEnterDown, onEnterRight, onLeave, onClickDown, onClickRight } = hooks;
 
     const group = svgEl("g", {});
     parent.appendChild(group);
@@ -213,9 +216,10 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
         for (let i = 0; i < numCols; i++) {
             const [cx, cy] = downC(i, j);
             const val = p.downMatrix[j][i];
+            const isInit = j === 0;
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy, D),
-                class: "diamond",
+                class: isInit ? "diamond init-cell" : "diamond",
                 fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : FILL_DOWN),
                 stroke: showBorders ? STROKE_DOWN : "none",
                 "stroke-width": showBorders ? 1.5 : 0,
@@ -228,6 +232,9 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
                 poly.addEventListener("mouseenter", () => onEnterDown(name, i, j, val));
                 if (onLeave) poly.addEventListener("mouseleave", onLeave);
             }
+            if (isInit && onClickDown) {
+                poly.addEventListener("click", () => onClickDown(name, i, j));
+            }
             group.appendChild(poly);
         }
     }
@@ -237,9 +244,10 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
         for (let j = 0; j < numRows; j++) {
             const [cx, cy] = rightC(i, j);
             const val = p.rightMatrix[i][j];
+            const isInit = i === 0;
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy, D),
-                class: "diamond",
+                class: isInit ? "diamond init-cell" : "diamond",
                 fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : FILL_RIGHT),
                 stroke: showBorders ? STROKE_RIGHT : "none",
                 "stroke-width": showBorders ? 1.5 : 0,
@@ -252,26 +260,31 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
                 poly.addEventListener("mouseenter", () => onEnterRight(name, i, j, val));
                 if (onLeave) poly.addEventListener("mouseleave", onLeave);
             }
+            if (isInit && onClickRight) {
+                poly.addEventListener("click", () => onClickRight(name, i, j));
+            }
             group.appendChild(poly);
         }
     }
 
     // ── Pass 2: down arrows ──
+    // Init-row arrows (j === 0) take pure red in Set mode to flag toggleability.
     if (showArrows) {
         for (let j = 0; j <= numRows; j++) {
             for (let i = 0; i < numCols; i++) {
                 if (!p.downMatrix[j][i]) continue;
                 const [cx, cy] = downC(i, j);
+                const arrowColor = initEditable && j === 0 ? "#f00" : ARROW_DOWN;
                 if (arrowMode === "line") {
                     group.appendChild(svgEl("line", {
                         ...downLineSeg(cx, cy, D),
-                        stroke: ARROW_DOWN,
+                        stroke: arrowColor,
                         "pointer-events": "none",
                     }));
                 } else {
                     group.appendChild(svgEl("path", {
                         d: downArrowPath(cx, cy, j === 0, D),
-                        fill: ARROW_DOWN,
+                        fill: arrowColor,
                         "pointer-events": "none",
                         transform: flipJ ? `rotate(180 ${cx} ${cy})` : null,
                     }));
@@ -281,21 +294,23 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
     }
 
     // ── Pass 2: right arrows ──
+    // Init-column arrows (i === 0) take pure blue in Set mode to flag toggleability.
     if (showArrows) {
         for (let i = 0; i <= numCols; i++) {
             for (let j = 0; j < numRows; j++) {
                 if (!p.rightMatrix[i][j]) continue;
                 const [cx, cy] = rightC(i, j);
+                const arrowColor = initEditable && i === 0 ? "#00f" : ARROW_RIGHT;
                 if (arrowMode === "line") {
                     group.appendChild(svgEl("line", {
                         ...rightLineSeg(cx, cy, D),
-                        stroke: ARROW_RIGHT,
+                        stroke: arrowColor,
                         "pointer-events": "none",
                     }));
                 } else {
                     group.appendChild(svgEl("path", {
                         d: rightArrowPath(cx, cy, i === 0, D),
-                        fill: ARROW_RIGHT,
+                        fill: arrowColor,
                         "pointer-events": "none",
                         transform: flipI ? `rotate(180 ${cx} ${cy})` : null,
                     }));
