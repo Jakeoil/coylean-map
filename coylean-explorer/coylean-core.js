@@ -727,6 +727,14 @@ export class Universe {
      * @param {number} [hInitCol]
      * @param {number} [vInitRow]
      * @param {Seniority} [seniority]
+     * @param {Object} [initArrays] Optional shared central-axis init arrays.
+     *   Each is fed to the two quadrants that touch that side (so editing
+     *   one entry is visible in both). Length must match the corresponding
+     *   extent. Omitted sides default to all-true.
+     * @param {boolean[]} [initArrays.westInitDown]   length westExtent
+     * @param {boolean[]} [initArrays.eastInitDown]   length eastExtent
+     * @param {boolean[]} [initArrays.northInitRight] length northExtent
+     * @param {boolean[]} [initArrays.southInitRight] length southExtent
      * @returns {{ nw: Propagation|null, ne: Propagation|null, sw: Propagation|null, se: Propagation|null }}
      */
     static createUniverseQuadrants(
@@ -735,6 +743,7 @@ export class Universe {
         hInitCol = 1,
         vInitRow = 1,
         seniority = Seniority.vertical(),
+        initArrays = {},
     ) {
         const [minRow, maxRow] = rowRange;
         const [minCol, maxCol] = colRange;
@@ -747,7 +756,7 @@ export class Universe {
         const eastExtent = maxCol + 1;
         return Universe.createUniverseExtents(
             northExtent, southExtent, westExtent, eastExtent,
-            hInitCol, vInitRow, seniority,
+            hInitCol, vInitRow, seniority, initArrays,
         );
     }
 
@@ -770,6 +779,9 @@ export class Universe {
      * @param {number} [hInitCol]
      * @param {number} [vInitRow]
      * @param {Seniority} [seniority]
+     * @param {Object} [initArrays] Optional shared central-axis init arrays;
+     *   each forwarded to the two quadrants that touch that side. See
+     *   createUniverseQuadrants for the field shape.
      * @returns {{ nw: Propagation|null, ne: Propagation|null, sw: Propagation|null, se: Propagation|null }}
      */
     static createUniverseExtents(
@@ -780,6 +792,7 @@ export class Universe {
         hInitCol = 1,
         vInitRow = 1,
         seniority = Seniority.vertical(),
+        initArrays = {},
     ) {
         if (northExtent < 0 || southExtent < 0 || westExtent < 0 || eastExtent < 0) {
             throw new Error("Universe extents must be non-negative");
@@ -787,21 +800,24 @@ export class Universe {
         if (northExtent + southExtent === 0 || westExtent + eastExtent === 0) {
             throw new Error("Universe must contain at least one quadrant");
         }
+        const { westInitDown, eastInitDown, northInitRight, southInitRight } = initArrays;
         // A quadrant exists iff both of its bounding extents are non-zero.
-        // Missing quadrants are returned as null.
-        const quadrant = (direction, numRows, numColumns, h, v) =>
+        // Missing quadrants are returned as null. initDown/initRight are
+        // shared by reference between the two quadrants on each side.
+        const quadrant = (direction, numRows, numColumns, h, v, initDown, initRight) =>
             (numRows && numColumns)
                 ? new Propagation({
                     direction, numRows, numColumns,
                     hInitCol: h, vInitRow: v, seniority,
+                    initDown, initRight,
                 })
                 : null;
         // prettier-ignore
         return {
-            nw: quadrant("nw", northExtent, westExtent, 1 - hInitCol, 1 - vInitRow),
-            ne: quadrant("ne", northExtent, eastExtent, hInitCol,     1 - vInitRow),
-            sw: quadrant("sw", southExtent, westExtent, 1 - hInitCol, vInitRow),
-            se: quadrant("se", southExtent, eastExtent, hInitCol,     vInitRow),
+            nw: quadrant("nw", northExtent, westExtent, 1 - hInitCol, 1 - vInitRow, westInitDown, northInitRight),
+            ne: quadrant("ne", northExtent, eastExtent, hInitCol,     1 - vInitRow, eastInitDown, northInitRight),
+            sw: quadrant("sw", southExtent, westExtent, 1 - hInitCol, vInitRow,     westInitDown, southInitRight),
+            se: quadrant("se", southExtent, eastExtent, hInitCol,     vInitRow,     eastInitDown, southInitRight),
         };
     }
     /**
@@ -820,6 +836,10 @@ export class Universe {
      * @param {number} options.hInitCol
      * @param {number} options.vInitRow
      * @param {Seniority} [options.seniority]
+     * @param {boolean[]} [options.westInitDown]   length westExtent  — shared by NW & SW
+     * @param {boolean[]} [options.eastInitDown]   length eastExtent  — shared by NE & SE
+     * @param {boolean[]} [options.northInitRight] length northExtent — shared by NW & NE
+     * @param {boolean[]} [options.southInitRight] length southExtent — shared by SW & SE
      * @returns {Universe}
      */
     static create({
@@ -830,8 +850,12 @@ export class Universe {
         hInitCol,
         vInitRow,
         seniority = Seniority.vertical(),
+        westInitDown,
+        eastInitDown,
+        northInitRight,
+        southInitRight,
     }) {
-        const quadrant = (direction, numRows, numColumns, h, v) =>
+        const quadrant = (direction, numRows, numColumns, h, v, initDown, initRight) =>
             new Propagation({
                 direction,
                 numRows,
@@ -839,6 +863,8 @@ export class Universe {
                 hInitCol: h,
                 vInitRow: v,
                 seniority,
+                initDown,
+                initRight,
             });
         const universe = new Universe(
             northExtent,
@@ -848,10 +874,10 @@ export class Universe {
             hInitCol,
             vInitRow,
             seniority,
-            quadrant("nw", northExtent, westExtent, 1 - hInitCol, 1 - vInitRow),
-            quadrant("ne", northExtent, eastExtent, hInitCol, 1 - vInitRow),
-            quadrant("sw", southExtent, westExtent, 1 - hInitCol, vInitRow),
-            quadrant("se", southExtent, eastExtent, hInitCol, vInitRow),
+            quadrant("nw", northExtent, westExtent, 1 - hInitCol, 1 - vInitRow, westInitDown, northInitRight),
+            quadrant("ne", northExtent, eastExtent, hInitCol,     1 - vInitRow, eastInitDown, northInitRight),
+            quadrant("sw", southExtent, westExtent, 1 - hInitCol, vInitRow,     westInitDown, southInitRight),
+            quadrant("se", southExtent, eastExtent, hInitCol,     vInitRow,     eastInitDown, southInitRight),
         );
         const assembled = universe.assemble();
         universe.downMatrix = assembled.downMatrix;

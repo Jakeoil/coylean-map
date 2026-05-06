@@ -90,6 +90,16 @@
                 background: #bc8cff;
                 border: 1px solid #7c5cb0;
             }
+
+            /* Wider input for the init hex boxes; default .control input is 64px. */
+            .control input.hex-input {
+                width: 220px;
+                font-family: monospace;
+            }
+            .control input.hex-input.error {
+                border-color: #c33;
+                background: #fdecec;
+            }
         </style>
     </head>
     <body class="layout-sidebar">
@@ -178,6 +188,40 @@
                         <div class="control">
                             <label>Seniority</label>
                             <button id="seniority" class="btn">Vertical</button>
+                        </div>
+                    </div>
+                </div>
+
+                <h2>Init</h2>
+                <div class="controls">
+                    <div class="control-row">
+                        <div class="control">
+                            <label>Mode</label>
+                            <button id="init-mode" class="btn">Show</button>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>westInitDown (length westExtent)</label>
+                            <input type="text" id="westInitDown" class="hex-input" readonly />
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>eastInitDown (length eastExtent)</label>
+                            <input type="text" id="eastInitDown" class="hex-input" readonly />
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>northInitRight (length northExtent)</label>
+                            <input type="text" id="northInitRight" class="hex-input" readonly />
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>southInitRight (length southExtent)</label>
+                            <input type="text" id="southInitRight" class="hex-input" readonly />
                         </div>
                     </div>
                 </div>
