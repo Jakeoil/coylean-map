@@ -821,6 +821,108 @@ export class Universe {
         };
     }
     /**
+     * Build a 2-half universe by partitioning a propagation horizontally
+     * at row index `i`. The new row `downs` becomes the shared central
+     * horizontal axis (eastInitDown), feeding both `ne` (which propagates
+     * it northward) and `se` (which propagates it southward). The
+     * propagation's own `initRight` is split at `i` into the two halves'
+     * outer N/S inits and recovered intact when the universe is
+     * re-integrated via `Propagation.fromUniverseBoundary`.
+     *
+     * Edge cases: `i === 0` yields a 1-quadrant universe with only `se`;
+     * `i === numRows` yields one with only `ne`. Both are valid degenerate
+     * partitions.
+     *
+     * @param {Propagation} propagation
+     * @param {boolean[]}   downs        new value for `dMatrix[i]` — length numColumns
+     * @param {number}      i            row index in [0, propagation.numRows]
+     * @returns {Universe}
+     */
+    static hPartition(propagation, downs, i) {
+        const { numRows, numColumns, hInitCol, vInitRow, seniority, initRight } = propagation;
+        if (i < 0 || i > numRows) {
+            throw new Error(`hPartition: i=${i} out of range [0, ${numRows}]`);
+        }
+        if (downs.length !== numColumns) {
+            throw new Error(
+                `hPartition: downs.length=${downs.length} must equal numColumns=${numColumns}`,
+            );
+        }
+        const northExtent = i;
+        const southExtent = numRows - i;
+        const westExtent = 0;
+        const eastExtent = numColumns;
+
+        // Shared central horizontal axis going E from origin: the perturbed row.
+        const eastInitDown = Row.from([...downs]);
+        // Original initRight is N→S. ne stores its initRight S→N (local j=0 at
+        // origin), so reverse the top slice. se's bottom slice is already N→S.
+        const northInitRight = Col.from([...initRight.slice(0, i)].reverse());
+        const southInitRight = Col.from([...initRight.slice(i)]);
+
+        const { nw, ne, sw, se } = Universe.createUniverseExtents(
+            northExtent, southExtent, westExtent, eastExtent,
+            hInitCol, vInitRow, seniority,
+            { eastInitDown, northInitRight, southInitRight },
+        );
+        return Universe.fromPropagations({
+            northExtent, southExtent, westExtent, eastExtent,
+            hInitCol, vInitRow, seniority,
+            nw, ne, sw, se,
+        });
+    }
+
+    /**
+     * Build a 2-half universe by partitioning a propagation vertically
+     * at column index `j`. The new column `rights` becomes the shared
+     * central vertical axis (southInitRight), feeding both `sw` (which
+     * propagates it westward) and `se` (which propagates it eastward).
+     * The propagation's own `initDown` is split at `j` into the two
+     * halves' outer W/E inits and recovered intact on re-integration.
+     *
+     * Edge cases: `j === 0` yields a 1-quadrant universe with only `se`;
+     * `j === numColumns` yields one with only `sw`.
+     *
+     * @param {Propagation} propagation
+     * @param {boolean[]}   rights      new value for `rMatrix[j]` — length numRows
+     * @param {number}      j           column index in [0, propagation.numColumns]
+     * @returns {Universe}
+     */
+    static vPartition(propagation, rights, j) {
+        const { numRows, numColumns, hInitCol, vInitRow, seniority, initDown } = propagation;
+        if (j < 0 || j > numColumns) {
+            throw new Error(`vPartition: j=${j} out of range [0, ${numColumns}]`);
+        }
+        if (rights.length !== numRows) {
+            throw new Error(
+                `vPartition: rights.length=${rights.length} must equal numRows=${numRows}`,
+            );
+        }
+        const northExtent = 0;
+        const southExtent = numRows;
+        const westExtent = j;
+        const eastExtent = numColumns - j;
+
+        // Shared central vertical axis going S from origin: the perturbed column.
+        const southInitRight = Col.from([...rights]);
+        // Original initDown is W→E. sw stores its initDown E→W (local i=0 at
+        // origin), so reverse the left slice. se's right slice is already W→E.
+        const westInitDown = Row.from([...initDown.slice(0, j)].reverse());
+        const eastInitDown = Row.from([...initDown.slice(j)]);
+
+        const { nw, ne, sw, se } = Universe.createUniverseExtents(
+            northExtent, southExtent, westExtent, eastExtent,
+            hInitCol, vInitRow, seniority,
+            { westInitDown, eastInitDown, southInitRight },
+        );
+        return Universe.fromPropagations({
+            northExtent, southExtent, westExtent, eastExtent,
+            hInitCol, vInitRow, seniority,
+            nw, ne, sw, se,
+        });
+    }
+
+    /**
      * Primary factory for a fully assembled Universe.
      *
      * Builds the four quadrant propagations with per-direction extents, then
