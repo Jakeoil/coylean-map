@@ -88,14 +88,31 @@ export function attachSvgPanZoom(svg, group, opts = {}) {
         return { midX, midY, dist };
     }
 
+    // Distance (client-space pixels²) below which a single-touch drag is
+    // still treated as a stationary tap. Past this, the touch becomes a
+    // pan and we preventDefault to suppress the synthetic click.
+    const TAP_THRESHOLD_SQ = 64; // 8 px
+
     svg.addEventListener(
         "touchstart",
         (e) => {
-            e.preventDefault();
             if (e.touches.length === 1) {
-                const p = clientToSvg(e.touches[0].clientX, e.touches[0].clientY);
-                touchState = { mode: "pan", lastX: p.x, lastY: p.y };
+                // No preventDefault on a single-touch start: a tap must be
+                // allowed to fire its synthetic click so diamond handlers
+                // run. We tentatively record pan state and only commit to
+                // panning once movement exceeds the tap threshold.
+                const t = e.touches[0];
+                const p = clientToSvg(t.clientX, t.clientY);
+                touchState = {
+                    mode: "pan",
+                    lastX: p.x,
+                    lastY: p.y,
+                    startClientX: t.clientX,
+                    startClientY: t.clientY,
+                    panActive: false,
+                };
             } else if (e.touches.length === 2) {
+                e.preventDefault();
                 const m = touchMidDist(e.touches);
                 touchState = {
                     mode: "pinch",
@@ -114,16 +131,24 @@ export function attachSvgPanZoom(svg, group, opts = {}) {
     svg.addEventListener(
         "touchmove",
         (e) => {
-            e.preventDefault();
             if (!touchState) return;
             if (touchState.mode === "pan" && e.touches.length === 1) {
-                const p = clientToSvg(e.touches[0].clientX, e.touches[0].clientY);
+                const t = e.touches[0];
+                if (!touchState.panActive) {
+                    const dx = t.clientX - touchState.startClientX;
+                    const dy = t.clientY - touchState.startClientY;
+                    if (dx * dx + dy * dy < TAP_THRESHOLD_SQ) return;
+                    touchState.panActive = true;
+                }
+                e.preventDefault();
+                const p = clientToSvg(t.clientX, t.clientY);
                 state.offsetX += p.x - touchState.lastX;
                 state.offsetY += p.y - touchState.lastY;
                 touchState.lastX = p.x;
                 touchState.lastY = p.y;
                 applyTransform();
             } else if (touchState.mode === "pinch" && e.touches.length === 2) {
+                e.preventDefault();
                 const m = touchMidDist(e.touches);
                 const factor = m.dist / touchState.startDist;
                 const newScale = Math.max(
