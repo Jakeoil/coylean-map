@@ -833,6 +833,11 @@ export class Universe {
      * `i === numRows` yields one with only `ne`. Both are valid degenerate
      * partitions.
      *
+     * Geometry is preserved in place: the integrated propagation produced
+     * by `Propagation.fromUniverseBoundary` has the same `hInitCol` and
+     * `vInitRow` as the input (a partition replaces an interior row, it
+     * does not extend the propagation beyond its existing extent).
+     *
      * @param {Propagation} propagation
      * @param {boolean[]}   downs        new value for `dMatrix[i]` — length numColumns
      * @param {number}      i            row index in [0, propagation.numRows]
@@ -860,14 +865,19 @@ export class Universe {
         const northInitRight = Col.from([...initRight.slice(0, i)].reverse());
         const southInitRight = Col.from([...initRight.slice(i)]);
 
+        // Pre-compensate the v offset so fromUniverseBoundary recovers the
+        // original vInitRow exactly: it subtracts northExtent on the way out.
+        // Partition replaces an interior row in place — geometry is preserved.
+        const vInitRowPassed = vInitRow + northExtent;
+
         const { nw, ne, sw, se } = Universe.createUniverseExtents(
             northExtent, southExtent, westExtent, eastExtent,
-            hInitCol, vInitRow, seniority,
+            hInitCol, vInitRowPassed, seniority,
             { eastInitDown, northInitRight, southInitRight },
         );
         return Universe.fromPropagations({
             northExtent, southExtent, westExtent, eastExtent,
-            hInitCol, vInitRow, seniority,
+            hInitCol, vInitRow: vInitRowPassed, seniority,
             nw, ne, sw, se,
         });
     }
@@ -882,6 +892,9 @@ export class Universe {
      *
      * Edge cases: `j === 0` yields a 1-quadrant universe with only `se`;
      * `j === numColumns` yields one with only `sw`.
+     *
+     * Geometry is preserved in place: the integrated propagation has the
+     * same `hInitCol` and `vInitRow` as the input (see `hPartition`).
      *
      * @param {Propagation} propagation
      * @param {boolean[]}   rights      new value for `rMatrix[j]` — length numRows
@@ -910,14 +923,18 @@ export class Universe {
         const westInitDown = Row.from([...initDown.slice(0, j)].reverse());
         const eastInitDown = Row.from([...initDown.slice(j)]);
 
+        // Pre-compensate the h offset so fromUniverseBoundary recovers the
+        // original hInitCol exactly: it subtracts westExtent on the way out.
+        const hInitColPassed = hInitCol + westExtent;
+
         const { nw, ne, sw, se } = Universe.createUniverseExtents(
             northExtent, southExtent, westExtent, eastExtent,
-            hInitCol, vInitRow, seniority,
+            hInitColPassed, vInitRow, seniority,
             { westInitDown, eastInitDown, southInitRight },
         );
         return Universe.fromPropagations({
             northExtent, southExtent, westExtent, eastExtent,
-            hInitCol, vInitRow, seniority,
+            hInitCol: hInitColPassed, vInitRow, seniority,
             nw, ne, sw, se,
         });
     }

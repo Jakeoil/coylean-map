@@ -41,12 +41,14 @@ function appendLabelWithBg(parent, cx, cy, text, bgFill) {
 //                       blue for right) so the editable row/column stands out.
 // hooks:  { onEnterDown(i, j, val), onEnterRight(i, j, val), onLeave(),
 //           onClickDown?(i, j), onClickRight?(i, j) }
-//         Click hooks are only attached to init cells (j === 0 for down,
-//         i === 0 for right). Pass them in to enable init-bit toggling.
+//         By default, click hooks are only attached to init cells (j === 0
+//         for down, i === 0 for right). Set flags.allCellsClickable to
+//         attach click handlers on every cell — handler then dispatches on
+//         (i, j) to choose init-toggle vs. interior-perturbation behavior.
 export function renderPropagation(svg, config, result, flags, hooks) {
     const { numRows: nR, numCols: nC, hInitCol, vInitRow, seniority } = config;
     const { downMatrix: dm, rightMatrix: rm } = result;
-    const { showLabels, showPri, showMinimize, encroachMode = "off", arrowMode = "full", showBorders, showFill = true, initEditable = false } = flags;
+    const { showLabels, showPri, showMinimize, encroachMode = "off", arrowMode = "full", showBorders, showFill = true, initEditable = false, allCellsClickable = false } = flags;
     const showEncroach = encroachMode !== "off";
     const showArrows = arrowMode !== "off";
     const { onEnterDown, onEnterRight, onLeave, onClickDown, onClickRight } = hooks;
@@ -84,7 +86,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             });
             poly.addEventListener("mouseenter", () => onEnterDown(i, j, val));
             poly.addEventListener("mouseleave", onLeave);
-            if (isInit && onClickDown) {
+            if ((isInit || allCellsClickable) && onClickDown) {
                 poly.addEventListener("click", () => onClickDown(i, j));
             }
             vp.appendChild(poly);
@@ -106,7 +108,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             });
             poly.addEventListener("mouseenter", () => onEnterRight(i, j, val));
             poly.addEventListener("mouseleave", onLeave);
-            if (isInit && onClickRight) {
+            if ((isInit || allCellsClickable) && onClickRight) {
                 poly.addEventListener("click", () => onClickRight(i, j));
             }
             vp.appendChild(poly);

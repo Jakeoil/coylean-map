@@ -1,4 +1,4 @@
-import { Seniority, Propagation } from "../../coylean-core.js";
+import { Seniority, Propagation, Universe } from "../../coylean-core.js";
 import { renderPropagation } from "../display/render-propagation.js";
 import { attachSvgPanZoom } from "../display/svg-pan-zoom.js";
 import { makeInfo } from "./basic-propagation-prototype-info.js";
@@ -33,9 +33,14 @@ export function init() {
         initRight: Array(+inputs.numRows.value).fill(true),
     };
 
-    // "show" → text inputs are readonly mirrors of config.
-    // "set"  → user can type hex; commit on blur/Enter.
+    // "show"   → text inputs are readonly mirrors of config; no clicks.
+    // "set"    → user can type hex / click init cells to flip a bit.
+    // "setAny" → click any diamond: init bits toggle directly; interior
+    //            cells perturb dMatrix[j] / rMatrix[i] and re-integrate
+    //            via Universe.hPartition / vPartition.
     let initMode = "show";
+    const MODE_CYCLE = ["show", "set", "setAny"];
+    const MODE_LABEL = { show: "Show", set: "Set", setAny: "Set Any" };
 
     // Display toggles — do not affect propagation, only rendering.
     const flags = {
@@ -46,23 +51,54 @@ export function init() {
         encroachMode: "off",
         showFill: true,
         showBorders: false,
-        initEditable: false, // tracks initMode === "set" for renderer
+        initEditable: false,      // initMode !== "show"
+        allCellsClickable: false, // initMode === "setAny"
     };
 
     let result = null;
+    let prop = null; // current Propagation; click handlers reference its matrices
 
     const infoHooks = makeInfo(info, () => ({ config, result }));
 
-    // Click hooks — only fire on init cells (renderPropagation enforces this).
-    // Only attached when initMode === "set"; in Show mode the renderer omits
-    // the click listener entirely.
+    // Adopt the integrated propagation produced by a partition: copy its
+    // boundary arrays and offsets into config (and the numeric inputs) so
+    // the next render rebuilds the same propagation from config.
+    function adoptIntegrated(integrated) {
+        config.initDown = [...integrated.initDown];
+        config.initRight = [...integrated.initRight];
+        config.hInitCol = integrated.hInitCol;
+        config.vInitRow = integrated.vInitRow;
+        inputs.hInitCol.value = String(integrated.hInitCol);
+        inputs.vInitRow.value = String(integrated.vInitRow);
+    }
+
+    // Click hooks. Renderer attaches to init cells in "set"/"setAny"; in
+    // "setAny" it also attaches to interior cells (allCellsClickable).
     const clickHooks = {
-        onClickDown: (i, _j) => {
-            config.initDown[i] = !config.initDown[i];
+        onClickDown: (i, j) => {
+            if (j === 0) {
+                config.initDown[i] = !config.initDown[i];
+                render();
+                return;
+            }
+            // Interior down cell — only reached in setAny mode.
+            const downs = [...prop.downMatrix[j]];
+            downs[i] = !downs[i];
+            const universe = Universe.hPartition(prop, downs, j);
+            adoptIntegrated(Propagation.fromUniverseBoundary(universe));
             render();
         },
-        onClickRight: (_i, j) => {
-            config.initRight[j] = !config.initRight[j];
+        onClickRight: (i, j) => {
+            if (i === 0) {
+                config.initRight[j] = !config.initRight[j];
+                render();
+                return;
+            }
+            // Interior right cell — only reached in setAny mode.
+            const rights = [...prop.rightMatrix[i]];
+            rights[j] = !rights[j];
+            const universe = Universe.vPartition(prop, rights, i);
+            adoptIntegrated(Propagation.fromUniverseBoundary(universe));
             render();
         },
     };
@@ -102,7 +138,7 @@ export function init() {
 
     function render() {
         syncNumericInputs();
-        const prop = new Propagation({
+        prop = new Propagation({
             direction: "se",
             numRows: config.numRows,
             numColumns: config.numCols,
@@ -143,14 +179,16 @@ export function init() {
     // ── Init mode toggle + hex commit ──
 
     initModeBtn.onclick = () => {
-        initMode = initMode === "show" ? "set" : "show";
-        initModeBtn.textContent = initMode === "show" ? "Show" : "Set";
-        initModeBtn.classList.toggle("active", initMode === "set");
+        const cur = MODE_CYCLE.indexOf(initMode);
+        initMode = MODE_CYCLE[(cur + 1) % MODE_CYCLE.length];
+        initModeBtn.textContent = MODE_LABEL[initMode];
+        initModeBtn.classList.toggle("active", initMode !== "show");
         const readonly = initMode === "show";
         inputs.initDown.readOnly = readonly;
         inputs.initRight.readOnly = readonly;
         flags.initEditable = !readonly;
-        render(); // repaints diagram (init tint + click handlers) and hex inputs
+        flags.allCellsClickable = initMode === "setAny";
+        render();
     };
 
     function commitHex(inputEl, dimKey, arrayKey) {
