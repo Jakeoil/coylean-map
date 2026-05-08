@@ -60,14 +60,75 @@
  */
 
 export function drawPipeJunction(ctx, x, y, size, blueD = 1, redD = 0.5) {
-    blueD = Math.max(0.001, Math.min(1, blueD));
-    redD = Math.max(0.001, Math.min(1, redD));
+    blueD = Math.min(1, Math.max(0, blueD));
+    redD = Math.min(1, Math.max(0, redD));
+
+    const blueOff = blueD <= 0;
+    const redOff = redD <= 0;
+
+    if (blueOff && redOff) return;
+    if (blueOff) return drawSingleRedPipe(ctx, x, y, size, redD);
+    if (redOff) return drawSingleBluePipe(ctx, x, y, size, blueD);
 
     if (blueD >= redD) {
         drawJunctionBlueCrossbar(ctx, x, y, size, blueD, redD);
     } else {
         drawJunctionRedCrossbar(ctx, x, y, size, blueD, redD);
     }
+}
+
+function drawSingleBluePipe(ctx, x, y, size, blueD) {
+    const S = size;
+    const R = blueD / 2;
+    const cy = 0.5;
+    const X = (u) => x + u * S;
+    const Y = (v) => y + v * S;
+    const blueTop = cy - R;
+    const blueBot = cy + R;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, S, S);
+    ctx.clip();
+
+    const blueGrad = ctx.createLinearGradient(0, Y(blueTop), 0, Y(blueBot));
+    blueGrad.addColorStop(0.0, "#003388");
+    blueGrad.addColorStop(0.35, "#1f7cff");
+    blueGrad.addColorStop(0.5, "#75b7ff");
+    blueGrad.addColorStop(0.65, "#1f7cff");
+    blueGrad.addColorStop(1.0, "#002866");
+
+    ctx.fillStyle = blueGrad;
+    ctx.fillRect(X(0), Y(blueTop), S, Y(blueBot) - Y(blueTop));
+
+    ctx.restore();
+}
+
+function drawSingleRedPipe(ctx, x, y, size, redD) {
+    const S = size;
+    const R = redD / 2;
+    const cx = 0.5;
+    const X = (u) => x + u * S;
+    const Y = (v) => y + v * S;
+    const redLeft = cx - R;
+    const redRight = cx + R;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, S, S);
+    ctx.clip();
+
+    const redGrad = ctx.createLinearGradient(X(redLeft), 0, X(redRight), 0);
+    redGrad.addColorStop(0.0, "#7a0000");
+    redGrad.addColorStop(0.35, "#ff3030");
+    redGrad.addColorStop(0.5, "#ffaaaa");
+    redGrad.addColorStop(0.65, "#ff3030");
+    redGrad.addColorStop(1.0, "#7a0000");
+
+    ctx.fillStyle = redGrad;
+    ctx.fillRect(X(redLeft), Y(0), X(redRight) - X(redLeft), S);
+
+    ctx.restore();
 }
 
 function drawJunctionBlueCrossbar(ctx, x, y, size, blueD, redD) {
