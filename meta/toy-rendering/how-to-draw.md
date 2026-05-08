@@ -79,9 +79,10 @@ Unicode box-drawing characters: `┌ ┐ └ ┘ ├ ┤ ┬ ┴ ┼ ─ │` an
 
 ## Try it
 
-`toy-rendering/draw-coylean.mjs` is a self-contained Node program that runs
-the algorithm on an 8×8 grid and prints it with box-drawing characters:
+`draw-coylean.mjs` (in this same folder) is a self-contained Node program
+that runs the algorithm on an 8×8 grid and prints it with box-drawing
+characters:
 
 ```
-node toy-rendering/draw-coylean.mjs
+node meta/toy-rendering/draw-coylean.mjs
 ```

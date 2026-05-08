@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Render an 8x8 Coylean map to the terminal with Unicode box-drawing chars.
-// Self-contained — see ../how-to-draw.md for the algorithm,
+// Self-contained — see ./how-to-draw.md for the algorithm,
 // or ../../coylean-explorer/coylean-core.js for the library version.
 
 const N = 8;
