@@ -46,7 +46,8 @@ export function init() {
     const flags = {
         showLabels: true,
         arrowMode: "full",
-        showPri: false,
+        showReactionLabels: false,
+        priorityArrows: false,
         showMinimize: false,
         encroachMode: "off",
         showFill: true,
@@ -238,7 +239,8 @@ export function init() {
     }
 
     wireToggle("tog-labels", "showLabels");
-    wireToggle("tog-pri", "showPri");
+    wireToggle("tog-reaction-labels", "showReactionLabels");
+    wireToggle("tog-priority", "priorityArrows");
 
     const arrowBtn = document.getElementById("tog-arrows");
     const ARROW_CYCLE = ["off", "full", "line"];

@@ -1,6 +1,6 @@
 import { pri } from "../../coylean-core.js";
 import { svgEl, diamondPts } from "./svg.js";
-import { downArrowPath, rightArrowPath, downLineSeg, rightLineSeg } from "./arrows.js";
+import { downArrowPath, rightArrowPath, downLineSeg, rightLineSeg, presetForPri } from "./arrows.js";
 import { renderEncroach } from "./encroach.js";
 
 // Layout constants for the 2x2 quadrant mosaic.
@@ -51,7 +51,10 @@ function appendLabelWithBg(parent, cx, cy, text, bgFill) {
 // Render a 2x2 mosaic of four propagation panels.
 //   svg:    the <svg> element to render into
 //   quads:  array of { p, name, flipJ, flipI } where name is "nw"|"ne"|"sw"|"se"
-//   flags:  { showLabels, arrowMode, showPri, showMinimize, encroachMode } — display toggles
+//   flags:  { showLabels, arrowMode, showReactionLabels, priorityArrows, showMinimize, encroachMode } — display toggles
+//          priorityArrows: when true, each arrow's thickness is keyed off its
+//                          axis priority (pri(i + p.hInitCol) for down,
+//                          pri(j + p.vInitRow) for right) via presetForPri.
 //          arrowMode:    "off" | "full" | "line"
 //          encroachMode: "off" | "full" | "half"
 //   hooks:  { onEnterDown(name,i,j,val), onEnterRight(name,i,j,val), onLeave(),
@@ -164,7 +167,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
     const { p, name, flipJ, flipI } = quad;
     const numRows = p.numRows;
     const numCols = p.numColumns;
-    const { showLabels, showPri, showMinimize, encroachMode = "off", arrowMode = "full", showBorders, showFill = true, initEditable = false } = flags;
+    const { showLabels, showReactionLabels, showMinimize, encroachMode = "off", arrowMode = "full", showBorders, showFill = true, initEditable = false, priorityArrows = false } = flags;
     const showEncroach = encroachMode !== "off";
     const showArrows = arrowMode !== "off";
     const { onEnterDown, onEnterRight, onLeave, onClickDown, onClickRight } = hooks;
@@ -275,15 +278,16 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
                 if (!p.downMatrix[j][i]) continue;
                 const [cx, cy] = downC(i, j);
                 const arrowColor = initEditable && j === 0 ? "#f00" : ARROW_DOWN;
+                const preset = priorityArrows ? presetForPri(pri(i + p.hInitCol)) : "current";
                 if (arrowMode === "line") {
                     group.appendChild(svgEl("line", {
-                        ...downLineSeg(cx, cy, D),
+                        ...downLineSeg(cx, cy, D, preset),
                         stroke: arrowColor,
                         "pointer-events": "none",
                     }));
                 } else {
                     group.appendChild(svgEl("path", {
-                        d: downArrowPath(cx, cy, j === 0, D),
+                        d: downArrowPath(cx, cy, j === 0, D, preset),
                         fill: arrowColor,
                         "pointer-events": "none",
                         transform: flipJ ? `rotate(180 ${cx} ${cy})` : null,
@@ -301,15 +305,16 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
                 if (!p.rightMatrix[i][j]) continue;
                 const [cx, cy] = rightC(i, j);
                 const arrowColor = initEditable && i === 0 ? "#00f" : ARROW_RIGHT;
+                const preset = priorityArrows ? presetForPri(pri(j + p.vInitRow)) : "current";
                 if (arrowMode === "line") {
                     group.appendChild(svgEl("line", {
-                        ...rightLineSeg(cx, cy, D),
+                        ...rightLineSeg(cx, cy, D, preset),
                         stroke: arrowColor,
                         "pointer-events": "none",
                     }));
                 } else {
                     group.appendChild(svgEl("path", {
-                        d: rightArrowPath(cx, cy, i === 0, D),
+                        d: rightArrowPath(cx, cy, i === 0, D, preset),
                         fill: arrowColor,
                         "pointer-events": "none",
                         transform: flipI ? `rotate(180 ${cx} ${cy})` : null,
@@ -353,8 +358,8 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
         }
     }
 
-    // ── Priority overlay ──
-    if (showPri) {
+    // ── Reaction-labels overlay ──
+    if (showReactionLabels) {
         const isVert = p.seniority?.isVertical ?? true;
         const cmp = isVert ? "≥" : ">";
         const downGlyph = flipJ ? "↑" : "↓";

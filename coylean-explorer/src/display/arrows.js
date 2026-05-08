@@ -1,28 +1,45 @@
 import { D as DEFAULT_D } from "./diagram-coords.js";
+import { pri } from "../../coylean-core.js";
 
 // Styled after research/arrow.svg: filled shaft with rounded cap + chevron arrowhead
 
-// Baseline constants tuned for d = DEFAULT_D (= 48). Arrow size scales linearly
-// with d so a smaller diamond still gets a proportional arrow.
-const BASE_MARGIN = 4.5;
-const BASE_SW = 3.75;
-const BASE_HL = 18;
-const BASE_HW = 9;
-const BASE_ND = 6;
+// Per-priority presets (tuned in arrows-test.html, calibrated for d = DEFAULT_D = 48).
+// Arrow size scales linearly with d: a smaller diamond gets a proportional arrow.
+const PRESETS = {
+    thin2:   { SW: 1.88, HL: 9,    HW: 4.5,  ND: 3,   MARGIN: 2.66 },
+    thin1:   { SW: 2.81, HL: 13.5, HW: 6.75, ND: 4.5, MARGIN: 3.97 },
+    current: { SW: 3.75, HL: 18,   HW: 9,    ND: 6,   MARGIN: 5.30 },
+    thick:   { SW: 5.25, HL: 25.2, HW: 12.6, ND: 8.4, MARGIN: 7.42 },
+};
 
-function consts(d) {
+// Map an arrow's axis priority to a thickness preset.
+// pri(0) = 100 (the highest-priority axis position) → thick.
+export function presetForPri(p) {
+    if (p <= 1) return "thin2";
+    if (p === 2) return "thin1";
+    if (p === 3) return "current";
+    return "thick";
+}
+
+// Convenience: derive preset directly from a column / row offset.
+export function presetForOffset(n) {
+    return presetForPri(pri(n));
+}
+
+function consts(d, preset = "current") {
     const k = d / DEFAULT_D;
+    const base = PRESETS[preset] ?? PRESETS.current;
     return {
-        ARR_MARGIN: BASE_MARGIN * k,
-        ARR_SW: BASE_SW * k,
-        ARR_HL: BASE_HL * k,
-        ARR_HW: BASE_HW * k,
-        ARR_ND: BASE_ND * k,
+        ARR_MARGIN: base.MARGIN * k,
+        ARR_SW: base.SW * k,
+        ARR_HL: base.HL * k,
+        ARR_HW: base.HW * k,
+        ARR_ND: base.ND * k,
     };
 }
 
-export function downArrowPath(cx, cy, doubleHeaded, d = DEFAULT_D) {
-    const { ARR_MARGIN, ARR_SW, ARR_HL, ARR_HW, ARR_ND } = consts(d);
+export function downArrowPath(cx, cy, doubleHeaded, d = DEFAULT_D, preset = "current") {
+    const { ARR_MARGIN, ARR_SW, ARR_HL, ARR_HW, ARR_ND } = consts(d, preset);
     const t = cy - d + ARR_MARGIN;
     const b = cy + d - ARR_MARGIN;
     if (doubleHeaded) {
@@ -31,8 +48,8 @@ export function downArrowPath(cx, cy, doubleHeaded, d = DEFAULT_D) {
     return `M${cx - ARR_SW},${t} A${ARR_SW},${ARR_SW} 0 0 1 ${cx + ARR_SW},${t} L${cx + ARR_SW},${b - ARR_HL + ARR_ND} ${cx + ARR_HW},${b - ARR_HL} ${cx},${b} ${cx - ARR_HW},${b - ARR_HL} ${cx - ARR_SW},${b - ARR_HL + ARR_ND}Z`;
 }
 
-export function rightArrowPath(cx, cy, doubleHeaded, d = DEFAULT_D) {
-    const { ARR_MARGIN, ARR_SW, ARR_HL, ARR_HW, ARR_ND } = consts(d);
+export function rightArrowPath(cx, cy, doubleHeaded, d = DEFAULT_D, preset = "current") {
+    const { ARR_MARGIN, ARR_SW, ARR_HL, ARR_HW, ARR_ND } = consts(d, preset);
     const l = cx - d + ARR_MARGIN;
     const r = cx + d - ARR_MARGIN;
     if (doubleHeaded) {
@@ -43,8 +60,8 @@ export function rightArrowPath(cx, cy, doubleHeaded, d = DEFAULT_D) {
 
 // Plain line segments (no arrowheads) spanning the same diamond extent
 // the arrow shaft would cover. Used by the "line" arrow mode.
-export function downLineSeg(cx, cy, d = DEFAULT_D) {
-    const { ARR_MARGIN, ARR_SW } = consts(d);
+export function downLineSeg(cx, cy, d = DEFAULT_D, preset = "current") {
+    const { ARR_MARGIN, ARR_SW } = consts(d, preset);
     return {
         x1: cx, y1: cy - d + ARR_MARGIN,
         x2: cx, y2: cy + d - ARR_MARGIN,
@@ -53,8 +70,8 @@ export function downLineSeg(cx, cy, d = DEFAULT_D) {
     };
 }
 
-export function rightLineSeg(cx, cy, d = DEFAULT_D) {
-    const { ARR_MARGIN, ARR_SW } = consts(d);
+export function rightLineSeg(cx, cy, d = DEFAULT_D, preset = "current") {
+    const { ARR_MARGIN, ARR_SW } = consts(d, preset);
     return {
         x1: cx - d + ARR_MARGIN, y1: cy,
         x2: cx + d - ARR_MARGIN, y2: cy,

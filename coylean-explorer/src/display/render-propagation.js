@@ -1,7 +1,7 @@
 import { pri } from "../../coylean-core.js";
 import { svgEl, diamondPts } from "./svg.js";
 import { S, D, PAD, downPos, rightPos, cellPos } from "./diagram-coords.js";
-import { downArrowPath, rightArrowPath, downLineSeg, rightLineSeg } from "./arrows.js";
+import { downArrowPath, rightArrowPath, downLineSeg, rightLineSeg, presetForPri } from "./arrows.js";
 import { renderEncroach } from "./encroach.js";
 
 const LABEL_BG_DOWN  = "rgba(224, 168, 168, 0.85)";
@@ -34,7 +34,10 @@ function appendLabelWithBg(parent, cx, cy, text, bgFill) {
 
 // config: { numRows, numCols, hInitCol, vInitRow, seniority }  — propagation input
 // result: { downMatrix, rightMatrix }                          — propagate() output
-// flags:  { showLabels, arrowMode, showPri, showMinimize, encroachMode, initEditable }
+// flags:  { showLabels, arrowMode, showReactionLabels, priorityArrows, showMinimize, encroachMode, initEditable }
+//         priorityArrows: when true, each arrow's thickness is keyed off its
+//                         axis priority (pri(i + hInitCol) for down,
+//                         pri(j + vInitRow) for right) via presetForPri.
 //         arrowMode:    "off" | "full" | "line"
 //         encroachMode: "off" | "full" | "half"
 //         initEditable: when true, init cells get dark fills (red for down,
@@ -48,7 +51,7 @@ function appendLabelWithBg(parent, cx, cy, text, bgFill) {
 export function renderPropagation(svg, config, result, flags, hooks) {
     const { numRows: nR, numCols: nC, hInitCol, vInitRow, seniority } = config;
     const { downMatrix: dm, rightMatrix: rm } = result;
-    const { showLabels, showPri, showMinimize, encroachMode = "off", arrowMode = "full", showBorders, showFill = true, initEditable = false, allCellsClickable = false } = flags;
+    const { showLabels, showReactionLabels, showMinimize, encroachMode = "off", arrowMode = "full", showBorders, showFill = true, initEditable = false, allCellsClickable = false, priorityArrows = false } = flags;
     const showEncroach = encroachMode !== "off";
     const showArrows = arrowMode !== "off";
     const { onEnterDown, onEnterRight, onLeave, onClickDown, onClickRight } = hooks;
@@ -123,15 +126,16 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                 if (!dm[j][i]) continue;
                 const [cx, cy] = downPos(i, j);
                 const arrowColor = initEditable && j === 0 ? "#f00" : "#7a2d2d";
+                const preset = priorityArrows ? presetForPri(pri(i + hInitCol)) : "current";
                 if (arrowMode === "line") {
                     vp.appendChild(svgEl("line", {
-                        ...downLineSeg(cx, cy),
+                        ...downLineSeg(cx, cy, D, preset),
                         stroke: arrowColor,
                         class: "arrow-path",
                     }));
                 } else {
                     vp.appendChild(svgEl("path", {
-                        d: downArrowPath(cx, cy, j === 0),
+                        d: downArrowPath(cx, cy, j === 0, D, preset),
                         class: "arrow-path",
                         fill: arrowColor,
                     }));
@@ -148,15 +152,16 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                 if (!rm[i][j]) continue;
                 const [cx, cy] = rightPos(i, j);
                 const arrowColor = initEditable && i === 0 ? "#00f" : "#3d6a8a";
+                const preset = priorityArrows ? presetForPri(pri(j + vInitRow)) : "current";
                 if (arrowMode === "line") {
                     vp.appendChild(svgEl("line", {
-                        ...rightLineSeg(cx, cy),
+                        ...rightLineSeg(cx, cy, D, preset),
                         stroke: arrowColor,
                         class: "arrow-path",
                     }));
                 } else {
                     vp.appendChild(svgEl("path", {
-                        d: rightArrowPath(cx, cy, i === 0),
+                        d: rightArrowPath(cx, cy, i === 0, D, preset),
                         class: "arrow-path",
                         fill: arrowColor,
                     }));
@@ -199,12 +204,12 @@ export function renderPropagation(svg, config, result, flags, hooks) {
         }
     }
 
-    // ── Pass 5: priority overlay (cell-center text) ──
+    // ── Pass 5: reaction-labels overlay (cell-center text) ──
     for (let j = 0; j < nR; j++) {
         for (let i = 0; i < nC; i++) {
             const [cx, cy] = cellPos(i, j);
 
-            if (showPri) {
+            if (showReactionLabels) {
                 const pI = pri(i + hInitCol);
                 const pJ = pri(j + vInitRow);
                 const dw = seniority.isVertical
