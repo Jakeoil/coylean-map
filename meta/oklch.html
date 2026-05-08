@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>OKLCH Color Theme Sketch</title>
+        <style>
+            :root {
+                color-scheme: dark;
+
+                --bg: oklch(14% 0.025 260);
+                --panel: oklch(19% 0.03 260);
+                --panel-2: oklch(23% 0.035 260);
+                --text: oklch(92% 0.02 260);
+                --muted: oklch(72% 0.025 260);
+                --line: oklch(35% 0.035 260);
+
+                --red-outline: oklch(34% 0.18 25);
+                --red-shadow: oklch(25% 0.13 25);
+                --red-base: oklch(57% 0.22 25);
+                --red-highlight: oklch(74% 0.16 25);
+                --red-glow: oklch(88% 0.08 25);
+
+                --amber-outline: oklch(36% 0.11 70);
+                --amber-shadow: oklch(27% 0.08 70);
+                --amber-base: oklch(64% 0.16 70);
+                --amber-highlight: oklch(78% 0.12 70);
+                --amber-glow: oklch(90% 0.07 70);
+
+                --green-outline: oklch(34% 0.12 145);
+                --green-shadow: oklch(25% 0.09 145);
+                --green-base: oklch(58% 0.16 145);
+                --green-highlight: oklch(74% 0.12 145);
+                --green-glow: oklch(88% 0.07 145);
+
+                --blue-outline: oklch(34% 0.15 260);
+                --blue-shadow: oklch(25% 0.11 260);
+                --blue-base: oklch(58% 0.19 260);
+                --blue-highlight: oklch(74% 0.13 260);
+                --blue-glow: oklch(88% 0.07 260);
+
+                --violet-outline: oklch(34% 0.16 305);
+                --violet-shadow: oklch(25% 0.12 305);
+                --violet-base: oklch(58% 0.2 305);
+                --violet-highlight: oklch(74% 0.14 305);
+                --violet-glow: oklch(88% 0.08 305);
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                margin: 0;
+                font-family:
+                    ui-sans-serif,
+                    system-ui,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    sans-serif;
+                background:
+                    radial-gradient(
+                        circle at top left,
+                        oklch(26% 0.08 260),
+                        transparent 32rem
+                    ),
+                    linear-gradient(180deg, var(--bg), oklch(10% 0.02 260));
+                color: var(--text);
+                line-height: 1.55;
+            }
+
+            main {
+                width: min(1120px, calc(100% - 32px));
+                margin: 0 auto;
+                padding: 48px 0 72px;
+            }
+
+            h1,
+            h2,
+            h3 {
+                line-height: 1.15;
+                margin: 0;
+            }
+
+            h1 {
+                font-size: clamp(2rem, 5vw, 4rem);
+                letter-spacing: -0.05em;
+                margin-bottom: 14px;
+            }
+
+            h2 {
+                font-size: clamp(1.35rem, 3vw, 2rem);
+                letter-spacing: -0.03em;
+                margin-top: 42px;
+                margin-bottom: 14px;
+            }
+
+            p {
+                color: var(--muted);
+                max-width: 78ch;
+            }
+
+            code {
+                background: oklch(24% 0.035 260);
+                border: 1px solid var(--line);
+                padding: 0.12em 0.38em;
+                border-radius: 7px;
+                color: var(--text);
+            }
+
+            .hero {
+                background: linear-gradient(
+                    135deg,
+                    var(--panel),
+                    var(--panel-2)
+                );
+                border: 1px solid var(--line);
+                border-radius: 28px;
+                padding: clamp(24px, 5vw, 44px);
+                box-shadow: 0 22px 70px rgb(0 0 0 / 0.28);
+                overflow: hidden;
+                position: relative;
+            }
+
+            .hero::after {
+                content: "";
+                position: absolute;
+                inset: auto -120px -150px auto;
+                width: 420px;
+                height: 420px;
+                border-radius: 999px;
+                background: conic-gradient(
+                    from 90deg,
+                    var(--red-base),
+                    var(--amber-base),
+                    var(--green-base),
+                    var(--blue-base),
+                    var(--violet-base),
+                    var(--red-base)
+                );
+                filter: blur(45px);
+                opacity: 0.18;
+                pointer-events: none;
+            }
+
+            .tagline {
+                font-size: 1.1rem;
+                margin: 0;
+                position: relative;
+                z-index: 1;
+            }
+
+            .swatch-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+                gap: 18px;
+                margin-top: 22px;
+            }
+
+            .family {
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 22px;
+                padding: 16px;
+                box-shadow: 0 12px 28px rgb(0 0 0 / 0.18);
+            }
+
+            .family h3 {
+                margin-bottom: 12px;
+                font-size: 1.1rem;
+            }
+
+            .chips {
+                display: grid;
+                grid-template-columns: repeat(5, 1fr);
+                height: 72px;
+                border-radius: 16px;
+                overflow: hidden;
+                border: 1px solid rgb(255 255 255 / 0.08);
+                margin-bottom: 12px;
+            }
+
+            .chip {
+                min-width: 0;
+            }
+
+            .roles {
+                display: grid;
+                gap: 7px;
+                color: var(--muted);
+                font-size: 0.9rem;
+            }
+
+            .role {
+                display: flex;
+                justify-content: space-between;
+                gap: 12px;
+                border-bottom: 1px dashed rgb(255 255 255 / 0.1);
+                padding-bottom: 5px;
+            }
+
+            .demo-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 18px;
+                margin-top: 22px;
+            }
+
+            .demo-card {
+                border-radius: 24px;
+                padding: 18px;
+                min-height: 180px;
+                position: relative;
+                overflow: hidden;
+                background: var(--panel);
+                border: 3px solid var(--outline);
+                box-shadow:
+                    inset 0 -36px 80px var(--shadow),
+                    0 0 34px color-mix(in oklch, var(--glow), transparent 82%);
+            }
+
+            .demo-card::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(
+                    135deg,
+                    color-mix(in oklch, var(--base), transparent 30%),
+                    transparent 58%
+                );
+                opacity: 0.75;
+            }
+
+            .demo-card::after {
+                content: "";
+                position: absolute;
+                top: 18px;
+                right: 18px;
+                width: 46px;
+                height: 46px;
+                border-radius: 999px;
+                background: radial-gradient(
+                    circle at 30% 25%,
+                    var(--glow),
+                    var(--highlight) 42%,
+                    var(--base) 70%
+                );
+                box-shadow: 0 0 32px
+                    color-mix(in oklch, var(--glow), transparent 30%);
+            }
+
+            .demo-card > * {
+                position: relative;
+                z-index: 1;
+            }
+
+            .demo-card h3 {
+                margin-bottom: 8px;
+            }
+
+            .demo-card p {
+                margin: 0;
+                color: color-mix(in oklch, var(--glow), white 10%);
+            }
+
+            .note {
+                background: oklch(20% 0.035 260);
+                border: 1px solid var(--line);
+                border-left: 5px solid var(--blue-base);
+                border-radius: 18px;
+                padding: 16px 18px;
+                margin-top: 20px;
+            }
+
+            .note p {
+                margin: 0;
+            }
+
+            .red {
+                --outline: var(--red-outline);
+                --shadow: var(--red-shadow);
+                --base: var(--red-base);
+                --highlight: var(--red-highlight);
+                --glow: var(--red-glow);
+            }
+            .amber {
+                --outline: var(--amber-outline);
+                --shadow: var(--amber-shadow);
+                --base: var(--amber-base);
+                --highlight: var(--amber-highlight);
+                --glow: var(--amber-glow);
+            }
+            .green {
+                --outline: var(--green-outline);
+                --shadow: var(--green-shadow);
+                --base: var(--green-base);
+                --highlight: var(--green-highlight);
+                --glow: var(--green-glow);
+            }
+            .blue {
+                --outline: var(--blue-outline);
+                --shadow: var(--blue-shadow);
+                --base: var(--blue-base);
+                --highlight: var(--blue-highlight);
+                --glow: var(--blue-glow);
+            }
+            .violet {
+                --outline: var(--violet-outline);
+                --shadow: var(--violet-shadow);
+                --base: var(--violet-base);
+                --highlight: var(--violet-highlight);
+                --glow: var(--violet-glow);
+            }
+
+            .gaudy-red {
+                --outline: oklch(43% 0.28 25);
+                --shadow: oklch(24% 0.18 25);
+                --base: oklch(68% 0.34 25);
+                --highlight: oklch(82% 0.25 25);
+                --glow: oklch(94% 0.13 25);
+            }
+            .gaudy-amber {
+                --outline: oklch(46% 0.22 82);
+                --shadow: oklch(28% 0.15 82);
+                --base: oklch(78% 0.25 82);
+                --highlight: oklch(88% 0.2 82);
+                --glow: oklch(96% 0.12 82);
+            }
+            .gaudy-green {
+                --outline: oklch(44% 0.25 145);
+                --shadow: oklch(25% 0.16 145);
+                --base: oklch(74% 0.32 145);
+                --highlight: oklch(86% 0.23 145);
+                --glow: oklch(95% 0.13 145);
+            }
+            .gaudy-blue {
+                --outline: oklch(43% 0.25 260);
+                --shadow: oklch(24% 0.17 260);
+                --base: oklch(70% 0.31 260);
+                --highlight: oklch(84% 0.22 260);
+                --glow: oklch(95% 0.12 260);
+            }
+            .gaudy-violet {
+                --outline: oklch(43% 0.27 305);
+                --shadow: oklch(24% 0.18 305);
+                --base: oklch(70% 0.33 305);
+                --highlight: oklch(84% 0.24 305);
+                --glow: oklch(95% 0.13 305);
+            }
+
+            .red .chip:nth-child(1) {
+                background: var(--red-outline);
+            }
+            .red .chip:nth-child(2) {
+                background: var(--red-shadow);
+            }
+            .red .chip:nth-child(3) {
+                background: var(--red-base);
+            }
+            .red .chip:nth-child(4) {
+                background: var(--red-highlight);
+            }
+            .red .chip:nth-child(5) {
+                background: var(--red-glow);
+            }
+
+            .amber .chip:nth-child(1) {
+                background: var(--amber-outline);
+            }
+            .amber .chip:nth-child(2) {
+                background: var(--amber-shadow);
+            }
+            .amber .chip:nth-child(3) {
+                background: var(--amber-base);
+            }
+            .amber .chip:nth-child(4) {
+                background: var(--amber-highlight);
+            }
+            .amber .chip:nth-child(5) {
+                background: var(--amber-glow);
+            }
+
+            .green .chip:nth-child(1) {
+                background: var(--green-outline);
+            }
+            .green .chip:nth-child(2) {
+                background: var(--green-shadow);
+            }
+            .green .chip:nth-child(3) {
+                background: var(--green-base);
+            }
+            .green .chip:nth-child(4) {
+                background: var(--green-highlight);
+            }
+            .green .chip:nth-child(5) {
+                background: var(--green-glow);
+            }
+
+            .blue .chip:nth-child(1) {
+                background: var(--blue-outline);
+            }
+            .blue .chip:nth-child(2) {
+                background: var(--blue-shadow);
+            }
+            .blue .chip:nth-child(3) {
+                background: var(--blue-base);
+            }
+            .blue .chip:nth-child(4) {
+                background: var(--blue-highlight);
+            }
+            .blue .chip:nth-child(5) {
+                background: var(--blue-glow);
+            }
+
+            .violet .chip:nth-child(1) {
+                background: var(--violet-outline);
+            }
+            .violet .chip:nth-child(2) {
+                background: var(--violet-shadow);
+            }
+            .violet .chip:nth-child(3) {
+                background: var(--violet-base);
+            }
+            .violet .chip:nth-child(4) {
+                background: var(--violet-highlight);
+            }
+            .violet .chip:nth-child(5) {
+                background: var(--violet-glow);
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 16px;
+                overflow: hidden;
+                border-radius: 18px;
+                background: var(--panel);
+            }
+
+            th,
+            td {
+                text-align: left;
+                padding: 13px 14px;
+                border-bottom: 1px solid var(--line);
+                vertical-align: top;
+            }
+
+            th {
+                color: var(--text);
+                background: oklch(23% 0.035 260);
+            }
+            td {
+                color: var(--muted);
+            }
+            tr:last-child td {
+                border-bottom: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <section class="hero">
+                <h1>OKLCH Color Theme Sketch</h1>
+                <p class="tagline">
+                    A small family-based palette: red and blue stay as anchors,
+                    with green, amber, and violet added as balanced companions.
+                    Each family has the same roles: outline, shadow, base,
+                    highlight, and glow.
+                </p>
+            </section>
+
+            <h2>Why OKLCH?</h2>
+            <p>
+                RGB and ordinary HSL are convenient, but they do not track
+                perceived brightness very well. OKLCH is better for this kind of
+                rendering because lightness is more visually predictable. A blue
+                at <code>L=58%</code> and a green at <code>L=58%</code> will
+                feel much closer in weight than if you just guessed hex values
+                by eye.
+            </p>
+            <p>
+                The useful mental model is:
+                <code>oklch(lightness chroma hue)</code>. Lightness is
+                brightness, chroma is color strength, and hue is the angle
+                around the color wheel.
+            </p>
+
+            <h2>Suggested hue families</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Family</th>
+                        <th>Approx. hue</th>
+                        <th>Suggested use</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Red</td>
+                        <td>25°</td>
+                        <td>energy, conflict, active edge, hot emphasis</td>
+                    </tr>
+                    <tr>
+                        <td>Amber / brown-yellow</td>
+                        <td>70°</td>
+                        <td>priority, warning, seniority, earth, old state</td>
+                    </tr>
+                    <tr>
+                        <td>Green</td>
+                        <td>145°</td>
+                        <td>growth, valid path, confirmation, live state</td>
+                    </tr>
+                    <tr>
+                        <td>Blue</td>
+                        <td>260°</td>
+                        <td>
+                            structure, stable geometry, base field, cool
+                            emphasis
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Violet</td>
+                        <td>305°</td>
+                        <td>
+                            meta layer, alternate propagation, exotic/special
+                            state
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="note">
+                <p>
+                    Brown is usually not a separate hue. It is dark, muted
+                    orange/amber. So an amber family gives you yellow highlights
+                    and brown shadows without adding a sixth competing color.
+                </p>
+            </div>
+
+            <h2>Five-role ramps</h2>
+            <p>
+                Instead of choosing one color per family, define a ramp. Then
+                every rendering decision can use a role: outline, shadow, base,
+                highlight, or glow.
+            </p>
+
+            <section class="swatch-grid">
+                <article class="family red">
+                    <h3>Red</h3>
+                    <div class="chips">
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                    </div>
+                    <div class="roles">
+                        <div class="role">
+                            <span>outline</span><code>34 .18 25</code>
+                        </div>
+                        <div class="role">
+                            <span>shadow</span><code>25 .13 25</code>
+                        </div>
+                        <div class="role">
+                            <span>base</span><code>57 .22 25</code>
+                        </div>
+                        <div class="role">
+                            <span>highlight</span><code>74 .16 25</code>
+                        </div>
+                        <div class="role">
+                            <span>glow</span><code>88 .08 25</code>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="family amber">
+                    <h3>Amber</h3>
+                    <div class="chips">
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                    </div>
+                    <div class="roles">
+                        <div class="role">
+                            <span>outline</span><code>36 .11 70</code>
+                        </div>
+                        <div class="role">
+                            <span>shadow</span><code>27 .08 70</code>
+                        </div>
+                        <div class="role">
+                            <span>base</span><code>64 .16 70</code>
+                        </div>
+                        <div class="role">
+                            <span>highlight</span><code>78 .12 70</code>
+                        </div>
+                        <div class="role">
+                            <span>glow</span><code>90 .07 70</code>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="family green">
+                    <h3>Green</h3>
+                    <div class="chips">
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                    </div>
+                    <div class="roles">
+                        <div class="role">
+                            <span>outline</span><code>34 .12 145</code>
+                        </div>
+                        <div class="role">
+                            <span>shadow</span><code>25 .09 145</code>
+                        </div>
+                        <div class="role">
+                            <span>base</span><code>58 .16 145</code>
+                        </div>
+                        <div class="role">
+                            <span>highlight</span><code>74 .12 145</code>
+                        </div>
+                        <div class="role">
+                            <span>glow</span><code>88 .07 145</code>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="family blue">
+                    <h3>Blue</h3>
+                    <div class="chips">
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                    </div>
+                    <div class="roles">
+                        <div class="role">
+                            <span>outline</span><code>34 .15 260</code>
+                        </div>
+                        <div class="role">
+                            <span>shadow</span><code>25 .11 260</code>
+                        </div>
+                        <div class="role">
+                            <span>base</span><code>58 .19 260</code>
+                        </div>
+                        <div class="role">
+                            <span>highlight</span><code>74 .13 260</code>
+                        </div>
+                        <div class="role">
+                            <span>glow</span><code>88 .07 260</code>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="family violet">
+                    <h3>Violet</h3>
+                    <div class="chips">
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                    </div>
+                    <div class="roles">
+                        <div class="role">
+                            <span>outline</span><code>34 .16 305</code>
+                        </div>
+                        <div class="role">
+                            <span>shadow</span><code>25 .12 305</code>
+                        </div>
+                        <div class="role">
+                            <span>base</span><code>58 .20 305</code>
+                        </div>
+                        <div class="role">
+                            <span>highlight</span><code>74 .14 305</code>
+                        </div>
+                        <div class="role">
+                            <span>glow</span><code>88 .08 305</code>
+                        </div>
+                    </div>
+                </article>
+            </section>
+
+            <h2>Rendering samples</h2>
+            <p>
+                These cards use the same rendering recipe with only the color
+                variables changed. That is the main payoff: one visual grammar,
+                many color families.
+            </p>
+
+            <section class="demo-grid">
+                <article class="demo-card red">
+                    <h3>Red</h3>
+                    <p>Hot edge, conflict, active boundary, current event.</p>
+                </article>
+                <article class="demo-card amber">
+                    <h3>Amber</h3>
+                    <p>Priority, seniority, warning, aged/brown shadow.</p>
+                </article>
+                <article class="demo-card green">
+                    <h3>Green</h3>
+                    <p>Valid path, live state, resolved result, growth.</p>
+                </article>
+                <article class="demo-card blue">
+                    <h3>Blue</h3>
+                    <p>Stable structure, geometry, cool field, baseline.</p>
+                </article>
+                <article class="demo-card violet">
+                    <h3>Violet</h3>
+                    <p>Meta layer, alternate rule, special propagation.</p>
+                </article>
+            </section>
+
+            <h2>Complementarity</h2>
+            <p>
+                OKLCH stands for <strong>Oklab Lightness, Chroma, Hue</strong>.
+                The practical form is <code>oklch(L C H)</code>: lightness,
+                color intensity, and hue angle. It is like HSL, but the
+                lightness behaves much more like human perception.
+            </p>
+            <p>
+                A simple complement is roughly <code>hue + 180°</code>. So blue
+                around <code>260°</code> points toward amber around
+                <code>80°</code>. Red around <code>25°</code> points toward
+                cyan/teal around <code>205°</code>. Green around
+                <code>145°</code> points toward magenta/violet around
+                <code>325°</code>.
+            </p>
+            <p>
+                But in rendering, exact complements can be too loud. Usually you
+                want <em>near complements</em>: blue vs amber, red vs
+                greenish-cyan, green vs violet. These are still oppositional,
+                but less like a warning sign.
+            </p>
+
+            <h2>Gaudy / glow-in-the-dark variants</h2>
+            <p>
+                The calmer ramps above are useful for structure. These versions
+                intentionally push chroma upward and lightness higher. They are
+                less tasteful, but good for selected states, magical energy,
+                alerts, laser traces, or “this thing is alive” effects.
+            </p>
+
+            <section class="demo-grid">
+                <article class="demo-card gaudy-red">
+                    <h3>Gaudy Red</h3>
+                    <p>Neon hot edge, alarm, collision, active pulse.</p>
+                </article>
+                <article class="demo-card gaudy-amber">
+                    <h3>Gaudy Amber</h3>
+                    <p>Gold flare, priority beacon, molten highlight.</p>
+                </article>
+                <article class="demo-card gaudy-green">
+                    <h3>Gaudy Green</h3>
+                    <p>Radioactive path, valid/live state, phosphor glow.</p>
+                </article>
+                <article class="demo-card gaudy-blue">
+                    <h3>Gaudy Blue</h3>
+                    <p>Electric field, cold plasma, energized structure.</p>
+                </article>
+                <article class="demo-card gaudy-violet">
+                    <h3>Gaudy Violet</h3>
+                    <p>Ultraviolet magic, meta-layer, exotic rule.</p>
+                </article>
+            </section>
+
+            <h2>Practical rule</h2>
+            <p>
+                Let hue carry category. Let lightness carry depth. Let chroma
+                carry emphasis. That prevents the palette from becoming
+                decorative noise.
+            </p>
+            <p>
+                For example: use the darker members for outlines and shadows,
+                the base member for ordinary filled regions, the highlight for
+                selected edges, and the glow for halos, gradients, or soft
+                background effects.
+            </p>
+        </main>
+    </body>
+</html>

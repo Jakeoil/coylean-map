@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Coylean Map — Meta</title>
+        <link rel="icon" type="image/png" href="../map-icon.png" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family:
+                    "Segoe UI",
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: linear-gradient(
+                    135deg,
+                    #1a1a2e 0%,
+                    #16213e 50%,
+                    #0f3460 100%
+                );
+                color: #eee;
+                min-height: 100vh;
+                padding: 48px 24px;
+            }
+            main {
+                max-width: 720px;
+                margin: 0 auto;
+            }
+            h1 {
+                font-size: 2.4rem;
+                color: #e94560;
+                text-shadow: 0 0 20px rgba(233, 69, 96, 0.4);
+                margin-bottom: 8px;
+            }
+            .lede {
+                color: rgba(255, 255, 255, 0.7);
+                margin-bottom: 32px;
+                line-height: 1.5;
+            }
+            .back {
+                display: inline-block;
+                margin-bottom: 24px;
+                color: #e94560;
+                text-decoration: none;
+                font-size: 0.9rem;
+            }
+            .back:hover {
+                text-decoration: underline;
+            }
+            .card {
+                display: block;
+                padding: 20px 24px;
+                margin-bottom: 16px;
+                background: rgba(22, 33, 62, 0.6);
+                border: 2px solid rgba(233, 69, 96, 0.5);
+                border-radius: 10px;
+                color: #eee;
+                text-decoration: none;
+                transition: all 0.2s;
+            }
+            .card:hover {
+                border-color: #e94560;
+                background: rgba(233, 69, 96, 0.12);
+                transform: translateY(-2px);
+                box-shadow: 0 4px 15px rgba(233, 69, 96, 0.25);
+            }
+            .card h2 {
+                font-size: 1.2rem;
+                color: #e94560;
+                margin-bottom: 6px;
+            }
+            .card p {
+                font-size: 0.95rem;
+                line-height: 1.5;
+                color: rgba(255, 255, 255, 0.8);
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <a class="back" href="../">← Home</a>
+            <h1>Meta</h1>
+            <p class="lede">
+                Sketches and side experiments — not maps themselves, but tools
+                and themes built around the project.
+            </p>
+
+            <a class="card" href="how-to-draw.md">
+                <h2>How to Draw a Coylean Map</h2>
+                <p>
+                    A short walkthrough of the algorithm — priority,
+                    reaction, propagation — plus how to translate the
+                    boolean output into Unicode box-drawing characters. Comes
+                    with a self-contained Node renderer in
+                    <code>toy-rendering/draw-coylean.mjs</code>.
+                </p>
+            </a>
+
+            <a class="card" href="oklch.html">
+                <h2>OKLCH Color Theme</h2>
+                <p>
+                    A palette sketch in the OKLCH color space exploring outline,
+                    shadow, base, highlight, and glow tones across red, amber,
+                    green, blue, and violet hues for use in the UI.
+                </p>
+            </a>
+
+            <a class="card" href="ruler-grid-sphere.html">
+                <h2>Ruler Grid Sphere</h2>
+                <p>
+                    A spherical projection of the ruler grid using Mercator
+                    latitude spacing, with zoom controls — the globe analogue of
+                    the planar Coylean ruler subdivisions.
+                </p>
+            </a>
+        </main>
+    </body>
+</html>
