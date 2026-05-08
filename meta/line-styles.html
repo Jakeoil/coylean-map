@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Coylean Map — Line Style Variants</title>
+        <link rel="icon" type="image/png" href="../map-icon.png" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family:
+                    "Segoe UI",
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: linear-gradient(
+                    135deg,
+                    #1a1a2e 0%,
+                    #16213e 50%,
+                    #0f3460 100%
+                );
+                color: #eee;
+                min-height: 100vh;
+                padding: 48px 24px 64px;
+                line-height: 1.55;
+            }
+            main {
+                max-width: 760px;
+                margin: 0 auto;
+            }
+            .back {
+                display: inline-block;
+                margin-bottom: 24px;
+                color: #e94560;
+                text-decoration: none;
+                font-size: 0.9rem;
+            }
+            .back:hover {
+                text-decoration: underline;
+            }
+            h1 {
+                font-size: 2.2rem;
+                color: #e94560;
+                text-shadow: 0 0 20px rgba(233, 69, 96, 0.4);
+                margin-bottom: 8px;
+            }
+            .lede {
+                color: rgba(255, 255, 255, 0.78);
+                margin-bottom: 24px;
+            }
+            .modes {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+                margin-bottom: 18px;
+            }
+            .modes button {
+                padding: 8px 14px;
+                font-size: 0.95rem;
+                border: 1px solid rgba(233, 69, 96, 0.55);
+                background: transparent;
+                color: #eee;
+                border-radius: 6px;
+                cursor: pointer;
+                font-family: inherit;
+                transition: all 0.15s;
+            }
+            .modes button:hover {
+                background: rgba(233, 69, 96, 0.18);
+            }
+            .modes button.active {
+                background: #e94560;
+                color: #fff;
+                border-color: #e94560;
+            }
+            pre {
+                background: rgba(0, 0, 0, 0.4);
+                border: 1px solid rgba(233, 69, 96, 0.3);
+                border-radius: 8px;
+                padding: 18px 22px;
+                overflow-x: auto;
+                font-size: 1.4rem;
+                line-height: 1.15;
+                font-family:
+                    "Menlo", "Consolas", "DejaVu Sans Mono",
+                    "Liberation Mono", monospace;
+                margin-bottom: 16px;
+            }
+            .caption {
+                color: rgba(255, 255, 255, 0.72);
+                font-size: 0.95rem;
+                min-height: 3em;
+            }
+            code {
+                font-family:
+                    "Menlo", "Consolas", "DejaVu Sans Mono",
+                    "Liberation Mono", monospace;
+                background: rgba(255, 255, 255, 0.08);
+                padding: 1px 5px;
+                border-radius: 4px;
+                font-size: 0.9em;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <a class="back" href="how-to-draw.html">← How to Draw</a>
+            <h1>Line Style Variants</h1>
+            <p class="lede">
+                The same 8×8 propagation, drawn in four different glyph
+                palettes — same booleans, different paint.
+            </p>
+
+            <div class="modes">
+                <button data-mode="light" class="active">Light</button>
+                <button data-mode="heavy">Heavy</button>
+                <button data-mode="mixed">
+                    Mixed (priority &gt; 1 heavy)
+                </button>
+                <button data-mode="double">Double</button>
+            </div>
+
+            <pre id="output"></pre>
+            <p id="caption" class="caption"></p>
+        </main>
+
+        <script>
+            "use strict";
+
+            const N = 8;
+
+            function pri(n) {
+                if (n === 0) return 100;
+                let p = 0;
+                while (n % 2 === 0) {
+                    p++;
+                    n = Math.floor(n / 2);
+                }
+                return p;
+            }
+
+            function reaction(v, h, colP, rowP) {
+                if (!v && !h) return [false, false];
+                const downWins = colP >= rowP;
+                if (v && h) return downWins ? [true, false] : [false, true];
+                if (v) return downWins ? [true, true] : [true, false];
+                return downWins ? [false, true] : [true, true];
+            }
+
+            function propagate(numRows, numCols) {
+                const colP = Array.from({ length: numCols }, (_, i) =>
+                    pri(i + 1),
+                );
+                const rowP = Array.from({ length: numRows }, (_, j) =>
+                    pri(j + 1),
+                );
+                const down = Array.from(
+                    { length: numRows + 1 },
+                    () => [],
+                );
+                const right = Array.from(
+                    { length: numCols + 1 },
+                    () => [],
+                );
+                for (let i = 0; i < numCols; i++) down[0][i] = true;
+                for (let j = 0; j < numRows; j++) right[0][j] = true;
+                for (let j = 0; j < numRows; j++) {
+                    for (let i = 0; i < numCols; i++) {
+                        const [vOut, hOut] = reaction(
+                            down[j][i],
+                            right[i][j],
+                            colP[i],
+                            rowP[j],
+                        );
+                        down[j + 1][i] = vOut;
+                        right[i + 1][j] = hOut;
+                    }
+                }
+                return { down, right };
+            }
+
+            // Indexed by (N<<3 | E<<2 | S<<1 | W).
+            // prettier-ignore
+            const LIGHT  = [" ","╴","╷","┐","╶","─","┌","┬","╵","┘","│","┤","└","┴","├","┼"];
+            // prettier-ignore
+            const HEAVY  = [" ","╸","╻","┓","╺","━","┏","┳","╹","┛","┃","┫","┗","┻","┣","╋"];
+            // Double has no single-stub glyphs; fall back to light caps.
+            // prettier-ignore
+            const DOUBLE = [" ","╴","╷","╗","╶","═","╔","╦","╵","╝","║","╣","╚","╩","╠","╬"];
+
+            // Mixed: 81 entries keyed by "nesw" with each digit ∈ {0,1,2}.
+            //   0 = absent, 1 = light, 2 = heavy.
+            // prettier-ignore
+            const MIXED = {
+                "0000":" ",
+                "1000":"╵","2000":"╹","0100":"╶","0200":"╺",
+                "0010":"╷","0020":"╻","0001":"╴","0002":"╸",
+                "1010":"│","1020":"╽","2010":"╿","2020":"┃",
+                "0101":"─","0102":"╾","0201":"╼","0202":"━",
+                "0110":"┌","0120":"┎","0210":"┍","0220":"┏",
+                "0011":"┐","0012":"┑","0021":"┒","0022":"┓",
+                "1100":"└","1200":"┕","2100":"┖","2200":"┗",
+                "1001":"┘","1002":"┙","2001":"┚","2002":"┛",
+                "1110":"├","1120":"┟","1210":"┝","1220":"┢",
+                "2110":"┞","2120":"┠","2210":"┡","2220":"┣",
+                "1011":"┤","1012":"┥","1021":"┧","1022":"┪",
+                "2011":"┦","2012":"┩","2021":"┨","2022":"┫",
+                "0111":"┬","0112":"┭","0121":"┰","0122":"┱",
+                "0211":"┮","0212":"┯","0221":"┲","0222":"┳",
+                "1101":"┴","1102":"┵","1201":"┶","1202":"┷",
+                "2101":"┸","2102":"┹","2201":"┺","2202":"┻",
+                "1111":"┼","1112":"┽","1121":"╁","1122":"╅",
+                "1211":"┾","1212":"┿","1221":"╆","1222":"╈",
+                "2111":"╀","2112":"╃","2121":"╂","2122":"╉",
+                "2211":"╄","2212":"╇","2221":"╊","2222":"╋",
+            };
+
+            function renderUniform(down, right, table, hConn) {
+                const dm = (j, i) =>
+                    j >= 0 && j < N && i >= 0 && i < N
+                        ? !!down[j][i]
+                        : false;
+                const rm = (i, j) =>
+                    i >= 0 && i < N && j >= 0 && j < N
+                        ? !!right[i][j]
+                        : false;
+                const lines = [];
+                for (let b = 0; b <= N; b++) {
+                    let line = "";
+                    for (let a = 0; a <= N; a++) {
+                        const n = dm(b - 1, a - 1);
+                        const s = dm(b, a - 1);
+                        const w = rm(a - 1, b - 1);
+                        const e = rm(a, b - 1);
+                        const idx =
+                            (n ? 8 : 0) |
+                            (e ? 4 : 0) |
+                            (s ? 2 : 0) |
+                            (w ? 1 : 0);
+                        line += table[idx];
+                        if (a < N) line += e ? hConn : " ";
+                    }
+                    lines.push(line);
+                }
+                return lines.join("\n");
+            }
+
+            // Edge weight for the mixed mode. Vertical edges at column
+            // boundary k get pri(k); horizontal edges at row boundary k
+            // also get pri(k). Weight 2 (heavy) when pri > 1, else 1.
+            function weight(boundary) {
+                return pri(boundary) > 1 ? 2 : 1;
+            }
+
+            function renderMixed(down, right) {
+                const dm = (j, i) =>
+                    j >= 0 && j < N && i >= 0 && i < N
+                        ? !!down[j][i]
+                        : false;
+                const rm = (i, j) =>
+                    i >= 0 && i < N && j >= 0 && j < N
+                        ? !!right[i][j]
+                        : false;
+                const lines = [];
+                for (let b = 0; b <= N; b++) {
+                    const hWeight = weight(b);
+                    let line = "";
+                    for (let a = 0; a <= N; a++) {
+                        const vWeight = weight(a);
+                        const n = dm(b - 1, a - 1) ? vWeight : 0;
+                        const s = dm(b, a - 1) ? vWeight : 0;
+                        const w = rm(a - 1, b - 1) ? hWeight : 0;
+                        const e = rm(a, b - 1) ? hWeight : 0;
+                        const key = `${n}${e}${s}${w}`;
+                        line += MIXED[key] ?? "?";
+                        if (a < N) {
+                            const eEdge = rm(a, b - 1);
+                            line += eEdge
+                                ? hWeight === 2
+                                    ? "━"
+                                    : "─"
+                                : " ";
+                        }
+                    }
+                    lines.push(line);
+                }
+                return lines.join("\n");
+            }
+
+            const captions = {
+                light:
+                    "Standard light box-drawing glyphs — same as draw-coylean.mjs.",
+                heavy:
+                    "Same map drawn entirely in heavy box-drawing glyphs.",
+                mixed:
+                    "Each segment's weight comes from its boundary priority:" +
+                    " segments at column or row boundaries with pri > 1" +
+                    " (boundaries 4 and 8 in this 8×8 grid) are heavy," +
+                    " everything else is light.",
+                double:
+                    "Double-line palette. Single-direction stubs at the" +
+                    " edge fall back to light glyphs because no double" +
+                    " caps exist in Unicode.",
+            };
+
+            const { down, right } = propagate(N, N);
+            const out = document.getElementById("output");
+            const caption = document.getElementById("caption");
+            const buttons = document.querySelectorAll(".modes button");
+
+            function setMode(mode) {
+                let text;
+                switch (mode) {
+                    case "light":
+                        text = renderUniform(down, right, LIGHT, "─");
+                        break;
+                    case "heavy":
+                        text = renderUniform(down, right, HEAVY, "━");
+                        break;
+                    case "double":
+                        text = renderUniform(down, right, DOUBLE, "═");
+                        break;
+                    case "mixed":
+                        text = renderMixed(down, right);
+                        break;
+                }
+                out.textContent = text;
+                caption.textContent = captions[mode];
+                for (const b of buttons) {
+                    b.classList.toggle(
+                        "active",
+                        b.dataset.mode === mode,
+                    );
+                }
+            }
+
+            for (const b of buttons) {
+                b.addEventListener("click", () => setMode(b.dataset.mode));
+            }
+            setMode("light");
+        </script>
+    </body>
+</html>

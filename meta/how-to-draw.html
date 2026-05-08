@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>How to Draw a Coylean Map</title>
+        <link rel="icon" type="image/png" href="../map-icon.png" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family:
+                    "Segoe UI",
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: linear-gradient(
+                    135deg,
+                    #1a1a2e 0%,
+                    #16213e 50%,
+                    #0f3460 100%
+                );
+                color: #eee;
+                min-height: 100vh;
+                padding: 48px 24px 64px;
+                line-height: 1.55;
+            }
+            main {
+                max-width: 760px;
+                margin: 0 auto;
+            }
+            .back {
+                display: inline-block;
+                margin-bottom: 24px;
+                color: #e94560;
+                text-decoration: none;
+                font-size: 0.9rem;
+            }
+            .back:hover {
+                text-decoration: underline;
+            }
+            h1 {
+                font-size: 2.2rem;
+                color: #e94560;
+                text-shadow: 0 0 20px rgba(233, 69, 96, 0.4);
+                margin-bottom: 8px;
+            }
+            h2 {
+                color: #e94560;
+                margin: 28px 0 10px;
+                font-size: 1.3rem;
+            }
+            p,
+            ul,
+            ol,
+            table {
+                margin-bottom: 12px;
+            }
+            ul,
+            ol {
+                padding-left: 24px;
+            }
+            code,
+            pre,
+            .glyphs {
+                font-family:
+                    "Menlo", "Consolas", "DejaVu Sans Mono",
+                    "Liberation Mono", monospace;
+            }
+            code {
+                background: rgba(255, 255, 255, 0.08);
+                padding: 1px 5px;
+                border-radius: 4px;
+                font-size: 0.9em;
+            }
+            pre {
+                background: rgba(0, 0, 0, 0.35);
+                border: 1px solid rgba(233, 69, 96, 0.25);
+                border-radius: 8px;
+                padding: 14px 18px;
+                overflow-x: auto;
+                font-size: 0.95em;
+                line-height: 1.35;
+                margin-bottom: 16px;
+            }
+            pre code {
+                background: transparent;
+                padding: 0;
+                font-size: 1em;
+            }
+            table {
+                border-collapse: collapse;
+                width: 100%;
+                font-size: 0.92em;
+            }
+            th,
+            td {
+                padding: 6px 10px;
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                text-align: center;
+            }
+            th {
+                background: rgba(233, 69, 96, 0.18);
+                color: #fff;
+            }
+            td.note {
+                text-align: left;
+                color: rgba(255, 255, 255, 0.78);
+            }
+            .glyphs {
+                display: inline-block;
+                background: rgba(0, 0, 0, 0.35);
+                padding: 4px 10px;
+                border-radius: 6px;
+                letter-spacing: 2px;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <a class="back" href="./">← Meta</a>
+            <h1>How to Draw a Coylean Map</h1>
+
+            <p>
+                A Coylean map is a square grid of cells. Each cell decides
+                whether a vertical line lives on its right edge and whether a
+                horizontal line lives on its bottom edge. The decisions are
+                made one cell at a time by a tiny rule and propagate across
+                the grid.
+            </p>
+
+            <h2>1. Priority</h2>
+            <p>
+                Every cell <code>(i, j)</code> (column <code>i</code>, row
+                <code>j</code>, both starting at 0) gets a column priority and
+                a row priority. Priority is the
+                <strong>2-adic valuation</strong> — the number of times 2
+                divides the index when shifted by 1:
+            </p>
+            <pre><code>pri(n) = number of trailing zeros of n in binary
+
+pri(1) = 0
+pri(2) = 1
+pri(3) = 0
+pri(4) = 2
+pri(8) = 3</code></pre>
+            <p>
+                The cell uses <code>colP = pri(i + 1)</code> and
+                <code>rowP = pri(j + 1)</code>. Higher means "more even".
+            </p>
+
+            <h2>2. Reaction</h2>
+            <p>Two arrows can enter a cell:</p>
+            <ul>
+                <li><strong>V</strong> — a vertical arrow from above</li>
+                <li><strong>H</strong> — a horizontal arrow from the left</li>
+            </ul>
+            <p>The cell emits up to two arrows:</p>
+            <ul>
+                <li>
+                    <strong>V′</strong> — vertical out the bottom (becomes V
+                    of the cell below)
+                </li>
+                <li>
+                    <strong>H′</strong> — horizontal out the right (becomes H
+                    of the cell to the right)
+                </li>
+            </ul>
+            <p>
+                The reaction is decided by which axis wins priority. With
+                <strong>vertical seniority</strong> (the default,
+                <code>colP &gt;= rowP</code>):
+            </p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>V in</th>
+                        <th>H in</th>
+                        <th>Priority wins</th>
+                        <th>V out</th>
+                        <th>H out</th>
+                        <th>Behaviour</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>0</td><td>0</td><td>—</td><td>0</td><td>0</td><td class="note">empty</td></tr>
+                    <tr><td>1</td><td>1</td><td>V</td><td>1</td><td>0</td><td class="note">V continues, H absorbed</td></tr>
+                    <tr><td>1</td><td>1</td><td>H</td><td>0</td><td>1</td><td class="note">H continues, V absorbed</td></tr>
+                    <tr><td>1</td><td>0</td><td>V</td><td>1</td><td>1</td><td class="note">V continues, spawns H</td></tr>
+                    <tr><td>1</td><td>0</td><td>H</td><td>1</td><td>0</td><td class="note">V continues alone</td></tr>
+                    <tr><td>0</td><td>1</td><td>V</td><td>0</td><td>1</td><td class="note">H continues alone</td></tr>
+                    <tr><td>0</td><td>1</td><td>H</td><td>1</td><td>1</td><td class="note">H continues, spawns V</td></tr>
+                </tbody>
+            </table>
+            <p>
+                Compactly: an arrow that's present always continues straight.
+                If the priority winner is also the present arrow, it
+                additionally spawns the perpendicular. When both are present,
+                the winner survives and the loser is absorbed.
+            </p>
+
+            <h2>3. Propagation</h2>
+            <p>Seed the boundary:</p>
+            <ul>
+                <li>top row of V inputs — all true</li>
+                <li>left column of H inputs — all true</li>
+            </ul>
+            <p>
+                Sweep through the grid in row-major order. At each cell,
+                apply the reaction. The outputs become the inputs of the
+                south and east neighbors:
+            </p>
+            <ul>
+                <li>
+                    <code>V out of (i, j)</code> →
+                    <code>V into (i, j+1)</code>
+                </li>
+                <li>
+                    <code>H out of (i, j)</code> →
+                    <code>H into (i+1, j)</code>
+                </li>
+            </ul>
+            <p>
+                That's it. The two boolean matrices <code>down[j][i]</code>
+                (right edges) and <code>right[i][j]</code> (bottom edges) are
+                the whole map.
+            </p>
+
+            <h2>4. Drawing</h2>
+            <p>
+                Each true <code>down[j][i]</code> is a vertical segment on
+                the right side of cell <code>(i, j)</code>. Each true
+                <code>right[i][j]</code> is a horizontal segment along the
+                bottom of cell <code>(i, j)</code>. To render, walk every
+                grid vertex and pick a glyph from its four incident edges
+                (N, E, S, W) — there are 16 cases, all available as Unicode
+                box-drawing characters:
+            </p>
+            <p>
+                <span class="glyphs">┌ ┐ └ ┘ ├ ┤ ┬ ┴ ┼ ─ │ ╴ ╶ ╵ ╷</span>
+            </p>
+
+            <h2>Try it</h2>
+            <p>
+                <code>toy-rendering/draw-coylean.mjs</code> is a
+                self-contained Node program that runs the algorithm on an
+                8×8 grid and prints it with box-drawing characters:
+            </p>
+            <pre><code>node toy-rendering/draw-coylean.mjs</code></pre>
+            <p>Sample output:</p>
+            <pre><code>  ╷ ╷ ╷ ╷ ╷ ╷ ╷ ╷
+╶─┤ ├─┤ ├─┤ ├─┤ │
+╶─┴─┤ │ ├─┴─┤ │ │
+╶───┤ ├─┤   ├─┤ │
+╶─┬─┴─┴─┤   │ │ │
+╶─┤     ├───┤ ├─┤
+╶─┴───┬─┤   ├─┴─┤
+╶─────┤ ├───┤   │
+╶─────┴─┴───┴───┘</code></pre>
+
+            <h2>Variations</h2>
+            <p>
+                See <a href="line-styles.html">Line Style Variants</a> for
+                the same map drawn with heavy, double, and mixed-priority
+                glyph palettes.
+            </p>
+        </main>
+    </body>
+</html>

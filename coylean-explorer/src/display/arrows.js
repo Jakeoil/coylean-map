@@ -3,7 +3,7 @@ import { pri } from "../../coylean-core.js";
 
 // Styled after research/arrow.svg: filled shaft with rounded cap + chevron arrowhead
 
-// Per-priority presets (tuned in arrows-test.html, calibrated for d = DEFAULT_D = 48).
+// Per-priority presets (tuned in meta/arrows-test.html, calibrated for d = DEFAULT_D = 48).
 // Arrow size scales linearly with d: a smaller diamond gets a proportional arrow.
 const PRESETS = {
     thin2:   { SW: 1.88, HL: 9,    HW: 4.5,  ND: 3,   MARGIN: 2.66 },
