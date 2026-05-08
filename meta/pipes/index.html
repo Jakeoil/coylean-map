@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>drawPipeJunction Tester</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <link rel="stylesheet" href="../../coylean-explorer/prototype.css" />
+        <style>
+            #stage {
+                display: block;
+                margin: 24px auto;
+                background: #fff;
+                border: 1px solid #ddd;
+            }
+            .control input[type="range"] {
+                width: 200px;
+            }
+            .control .value {
+                font-family: monospace;
+                color: #555;
+                margin-left: 6px;
+                font-size: 0.85em;
+            }
+            .description {
+                font-size: 0.85em;
+                color: #555;
+                line-height: 1.5;
+            }
+            .description p {
+                margin: 6px 0;
+            }
+            .canvas-wrap {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100%;
+                overflow: auto;
+            }
+        </style>
+    </head>
+    <body class="layout-sidebar">
+        <nav class="breadcrumb">
+            <a href="../">Meta</a>
+            <span class="sep">›</span>
+            <a href="" class="current">drawPipeJunction</a>
+        </nav>
+        <div class="layout-body">
+            <div class="sidebar">
+                <h1>drawPipeJunction</h1>
+                <div class="description">
+                    <p>
+                        Test page for
+                        <code>drawPipeJunction(ctx, x, y, size, blueD, redD)</code>
+                        from <code>./pipe-junction.js</code>. Adjust the
+                        parameters below and watch the canvas update.
+                    </p>
+                </div>
+
+                <h2>Call</h2>
+                <div class="call-sig" id="call-sig"></div>
+
+                <h2>Drawing region</h2>
+                <div class="controls">
+                    <div class="control-row">
+                        <div class="control">
+                            <label>x</label>
+                            <input
+                                type="range"
+                                id="x"
+                                min="0"
+                                max="400"
+                                step="1"
+                                value="50"
+                            />
+                            <span class="value" id="x-val">50</span>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>y</label>
+                            <input
+                                type="range"
+                                id="y"
+                                min="0"
+                                max="400"
+                                step="1"
+                                value="50"
+                            />
+                            <span class="value" id="y-val">50</span>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>size (px)</label>
+                            <input
+                                type="range"
+                                id="size"
+                                min="50"
+                                max="700"
+                                step="5"
+                                value="500"
+                            />
+                            <span class="value" id="size-val">500</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h2>Pipe diameters</h2>
+                <div class="controls">
+                    <div class="control-row">
+                        <div class="control">
+                            <label>blueD (horizontal)</label>
+                            <input
+                                type="range"
+                                id="blueD"
+                                min="0.05"
+                                max="1"
+                                step="0.01"
+                                value="1"
+                            />
+                            <span class="value" id="blueD-val">1.00</span>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>redD (vertical)</label>
+                            <input
+                                type="range"
+                                id="redD"
+                                min="0.05"
+                                max="1"
+                                step="0.01"
+                                value="0.5"
+                            />
+                            <span class="value" id="redD-val">0.50</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h2>Display</h2>
+                <div class="toggle-row">
+                    <button id="tog-frame" class="active">Show frame</button>
+                    <button id="tog-clear" class="active">Clear bg</button>
+                </div>
+
+                <h2>Presets</h2>
+                <div class="toggle-row">
+                    <button data-preset="blue-larger">Blue larger</button>
+                    <button data-preset="red-larger">Red larger</button>
+                    <button data-preset="equal">Equal</button>
+                </div>
+
+                <h2>Status</h2>
+                <div class="info-panel" id="status">
+                    <div>Ready.</div>
+                </div>
+            </div>
+
+            <div class="main">
+                <div class="canvas-wrap">
+                    <canvas id="stage" width="800" height="800"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <script type="module">
+            import { drawPipeJunction } from "./pipe-junction.js";
+
+            const canvas = document.getElementById("stage");
+            const ctx = canvas.getContext("2d");
+            const callSig = document.getElementById("call-sig");
+            const status = document.getElementById("status");
+
+            const inputs = {
+                x: document.getElementById("x"),
+                y: document.getElementById("y"),
+                size: document.getElementById("size"),
+                blueD: document.getElementById("blueD"),
+                redD: document.getElementById("redD"),
+            };
+            const vals = {
+                x: document.getElementById("x-val"),
+                y: document.getElementById("y-val"),
+                size: document.getElementById("size-val"),
+                blueD: document.getElementById("blueD-val"),
+                redD: document.getElementById("redD-val"),
+            };
+
+            const togFrame = document.getElementById("tog-frame");
+            const togClear = document.getElementById("tog-clear");
+            let showFrame = true;
+            let clearBg = true;
+
+            function fmt(key, n) {
+                if (key === "blueD" || key === "redD") return n.toFixed(2);
+                return String(Math.round(n));
+            }
+
+            function readParams() {
+                return {
+                    x: parseFloat(inputs.x.value),
+                    y: parseFloat(inputs.y.value),
+                    size: parseFloat(inputs.size.value),
+                    blueD: parseFloat(inputs.blueD.value),
+                    redD: parseFloat(inputs.redD.value),
+                };
+            }
+
+            function updateCallSig(p) {
+                callSig.textContent =
+                    "drawPipeJunction(\n" +
+                    `  ctx,\n` +
+                    `  ${p.x}, ${p.y},\n` +
+                    `  ${p.size},\n` +
+                    `  ${p.blueD.toFixed(2)}, ${p.redD.toFixed(2)},\n` +
+                    `)`;
+            }
+
+            function setStatus(msg, ok = true) {
+                status.innerHTML = `<div style="color:${ok ? "#2a7a3a" : "#9a2929"}">${msg}</div>`;
+            }
+
+            function render() {
+                const p = readParams();
+                for (const k of Object.keys(inputs)) {
+                    vals[k].textContent = fmt(k, p[k]);
+                }
+                updateCallSig(p);
+
+                if (clearBg) {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+
+                if (showFrame) {
+                    ctx.save();
+                    ctx.strokeStyle = "rgba(0,0,0,0.18)";
+                    ctx.setLineDash([4, 4]);
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(p.x + 0.5, p.y + 0.5, p.size, p.size);
+                    ctx.restore();
+                }
+
+                try {
+                    drawPipeJunction(ctx, p.x, p.y, p.size, p.blueD, p.redD);
+                    setStatus("OK");
+                } catch (err) {
+                    setStatus(
+                        `Error: ${err.message || err}`,
+                        false,
+                    );
+                    console.error(err);
+                }
+            }
+
+            for (const el of Object.values(inputs)) {
+                el.addEventListener("input", render);
+            }
+
+            togFrame.addEventListener("click", () => {
+                showFrame = !showFrame;
+                togFrame.classList.toggle("active", showFrame);
+                render();
+            });
+            togClear.addEventListener("click", () => {
+                clearBg = !clearBg;
+                togClear.classList.toggle("active", clearBg);
+                render();
+            });
+
+            const presets = {
+                "blue-larger": { blueD: 1.0, redD: 0.5 },
+                "red-larger": { blueD: 0.4, redD: 0.9 },
+                equal: { blueD: 0.75, redD: 0.75 },
+            };
+            for (const btn of document.querySelectorAll("[data-preset]")) {
+                btn.addEventListener("click", () => {
+                    const p = presets[btn.dataset.preset];
+                    inputs.blueD.value = p.blueD;
+                    inputs.redD.value = p.redD;
+                    render();
+                });
+            }
+
+            render();
+        </script>
+    </body>
+</html>

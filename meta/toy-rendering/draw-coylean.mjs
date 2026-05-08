@@ -68,13 +68,9 @@ function render(down, right, numRows, numCols) {
     //   E  = bottom edge of cell (a, b-1)   = right[a][b-1]
     // Cells exist only for j ∈ [0, numRows), i ∈ [0, numCols).
     const dm = (j, i) =>
-        j >= 0 && j < numRows && i >= 0 && i < numCols
-            ? !!down[j][i]
-            : false;
+        j >= 0 && j < numRows && i >= 0 && i < numCols ? !!down[j][i] : false;
     const rm = (i, j) =>
-        i >= 0 && i < numCols && j >= 0 && j < numRows
-            ? !!right[i][j]
-            : false;
+        i >= 0 && i < numCols && j >= 0 && j < numRows ? !!right[i][j] : false;
 
     const lines = [];
     for (let b = 0; b <= numRows; b++) {
