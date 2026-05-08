@@ -110,16 +110,30 @@
                 <div class="controls">
                     <div class="control-row">
                         <div class="control">
-                            <label>blueD (horizontal)</label>
+                            <label>blueDLeft (left half)</label>
                             <input
                                 type="range"
-                                id="blueD"
+                                id="blueDLeft"
                                 min="0"
                                 max="1"
                                 step="0.01"
                                 value="1"
                             />
-                            <span class="value" id="blueD-val">1.00</span>
+                            <span class="value" id="blueDLeft-val">1.00</span>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>blueDRight (right half)</label>
+                            <input
+                                type="range"
+                                id="blueDRight"
+                                min="0"
+                                max="1"
+                                step="0.01"
+                                value="1"
+                            />
+                            <span class="value" id="blueDRight-val">1.00</span>
                         </div>
                     </div>
                     <div class="control-row">
@@ -149,6 +163,7 @@
                     <button data-preset="blue-larger">Blue larger</button>
                     <button data-preset="red-larger">Red larger</button>
                     <button data-preset="equal">Equal</button>
+                    <button data-preset="asymmetric">Asymmetric</button>
                 </div>
 
                 <h2>Status</h2>
@@ -176,14 +191,16 @@
                 x: document.getElementById("x"),
                 y: document.getElementById("y"),
                 size: document.getElementById("size"),
-                blueD: document.getElementById("blueD"),
+                blueDLeft: document.getElementById("blueDLeft"),
+                blueDRight: document.getElementById("blueDRight"),
                 redD: document.getElementById("redD"),
             };
             const vals = {
                 x: document.getElementById("x-val"),
                 y: document.getElementById("y-val"),
                 size: document.getElementById("size-val"),
-                blueD: document.getElementById("blueD-val"),
+                blueDLeft: document.getElementById("blueDLeft-val"),
+                blueDRight: document.getElementById("blueDRight-val"),
                 redD: document.getElementById("redD-val"),
             };
 
@@ -193,7 +210,8 @@
             let clearBg = true;
 
             function fmt(key, n) {
-                if (key === "blueD" || key === "redD") return n.toFixed(2);
+                if (key === "blueDLeft" || key === "blueDRight" || key === "redD")
+                    return n.toFixed(2);
                 return String(Math.round(n));
             }
 
@@ -202,7 +220,8 @@
                     x: parseFloat(inputs.x.value),
                     y: parseFloat(inputs.y.value),
                     size: parseFloat(inputs.size.value),
-                    blueD: parseFloat(inputs.blueD.value),
+                    blueDLeft: parseFloat(inputs.blueDLeft.value),
+                    blueDRight: parseFloat(inputs.blueDRight.value),
                     redD: parseFloat(inputs.redD.value),
                 };
             }
@@ -213,7 +232,7 @@
                     `  ctx,\n` +
                     `  ${p.x}, ${p.y},\n` +
                     `  ${p.size},\n` +
-                    `  ${p.blueD.toFixed(2)}, ${p.redD.toFixed(2)},\n` +
+                    `  ${p.blueDLeft.toFixed(2)}, ${p.blueDRight.toFixed(2)}, ${p.redD.toFixed(2)},\n` +
                     `)`;
             }
 
@@ -242,7 +261,15 @@
                 }
 
                 try {
-                    drawPipeJunction(ctx, p.x, p.y, p.size, p.blueD, p.redD);
+                    drawPipeJunction(
+                        ctx,
+                        p.x,
+                        p.y,
+                        p.size,
+                        p.blueDLeft,
+                        p.blueDRight,
+                        p.redD,
+                    );
                     setStatus("OK");
                 } catch (err) {
                     setStatus(
@@ -269,14 +296,16 @@
             });
 
             const presets = {
-                "blue-larger": { blueD: 1.0, redD: 0.5 },
-                "red-larger": { blueD: 0.4, redD: 0.9 },
-                equal: { blueD: 0.75, redD: 0.75 },
+                "blue-larger": { blueDLeft: 1.0, blueDRight: 1.0, redD: 0.5 },
+                "red-larger": { blueDLeft: 0.4, blueDRight: 0.4, redD: 0.9 },
+                equal: { blueDLeft: 0.75, blueDRight: 0.75, redD: 0.75 },
+                asymmetric: { blueDLeft: 1.0, blueDRight: 0.4, redD: 0.5 },
             };
             for (const btn of document.querySelectorAll("[data-preset]")) {
                 btn.addEventListener("click", () => {
                     const p = presets[btn.dataset.preset];
-                    inputs.blueD.value = p.blueD;
+                    inputs.blueDLeft.value = p.blueDLeft;
+                    inputs.blueDRight.value = p.blueDRight;
                     inputs.redD.value = p.redD;
                     render();
                 });
