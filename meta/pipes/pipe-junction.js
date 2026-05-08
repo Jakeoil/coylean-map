@@ -38,31 +38,36 @@
  *   Diameter of the horizontal blue pipe on the RIGHT half of the drawing,
  *   in normalized units. 0 ≤ blueDRight ≤ 1; 0 means no blue on the right.
  *
- * @param {number} redD
- *   Diameter of the vertical red pipe, in normalized units.
- *   0 ≤ redD ≤ 1; 0 means no red pipe.
+ * @param {number} redDTop
+ *   Diameter of the vertical red pipe on the TOP half of the drawing,
+ *   in normalized units. 0 ≤ redDTop ≤ 1; 0 means no red on top.
+ *
+ * @param {number} redDBottom
+ *   Diameter of the vertical red pipe on the BOTTOM half of the drawing,
+ *   in normalized units. 0 ≤ redDBottom ≤ 1; 0 means no red on bottom.
  *
  * @returns {void}
  *
  * @remarks
  * - Coordinates are normalized to [0, 1] × [0, 1] before being scaled to canvas pixels.
- * - The drawing is split at cx = 0.5 and each half rendered independently.
- *   In each half: the larger pipe (blue or red) is drawn as the continuous
- *   through-pipe, and the smaller tapers into it.
- * - If blueDLeft and blueDRight differ, the blue band has a step at the
- *   junction. If one half goes blue-dominant and the other red-dominant,
- *   the seam at cx may show a visible discontinuity — natural consequence
- *   of an asymmetric junction.
+ * - The drawing is split into four quadrants at (cx, cy) = (0.5, 0.5) and
+ *   each quadrant rendered independently with its (blueD_side, redD_half)
+ *   pair. In each quadrant the larger pipe is the through-pipe and the
+ *   smaller tapers into it.
+ * - When the four quadrants' diameters disagree, the blue band steps at
+ *   x = cx and/or the red strip steps at y = cy. If neighboring quadrants
+ *   disagree on which pipe dominates, the shared seam may show a visible
+ *   discontinuity — natural consequence of an asymmetric junction.
  * - Shading is approximated with linear gradients to suggest cylindrical form.
  *
  * @example
- * drawPipeJunction(ctx, 50, 50, 500, 1.0, 1.0, 0.5); // symmetric, blue larger
+ * drawPipeJunction(ctx, 50, 50, 500, 1.0, 1.0, 0.5, 0.5); // symmetric, blue larger
  *
  * @example
- * drawPipeJunction(ctx, 50, 50, 500, 0.4, 0.4, 0.9); // symmetric, red larger
+ * drawPipeJunction(ctx, 50, 50, 500, 0.4, 0.4, 0.9, 0.9); // symmetric, red larger
  *
  * @example
- * drawPipeJunction(ctx, 50, 50, 500, 1.0, 0.4, 0.5); // asymmetric blue
+ * drawPipeJunction(ctx, 50, 50, 500, 1.0, 0.4, 0.5, 0.7); // fully asymmetric
  */
 
 export function drawPipeJunction(
@@ -72,25 +77,31 @@ export function drawPipeJunction(
     size,
     blueDLeft = 1,
     blueDRight = 1,
-    redD = 0.5,
+    redDTop = 0.5,
+    redDBottom = 0.5,
 ) {
     blueDLeft = Math.min(1, Math.max(0, blueDLeft));
     blueDRight = Math.min(1, Math.max(0, blueDRight));
-    redD = Math.min(1, Math.max(0, redD));
+    redDTop = Math.min(1, Math.max(0, redDTop));
+    redDBottom = Math.min(1, Math.max(0, redDBottom));
 
-    drawHalf(ctx, x, y, size, blueDLeft, redD, true);
-    drawHalf(ctx, x, y, size, blueDRight, redD, false);
+    drawQuadrant(ctx, x, y, size, blueDLeft, redDTop, true, true); // NW
+    drawQuadrant(ctx, x, y, size, blueDRight, redDTop, false, true); // NE
+    drawQuadrant(ctx, x, y, size, blueDLeft, redDBottom, true, false); // SW
+    drawQuadrant(ctx, x, y, size, blueDRight, redDBottom, false, false); // SE
 }
 
-function drawHalf(ctx, x, y, size, blueD, redD, isLeft) {
+function drawQuadrant(ctx, x, y, size, blueD, redD, isLeft, isTop) {
     if (blueD <= 0 && redD <= 0) return;
 
     const halfX = isLeft ? x : x + size / 2;
+    const halfY = isTop ? y : y + size / 2;
     const halfW = size / 2;
+    const halfH = size / 2;
 
     ctx.save();
     ctx.beginPath();
-    ctx.rect(halfX, y, halfW, size);
+    ctx.rect(halfX, halfY, halfW, halfH);
     ctx.clip();
 
     if (blueD <= 0) {

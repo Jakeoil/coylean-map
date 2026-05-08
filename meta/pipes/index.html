@@ -138,16 +138,30 @@
                     </div>
                     <div class="control-row">
                         <div class="control">
-                            <label>redD (vertical)</label>
+                            <label>redDTop (top half)</label>
                             <input
                                 type="range"
-                                id="redD"
+                                id="redDTop"
                                 min="0"
                                 max="1"
                                 step="0.01"
                                 value="0.5"
                             />
-                            <span class="value" id="redD-val">0.50</span>
+                            <span class="value" id="redDTop-val">0.50</span>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>redDBottom (bottom half)</label>
+                            <input
+                                type="range"
+                                id="redDBottom"
+                                min="0"
+                                max="1"
+                                step="0.01"
+                                value="0.5"
+                            />
+                            <span class="value" id="redDBottom-val">0.50</span>
                         </div>
                     </div>
                 </div>
@@ -193,7 +207,8 @@
                 size: document.getElementById("size"),
                 blueDLeft: document.getElementById("blueDLeft"),
                 blueDRight: document.getElementById("blueDRight"),
-                redD: document.getElementById("redD"),
+                redDTop: document.getElementById("redDTop"),
+                redDBottom: document.getElementById("redDBottom"),
             };
             const vals = {
                 x: document.getElementById("x-val"),
@@ -201,7 +216,8 @@
                 size: document.getElementById("size-val"),
                 blueDLeft: document.getElementById("blueDLeft-val"),
                 blueDRight: document.getElementById("blueDRight-val"),
-                redD: document.getElementById("redD-val"),
+                redDTop: document.getElementById("redDTop-val"),
+                redDBottom: document.getElementById("redDBottom-val"),
             };
 
             const togFrame = document.getElementById("tog-frame");
@@ -209,9 +225,10 @@
             let showFrame = true;
             let clearBg = true;
 
+            const D_KEYS = ["blueDLeft", "blueDRight", "redDTop", "redDBottom"];
+
             function fmt(key, n) {
-                if (key === "blueDLeft" || key === "blueDRight" || key === "redD")
-                    return n.toFixed(2);
+                if (D_KEYS.includes(key)) return n.toFixed(2);
                 return String(Math.round(n));
             }
 
@@ -222,7 +239,8 @@
                     size: parseFloat(inputs.size.value),
                     blueDLeft: parseFloat(inputs.blueDLeft.value),
                     blueDRight: parseFloat(inputs.blueDRight.value),
-                    redD: parseFloat(inputs.redD.value),
+                    redDTop: parseFloat(inputs.redDTop.value),
+                    redDBottom: parseFloat(inputs.redDBottom.value),
                 };
             }
 
@@ -232,7 +250,8 @@
                     `  ctx,\n` +
                     `  ${p.x}, ${p.y},\n` +
                     `  ${p.size},\n` +
-                    `  ${p.blueDLeft.toFixed(2)}, ${p.blueDRight.toFixed(2)}, ${p.redD.toFixed(2)},\n` +
+                    `  ${p.blueDLeft.toFixed(2)}, ${p.blueDRight.toFixed(2)},\n` +
+                    `  ${p.redDTop.toFixed(2)}, ${p.redDBottom.toFixed(2)},\n` +
                     `)`;
             }
 
@@ -268,7 +287,8 @@
                         p.size,
                         p.blueDLeft,
                         p.blueDRight,
-                        p.redD,
+                        p.redDTop,
+                        p.redDBottom,
                     );
                     setStatus("OK");
                 } catch (err) {
@@ -296,17 +316,30 @@
             });
 
             const presets = {
-                "blue-larger": { blueDLeft: 1.0, blueDRight: 1.0, redD: 0.5 },
-                "red-larger": { blueDLeft: 0.4, blueDRight: 0.4, redD: 0.9 },
-                equal: { blueDLeft: 0.75, blueDRight: 0.75, redD: 0.75 },
-                asymmetric: { blueDLeft: 1.0, blueDRight: 0.4, redD: 0.5 },
+                "blue-larger": {
+                    blueDLeft: 1.0, blueDRight: 1.0,
+                    redDTop: 0.5, redDBottom: 0.5,
+                },
+                "red-larger": {
+                    blueDLeft: 0.4, blueDRight: 0.4,
+                    redDTop: 0.9, redDBottom: 0.9,
+                },
+                equal: {
+                    blueDLeft: 0.75, blueDRight: 0.75,
+                    redDTop: 0.75, redDBottom: 0.75,
+                },
+                asymmetric: {
+                    blueDLeft: 1.0, blueDRight: 0.4,
+                    redDTop: 0.5, redDBottom: 0.7,
+                },
             };
             for (const btn of document.querySelectorAll("[data-preset]")) {
                 btn.addEventListener("click", () => {
                     const p = presets[btn.dataset.preset];
                     inputs.blueDLeft.value = p.blueDLeft;
                     inputs.blueDRight.value = p.blueDRight;
-                    inputs.redD.value = p.redD;
+                    inputs.redDTop.value = p.redDTop;
+                    inputs.redDBottom.value = p.redDBottom;
                     render();
                 });
             }
