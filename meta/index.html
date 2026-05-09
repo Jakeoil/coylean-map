@@ -79,6 +79,51 @@
                 line-height: 1.5;
                 color: rgba(255, 255, 255, 0.8);
             }
+            .card-multi {
+                cursor: default;
+            }
+            .card-multi:hover {
+                transform: none;
+                background: rgba(22, 33, 62, 0.6);
+                border-color: rgba(233, 69, 96, 0.5);
+                box-shadow: none;
+            }
+            .card-actions {
+                display: flex;
+                gap: 10px;
+                margin-top: 14px;
+                flex-wrap: wrap;
+            }
+            .chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 7px 14px;
+                border: 1.5px solid rgba(233, 69, 96, 0.55);
+                border-radius: 999px;
+                color: #ffd0d8;
+                text-decoration: none;
+                font-size: 0.88rem;
+                font-weight: 500;
+                background: rgba(233, 69, 96, 0.06);
+                transition: all 0.15s;
+            }
+            .chip:hover {
+                background: rgba(233, 69, 96, 0.22);
+                border-color: #e94560;
+                color: #fff;
+                transform: translateY(-1px);
+                box-shadow: 0 3px 10px rgba(233, 69, 96, 0.25);
+            }
+            .chip-tag {
+                font-size: 0.72rem;
+                padding: 2px 7px;
+                border-radius: 4px;
+                background: rgba(233, 69, 96, 0.25);
+                color: #ffd0d8;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                letter-spacing: 0.04em;
+            }
         </style>
     </head>
     <body>
@@ -102,16 +147,26 @@
                 </p>
             </a>
 
-            <a class="card" href="pipes/">
+            <div class="card card-multi">
                 <h2>drawPipeJunction Tester</h2>
                 <p>
                     Live tester for the orthographic red/blue pipe-junction
                     drawing function. Adjust <code>x</code>, <code>y</code>,
                     <code>size</code>, <code>blueD</code>, and
-                    <code>redD</code> with sliders and watch the canvas
-                    update in real time.
+                    <code>redD</code> with sliders and watch the result update
+                    in real time. Two backends with identical geometry:
                 </p>
-            </a>
+                <div class="card-actions">
+                    <a class="chip" href="pipes/">
+                        <span class="chip-tag">canvas</span>
+                        Canvas tester
+                    </a>
+                    <a class="chip" href="pipes/index-svg.html">
+                        <span class="chip-tag">svg</span>
+                        SVG tester
+                    </a>
+                </div>
+            </div>
 
             <a class="card" href="arrows-test.html">
                 <h2>Arrow Thickness Tester</h2>

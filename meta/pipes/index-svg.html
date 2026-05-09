@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>drawPipeJunctionSvg Tester</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <link rel="stylesheet" href="../../coylean-explorer/prototype.css" />
+        <style>
+            #stage {
+                display: block;
+                margin: 24px auto;
+                background: #fff;
+                border: 1px solid #ddd;
+            }
+            .control input[type="range"] {
+                width: 200px;
+            }
+            .control .value {
+                font-family: monospace;
+                color: #555;
+                margin-left: 6px;
+                font-size: 0.85em;
+            }
+            .description {
+                font-size: 0.85em;
+                color: #555;
+                line-height: 1.5;
+            }
+            .description p {
+                margin: 6px 0;
+            }
+            .canvas-wrap {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100%;
+                overflow: auto;
+            }
+        </style>
+    </head>
+    <body class="layout-sidebar">
+        <nav class="breadcrumb">
+            <a href="../">Meta</a>
+            <span class="sep">›</span>
+            <a href="./">drawPipeJunction</a>
+            <span class="sep">›</span>
+            <a href="" class="current">SVG</a>
+        </nav>
+        <div class="layout-body">
+            <div class="sidebar">
+                <h1>drawPipeJunctionSvg</h1>
+                <div class="description">
+                    <p>
+                        Test page for
+                        <code>drawPipeJunctionSvg(viewport, x, y, size, ...)</code>
+                        from <code>./pipe-junction.js</code>. Same parameters as
+                        the canvas version; renders into an SVG viewport
+                        instead.
+                    </p>
+                </div>
+
+                <h2>Call</h2>
+                <div class="call-sig" id="call-sig"></div>
+
+                <h2>Drawing region</h2>
+                <div class="controls">
+                    <div class="control-row">
+                        <div class="control">
+                            <label>x</label>
+                            <input
+                                type="range"
+                                id="x"
+                                min="0"
+                                max="400"
+                                step="1"
+                                value="50"
+                            />
+                            <span class="value" id="x-val">50</span>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>y</label>
+                            <input
+                                type="range"
+                                id="y"
+                                min="0"
+                                max="400"
+                                step="1"
+                                value="50"
+                            />
+                            <span class="value" id="y-val">50</span>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>size (px)</label>
+                            <input
+                                type="range"
+                                id="size"
+                                min="50"
+                                max="700"
+                                step="5"
+                                value="500"
+                            />
+                            <span class="value" id="size-val">500</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h2>Pipe diameters</h2>
+                <div class="controls">
+                    <div class="control-row">
+                        <div class="control">
+                            <label>blueDLeft (left half)</label>
+                            <input
+                                type="range"
+                                id="blueDLeft"
+                                min="0"
+                                max="1"
+                                step="0.01"
+                                value="1"
+                            />
+                            <span class="value" id="blueDLeft-val">1.00</span>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>blueDRight (right half)</label>
+                            <input
+                                type="range"
+                                id="blueDRight"
+                                min="0"
+                                max="1"
+                                step="0.01"
+                                value="1"
+                            />
+                            <span class="value" id="blueDRight-val">1.00</span>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>redDTop (top half)</label>
+                            <input
+                                type="range"
+                                id="redDTop"
+                                min="0"
+                                max="1"
+                                step="0.01"
+                                value="0.5"
+                            />
+                            <span class="value" id="redDTop-val">0.50</span>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control">
+                            <label>redDBottom (bottom half)</label>
+                            <input
+                                type="range"
+                                id="redDBottom"
+                                min="0"
+                                max="1"
+                                step="0.01"
+                                value="0.5"
+                            />
+                            <span class="value" id="redDBottom-val">0.50</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h2>Display</h2>
+                <div class="toggle-row">
+                    <button id="tog-frame" class="active">Show frame</button>
+                </div>
+
+                <h2>Presets</h2>
+                <div class="toggle-row">
+                    <button data-preset="blue-larger">Blue larger</button>
+                    <button data-preset="red-larger">Red larger</button>
+                    <button data-preset="equal">Equal</button>
+                    <button data-preset="asymmetric">Asymmetric</button>
+                </div>
+
+                <h2>Status</h2>
+                <div class="info-panel" id="status">
+                    <div>Ready.</div>
+                </div>
+            </div>
+
+            <div class="main">
+                <div class="canvas-wrap">
+                    <svg
+                        id="stage"
+                        width="800"
+                        height="800"
+                        xmlns="http://www.w3.org/2000/svg"
+                    >
+                        <rect
+                            id="frame"
+                            fill="none"
+                            stroke="rgba(0,0,0,0.18)"
+                            stroke-width="1"
+                            stroke-dasharray="4 4"
+                        />
+                        <g class="viewport"></g>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <script type="module">
+            import { drawPipeJunctionSvg } from "./pipe-junction.js";
+
+            const svg = document.getElementById("stage");
+            const viewport = svg.querySelector("g.viewport");
+            const frame = document.getElementById("frame");
+            const callSig = document.getElementById("call-sig");
+            const status = document.getElementById("status");
+
+            const inputs = {
+                x: document.getElementById("x"),
+                y: document.getElementById("y"),
+                size: document.getElementById("size"),
+                blueDLeft: document.getElementById("blueDLeft"),
+                blueDRight: document.getElementById("blueDRight"),
+                redDTop: document.getElementById("redDTop"),
+                redDBottom: document.getElementById("redDBottom"),
+            };
+            const vals = {
+                x: document.getElementById("x-val"),
+                y: document.getElementById("y-val"),
+                size: document.getElementById("size-val"),
+                blueDLeft: document.getElementById("blueDLeft-val"),
+                blueDRight: document.getElementById("blueDRight-val"),
+                redDTop: document.getElementById("redDTop-val"),
+                redDBottom: document.getElementById("redDBottom-val"),
+            };
+
+            const togFrame = document.getElementById("tog-frame");
+            let showFrame = true;
+
+            const D_KEYS = ["blueDLeft", "blueDRight", "redDTop", "redDBottom"];
+
+            function fmt(key, n) {
+                if (D_KEYS.includes(key)) return n.toFixed(2);
+                return String(Math.round(n));
+            }
+
+            function readParams() {
+                return {
+                    x: parseFloat(inputs.x.value),
+                    y: parseFloat(inputs.y.value),
+                    size: parseFloat(inputs.size.value),
+                    blueDLeft: parseFloat(inputs.blueDLeft.value),
+                    blueDRight: parseFloat(inputs.blueDRight.value),
+                    redDTop: parseFloat(inputs.redDTop.value),
+                    redDBottom: parseFloat(inputs.redDBottom.value),
+                };
+            }
+
+            function updateCallSig(p) {
+                callSig.textContent =
+                    "drawPipeJunctionSvg(\n" +
+                    `  viewport,\n` +
+                    `  ${p.x}, ${p.y},\n` +
+                    `  ${p.size},\n` +
+                    `  ${p.blueDLeft.toFixed(2)}, ${p.blueDRight.toFixed(2)},\n` +
+                    `  ${p.redDTop.toFixed(2)}, ${p.redDBottom.toFixed(2)},\n` +
+                    `)`;
+            }
+
+            function setStatus(msg, ok = true) {
+                status.innerHTML = `<div style="color:${ok ? "#2a7a3a" : "#9a2929"}">${msg}</div>`;
+            }
+
+            function render() {
+                const p = readParams();
+                for (const k of Object.keys(inputs)) {
+                    vals[k].textContent = fmt(k, p[k]);
+                }
+                updateCallSig(p);
+
+                viewport.innerHTML = "";
+
+                if (showFrame) {
+                    frame.setAttribute("x", p.x + 0.5);
+                    frame.setAttribute("y", p.y + 0.5);
+                    frame.setAttribute("width", p.size);
+                    frame.setAttribute("height", p.size);
+                    frame.style.display = "";
+                } else {
+                    frame.style.display = "none";
+                }
+
+                try {
+                    drawPipeJunctionSvg(
+                        viewport,
+                        p.x,
+                        p.y,
+                        p.size,
+                        p.blueDLeft,
+                        p.blueDRight,
+                        p.redDTop,
+                        p.redDBottom,
+                    );
+                    setStatus("OK");
+                } catch (err) {
+                    setStatus(`Error: ${err.message || err}`, false);
+                    console.error(err);
+                }
+            }
+
+            for (const el of Object.values(inputs)) {
+                el.addEventListener("input", render);
+            }
+
+            togFrame.addEventListener("click", () => {
+                showFrame = !showFrame;
+                togFrame.classList.toggle("active", showFrame);
+                render();
+            });
+
+            const presets = {
+                "blue-larger": {
+                    blueDLeft: 1.0, blueDRight: 1.0,
+                    redDTop: 0.5, redDBottom: 0.5,
+                },
+                "red-larger": {
+                    blueDLeft: 0.4, blueDRight: 0.4,
+                    redDTop: 0.9, redDBottom: 0.9,
+                },
+                equal: {
+                    blueDLeft: 0.75, blueDRight: 0.75,
+                    redDTop: 0.75, redDBottom: 0.75,
+                },
+                asymmetric: {
+                    blueDLeft: 1.0, blueDRight: 0.4,
+                    redDTop: 0.5, redDBottom: 0.7,
+                },
+            };
+            for (const btn of document.querySelectorAll("[data-preset]")) {
+                btn.addEventListener("click", () => {
+                    const p = presets[btn.dataset.preset];
+                    inputs.blueDLeft.value = p.blueDLeft;
+                    inputs.blueDRight.value = p.blueDRight;
+                    inputs.redDTop.value = p.redDTop;
+                    inputs.redDBottom.value = p.redDBottom;
+                    render();
+                });
+            }
+
+            render();
+        </script>
+    </body>
+</html>

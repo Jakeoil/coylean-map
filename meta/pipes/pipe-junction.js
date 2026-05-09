@@ -306,3 +306,297 @@ function drawJunctionRedCrossbar(ctx, x, y, size, blueD, redD) {
 
     ctx.restore();
 }
+
+/**
+ * SVG counterpart of {@link drawPipeJunction}. Appends a `<g>` (with a nested
+ * `<defs>` for gradients and clipPaths) to the given viewport element. The
+ * geometry, parameter meaning, and shading match the canvas version.
+ *
+ * @param {SVGGraphicsElement} viewport
+ *   An SVG container element (typically a `<g>`) the junction will be appended
+ *   to. Must live inside an `<svg>` document.
+ *
+ * @param {number} x
+ * @param {number} y
+ * @param {number} size
+ * @param {number} blueDLeft
+ * @param {number} blueDRight
+ * @param {number} redDTop
+ * @param {number} redDBottom
+ *
+ * @returns {SVGGElement} The root `<g>` that was appended, for caller cleanup.
+ */
+export function drawPipeJunctionSvg(
+    viewport,
+    x,
+    y,
+    size,
+    blueDLeft = 1,
+    blueDRight = 1,
+    redDTop = 0.5,
+    redDBottom = 0.5,
+) {
+    blueDLeft = Math.min(1, Math.max(0, blueDLeft));
+    blueDRight = Math.min(1, Math.max(0, blueDRight));
+    redDTop = Math.min(1, Math.max(0, redDTop));
+    redDBottom = Math.min(1, Math.max(0, redDBottom));
+
+    const root = svgEl("g", { class: "pipe-junction" });
+    const defs = svgEl("defs", {});
+    root.appendChild(defs);
+    viewport.appendChild(root);
+
+    const q = (bD, rD, isLeft, isTop) =>
+        drawQuadrantSvg(root, defs, x, y, size, bD, rD, isLeft, isTop);
+
+    q(blueDLeft, redDTop, true, true); // NW
+    q(blueDRight, redDTop, false, true); // NE
+    q(blueDLeft, redDBottom, true, false); // SW
+    q(blueDRight, redDBottom, false, false); // SE
+
+    return root;
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function svgEl(tag, attrs = {}) {
+    const el = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(attrs)) {
+        if (v == null) continue;
+        el.setAttribute(k, v);
+    }
+    return el;
+}
+
+let nextSvgId = 0;
+const uid = (prefix) => `${prefix}-${nextSvgId++}`;
+
+function drawQuadrantSvg(root, defs, x, y, size, blueD, redD, isLeft, isTop) {
+    if (blueD <= 0 && redD <= 0) return;
+
+    const halfX = isLeft ? x : x + size / 2;
+    const halfY = isTop ? y : y + size / 2;
+    const halfW = size / 2;
+    const halfH = size / 2;
+
+    const clipId = uid("pipe-clip");
+    const clipPath = svgEl("clipPath", { id: clipId });
+    clipPath.appendChild(
+        svgEl("rect", { x: halfX, y: halfY, width: halfW, height: halfH }),
+    );
+    defs.appendChild(clipPath);
+
+    const g = svgEl("g", { "clip-path": `url(#${clipId})` });
+    root.appendChild(g);
+
+    if (blueD <= 0) {
+        drawSingleRedPipeSvg(g, defs, x, y, size, redD);
+    } else if (redD <= 0) {
+        drawSingleBluePipeSvg(g, defs, x, y, size, blueD);
+    } else if (blueD >= redD) {
+        drawJunctionBlueCrossbarSvg(g, defs, x, y, size, blueD, redD);
+    } else {
+        drawJunctionRedCrossbarSvg(g, defs, x, y, size, blueD, redD);
+    }
+}
+
+function makeBlueGradient(defs, yTopPx, yBotPx) {
+    const id = uid("blue-grad");
+    const grad = svgEl("linearGradient", {
+        id,
+        x1: 0,
+        y1: yTopPx,
+        x2: 0,
+        y2: yBotPx,
+        gradientUnits: "userSpaceOnUse",
+    });
+    const stops = [
+        ["0%", "#003388"],
+        ["35%", "#1f7cff"],
+        ["50%", "#75b7ff"],
+        ["65%", "#1f7cff"],
+        ["100%", "#002866"],
+    ];
+    for (const [offset, color] of stops) {
+        grad.appendChild(svgEl("stop", { offset, "stop-color": color }));
+    }
+    defs.appendChild(grad);
+    return id;
+}
+
+function makeRedGradient(defs, xLeftPx, xRightPx) {
+    const id = uid("red-grad");
+    const grad = svgEl("linearGradient", {
+        id,
+        x1: xLeftPx,
+        y1: 0,
+        x2: xRightPx,
+        y2: 0,
+        gradientUnits: "userSpaceOnUse",
+    });
+    const stops = [
+        ["0%", "#7a0000"],
+        ["35%", "#ff3030"],
+        ["50%", "#ffaaaa"],
+        ["65%", "#ff3030"],
+        ["100%", "#7a0000"],
+    ];
+    for (const [offset, color] of stops) {
+        grad.appendChild(svgEl("stop", { offset, "stop-color": color }));
+    }
+    defs.appendChild(grad);
+    return id;
+}
+
+function drawSingleBluePipeSvg(g, defs, x, y, size, blueD) {
+    const S = size;
+    const R = blueD / 2;
+    const cy = 0.5;
+    const X = (u) => x + u * S;
+    const Y = (v) => y + v * S;
+    const blueTop = cy - R;
+    const blueBot = cy + R;
+
+    const id = makeBlueGradient(defs, Y(blueTop), Y(blueBot));
+    g.appendChild(
+        svgEl("rect", {
+            x: X(0),
+            y: Y(blueTop),
+            width: S,
+            height: Y(blueBot) - Y(blueTop),
+            fill: `url(#${id})`,
+        }),
+    );
+}
+
+function drawSingleRedPipeSvg(g, defs, x, y, size, redD) {
+    const S = size;
+    const R = redD / 2;
+    const cx = 0.5;
+    const X = (u) => x + u * S;
+    const Y = (v) => y + v * S;
+    const redLeft = cx - R;
+    const redRight = cx + R;
+
+    const id = makeRedGradient(defs, X(redLeft), X(redRight));
+    g.appendChild(
+        svgEl("rect", {
+            x: X(redLeft),
+            y: Y(0),
+            width: X(redRight) - X(redLeft),
+            height: S,
+            fill: `url(#${id})`,
+        }),
+    );
+}
+
+function drawJunctionBlueCrossbarSvg(g, defs, x, y, size, blueD, redD) {
+    const S = size;
+    const R = blueD / 2;
+    const r = redD / 2;
+    const cx = 0.5,
+        cy = 0.5;
+
+    const X = (u) => x + u * S;
+    const Y = (v) => y + v * S;
+
+    const blueTop = cy - R;
+    const blueBot = cy + R;
+    const redLeft = cx - r;
+    const redRight = cx + r;
+
+    const y0 = Math.sqrt(Math.max(0, 2 * R * r - r * r));
+    const topTaper = cy - y0;
+    const bottomTaper = cy + y0;
+
+    const blueId = makeBlueGradient(defs, Y(blueTop), Y(blueBot));
+    g.appendChild(
+        svgEl("rect", {
+            x: X(0),
+            y: Y(blueTop),
+            width: S,
+            height: Y(blueBot) - Y(blueTop),
+            fill: `url(#${blueId})`,
+        }),
+    );
+
+    const d = [
+        `M ${X(redLeft)} ${Y(0)}`,
+        `L ${X(redRight)} ${Y(0)}`,
+        `L ${X(redRight)} ${Y(topTaper)}`,
+        `L ${X(cx)} ${Y(cy)}`,
+        `L ${X(redRight)} ${Y(bottomTaper)}`,
+        `L ${X(redRight)} ${Y(1)}`,
+        `L ${X(redLeft)} ${Y(1)}`,
+        `L ${X(redLeft)} ${Y(bottomTaper)}`,
+        `L ${X(cx)} ${Y(cy)}`,
+        `L ${X(redLeft)} ${Y(topTaper)}`,
+        `Z`,
+    ].join(" ");
+
+    const redId = makeRedGradient(defs, X(redLeft), X(redRight));
+    g.appendChild(
+        svgEl("path", {
+            d,
+            fill: `url(#${redId})`,
+            stroke: "rgba(0,0,0,0.3)",
+            "stroke-width": Math.max(1, S * 0.006),
+        }),
+    );
+}
+
+function drawJunctionRedCrossbarSvg(g, defs, x, y, size, blueD, redD) {
+    const S = size;
+    const R = redD / 2;
+    const r = blueD / 2;
+    const cx = 0.5,
+        cy = 0.5;
+
+    const X = (u) => x + u * S;
+    const Y = (v) => y + v * S;
+
+    const redLeft = cx - R;
+    const redRight = cx + R;
+    const blueTop = cy - r;
+    const blueBot = cy + r;
+
+    const x0 = Math.sqrt(Math.max(0, 2 * R * r - r * r));
+    const leftTaper = cx - x0;
+    const rightTaper = cx + x0;
+
+    const redId = makeRedGradient(defs, X(redLeft), X(redRight));
+    g.appendChild(
+        svgEl("rect", {
+            x: X(redLeft),
+            y: Y(0),
+            width: X(redRight) - X(redLeft),
+            height: S,
+            fill: `url(#${redId})`,
+        }),
+    );
+
+    const d = [
+        `M ${X(0)} ${Y(blueTop)}`,
+        `L ${X(leftTaper)} ${Y(blueTop)}`,
+        `L ${X(cx)} ${Y(cy)}`,
+        `L ${X(leftTaper)} ${Y(blueBot)}`,
+        `L ${X(0)} ${Y(blueBot)}`,
+        `Z`,
+        `M ${X(1)} ${Y(blueTop)}`,
+        `L ${X(rightTaper)} ${Y(blueTop)}`,
+        `L ${X(cx)} ${Y(cy)}`,
+        `L ${X(rightTaper)} ${Y(blueBot)}`,
+        `L ${X(1)} ${Y(blueBot)}`,
+        `Z`,
+    ].join(" ");
+
+    const blueId = makeBlueGradient(defs, Y(blueTop), Y(blueBot));
+    g.appendChild(
+        svgEl("path", {
+            d,
+            fill: `url(#${blueId})`,
+            stroke: "rgba(0,0,0,0.3)",
+            "stroke-width": Math.max(1, S * 0.006),
+        }),
+    );
+}
