@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Coylean Map — Line Style Variants</title>
+        <title>Proper Coylean Square — 16×16</title>
         <link rel="icon" type="image/png" href="../../map-icon.png" />
         <style>
             * {
@@ -29,7 +29,7 @@
                 line-height: 1.55;
             }
             main {
-                max-width: 760px;
+                max-width: 820px;
                 margin: 0 auto;
             }
             .back {
@@ -53,7 +53,21 @@
             }
             .lede {
                 color: rgba(255, 255, 255, 0.78);
-                margin-bottom: 24px;
+                margin-bottom: 18px;
+            }
+            .lede em {
+                color: #e94560;
+                font-style: normal;
+                font-weight: 600;
+            }
+            .lede code {
+                font-family:
+                    "Menlo", "Consolas", "DejaVu Sans Mono",
+                    "Liberation Mono", monospace;
+                background: rgba(255, 255, 255, 0.08);
+                padding: 1px 5px;
+                border-radius: 4px;
+                font-size: 0.9em;
             }
             .modes {
                 display: flex;
@@ -86,7 +100,7 @@
                 border-radius: 8px;
                 padding: 18px 22px;
                 overflow-x: auto;
-                font-size: 1.4rem;
+                font-size: 1.2rem;
                 line-height: 1.15;
                 font-family:
                     "Menlo", "Consolas", "DejaVu Sans Mono",
@@ -98,24 +112,25 @@
                 font-size: 0.95rem;
                 min-height: 3em;
             }
-            code {
-                font-family:
-                    "Menlo", "Consolas", "DejaVu Sans Mono",
-                    "Liberation Mono", monospace;
-                background: rgba(255, 255, 255, 0.08);
-                padding: 1px 5px;
-                border-radius: 4px;
-                font-size: 0.9em;
-            }
         </style>
     </head>
     <body>
         <main>
-            <a class="back" href="how-to-draw.html">← How to Draw</a>
-            <h1>Line Style Variants</h1>
+            <a class="back" href="line-styles.html">← Line Style Variants</a>
+            <h1>Proper Coylean Square — 16×16</h1>
             <p class="lede">
-                The same 8×8 propagation, drawn in four different glyph
-                palettes — same booleans, different paint.
+                This is a <em>proper</em> Coylean Square — not just a finite
+                grid propagated from all-true boundaries. We build a
+                <code>Universe</code> with one cell of context beyond the
+                origin to the north and west and the full 16×16 square to
+                the south and east, then call
+                <code>Propagation.fromUniverseBoundary(universe)</code> to
+                reseed a fresh SE-flowing propagation from the universe's
+                outer N row and W column. The 16×16 SE sector is the proper
+                Coylean Square; the extra row and column at the top and
+                left carry the NW context that produced its seed, so the
+                square is the genuine SE patch of an infinite Coylean map
+                rather than a boundary-clipped approximation.
             </p>
 
             <div class="modes">
@@ -129,19 +144,15 @@
 
             <pre id="output"></pre>
             <p id="caption" class="caption"></p>
-
-            <p>
-                See also the
-                <a href="coylean-square.html">Proper Coylean Square</a> —
-                a 16×16 map seeded from a one-cell NW context (the genuine
-                SE patch of an infinite Coylean map).
-            </p>
         </main>
 
         <script type="module">
             "use strict";
 
-            import { Propagation } from "../../coylean-explorer/coylean-core.js";
+            import {
+                Propagation,
+                Universe,
+            } from "../../coylean-explorer/coylean-core.js";
             import {
                 LIGHT,
                 HEAVY,
@@ -150,17 +161,35 @@
                 renderMixed,
             } from "./box-glyphs.mjs";
 
-            const N = 8;
+            const N = 16;
+
+            // Universe with N=W=1 cell of context beyond the origin and
+            // S=E=16 cells covering the proper Coylean Square. The
+            // universe boundary feeds Propagation.fromUniverseBoundary,
+            // which builds a fresh (1+16) × (1+16) = 17×17 SE-flowing
+            // propagation; the 16×16 SE sector is the square itself,
+            // and the extra row/column at the top and left carry the
+            // NW context that produced its seed.
+            const universe = Universe.create({
+                northExtent: 1,
+                southExtent: N,
+                westExtent: 1,
+                eastExtent: N,
+                hInitCol: 1,
+                vInitRow: 1,
+            });
+            const propagation = Propagation.fromUniverseBoundary(universe);
+            const { downMatrix, rightMatrix } = propagation;
 
             const captions = {
                 light:
-                    "Standard light box-drawing glyphs — same as draw-coylean.mjs.",
+                    "Standard light box-drawing glyphs.",
                 heavy:
                     "Same map drawn entirely in heavy box-drawing glyphs.",
                 mixed:
                     "Each segment's weight comes from its boundary priority:" +
                     " segments at column or row boundaries with pri > 1" +
-                    " (boundaries 4 and 8 in this 8×8 grid) are heavy," +
+                    " (boundaries 4, 8, 12, 16 in this grid) are heavy," +
                     " everything else is light.",
                 double:
                     "Double-line palette. Single-direction stubs at the" +
@@ -168,12 +197,6 @@
                     " caps exist in Unicode.",
             };
 
-            const { downMatrix, rightMatrix } = new Propagation({
-                numRows: N,
-                numColumns: N,
-                hInitCol: 1,
-                vInitRow: 1,
-            });
             const out = document.getElementById("output");
             const caption = document.getElementById("caption");
             const buttons = document.querySelectorAll(".modes button");
