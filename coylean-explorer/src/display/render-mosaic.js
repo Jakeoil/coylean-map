@@ -2,6 +2,7 @@ import { pri } from "../../coylean-core.js";
 import { svgEl, diamondPts } from "./svg.js";
 import { downArrowPath, rightArrowPath, downLineSeg, rightLineSeg, presetForPri } from "./arrows.js";
 import { renderEncroach } from "./encroach.js";
+import { renderPipes } from "./render-pipes.js";
 
 // Layout constants for the 2x2 quadrant mosaic.
 const S = 96;          // cell size (basic-propagation scale)
@@ -337,6 +338,15 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
             showFill,
         });
     }
+
+    // ── Pipes overlay (on top of encroach; labels still rendered on top) ──
+    renderPipes(group, {
+        numRows, numCols,
+        hInitCol: p.hInitCol, vInitRow: p.vInitRow,
+        downMatrix: p.downMatrix, rightMatrix: p.rightMatrix,
+        x, y,
+        flipJ, flipI,
+    }, flags);
 
     // ── Pass 4: labels (drawn after arrows and encroach so they sit on top) ──
     if (showLabels) {

@@ -73,6 +73,24 @@ body.layout-header {
     letter-spacing: 0.05em;
 }
 
+/* Collapsible sidebar section: <summary> styled like .sidebar h2. */
+.sidebar details.section > summary {
+    font-size: 0.85em;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    list-style: none;
+}
+.sidebar details.section > summary::-webkit-details-marker { display: none; }
+.sidebar details.section > summary::before {
+    content: "▸";
+    display: inline-block;
+    width: 1em;
+    color: #999;
+}
+.sidebar details.section[open] > summary::before { content: "▾"; }
+
 .main {
     flex: 1;
     overflow: hidden;

@@ -186,7 +186,11 @@ export function renderPropagation(svg, config, result, flags, hooks) {
     }
 
     // ── Pipes overlay (on top of encroach; labels still rendered on top) ──
-    renderPipes(vp, config, result, flags);
+    renderPipes(vp, {
+        numRows: nR, numCols: nC,
+        hInitCol, vInitRow,
+        downMatrix: dm, rightMatrix: rm,
+    }, flags);
 
     // ── Pass 4: labels (drawn after arrows and encroach so they sit on top) ──
     if (showLabels) {

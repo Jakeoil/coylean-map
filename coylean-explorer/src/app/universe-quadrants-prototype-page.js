@@ -92,6 +92,8 @@ export function init() {
         encroachMode: "off",
         showFill: true,
         showBorders: false,
+        pipesMode: "off",         // "off" | "pipes" | "priority"
+        pipesSize: 25,            // percentage 0–100
         initEditable: false,
     };
 
@@ -404,6 +406,25 @@ export function init() {
     };
     wireToggle("tog-fill", "showFill");
     wireToggle("tog-borders", "showBorders");
+
+    // ── Pipes section ──
+    const pipesModeBtn = document.getElementById("pipes-mode");
+    const PIPES_CYCLE = ["off", "pipes", "priority"];
+    const PIPES_LABEL = { off: "Off", pipes: "Pipes", priority: "Priority" };
+    pipesModeBtn.onclick = () => {
+        const next = (PIPES_CYCLE.indexOf(flags.pipesMode) + 1) % PIPES_CYCLE.length;
+        flags.pipesMode = PIPES_CYCLE[next];
+        pipesModeBtn.textContent = PIPES_LABEL[flags.pipesMode];
+        pipesModeBtn.classList.toggle("active", flags.pipesMode !== "off");
+        render();
+    };
+
+    const pipesSizeInput = document.getElementById("pipes-size");
+    pipesSizeInput.addEventListener("input", () => {
+        flags.pipesSize = +pipesSizeInput.value;
+        render();
+    });
+    attachWheelStep(pipesSizeInput);
 
     render();
 

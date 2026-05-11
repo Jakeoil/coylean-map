@@ -192,39 +192,41 @@
                     </div>
                 </div>
 
-                <h2>Init</h2>
-                <div class="controls">
-                    <div class="control-row">
-                        <div class="control">
-                            <label>Mode</label>
-                            <button id="init-mode" class="btn">Show</button>
+                <details class="section">
+                    <summary>Init</summary>
+                    <div class="controls">
+                        <div class="control-row">
+                            <div class="control">
+                                <label>Mode</label>
+                                <button id="init-mode" class="btn">Show</button>
+                            </div>
+                        </div>
+                        <div class="control-row">
+                            <div class="control">
+                                <label>westInitDown (length westExtent)</label>
+                                <input type="text" id="westInitDown" class="hex-input" readonly />
+                            </div>
+                        </div>
+                        <div class="control-row">
+                            <div class="control">
+                                <label>eastInitDown (length eastExtent)</label>
+                                <input type="text" id="eastInitDown" class="hex-input" readonly />
+                            </div>
+                        </div>
+                        <div class="control-row">
+                            <div class="control">
+                                <label>northInitRight (length northExtent)</label>
+                                <input type="text" id="northInitRight" class="hex-input" readonly />
+                            </div>
+                        </div>
+                        <div class="control-row">
+                            <div class="control">
+                                <label>southInitRight (length southExtent)</label>
+                                <input type="text" id="southInitRight" class="hex-input" readonly />
+                            </div>
                         </div>
                     </div>
-                    <div class="control-row">
-                        <div class="control">
-                            <label>westInitDown (length westExtent)</label>
-                            <input type="text" id="westInitDown" class="hex-input" readonly />
-                        </div>
-                    </div>
-                    <div class="control-row">
-                        <div class="control">
-                            <label>eastInitDown (length eastExtent)</label>
-                            <input type="text" id="eastInitDown" class="hex-input" readonly />
-                        </div>
-                    </div>
-                    <div class="control-row">
-                        <div class="control">
-                            <label>northInitRight (length northExtent)</label>
-                            <input type="text" id="northInitRight" class="hex-input" readonly />
-                        </div>
-                    </div>
-                    <div class="control-row">
-                        <div class="control">
-                            <label>southInitRight (length southExtent)</label>
-                            <input type="text" id="southInitRight" class="hex-input" readonly />
-                        </div>
-                    </div>
-                </div>
+                </details>
 
                 <h2>Display</h2>
                 <div class="toggle-row">
@@ -237,6 +239,28 @@
                     <button id="tog-fill" class="active">Fill</button>
                     <button id="tog-borders">Border</button>
                 </div>
+
+                <details class="section">
+                    <summary>Pipes</summary>
+                    <div class="controls">
+                        <div class="control-row">
+                            <div class="control">
+                                <label>Mode</label>
+                                <button id="pipes-mode" class="btn">Off</button>
+                            </div>
+                            <div class="control">
+                                <label>Size %</label>
+                                <input
+                                    type="number"
+                                    id="pipes-size"
+                                    value="25"
+                                    min="0"
+                                    max="100"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </details>
 
                 <h2>Legend</h2>
                 <div class="legend">
