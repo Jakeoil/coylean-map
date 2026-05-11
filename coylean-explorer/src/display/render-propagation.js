@@ -5,9 +5,9 @@ import { downArrowPath, rightArrowPath, downLineSeg, rightLineSeg, presetForPri 
 import { renderEncroach } from "./encroach.js";
 import { renderPipes } from "./render-pipes.js";
 
-const LABEL_BG_DOWN  = "rgba(224, 168, 168, 0.85)";
-const LABEL_BG_RIGHT = "rgba(188, 216, 232, 0.85)";
-const LABEL_BG_WHITE = "rgba(255, 255, 255, 0.85)";
+const LABEL_BG_DOWN  = "rgba(224, 168, 168, 0.6)";
+const LABEL_BG_RIGHT = "rgba(188, 216, 232, 0.6)";
+const LABEL_BG_WHITE = "rgba(255, 255, 255, 0.6)";
 
 // Append a coord-label with a semi-opaque rectangular background.
 // Font-size / family matches the .coord-label CSS (16px monospace).
@@ -20,6 +20,7 @@ function appendLabelWithBg(parent, cx, cy, text, bgFill) {
     parent.appendChild(svgEl("rect", {
         x: cx - w / 2, y: cy - h / 2,
         width: w, height: h,
+        rx: 6, ry: 6,
         fill: bgFill,
         "pointer-events": "none",
     }));
@@ -71,11 +72,12 @@ export function renderPropagation(svg, config, result, flags, hooks) {
     }
     vp.innerHTML = "";
 
-    // Layered draw order: polygons (with borders) → arrows → encroach →
-    // labels → priority. Keeps borders from overdrawing arrows of adjacent
-    // diamonds, and keeps labels/priority on top of everything else.
+    // Layered draw order: polygon fills → pipes → polygon borders → arrows →
+    // encroach → labels → priority. Splitting fills from borders lets the
+    // pipes overlay sit beneath arrows/labels/borders while still allowing
+    // hover hit-testing on the underlying diamond fills.
 
-    // ── Pass 1: down-diamond polygons ──
+    // ── Pass 1: down-diamond fills (with hover/click hooks) ──
     for (let j = 0; j <= nR; j++) {
         for (let i = 0; i < nC; i++) {
             const [cx, cy] = downPos(i, j);
@@ -85,8 +87,8 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                 points: diamondPts(cx, cy),
                 class: isInit ? "diamond init-cell" : "diamond",
                 fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : "#e0a8a8"),
-                stroke: showBorders ? "#9a4a4a" : "none",
-                "stroke-width": showBorders ? 1.5 : 0,
+                stroke: "none",
+                "stroke-width": 0,
             });
             poly.addEventListener("mouseenter", () => onEnterDown(i, j, val));
             poly.addEventListener("mouseleave", onLeave);
@@ -97,7 +99,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
         }
     }
 
-    // ── Pass 1: right-diamond polygons ──
+    // ── Pass 1: right-diamond fills (with hover/click hooks) ──
     for (let i = 0; i <= nC; i++) {
         for (let j = 0; j < nR; j++) {
             const [cx, cy] = rightPos(i, j);
@@ -107,8 +109,8 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                 points: diamondPts(cx, cy),
                 class: isInit ? "diamond init-cell" : "diamond",
                 fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : "#bcd8e8"),
-                stroke: showBorders ? "#5a8aaa" : "none",
-                "stroke-width": showBorders ? 1.5 : 0,
+                stroke: "none",
+                "stroke-width": 0,
             });
             poly.addEventListener("mouseenter", () => onEnterRight(i, j, val));
             poly.addEventListener("mouseleave", onLeave);
@@ -116,6 +118,43 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                 poly.addEventListener("click", () => onClickRight(i, j));
             }
             vp.appendChild(poly);
+        }
+    }
+
+    // ── Pipes overlay (under arrows/borders/labels) ──
+    renderPipes(vp, {
+        numRows: nR, numCols: nC,
+        hInitCol, vInitRow,
+        downMatrix: dm, rightMatrix: rm,
+    }, flags);
+
+    // ── Pass 1b: diamond borders, drawn on top of pipes ──
+    if (showBorders) {
+        for (let j = 0; j <= nR; j++) {
+            for (let i = 0; i < nC; i++) {
+                const [cx, cy] = downPos(i, j);
+                vp.appendChild(svgEl("polygon", {
+                    points: diamondPts(cx, cy),
+                    class: "diamond-border",
+                    fill: "none",
+                    stroke: "#9a4a4a",
+                    "stroke-width": 1.5,
+                    "pointer-events": "none",
+                }));
+            }
+        }
+        for (let i = 0; i <= nC; i++) {
+            for (let j = 0; j < nR; j++) {
+                const [cx, cy] = rightPos(i, j);
+                vp.appendChild(svgEl("polygon", {
+                    points: diamondPts(cx, cy),
+                    class: "diamond-border",
+                    fill: "none",
+                    stroke: "#5a8aaa",
+                    "stroke-width": 1.5,
+                    "pointer-events": "none",
+                }));
+            }
         }
     }
 
@@ -184,13 +223,6 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             showFill,
         });
     }
-
-    // ── Pipes overlay (on top of encroach; labels still rendered on top) ──
-    renderPipes(vp, {
-        numRows: nR, numCols: nC,
-        hInitCol, vInitRow,
-        downMatrix: dm, rightMatrix: rm,
-    }, flags);
 
     // ── Pass 4: labels (drawn after arrows and encroach so they sit on top) ──
     if (showLabels) {

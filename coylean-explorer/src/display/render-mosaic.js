@@ -21,9 +21,9 @@ const STROKE_DOWN = "#9a4a4a";
 const STROKE_RIGHT = "#5a8aaa";
 
 // Semi-opaque label backgrounds matching the three diamond families.
-const LABEL_BG_DOWN  = "rgba(224, 168, 168, 0.85)";
-const LABEL_BG_RIGHT = "rgba(188, 216, 232, 0.85)";
-const LABEL_BG_WHITE = "rgba(255, 255, 255, 0.85)";
+const LABEL_BG_DOWN  = "rgba(224, 168, 168, 0.6)";
+const LABEL_BG_RIGHT = "rgba(188, 216, 232, 0.6)";
+const LABEL_BG_WHITE = "rgba(255, 255, 255, 0.6)";
 
 // Append a coord-label with a semi-opaque rectangular background.
 // Font-size / family matches the .coord-label CSS (16px monospace).
@@ -36,6 +36,7 @@ function appendLabelWithBg(parent, cx, cy, text, bgFill) {
     parent.appendChild(svgEl("rect", {
         x: cx - w / 2, y: cy - h / 2,
         width: w, height: h,
+        rx: 6, ry: 6,
         fill: bgFill,
         "pointer-events": "none",
     }));
@@ -211,11 +212,12 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
         return [x + PAD + (pi + 0.5) * S, y + PAD + (pj + 0.5) * S];
     };
 
-    // Layered draw order: polygons (with borders) → arrows → encroach →
-    // labels → priority. Keeps borders from overdrawing arrows of adjacent
-    // diamonds, and keeps labels/priority on top of everything else.
+    // Layered draw order: polygon fills → pipes → polygon borders → arrows →
+    // encroach → labels → priority. Splitting fills from borders lets the
+    // pipes overlay sit beneath arrows/labels/borders while still allowing
+    // hover hit-testing on the underlying diamond fills.
 
-    // ── Pass 1: down-diamond polygons (fill + optional border) ──
+    // ── Pass 1: down-diamond fills (with hover/click hooks) ──
     for (let j = 0; j <= numRows; j++) {
         for (let i = 0; i < numCols; i++) {
             const [cx, cy] = downC(i, j);
@@ -225,8 +227,8 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
                 points: diamondPts(cx, cy, D),
                 class: isInit ? "diamond init-cell" : "diamond",
                 fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : FILL_DOWN),
-                stroke: showBorders ? STROKE_DOWN : "none",
-                "stroke-width": showBorders ? 1.5 : 0,
+                stroke: "none",
+                "stroke-width": 0,
                 "data-quad": name,
                 "data-source": "down",
                 "data-i": i,
@@ -243,7 +245,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
         }
     }
 
-    // ── Pass 1: right-diamond polygons (fill + optional border) ──
+    // ── Pass 1: right-diamond fills (with hover/click hooks) ──
     for (let i = 0; i <= numCols; i++) {
         for (let j = 0; j < numRows; j++) {
             const [cx, cy] = rightC(i, j);
@@ -253,8 +255,8 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
                 points: diamondPts(cx, cy, D),
                 class: isInit ? "diamond init-cell" : "diamond",
                 fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : FILL_RIGHT),
-                stroke: showBorders ? STROKE_RIGHT : "none",
-                "stroke-width": showBorders ? 1.5 : 0,
+                stroke: "none",
+                "stroke-width": 0,
                 "data-quad": name,
                 "data-source": "right",
                 "data-i": i,
@@ -268,6 +270,45 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
                 poly.addEventListener("click", () => onClickRight(name, i, j));
             }
             group.appendChild(poly);
+        }
+    }
+
+    // ── Pipes overlay (under arrows/borders/labels) ──
+    renderPipes(group, {
+        numRows, numCols,
+        hInitCol: p.hInitCol, vInitRow: p.vInitRow,
+        downMatrix: p.downMatrix, rightMatrix: p.rightMatrix,
+        x, y,
+        flipJ, flipI,
+    }, flags);
+
+    // ── Pass 1b: diamond borders, drawn on top of pipes ──
+    if (showBorders) {
+        for (let j = 0; j <= numRows; j++) {
+            for (let i = 0; i < numCols; i++) {
+                const [cx, cy] = downC(i, j);
+                group.appendChild(svgEl("polygon", {
+                    points: diamondPts(cx, cy, D),
+                    class: "diamond-border",
+                    fill: "none",
+                    stroke: STROKE_DOWN,
+                    "stroke-width": 1.5,
+                    "pointer-events": "none",
+                }));
+            }
+        }
+        for (let i = 0; i <= numCols; i++) {
+            for (let j = 0; j < numRows; j++) {
+                const [cx, cy] = rightC(i, j);
+                group.appendChild(svgEl("polygon", {
+                    points: diamondPts(cx, cy, D),
+                    class: "diamond-border",
+                    fill: "none",
+                    stroke: STROKE_RIGHT,
+                    "stroke-width": 1.5,
+                    "pointer-events": "none",
+                }));
+            }
         }
     }
 
@@ -338,15 +379,6 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
             showFill,
         });
     }
-
-    // ── Pipes overlay (on top of encroach; labels still rendered on top) ──
-    renderPipes(group, {
-        numRows, numCols,
-        hInitCol: p.hInitCol, vInitRow: p.vInitRow,
-        downMatrix: p.downMatrix, rightMatrix: p.rightMatrix,
-        x, y,
-        flipJ, flipI,
-    }, flags);
 
     // ── Pass 4: labels (drawn after arrows and encroach so they sit on top) ──
     if (showLabels) {
