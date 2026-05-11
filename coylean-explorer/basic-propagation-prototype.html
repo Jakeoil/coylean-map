@@ -83,6 +83,24 @@
                 border-color: #c33;
                 background: #fdecec;
             }
+
+            /* Collapsible section: <summary> styled like .sidebar h2. */
+            details.section > summary {
+                font-size: 0.85em;
+                color: #666;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                cursor: pointer;
+                list-style: none;
+            }
+            details.section > summary::-webkit-details-marker { display: none; }
+            details.section > summary::before {
+                content: "▸";
+                display: inline-block;
+                width: 1em;
+                color: #999;
+            }
+            details.section[open] > summary::before { content: "▾"; }
         </style>
     </head>
     <body class="layout-sidebar">
@@ -156,27 +174,29 @@
                     </div>
                 </div>
 
-                <h2>Init</h2>
-                <div class="controls">
-                    <div class="control-row">
-                        <div class="control">
-                            <label>Mode</label>
-                            <button id="init-mode" class="btn">Show</button>
+                <details class="section">
+                    <summary>Init</summary>
+                    <div class="controls">
+                        <div class="control-row">
+                            <div class="control">
+                                <label>Mode</label>
+                                <button id="init-mode" class="btn">Show</button>
+                            </div>
+                        </div>
+                        <div class="control-row">
+                            <div class="control">
+                                <label>initDown (V, length numCols)</label>
+                                <input type="text" id="initDown" class="hex-input" readonly />
+                            </div>
+                        </div>
+                        <div class="control-row">
+                            <div class="control">
+                                <label>initRight (H, length numRows)</label>
+                                <input type="text" id="initRight" class="hex-input" readonly />
+                            </div>
                         </div>
                     </div>
-                    <div class="control-row">
-                        <div class="control">
-                            <label>initDown (V, length numCols)</label>
-                            <input type="text" id="initDown" class="hex-input" readonly />
-                        </div>
-                    </div>
-                    <div class="control-row">
-                        <div class="control">
-                            <label>initRight (H, length numRows)</label>
-                            <input type="text" id="initRight" class="hex-input" readonly />
-                        </div>
-                    </div>
-                </div>
+                </details>
 
                 <h2>Display</h2>
                 <div class="toggle-row">
@@ -189,6 +209,28 @@
                     <button id="tog-fill" class="active">Fill</button>
                     <button id="tog-borders">Border</button>
                 </div>
+
+                <details class="section">
+                    <summary>Pipes</summary>
+                    <div class="controls">
+                        <div class="control-row">
+                            <div class="control">
+                                <label>Mode</label>
+                                <button id="pipes-mode" class="btn">Off</button>
+                            </div>
+                            <div class="control">
+                                <label>Size %</label>
+                                <input
+                                    type="number"
+                                    id="pipes-size"
+                                    value="25"
+                                    min="0"
+                                    max="100"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </details>
 
                 <h2>Legend</h2>
                 <div class="legend">

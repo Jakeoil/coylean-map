@@ -3,6 +3,7 @@ import { svgEl, diamondPts } from "./svg.js";
 import { S, D, PAD, downPos, rightPos, cellPos } from "./diagram-coords.js";
 import { downArrowPath, rightArrowPath, downLineSeg, rightLineSeg, presetForPri } from "./arrows.js";
 import { renderEncroach } from "./encroach.js";
+import { renderPipes } from "./render-pipes.js";
 
 const LABEL_BG_DOWN  = "rgba(224, 168, 168, 0.85)";
 const LABEL_BG_RIGHT = "rgba(188, 216, 232, 0.85)";
@@ -183,6 +184,9 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             showFill,
         });
     }
+
+    // ── Pipes overlay (on top of encroach; labels still rendered on top) ──
+    renderPipes(vp, config, result, flags);
 
     // ── Pass 4: labels (drawn after arrows and encroach so they sit on top) ──
     if (showLabels) {
