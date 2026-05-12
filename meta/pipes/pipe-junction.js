@@ -230,10 +230,6 @@ function drawJunctionBlueCrossbar(ctx, x, y, size, blueD, redD) {
     ctx.fillStyle = redGrad;
     ctx.fill();
 
-    ctx.strokeStyle = "rgba(0,0,0,0.3)";
-    ctx.lineWidth = Math.max(1, S * 0.006);
-    ctx.stroke();
-
     ctx.restore();
 }
 
@@ -300,10 +296,6 @@ function drawJunctionRedCrossbar(ctx, x, y, size, blueD, redD) {
     ctx.fillStyle = blueGrad;
     ctx.fill();
 
-    ctx.strokeStyle = "rgba(0,0,0,0.3)";
-    ctx.lineWidth = Math.max(1, S * 0.006);
-    ctx.stroke();
-
     ctx.restore();
 }
 
@@ -335,6 +327,7 @@ export function drawPipeJunctionSvg(
     blueDRight = 1,
     redDTop = 0.5,
     redDBottom = 0.5,
+    opts = {},
 ) {
     blueDLeft = Math.min(1, Math.max(0, blueDLeft));
     blueDRight = Math.min(1, Math.max(0, blueDRight));
@@ -347,7 +340,7 @@ export function drawPipeJunctionSvg(
     viewport.appendChild(root);
 
     const q = (bD, rD, isLeft, isTop) =>
-        drawQuadrantSvg(root, defs, x, y, size, bD, rD, isLeft, isTop);
+        drawQuadrantSvg(root, defs, x, y, size, bD, rD, isLeft, isTop, opts);
 
     q(blueDLeft, redDTop, true, true); // NW
     q(blueDRight, redDTop, false, true); // NE
@@ -358,6 +351,12 @@ export function drawPipeJunctionSvg(
 }
 
 const SVG_NS = "http://www.w3.org/2000/svg";
+
+// Sub-pixel overlap applied to the outer cell edges of each quadrant's clip
+// and to the cell-boundary edges of every pipe rect/path. Anti-aliasing at
+// adjacent cells' shared edges leaves a 1px hairline of background fill
+// showing through; overlapping by half a pixel hides that seam.
+const OVERLAP_PX = 0.5;
 
 function svgEl(tag, attrs = {}) {
     const el = document.createElementNS(SVG_NS, tag);
@@ -371,32 +370,55 @@ function svgEl(tag, attrs = {}) {
 let nextSvgId = 0;
 const uid = (prefix) => `${prefix}-${nextSvgId++}`;
 
-function drawQuadrantSvg(root, defs, x, y, size, blueD, redD, isLeft, isTop) {
+function drawQuadrantSvg(root, defs, x, y, size, blueD, redD, isLeft, isTop, opts = {}) {
+    const { skipBlue = false, skipRed = false, forceCrossbar } = opts;
     if (blueD <= 0 && redD <= 0) return;
+    // Nothing to render in this quadrant after applying skips: bail before
+    // allocating a clip group and clipPath def.
+    if (skipBlue && skipRed) return;
+    if (blueD <= 0 && skipRed) return;
+    if (redD <= 0 && skipBlue) return;
 
     const halfX = isLeft ? x : x + size / 2;
     const halfY = isTop ? y : y + size / 2;
     const halfW = size / 2;
     const halfH = size / 2;
 
+    // Extend the clip outward past the cell boundary so each pipe's outer
+    // edge can overlap its neighbor. The cell-center sides stay put — we
+    // don't want quadrants in the same cell to bleed across cx/cy.
+    const clipX = isLeft ? halfX - OVERLAP_PX : halfX;
+    const clipY = isTop ? halfY - OVERLAP_PX : halfY;
+    const clipW = halfW + OVERLAP_PX;
+    const clipH = halfH + OVERLAP_PX;
+
     const clipId = uid("pipe-clip");
     const clipPath = svgEl("clipPath", { id: clipId });
     clipPath.appendChild(
-        svgEl("rect", { x: halfX, y: halfY, width: halfW, height: halfH }),
+        svgEl("rect", { x: clipX, y: clipY, width: clipW, height: clipH }),
     );
     defs.appendChild(clipPath);
 
     const g = svgEl("g", { "clip-path": `url(#${clipId})` });
     root.appendChild(g);
 
+    // forceCrossbar overrides the default size-based pick. Used by the
+    // orphan renderer so the orphan-color pipe is always the wedge (and
+    // therefore always tapers), regardless of which diameter is larger.
+    const useBlueCrossbar = forceCrossbar === "blue"
+        ? true
+        : forceCrossbar === "red"
+            ? false
+            : blueD >= redD;
+
     if (blueD <= 0) {
         drawSingleRedPipeSvg(g, defs, x, y, size, redD);
     } else if (redD <= 0) {
         drawSingleBluePipeSvg(g, defs, x, y, size, blueD);
-    } else if (blueD >= redD) {
-        drawJunctionBlueCrossbarSvg(g, defs, x, y, size, blueD, redD);
+    } else if (useBlueCrossbar) {
+        drawJunctionBlueCrossbarSvg(g, defs, x, y, size, blueD, redD, opts);
     } else {
-        drawJunctionRedCrossbarSvg(g, defs, x, y, size, blueD, redD);
+        drawJunctionRedCrossbarSvg(g, defs, x, y, size, blueD, redD, opts);
     }
 }
 
@@ -460,9 +482,9 @@ function drawSingleBluePipeSvg(g, defs, x, y, size, blueD) {
     const id = makeBlueGradient(defs, Y(blueTop), Y(blueBot));
     g.appendChild(
         svgEl("rect", {
-            x: X(0),
+            x: X(0) - OVERLAP_PX,
             y: Y(blueTop),
-            width: S,
+            width: S + 2 * OVERLAP_PX,
             height: Y(blueBot) - Y(blueTop),
             fill: `url(#${id})`,
         }),
@@ -482,15 +504,16 @@ function drawSingleRedPipeSvg(g, defs, x, y, size, redD) {
     g.appendChild(
         svgEl("rect", {
             x: X(redLeft),
-            y: Y(0),
+            y: Y(0) - OVERLAP_PX,
             width: X(redRight) - X(redLeft),
-            height: S,
+            height: S + 2 * OVERLAP_PX,
             fill: `url(#${id})`,
         }),
     );
 }
 
-function drawJunctionBlueCrossbarSvg(g, defs, x, y, size, blueD, redD) {
+function drawJunctionBlueCrossbarSvg(g, defs, x, y, size, blueD, redD, opts = {}) {
+    const { skipBlue = false, skipRed = false } = opts;
     const S = size;
     const R = blueD / 2;
     const r = redD / 2;
@@ -509,43 +532,48 @@ function drawJunctionBlueCrossbarSvg(g, defs, x, y, size, blueD, redD) {
     const topTaper = cy - y0;
     const bottomTaper = cy + y0;
 
-    const blueId = makeBlueGradient(defs, Y(blueTop), Y(blueBot));
-    g.appendChild(
-        svgEl("rect", {
-            x: X(0),
-            y: Y(blueTop),
-            width: S,
-            height: Y(blueBot) - Y(blueTop),
-            fill: `url(#${blueId})`,
-        }),
-    );
+    if (!skipBlue) {
+        const blueId = makeBlueGradient(defs, Y(blueTop), Y(blueBot));
+        g.appendChild(
+            svgEl("rect", {
+                x: X(0) - OVERLAP_PX,
+                y: Y(blueTop),
+                width: S + 2 * OVERLAP_PX,
+                height: Y(blueBot) - Y(blueTop),
+                fill: `url(#${blueId})`,
+            }),
+        );
+    }
 
-    const d = [
-        `M ${X(redLeft)} ${Y(0)}`,
-        `L ${X(redRight)} ${Y(0)}`,
-        `L ${X(redRight)} ${Y(topTaper)}`,
-        `L ${X(cx)} ${Y(cy)}`,
-        `L ${X(redRight)} ${Y(bottomTaper)}`,
-        `L ${X(redRight)} ${Y(1)}`,
-        `L ${X(redLeft)} ${Y(1)}`,
-        `L ${X(redLeft)} ${Y(bottomTaper)}`,
-        `L ${X(cx)} ${Y(cy)}`,
-        `L ${X(redLeft)} ${Y(topTaper)}`,
-        `Z`,
-    ].join(" ");
+    if (!skipRed) {
+        const yTop = Y(0) - OVERLAP_PX;
+        const yBot = Y(1) + OVERLAP_PX;
+        const d = [
+            `M ${X(redLeft)} ${yTop}`,
+            `L ${X(redRight)} ${yTop}`,
+            `L ${X(redRight)} ${Y(topTaper)}`,
+            `L ${X(cx)} ${Y(cy)}`,
+            `L ${X(redRight)} ${Y(bottomTaper)}`,
+            `L ${X(redRight)} ${yBot}`,
+            `L ${X(redLeft)} ${yBot}`,
+            `L ${X(redLeft)} ${Y(bottomTaper)}`,
+            `L ${X(cx)} ${Y(cy)}`,
+            `L ${X(redLeft)} ${Y(topTaper)}`,
+            `Z`,
+        ].join(" ");
 
-    const redId = makeRedGradient(defs, X(redLeft), X(redRight));
-    g.appendChild(
-        svgEl("path", {
-            d,
-            fill: `url(#${redId})`,
-            stroke: "rgba(0,0,0,0.3)",
-            "stroke-width": Math.max(1, S * 0.006),
-        }),
-    );
+        const redId = makeRedGradient(defs, X(redLeft), X(redRight));
+        g.appendChild(
+            svgEl("path", {
+                d,
+                fill: `url(#${redId})`,
+            }),
+        );
+    }
 }
 
-function drawJunctionRedCrossbarSvg(g, defs, x, y, size, blueD, redD) {
+function drawJunctionRedCrossbarSvg(g, defs, x, y, size, blueD, redD, opts = {}) {
+    const { skipBlue = false, skipRed = false } = opts;
     const S = size;
     const R = redD / 2;
     const r = blueD / 2;
@@ -564,39 +592,43 @@ function drawJunctionRedCrossbarSvg(g, defs, x, y, size, blueD, redD) {
     const leftTaper = cx - x0;
     const rightTaper = cx + x0;
 
-    const redId = makeRedGradient(defs, X(redLeft), X(redRight));
-    g.appendChild(
-        svgEl("rect", {
-            x: X(redLeft),
-            y: Y(0),
-            width: X(redRight) - X(redLeft),
-            height: S,
-            fill: `url(#${redId})`,
-        }),
-    );
+    if (!skipRed) {
+        const redId = makeRedGradient(defs, X(redLeft), X(redRight));
+        g.appendChild(
+            svgEl("rect", {
+                x: X(redLeft),
+                y: Y(0) - OVERLAP_PX,
+                width: X(redRight) - X(redLeft),
+                height: S + 2 * OVERLAP_PX,
+                fill: `url(#${redId})`,
+            }),
+        );
+    }
 
-    const d = [
-        `M ${X(0)} ${Y(blueTop)}`,
-        `L ${X(leftTaper)} ${Y(blueTop)}`,
-        `L ${X(cx)} ${Y(cy)}`,
-        `L ${X(leftTaper)} ${Y(blueBot)}`,
-        `L ${X(0)} ${Y(blueBot)}`,
-        `Z`,
-        `M ${X(1)} ${Y(blueTop)}`,
-        `L ${X(rightTaper)} ${Y(blueTop)}`,
-        `L ${X(cx)} ${Y(cy)}`,
-        `L ${X(rightTaper)} ${Y(blueBot)}`,
-        `L ${X(1)} ${Y(blueBot)}`,
-        `Z`,
-    ].join(" ");
+    if (!skipBlue) {
+        const xLeft = X(0) - OVERLAP_PX;
+        const xRight = X(1) + OVERLAP_PX;
+        const d = [
+            `M ${xLeft} ${Y(blueTop)}`,
+            `L ${X(leftTaper)} ${Y(blueTop)}`,
+            `L ${X(cx)} ${Y(cy)}`,
+            `L ${X(leftTaper)} ${Y(blueBot)}`,
+            `L ${xLeft} ${Y(blueBot)}`,
+            `Z`,
+            `M ${xRight} ${Y(blueTop)}`,
+            `L ${X(rightTaper)} ${Y(blueTop)}`,
+            `L ${X(cx)} ${Y(cy)}`,
+            `L ${X(rightTaper)} ${Y(blueBot)}`,
+            `L ${xRight} ${Y(blueBot)}`,
+            `Z`,
+        ].join(" ");
 
-    const blueId = makeBlueGradient(defs, Y(blueTop), Y(blueBot));
-    g.appendChild(
-        svgEl("path", {
-            d,
-            fill: `url(#${blueId})`,
-            stroke: "rgba(0,0,0,0.3)",
-            "stroke-width": Math.max(1, S * 0.006),
-        }),
-    );
+        const blueId = makeBlueGradient(defs, Y(blueTop), Y(blueBot));
+        g.appendChild(
+            svgEl("path", {
+                d,
+                fill: `url(#${blueId})`,
+            }),
+        );
+    }
 }

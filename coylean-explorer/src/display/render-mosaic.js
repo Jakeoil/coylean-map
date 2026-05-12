@@ -2,7 +2,7 @@ import { pri } from "../../coylean-core.js";
 import { svgEl, diamondPts } from "./svg.js";
 import { downArrowPath, rightArrowPath, downLineSeg, rightLineSeg, presetForPri } from "./arrows.js";
 import { renderEncroach } from "./encroach.js";
-import { renderPipes } from "./render-pipes.js";
+import { renderPipes, renderOrphanPipes } from "./render-pipes.js";
 
 // Layout constants for the 2x2 quadrant mosaic.
 const S = 96;          // cell size (basic-propagation scale)
@@ -20,10 +20,43 @@ const ARROW_RIGHT = "#3d6a8a";
 const STROKE_DOWN = "#9a4a4a";
 const STROKE_RIGHT = "#5a8aaa";
 
-// Semi-opaque label backgrounds matching the three diamond families.
-const LABEL_BG_DOWN  = "rgba(224, 168, 168, 0.6)";
-const LABEL_BG_RIGHT = "rgba(188, 216, 232, 0.6)";
-const LABEL_BG_WHITE = "rgba(255, 255, 255, 0.6)";
+// Radial label-bg gradients: base color at the center fading to fully
+// transparent at the rect's edges, so the rect has no visible boundary —
+// the text floats over a soft halo blending into the diamonds below.
+// Installed as <radialGradient>s in <defs> per render and referenced via
+// url(#…) below.
+const LABEL_BG_COLORS = {
+    down:  "rgb(224, 168, 168)",
+    right: "rgb(188, 216, 232)",
+    white: "rgb(255, 255, 255)",
+};
+const LABEL_BG_CENTER_OPACITY = 0.85;
+
+let labelGradSeq = 0;
+
+function installLabelBgGradients(viewport) {
+    const seq = labelGradSeq++;
+    const defs = svgEl("defs", {});
+    viewport.appendChild(defs);
+    const out = {};
+    for (const [kind, color] of Object.entries(LABEL_BG_COLORS)) {
+        const id = `mosaic-lbl-${kind}-${seq}`;
+        const grad = svgEl("radialGradient", { id, cx: 0.5, cy: 0.5, r: 0.5 });
+        grad.appendChild(svgEl("stop", {
+            offset: "0%",
+            "stop-color": color,
+            "stop-opacity": LABEL_BG_CENTER_OPACITY,
+        }));
+        grad.appendChild(svgEl("stop", {
+            offset: "100%",
+            "stop-color": color,
+            "stop-opacity": 0,
+        }));
+        defs.appendChild(grad);
+        out[kind] = `url(#${id})`;
+    }
+    return out;
+}
 
 // Append a coord-label with a semi-opaque rectangular background.
 // Font-size / family matches the .coord-label CSS (16px monospace).
@@ -101,6 +134,7 @@ export function renderMosaic(svg, quads, flags = {}, hooks = {}) {
         svg.appendChild(viewport);
     }
     viewport.innerHTML = "";
+    const labelBg = installLabelBgGradients(viewport);
 
     const sRowY = nLabelH + nH + rowGap + sLabelH;
     // prettier-ignore
@@ -113,7 +147,7 @@ export function renderMosaic(svg, quads, flags = {}, hooks = {}) {
 
     for (const quad of quads) {
         const pos = positions[quad.name];
-        renderQuadrant(viewport, quad, pos.x, pos.y, pos.w, pos.h, flags, hooks);
+        renderQuadrant(viewport, quad, pos.x, pos.y, pos.w, pos.h, flags, hooks, labelBg);
     }
 }
 
@@ -155,6 +189,7 @@ export function renderIntegrated(svg, quads, integrated, flags = {}, hooks = {})
         svg.appendChild(viewport);
     }
     viewport.innerHTML = "";
+    const labelBg = installLabelBgGradients(viewport);
 
     const intP = integrated.p;
     const intW = 2 * PAD + intP.numColumns * S;
@@ -162,10 +197,10 @@ export function renderIntegrated(svg, quads, integrated, flags = {}, hooks = {})
     const x = totalW - intW;
     const y = totalH - intH;
 
-    renderQuadrant(viewport, integrated, x, y, intW, intH, flags, hooks);
+    renderQuadrant(viewport, integrated, x, y, intW, intH, flags, hooks, labelBg);
 }
 
-function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
+function renderQuadrant(parent, quad, x, y, w, h, flags, hooks, labelBg) {
     const { p, name, flipJ, flipI } = quad;
     const numRows = p.numRows;
     const numCols = p.numColumns;
@@ -274,13 +309,15 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
     }
 
     // ── Pipes overlay (under arrows/borders/labels) ──
-    renderPipes(group, {
+    const pipePanel = {
         numRows, numCols,
         hInitCol: p.hInitCol, vInitRow: p.vInitRow,
         downMatrix: p.downMatrix, rightMatrix: p.rightMatrix,
         x, y,
         flipJ, flipI,
-    }, flags);
+    };
+    renderPipes(group, pipePanel, flags);
+    renderOrphanPipes(group, pipePanel, flags);
 
     // ── Pass 1b: diamond borders, drawn on top of pipes ──
     if (showBorders) {
@@ -386,7 +423,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
             for (let i = 0; i < numCols; i++) {
                 const [cx, cy] = downC(i, j);
                 const val = p.downMatrix[j][i];
-                const bg = (!showFill || (!val && showMinimize)) ? LABEL_BG_WHITE : LABEL_BG_DOWN;
+                const bg = (!showFill || (!val && showMinimize)) ? labelBg.white : labelBg.down;
                 appendLabelWithBg(group, cx, cy, `r${j}c${i}`, bg);
             }
         }
@@ -394,7 +431,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks) {
             for (let j = 0; j < numRows; j++) {
                 const [cx, cy] = rightC(i, j);
                 const val = p.rightMatrix[i][j];
-                const bg = (!showFill || (!val && showMinimize)) ? LABEL_BG_WHITE : LABEL_BG_RIGHT;
+                const bg = (!showFill || (!val && showMinimize)) ? labelBg.white : labelBg.right;
                 appendLabelWithBg(group, cx, cy, `c${i}r${j}`, bg);
             }
         }

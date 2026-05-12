@@ -3,11 +3,43 @@ import { svgEl, diamondPts } from "./svg.js";
 import { S, D, PAD, downPos, rightPos, cellPos } from "./diagram-coords.js";
 import { downArrowPath, rightArrowPath, downLineSeg, rightLineSeg, presetForPri } from "./arrows.js";
 import { renderEncroach } from "./encroach.js";
-import { renderPipes } from "./render-pipes.js";
+import { renderPipes, renderOrphanPipes } from "./render-pipes.js";
 
-const LABEL_BG_DOWN  = "rgba(224, 168, 168, 0.6)";
-const LABEL_BG_RIGHT = "rgba(188, 216, 232, 0.6)";
-const LABEL_BG_WHITE = "rgba(255, 255, 255, 0.6)";
+// Radial label-bg gradients: base color at the center fading to fully
+// transparent at the rect's edges, so the rect has no visible boundary —
+// the text floats over a soft halo blending into the diamonds below.
+const LABEL_BG_COLORS = {
+    down:  "rgb(224, 168, 168)",
+    right: "rgb(188, 216, 232)",
+    white: "rgb(255, 255, 255)",
+};
+const LABEL_BG_CENTER_OPACITY = 0.85;
+
+let labelGradSeq = 0;
+
+function installLabelBgGradients(viewport) {
+    const seq = labelGradSeq++;
+    const defs = svgEl("defs", {});
+    viewport.appendChild(defs);
+    const out = {};
+    for (const [kind, color] of Object.entries(LABEL_BG_COLORS)) {
+        const id = `prop-lbl-${kind}-${seq}`;
+        const grad = svgEl("radialGradient", { id, cx: 0.5, cy: 0.5, r: 0.5 });
+        grad.appendChild(svgEl("stop", {
+            offset: "0%",
+            "stop-color": color,
+            "stop-opacity": LABEL_BG_CENTER_OPACITY,
+        }));
+        grad.appendChild(svgEl("stop", {
+            offset: "100%",
+            "stop-color": color,
+            "stop-opacity": 0,
+        }));
+        defs.appendChild(grad);
+        out[kind] = `url(#${id})`;
+    }
+    return out;
+}
 
 // Append a coord-label with a semi-opaque rectangular background.
 // Font-size / family matches the .coord-label CSS (16px monospace).
@@ -71,6 +103,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
         svg.appendChild(vp);
     }
     vp.innerHTML = "";
+    const labelBg = installLabelBgGradients(vp);
 
     // Layered draw order: polygon fills → pipes → polygon borders → arrows →
     // encroach → labels → priority. Splitting fills from borders lets the
@@ -122,11 +155,13 @@ export function renderPropagation(svg, config, result, flags, hooks) {
     }
 
     // ── Pipes overlay (under arrows/borders/labels) ──
-    renderPipes(vp, {
+    const pipePanel = {
         numRows: nR, numCols: nC,
         hInitCol, vInitRow,
         downMatrix: dm, rightMatrix: rm,
-    }, flags);
+    };
+    renderPipes(vp, pipePanel, flags);
+    renderOrphanPipes(vp, pipePanel, flags);
 
     // ── Pass 1b: diamond borders, drawn on top of pipes ──
     if (showBorders) {
@@ -230,7 +265,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             for (let i = 0; i < nC; i++) {
                 const [cx, cy] = downPos(i, j);
                 const val = dm[j][i];
-                const bg = (!showFill || (!val && showMinimize)) ? LABEL_BG_WHITE : LABEL_BG_DOWN;
+                const bg = (!showFill || (!val && showMinimize)) ? labelBg.white : labelBg.down;
                 appendLabelWithBg(vp, cx, cy, `r${j}c${i}`, bg);
             }
         }
@@ -238,7 +273,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             for (let j = 0; j < nR; j++) {
                 const [cx, cy] = rightPos(i, j);
                 const val = rm[i][j];
-                const bg = (!showFill || (!val && showMinimize)) ? LABEL_BG_WHITE : LABEL_BG_RIGHT;
+                const bg = (!showFill || (!val && showMinimize)) ? labelBg.white : labelBg.right;
                 appendLabelWithBg(vp, cx, cy, `c${i}r${j}`, bg);
             }
         }
