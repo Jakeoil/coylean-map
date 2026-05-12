@@ -1,6 +1,7 @@
 import { Propagation, Seniority, Universe } from "../../coylean-core.js";
 import { renderIntegrated, renderMosaic } from "../display/render-mosaic.js";
 import { attachSvgPanZoom } from "../display/svg-pan-zoom.js";
+import { saveSvgFullExtent } from "../display/save-svg.js";
 import { boolsToHex, hexToBools } from "./init-hex.js";
 import { makeMosaicInfo } from "./mosaic-info.js";
 import { attachWheelStep } from "./wheel-input.js";
@@ -425,6 +426,14 @@ export function init() {
         render();
     });
     attachWheelStep(pipesSizeInput);
+
+    document.getElementById("save-svg").onclick = () => {
+        saveSvgFullExtent(
+            svg,
+            svg.querySelector("g.viewport"),
+            "universe-quadrants.svg",
+        );
+    };
 
     render();
 
