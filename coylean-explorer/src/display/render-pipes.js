@@ -2,6 +2,7 @@ import { pri } from "../../coylean-core.js";
 import { S, PAD } from "./diagram-coords.js";
 import { presetForPri } from "./arrows.js";
 import { drawPipeJunctionSvg } from "../../../meta/pipes/pipe-junction.js";
+import { svgEl } from "./svg.js";
 
 // Reaction box at cell (i,j): an S×S square whose corners are the cell's four
 // corners, centered on the cell-center reaction. Its four triangular sectors
@@ -56,6 +57,10 @@ export function renderPipes(parent, panel, flags) {
         return baseD * PRESET_PIPE_SCALE[presetForPri(pri(j + vInitRow))];
     };
 
+    // Decorative overlay — never intercept clicks aimed at diamonds beneath.
+    const layer = svgEl("g", { "pointer-events": "none" });
+    parent.appendChild(layer);
+
     for (let j = 0; j < numRows; j++) {
         for (let i = 0; i < numCols; i++) {
             const pi = flipI ? (numCols - 1 - i) : i;
@@ -72,7 +77,7 @@ export function renderPipes(parent, panel, flags) {
             if (flipI) [blueDLeft, blueDRight] = [blueDRight, blueDLeft];
 
             drawPipeJunctionSvg(
-                parent, boxX, boxY, S,
+                layer, boxX, boxY, S,
                 blueDLeft, blueDRight, redDTop, redDBottom,
             );
         }
@@ -142,6 +147,10 @@ export function renderOrphanPipes(parent, panel, flags) {
     const redOrphanOpts = { skipBlue: true, forceCrossbar: "blue" };
     const blueOrphanOpts = { skipRed: true, forceCrossbar: "red" };
 
+    // Decorative overlay — never intercept clicks aimed at diamonds beneath.
+    const layer = svgEl("g", { "pointer-events": "none" });
+    parent.appendChild(layer);
+
     // Top edge: ghost cell sits above the panel; orphan is red.
     {
         const cellY = y + PAD - S;
@@ -153,7 +162,7 @@ export function renderOrphanPipes(parent, panel, flags) {
             const vi = flipI ? (numCols - 1 - i) : i;
             const cellX = x + PAD + vi * S;
             drawPipeJunctionSvg(
-                parent, cellX, cellY, S,
+                layer, cellX, cellY, S,
                 dCross, dCross, 0, dOrphan,
                 redOrphanOpts,
             );
@@ -171,7 +180,7 @@ export function renderOrphanPipes(parent, panel, flags) {
             const vi = flipI ? (numCols - 1 - i) : i;
             const cellX = x + PAD + vi * S;
             drawPipeJunctionSvg(
-                parent, cellX, cellY, S,
+                layer, cellX, cellY, S,
                 dCross, dCross, dOrphan, 0,
                 redOrphanOpts,
             );
@@ -189,7 +198,7 @@ export function renderOrphanPipes(parent, panel, flags) {
             const vj = flipJ ? (numRows - 1 - j) : j;
             const cellY = y + PAD + vj * S;
             drawPipeJunctionSvg(
-                parent, cellX, cellY, S,
+                layer, cellX, cellY, S,
                 0, dOrphan, dCross, dCross,
                 blueOrphanOpts,
             );
@@ -207,7 +216,7 @@ export function renderOrphanPipes(parent, panel, flags) {
             const vj = flipJ ? (numRows - 1 - j) : j;
             const cellY = y + PAD + vj * S;
             drawPipeJunctionSvg(
-                parent, cellX, cellY, S,
+                layer, cellX, cellY, S,
                 dOrphan, 0, dCross, dCross,
                 blueOrphanOpts,
             );
