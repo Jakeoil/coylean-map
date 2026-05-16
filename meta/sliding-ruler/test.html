@@ -519,6 +519,8 @@
             const $ = (id) => document.getElementById(id);
             let ruler = null;
             let state = { ...PRESETS.light };
+            let wheelSmoothVal = null;
+            let wheelIdleTimer = null;
 
             function applyStateToUI() {
                 $("f-min").value = state.min;
@@ -546,6 +548,8 @@
 
             function buildRuler() {
                 if (ruler) ruler.destroy();
+                wheelSmoothVal = null;
+                clearTimeout(wheelIdleTimer);
                 const canvas = $("ruler");
                 canvas.style.width = "";
                 canvas.style.height = "";
@@ -707,6 +711,54 @@
                         "Invalid JSON: " + err.message;
                 }
             }
+
+            // Mouse-wheel scrubbing (test-page wrapper — not in library).
+            // Tracks a float `wheelSmoothVal` so sub-integer ruler motion
+            // is visible; setValue accepts floats and _draw uses them.
+            // Snaps to integer after a short idle. Scales by deltaMode so
+            // trackpad pixels and traditional wheel lines both feel right.
+            $("ruler").addEventListener(
+                "wheel",
+                (e) => {
+                    if (!ruler) return;
+                    e.preventDefault();
+
+                    if (wheelSmoothVal === null) {
+                        wheelSmoothVal = ruler.getValue();
+                    }
+
+                    let dv;
+                    if (e.deltaMode === 1) {
+                        dv = -e.deltaY * 0.5; // lines
+                    } else if (e.deltaMode === 2) {
+                        dv = -e.deltaY * 5; // pages
+                    } else {
+                        dv = -e.deltaY / 60; // pixels
+                    }
+
+                    wheelSmoothVal = Math.max(
+                        state.min,
+                        Math.min(state.max, wheelSmoothVal + dv)
+                    );
+                    ruler.setValue(wheelSmoothVal);
+
+                    const v = ruler.getValue();
+                    if (v !== state.value) {
+                        state.value = v;
+                        $("value-display").textContent = v;
+                        $("f-value").value = v;
+                        dumpOptions();
+                    }
+
+                    clearTimeout(wheelIdleTimer);
+                    wheelIdleTimer = setTimeout(() => {
+                        if (!ruler) return;
+                        wheelSmoothVal = null;
+                        ruler.setValue(Math.round(ruler.getValue()));
+                    }, 180);
+                },
+                { passive: false }
+            );
 
             // Rebuild on viewport resize so the canvas re-fits its width
             let resizeTimer;
