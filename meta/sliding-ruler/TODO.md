@@ -33,8 +33,24 @@ Ideas for both the test page (`test.html`) and the upstream
   hardcoded to 10 / 5 / 1. Expose as options (e.g. `majorEvery: 10`,
   `midEvery: 5`) so the ruler can show 0.1 / 0.5 / 1.0 marks for
   fine-grained scales, or every-25 for coarse ones.
-- **Vertical orientation.** A `vertical: true` flag (or separate
-  subclass). Useful for volume sliders on the side of a UI.
+- **Vertical orientation.** Add an `orientation: 'vertical'` option
+  (default `'horizontal'`). Mostly an internal refactor of `_draw` and
+  the pointer handlers — swap x/y roles, `_ppu = cssH / visibleRange`,
+  indicator becomes a horizontal line at the vertical center, fade
+  gradient runs top-to-bottom, pointer handlers read `clientY` for
+  drag/tap/velocity. Public API is otherwise unchanged. Worth bundling
+  with the fade-color fix above, since both want surgery on `_draw`.
+  Open design questions:
+  - **Drag direction.** Horizontal mode uses drag-left = value-up;
+    vertical equivalent is drag-up = value-up (matches volume-slider
+    convention). Worth confirming before coding.
+  - **Major-tick label rendering.** Two options: keep labels
+    horizontal (legible but requires the ruler to be ≥~30px wide), or
+    rotate 90&deg; (works in a narrow strip but harder to read).
+    Could be a sub-option (`labelOrientation`).
+  - **Web component sizing.** `:host` currently has `width: 100%` and
+    no height; vertical mode needs the inverse. Update the component
+    CSS conditional on the `orientation` attribute.
 
 ## Test page (test.html)
 
@@ -44,9 +60,6 @@ Ideas for both the test page (`test.html`) and the upstream
 - **"Copy options as code" button.** Take the current state and emit
   a ready-to-paste `new SlidingRuler(canvas, {...})` snippet (and an
   equivalent `<sliding-ruler>` tag) into the clipboard.
-- **Width override.** Force a specific CSS width (e.g. 240 / 320 / 480 /
-  100%) instead of always filling the column — exposes how the control
-  behaves at the narrow widths it was designed for.
 - **Dark-mode toggle for the page itself.** Right now the page chrome is
   light-only; a toggle would let the dark presets be tested on dark
   chrome without comparing across two tabs.

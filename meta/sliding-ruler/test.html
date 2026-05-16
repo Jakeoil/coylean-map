@@ -377,6 +377,19 @@
                             <input type="number" id="f-visible-num" />
                         </div>
                     </div>
+                    <div class="field">
+                        <label for="f-maxw">max width (px)</label>
+                        <div class="range-with-num">
+                            <input
+                                type="range"
+                                id="f-maxw"
+                                min="80"
+                                max="800"
+                                step="10"
+                            />
+                            <input type="number" id="f-maxw-num" />
+                        </div>
+                    </div>
 
                     <h2>Colors</h2>
                     <div class="color-field">
@@ -440,6 +453,7 @@
                 value: 25,
                 height: 70,
                 visibleRange: 30,
+                maxWidth: 800,
                 bgColor: "#0d1826",
                 indicatorColor: "#4a90d9",
                 majorTickColor: "#4a6080",
@@ -530,6 +544,8 @@
                 $("f-height-num").value = state.height;
                 $("f-visible").value = state.visibleRange;
                 $("f-visible-num").value = state.visibleRange;
+                $("f-maxw").value = state.maxWidth;
+                $("f-maxw-num").value = state.maxWidth;
 
                 for (const [key, idPrefix] of COLOR_KEYS) {
                     $(idPrefix).value = state[key];
@@ -553,6 +569,7 @@
                 const canvas = $("ruler");
                 canvas.style.width = "";
                 canvas.style.height = "";
+                canvas.style.maxWidth = state.maxWidth + "px";
 
                 const opts = {
                     min: Number(state.min),
@@ -651,6 +668,7 @@
             }
             bindRangePair("f-height", "f-height-num", "height");
             bindRangePair("f-visible", "f-visible-num", "visibleRange");
+            bindRangePair("f-maxw", "f-maxw-num", "maxWidth");
 
             for (const [key, idPrefix] of COLOR_KEYS) {
                 const picker = $(idPrefix);
