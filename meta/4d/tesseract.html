@@ -180,33 +180,61 @@
             </div>
             <div class="row">
                 <label
+                    ><input id="markers" type="checkbox" /> cell markers</label
+                >
+            </div>
+            <div id="markerOptions" style="display:none">
+                <div class="row">
+                    <label style="flex:0">style</label>
+                    <select id="markerStyle">
+                        <option value="wireframe">wireframe</option>
+                        <option value="solid">solid</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <label>size</label>
+                    <input
+                        id="markerSize"
+                        type="range"
+                        min="0.04"
+                        max="0.5"
+                        step="0.005"
+                        value="0.125"
+                    />
+                    <span class="num" id="markerSizeN">0.125</span>
+                </div>
+            </div>
+            <div class="row">
+                <label
                     ><input id="grid" type="checkbox" /> 16 tesseracts (2·2·2·2)</label
                 >
             </div>
-            <div class="row">
-                <label
-                    ><input id="common" type="checkbox" /> common faces only</label
-                >
-            </div>
-            <div class="row">
-                <label
-                    ><input id="colorCubes" type="checkbox" /> color by cube</label
-                >
-            </div>
-            <div class="row">
-                <label style="flex:0">slice</label>
-                <label style="flex:0"
-                    ><input id="sliceX" type="checkbox" /> x</label
-                >
-                <label style="flex:0"
-                    ><input id="sliceY" type="checkbox" /> y</label
-                >
-                <label style="flex:0"
-                    ><input id="sliceZ" type="checkbox" /> z</label
-                >
-                <label style="flex:0"
-                    ><input id="sliceW" type="checkbox" /> w</label
-                >
+            <div id="gridOptions" style="display:none">
+                <div class="row">
+                    <label
+                        ><input id="common" type="checkbox" /> common faces only</label
+                    >
+                </div>
+                <div class="row">
+                    <label
+                        ><input id="colorCubes" type="checkbox" /> color by cube</label
+                    >
+                </div>
+                <div class="row">
+                    <label style="flex:0">slice</label>
+                    <label style="flex:0"
+                        ><input id="sliceX" type="checkbox" /> x</label
+                    >
+                    <label style="flex:0"
+                        ><input id="sliceY" type="checkbox" /> y</label
+                    >
+                    <label style="flex:0"
+                        ><input id="sliceZ" type="checkbox" /> z</label
+                    >
+                    <label style="flex:0"
+                        ><input id="sliceW" type="checkbox" /> w</label
+                    >
+                </div>
             </div>
             <div class="row">
                 <button id="play">pause</button>
@@ -615,8 +643,10 @@
 
             // Clickable axis tip spheres — one at each end of each axis.
             // In grid mode, clicking a tip toggles the 8 tesseracts on that side.
+            // Smaller picking targets; larger raycaster threshold keeps them easy
+            // to click.
             const tipMeshes = [];
-            const tipGeom = new THREE.SphereGeometry(0.14, 20, 20);
+            const tipGeom = new THREE.SphereGeometry(0.08, 16, 16);
             for (let ai = 0; ai < 4; ai++) {
                 for (const sign of [-1, 1]) {
                     const mat = new THREE.MeshBasicMaterial({
@@ -630,6 +660,140 @@
                     tipMeshes.push(m);
                 }
             }
+
+            // Per-tip text labels (e.g. "X+", "X-"). Shown only in grid mode,
+            // because that's when the tips are clickable controls. The single
+            // axis-letter labels (axisObjs[i].sprite) continue to mark +tips in
+            // non-grid mode.
+            const tipLabels = [];
+            for (let ai = 0; ai < 4; ai++) {
+                for (const sign of [-1, 1]) {
+                    const txt =
+                        AXIS_DEFS[ai].label.toUpperCase() +
+                        (sign > 0 ? "+" : "−");
+                    const sp = makeLabelSprite(txt, AXIS_DEFS[ai].color);
+                    sp.scale.set(0.55, 0.4, 1);
+                    sp.visible = false;
+                    axisGroup.add(sp);
+                    tipLabels.push({ sprite: sp, axisIdx: ai, sign });
+                }
+            }
+
+            // --- cell markers ---
+            // A 3-cell (a cubic facet of a tesseract) is identified by which axis
+            // it's perpendicular to and where its centroid sits in 4D. We mark each
+            // unique cell with a tiny cube of the same orientation as the cell —
+            // colored by the cell's perpendicular axis (matches the 4-coloring
+            // where parallel cells share a color).
+            //
+            // single mode: 8 cells of one tesseract, at (±1, 0, 0, 0) etc.
+            // grid mode: 96 unique cells (32 shared inner + 64 outer).
+
+            function buildSingleCells() {
+                const cells = [];
+                for (let k = 0; k < 4; k++) {
+                    for (const sign of [-1, 1]) {
+                        const c4 = [0, 0, 0, 0];
+                        c4[k] = sign;
+                        cells.push({
+                            centroid4: c4,
+                            freeAxes: [0, 1, 2, 3].filter((j) => j !== k),
+                            fixedAxis: k,
+                            color: AXIS_DEFS[k].color,
+                            contributors: null,
+                        });
+                    }
+                }
+                return cells;
+            }
+
+            function buildGridCells() {
+                const cells = new Map();
+                for (let i = 0; i < 16; i++) {
+                    const off = GRID_OFFSETS[i];
+                    for (let k = 0; k < 4; k++) {
+                        for (const sign of [-1, 1]) {
+                            const c4 = [...off];
+                            c4[k] = off[k] + sign * 0.5;
+                            const key = c4.map((x) => x.toFixed(3)).join(",");
+                            if (!cells.has(key)) {
+                                cells.set(key, {
+                                    centroid4: c4,
+                                    freeAxes: [0, 1, 2, 3].filter(
+                                        (j) => j !== k,
+                                    ),
+                                    fixedAxis: k,
+                                    color: AXIS_DEFS[k].color,
+                                    contributors: [],
+                                });
+                            }
+                            cells.get(key).contributors.push(i);
+                        }
+                    }
+                }
+                return Array.from(cells.values());
+            }
+
+            // Indices for a unit cube whose 8 vertices live at the bit pattern of
+            // (free-axis 0, free-axis 1, free-axis 2).
+            //   0 = (-,-,-)  1 = (+,-,-)  2 = (-,+,-)  3 = (+,+,-)
+            //   4 = (-,-,+)  5 = (+,-,+)  6 = (-,+,+)  7 = (+,+,+)
+            // prettier-ignore
+            const CUBE_WIRE_IDX = [
+                0,1, 1,3, 3,2, 2,0,
+                4,5, 5,7, 7,6, 6,4,
+                0,4, 1,5, 2,6, 3,7,
+            ];
+            // prettier-ignore
+            const CUBE_SOLID_IDX = [
+                0,2,6, 0,6,4,   1,5,7, 1,7,3,
+                0,1,5, 0,5,4,   2,6,7, 2,7,3,
+                0,1,3, 0,3,2,   4,5,7, 4,7,6,
+            ];
+
+            function makeMarker(cell, style) {
+                const g = new THREE.BufferGeometry();
+                g.setAttribute(
+                    "position",
+                    new THREE.BufferAttribute(new Float32Array(8 * 3), 3),
+                );
+                if (style === "wireframe") {
+                    g.setIndex(CUBE_WIRE_IDX);
+                    const m = new THREE.LineBasicMaterial({
+                        color: cell.color,
+                        transparent: true,
+                        opacity: 0.95,
+                    });
+                    return new THREE.LineSegments(g, m);
+                }
+                g.setIndex(CUBE_SOLID_IDX);
+                const m = new THREE.MeshBasicMaterial({
+                    color: cell.color,
+                    transparent: true,
+                    opacity: 0.35,
+                    side: THREE.DoubleSide,
+                    depthWrite: false,
+                });
+                return new THREE.Mesh(g, m);
+            }
+
+            const cellsSingle = buildSingleCells();
+            const cellsGrid = buildGridCells();
+
+            const markerGroup = new THREE.Group();
+            markerGroup.visible = false;
+            scene.add(markerGroup);
+
+            const markerEntries = [];
+            const addMarkerEntry = (cell, mode) => {
+                const wire = makeMarker(cell, "wireframe");
+                const solid = makeMarker(cell, "solid");
+                markerGroup.add(wire);
+                markerGroup.add(solid);
+                markerEntries.push({ cell, wire, solid, mode });
+            };
+            for (const c of cellsSingle) addMarkerEntry(c, "single");
+            for (const c of cellsGrid) addMarkerEntry(c, "grid");
 
             // --- update loop ---
             const state = {
@@ -646,6 +810,9 @@
                 colorCubes: false,
                 sliceVis: [false, false, false, false],
                 visibleMask: new Array(16).fill(true),
+                markers: false,
+                markerStyle: "wireframe",
+                markerSize: 0.125,
                 playing: true,
                 angXw: 0,
                 angYw: 0,
@@ -813,10 +980,26 @@
                         ]);
                         ax.line.computeLineDistances();
                         ax.sprite.position.copy(pPos).multiplyScalar(1.06);
+                        // single-letter +tip label only in non-grid mode
+                        ax.sprite.visible = !state.grid;
 
                         // place the two tips for this axis
                         tipNeg.position.copy(pNeg);
                         tipPos.position.copy(pPos);
+
+                        // grid-mode "X+ / X−" labels at each tip
+                        const labNeg = tipLabels[tipIdx - 2];
+                        const labPos = tipLabels[tipIdx - 1];
+                        labNeg.sprite.visible = state.grid;
+                        labPos.sprite.visible = state.grid;
+                        if (state.grid) {
+                            labNeg.sprite.position
+                                .copy(pNeg)
+                                .multiplyScalar(1.12);
+                            labPos.sprite.position
+                                .copy(pPos)
+                                .multiplyScalar(1.12);
+                        }
                         // grey out when in grid mode + whole side already hidden
                         function dimForSide(tipMesh, sign) {
                             if (!state.grid) {
@@ -840,6 +1023,79 @@
                         dimForSide(tipNeg, -1);
                         dimForSide(tipPos, 1);
                     }
+                }
+
+                updateMarkers(a, b, c);
+            }
+
+            // Per-frame marker projection. Markers are tiny cubes embedded in each
+            // 3-cell, sharing the cell's orientation. Cube side = markerSize * (cell side):
+            //   single mode: cell side = 2  ->  marker side = 0.25 at default 0.125
+            //   grid mode:   cell side = 1  ->  marker side = 0.125 at default 0.125
+            // In grid mode, slice-active filters markers to only those cells whose
+            // perpendicular axis matches an active slice and whose centroid lies on
+            // that wall (i.e., inner cells).  An off-side tesseract via the visibleMask
+            // also hides any marker whose only contributors are toggled off.
+            function updateMarkers(a, b, c) {
+                if (!state.markers) {
+                    markerGroup.visible = false;
+                    return;
+                }
+                markerGroup.visible = true;
+
+                const mode = state.grid ? "grid" : "single";
+                const cellSide = state.grid ? 1.0 : 2.0;
+                const half = (cellSide * state.markerSize) / 2;
+                const wireMode = state.markerStyle === "wireframe";
+                const anySlice = state.sliceVis.some((v) => v);
+
+                for (const entry of markerEntries) {
+                    const inMode = entry.mode === mode;
+                    if (!inMode) {
+                        entry.wire.visible = false;
+                        entry.solid.visible = false;
+                        continue;
+                    }
+
+                    let show = true;
+                    if (mode === "grid") {
+                        // Hide if no contributing tesseract is visible.
+                        show = entry.cell.contributors.some(
+                            (i) => state.visibleMask[i],
+                        );
+                        // When slicing, only show inner cells on an active wall.
+                        if (show && anySlice) {
+                            const k = entry.cell.fixedAxis;
+                            show =
+                                state.sliceVis[k] &&
+                                entry.cell.centroid4[k] === 0;
+                        }
+                    }
+
+                    entry.wire.visible = show && wireMode;
+                    entry.solid.visible = show && !wireMode;
+                    if (!show) continue;
+
+                    const target = wireMode ? entry.wire : entry.solid;
+                    const cell = entry.cell;
+                    const buf = target.geometry.attributes.position.array;
+                    for (let i = 0; i < 8; i++) {
+                        const v4 = [
+                            cell.centroid4[0],
+                            cell.centroid4[1],
+                            cell.centroid4[2],
+                            cell.centroid4[3],
+                        ];
+                        for (let j = 0; j < 3; j++) {
+                            const ax = cell.freeAxes[j];
+                            v4[ax] += i & (1 << j) ? half : -half;
+                        }
+                        const p = project4(v4, a, b, c, state.wdist);
+                        buf[i * 3] = p.x;
+                        buf[i * 3 + 1] = p.y;
+                        buf[i * 3 + 2] = p.z;
+                    }
+                    target.geometry.attributes.position.needsUpdate = true;
                 }
             }
 
@@ -871,6 +1127,18 @@
             bindSlider("rzw", "rzw", undefined, "angZw");
             bindSlider("wdist", "wdist");
             bindSlider("op", "opacity");
+            bindSlider("markerSize", "markerSize", (v) => v.toFixed(3));
+
+            const markerOptions = document.getElementById("markerOptions");
+            document.getElementById("markers").addEventListener("change", (e) => {
+                state.markers = e.target.checked;
+                markerOptions.style.display = state.markers ? "block" : "none";
+            });
+            document
+                .getElementById("markerStyle")
+                .addEventListener("change", (e) => {
+                    state.markerStyle = e.target.value;
+                });
 
             document.getElementById("edges").addEventListener("change", (e) => {
                 state.edges = e.target.checked;
@@ -883,18 +1151,12 @@
             });
 
             const gridHint = document.getElementById("gridHint");
+            const gridOptions = document.getElementById("gridOptions");
             document.getElementById("grid").addEventListener("change", (e) => {
                 state.grid = e.target.checked;
                 state.visibleMask.fill(true);
                 gridHint.style.display = state.grid ? "block" : "none";
-                // Auto-enable axes overlay so the user can see the clickable tips.
-                if (state.grid) {
-                    const axesEl = document.getElementById("axes");
-                    if (!axesEl.checked) {
-                        axesEl.checked = true;
-                        state.axes = true;
-                    }
-                }
+                gridOptions.style.display = state.grid ? "block" : "none";
                 applyFaceToggles();
             });
             document.getElementById("common").addEventListener("change", (e) => {
@@ -991,6 +1253,16 @@
                 for (const id of sliceCheckboxIds) {
                     document.getElementById(id).checked = false;
                 }
+                state.markers = false;
+                state.markerStyle = "wireframe";
+                state.markerSize = 0.125;
+                const markersEl = document.getElementById("markers");
+                markersEl.checked = false;
+                markerOptions.style.display = "none";
+                document.getElementById("markerStyle").value = "wireframe";
+                const sizeEl = document.getElementById("markerSize");
+                sizeEl.value = 0.125;
+                sizeEl.dispatchEvent(new Event("input"));
                 applyFaceToggles();
                 camera.position.set(4.2, 3.2, 5.6);
                 controls.target.set(0, 0, 0);
