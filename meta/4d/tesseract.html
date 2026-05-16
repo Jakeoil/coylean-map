@@ -1,0 +1,1021 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Tesseract — three.js</title>
+        <style>
+            html,
+            body {
+                margin: 0;
+                height: 100%;
+                overflow: hidden;
+                background: #eaf4ff;
+                color: #1a2a3a;
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    sans-serif;
+            }
+
+            #app {
+                position: fixed;
+                inset: 0;
+            }
+
+            #panel {
+                position: fixed;
+                top: 12px;
+                left: 12px;
+                background: rgba(255, 255, 255, 0.78);
+                backdrop-filter: blur(6px);
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                border-radius: 10px;
+                padding: 12px 14px;
+                font-size: 13px;
+                line-height: 1.45;
+                min-width: 240px;
+                box-shadow: 0 4px 18px rgba(0, 30, 80, 0.08);
+            }
+
+            #panel h1 {
+                margin: 0 0 8px;
+                font-size: 14px;
+                font-weight: 700;
+                letter-spacing: 0.02em;
+            }
+
+            #panel .row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin: 6px 0;
+            }
+
+            #panel label {
+                flex: 1;
+            }
+
+            #panel input[type="range"] {
+                width: 130px;
+            }
+
+            #panel .num {
+                width: 44px;
+                text-align: right;
+                color: #475;
+                font-variant-numeric: tabular-nums;
+            }
+
+            #panel select {
+                background: #fff;
+                border: 1px solid #b9c8d8;
+                border-radius: 4px;
+                padding: 1px 4px;
+                font: inherit;
+                color: #1a2a3a;
+            }
+
+            #panel button {
+                background: #fff;
+                border: 1px solid #b9c8d8;
+                border-radius: 6px;
+                padding: 4px 10px;
+                cursor: pointer;
+                font: inherit;
+                color: #1a2a3a;
+            }
+
+            #panel button:hover {
+                background: #f0f6ff;
+            }
+
+            #panel .hint {
+                color: #557;
+                font-size: 12px;
+                margin-top: 6px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="app"></div>
+
+        <div id="panel">
+            <h1>tesseract</h1>
+
+            <div class="row">
+                <label>rotate xw</label>
+                <input
+                    id="rxw"
+                    type="range"
+                    min="-1"
+                    max="1"
+                    step="0.01"
+                    value="0.35"
+                />
+                <span class="num" id="rxwN">0.35</span>
+            </div>
+            <div class="row">
+                <label>rotate yw</label>
+                <input
+                    id="ryw"
+                    type="range"
+                    min="-1"
+                    max="1"
+                    step="0.01"
+                    value="0.20"
+                />
+                <span class="num" id="rywN">0.20</span>
+            </div>
+            <div class="row">
+                <label>rotate zw</label>
+                <input
+                    id="rzw"
+                    type="range"
+                    min="-1"
+                    max="1"
+                    step="0.01"
+                    value="0.00"
+                />
+                <span class="num" id="rzwN">0.00</span>
+            </div>
+            <div class="row">
+                <label>4D camera dist</label>
+                <input
+                    id="wdist"
+                    type="range"
+                    min="2"
+                    max="6"
+                    step="0.05"
+                    value="3"
+                />
+                <span class="num" id="wdistN">3.00</span>
+            </div>
+            <div class="row">
+                <label>face opacity</label>
+                <input
+                    id="op"
+                    type="range"
+                    min="0"
+                    max="0.5"
+                    step="0.01"
+                    value="0.18"
+                />
+                <span class="num" id="opN">0.18</span>
+            </div>
+            <div class="row">
+                <label
+                    ><input id="edges" type="checkbox" checked /> edges</label
+                >
+                <label
+                    ><input id="verts" type="checkbox" checked /> vertices</label
+                >
+            </div>
+            <div class="row">
+                <label
+                    ><input id="axes" type="checkbox" /> axes (x y z w)</label
+                >
+            </div>
+            <div class="row">
+                <label
+                    ><input id="grid" type="checkbox" /> 16 tesseracts (2·2·2·2)</label
+                >
+            </div>
+            <div class="row">
+                <label
+                    ><input id="common" type="checkbox" /> common faces only</label
+                >
+            </div>
+            <div class="row">
+                <label
+                    ><input id="colorCubes" type="checkbox" /> color by cube</label
+                >
+            </div>
+            <div class="row">
+                <label style="flex:0">slice</label>
+                <label style="flex:0"
+                    ><input id="sliceX" type="checkbox" /> x</label
+                >
+                <label style="flex:0"
+                    ><input id="sliceY" type="checkbox" /> y</label
+                >
+                <label style="flex:0"
+                    ><input id="sliceZ" type="checkbox" /> z</label
+                >
+                <label style="flex:0"
+                    ><input id="sliceW" type="checkbox" /> w</label
+                >
+            </div>
+            <div class="row">
+                <button id="play">pause</button>
+                <button id="reset">reset</button>
+            </div>
+            <div class="hint">drag to orbit · scroll to zoom · right-drag to pan</div>
+            <div class="hint" id="gridHint" style="display:none">
+                click an axis tip (sphere) to toggle the 8 tesseracts on that side
+            </div>
+        </div>
+
+        <script type="importmap">
+            {
+                "imports": {
+                    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+                }
+            }
+        </script>
+
+        <script type="module">
+            import * as THREE from "three";
+            import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+            import { Line2 } from "three/addons/lines/Line2.js";
+            import { LineGeometry } from "three/addons/lines/LineGeometry.js";
+            import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+
+            // --- scene setup ---
+            const app = document.getElementById("app");
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xeaf4ff);
+            scene.fog = new THREE.Fog(0xeaf4ff, 12, 30);
+
+            const camera = new THREE.PerspectiveCamera(
+                45,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                100,
+            );
+            camera.position.set(4.2, 3.2, 5.6);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
+            app.appendChild(renderer.domElement);
+
+            const controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.08;
+
+            // bright daylight rig
+            const hemi = new THREE.HemisphereLight(0xffffff, 0xdfeaff, 0.9);
+            scene.add(hemi);
+            const sun = new THREE.DirectionalLight(0xffffff, 0.6);
+            sun.position.set(5, 8, 6);
+            scene.add(sun);
+
+            // soft ground tint disk for grounding (no shadow)
+            const ground = new THREE.Mesh(
+                new THREE.CircleGeometry(14, 64),
+                new THREE.MeshBasicMaterial({
+                    color: 0xd6e8ff,
+                    transparent: true,
+                    opacity: 0.55,
+                }),
+            );
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -2.6;
+            scene.add(ground);
+
+            // --- tesseract data ---
+            // 16 vertices: all (±1, ±1, ±1, ±1)
+            const V4 = [];
+            for (let i = 0; i < 16; i++) {
+                V4.push([
+                    i & 1 ? 1 : -1,
+                    i & 2 ? 1 : -1,
+                    i & 4 ? 1 : -1,
+                    i & 8 ? 1 : -1,
+                ]);
+            }
+
+            // 32 edges: pairs differing in exactly one coordinate
+            const EDGES = [];
+            for (let i = 0; i < 16; i++) {
+                for (let j = i + 1; j < 16; j++) {
+                    let diff = 0;
+                    for (let k = 0; k < 4; k++) if (V4[i][k] !== V4[j][k]) diff++;
+                    if (diff === 1) EDGES.push([i, j]);
+                }
+            }
+
+            // 24 square faces: pick 2 axes to vary, fix the other 2 at ±1.
+            // Each face stored as { verts: [a,b,c,d] in CCW around the square, axes: [i,j] }.
+            const FACES = [];
+            const AXIS_PAIRS = [
+                [0, 1],
+                [0, 2],
+                [0, 3],
+                [1, 2],
+                [1, 3],
+                [2, 3],
+            ];
+            for (const [a, b] of AXIS_PAIRS) {
+                const fixed = [0, 1, 2, 3].filter((k) => k !== a && k !== b);
+                for (const sf0 of [-1, 1])
+                    for (const sf1 of [-1, 1]) {
+                        // four corners in square order
+                        const corners = [
+                            [-1, -1],
+                            [1, -1],
+                            [1, 1],
+                            [-1, 1],
+                        ];
+                        const idx = corners.map(([sa, sb]) => {
+                            const p = [0, 0, 0, 0];
+                            p[a] = sa;
+                            p[b] = sb;
+                            p[fixed[0]] = sf0;
+                            p[fixed[1]] = sf1;
+                            // encode as binary index
+                            return (
+                                (p[0] > 0 ? 1 : 0) |
+                                (p[1] > 0 ? 2 : 0) |
+                                (p[2] > 0 ? 4 : 0) |
+                                (p[3] > 0 ? 8 : 0)
+                            );
+                        });
+                        FACES.push({ verts: idx, axes: [a, b] });
+                    }
+            }
+
+            // bright daytime palette per axis-pair (6 colors)
+            const PAIR_COLORS = {
+                "0,1": 0xffd23f, // sunny yellow
+                "0,2": 0xff6f91, // coral pink
+                "0,3": 0x35d0ba, // mint
+                "1,2": 0x6cc4ff, // sky
+                "1,3": 0xc77dff, // lilac
+                "2,3": 0xff9f43, // tangerine
+            };
+
+            // --- 4D -> 3D projection ---
+            // Rotate in the xw/yw/zw planes by angles a,b,c, then perspective-divide
+            // by (wdist - w'). Returns a THREE.Vector3.
+            function project4(p, a, b, c, wdist) {
+                let [x, y, z, w] = p;
+                // xw rotation
+                let ca = Math.cos(a),
+                    sa = Math.sin(a);
+                [x, w] = [ca * x - sa * w, sa * x + ca * w];
+                // yw rotation
+                let cb = Math.cos(b),
+                    sb = Math.sin(b);
+                [y, w] = [cb * y - sb * w, sb * y + cb * w];
+                // zw rotation
+                let cc = Math.cos(c),
+                    sc = Math.sin(c);
+                [z, w] = [cc * z - sc * w, sc * z + cc * w];
+
+                const k = 1 / Math.max(0.05, wdist - w);
+                return new THREE.Vector3(x * k * 2.2, y * k * 2.2, z * k * 2.2);
+            }
+
+            // --- build mesh objects ---
+            // One tesseract instance: 24 face quads + 32 edges + 16 vertex points.
+            // offset4 is added to each 4D vertex before projection (used in grid mode).
+            function makeTess(offset4, scale) {
+                const faceGroup = new THREE.Group();
+                scene.add(faceGroup);
+                const faceMeshes = FACES.map((f) => {
+                    const g = new THREE.BufferGeometry();
+                    g.setAttribute(
+                        "position",
+                        new THREE.BufferAttribute(new Float32Array(12), 3),
+                    );
+                    g.setIndex([0, 1, 2, 0, 2, 3]);
+                    const color = PAIR_COLORS[f.axes.join(",")];
+                    const m = new THREE.MeshBasicMaterial({
+                        color,
+                        transparent: true,
+                        opacity: 0.18,
+                        side: THREE.DoubleSide,
+                        depthWrite: false,
+                    });
+                    const mesh = new THREE.Mesh(g, m);
+                    faceGroup.add(mesh);
+                    const fixedAxes = [0, 1, 2, 3].filter(
+                        (k) => k !== f.axes[0] && k !== f.axes[1],
+                    );
+                    return {
+                        mesh,
+                        geom: g,
+                        axes: f.axes,
+                        verts: f.verts,
+                        fixedAxes,
+                        pairColor: PAIR_COLORS[f.axes.join(",")],
+                    };
+                });
+
+                const edgeGeom = new THREE.BufferGeometry();
+                edgeGeom.setAttribute(
+                    "position",
+                    new THREE.BufferAttribute(
+                        new Float32Array(EDGES.length * 6),
+                        3,
+                    ),
+                );
+                const edgeLines = new THREE.LineSegments(
+                    edgeGeom,
+                    new THREE.LineBasicMaterial({
+                        color: 0x1d3557,
+                        transparent: true,
+                        opacity: 0.85,
+                    }),
+                );
+                scene.add(edgeLines);
+
+                const vertGeom = new THREE.BufferGeometry();
+                vertGeom.setAttribute(
+                    "position",
+                    new THREE.BufferAttribute(new Float32Array(16 * 3), 3),
+                );
+                const vertPoints = new THREE.Points(
+                    vertGeom,
+                    new THREE.PointsMaterial({
+                        color: 0xff3860,
+                        size: 0.12,
+                        sizeAttenuation: true,
+                    }),
+                );
+                scene.add(vertPoints);
+
+                return {
+                    offset4,
+                    scale,
+                    faceGroup,
+                    faceMeshes,
+                    edgeGeom,
+                    edgeLines,
+                    vertGeom,
+                    vertPoints,
+                    visible: true,
+                };
+            }
+
+            // The 16 super-positions of a 2x2x2x2 grid of tesseracts.
+            // Centers at (±0.5, ±0.5, ±0.5, ±0.5) and each tesseract has half-size 0.5
+            // so adjacent tesseracts share the face at coord = 0 (no gap, no overlap).
+            const GRID_OFFSETS = [];
+            for (let i = 0; i < 16; i++) {
+                GRID_OFFSETS.push([
+                    i & 1 ? 0.5 : -0.5,
+                    i & 2 ? 0.5 : -0.5,
+                    i & 4 ? 0.5 : -0.5,
+                    i & 8 ? 0.5 : -0.5,
+                ]);
+            }
+            const GRID_SCALE = 0.5;
+
+            // Single-mode tesseract: centered, full size.
+            const tessSingle = makeTess([0, 0, 0, 0], 1.0);
+
+            // Grid-mode bank of 16 tesseracts.
+            const tessGrid = GRID_OFFSETS.map((off) => makeTess(off, GRID_SCALE));
+
+            // --- Precompute per-face metadata for grid tesseracts. ---
+            // A face is "common" (shared with a neighbor tesseract) iff at least one
+            // of its 2 fixed local axes has local sign opposite to the tesseract's
+            // center sign — that face lies on the coord=0 hyperplane in global space.
+            //
+            // A shared face also belongs to a unique 3-cell ("cube") at that hyperplane,
+            // identified by (boundary axis a, sign of the other 3 offset axes).
+            function precomputeMeta(t) {
+                for (const fm of t.faceMeshes) {
+                    const v0 = V4[fm.verts[0]];
+                    const sharedAxes = [];
+                    for (const k of fm.fixedAxes) {
+                        const localSign = v0[k];
+                        const centerSign = t.offset4[k] > 0 ? 1 : -1;
+                        if (localSign !== centerSign) sharedAxes.push(k);
+                    }
+                    fm.sharedAxes = sharedAxes;
+                    if (sharedAxes.length > 0) {
+                        const a = sharedAxes[0];
+                        const others = [0, 1, 2, 3].filter((k) => k !== a);
+                        let bits = 0;
+                        for (let i = 0; i < 3; i++) {
+                            if (t.offset4[others[i]] > 0) bits |= 1 << i;
+                        }
+                        fm.cubeId = a * 8 + bits;
+                    } else {
+                        fm.cubeId = null;
+                    }
+                }
+            }
+            for (const t of tessGrid) precomputeMeta(t);
+
+            // 32 distinct bright daytime colors for the 32 shared 3-cells.
+            // Golden-angle hue rotation gives well-spread, perceptually distinct hues.
+            const CUBE_COLORS = [];
+            for (let i = 0; i < 32; i++) {
+                const c = new THREE.Color().setHSL(
+                    ((i * 137.508) / 360) % 1,
+                    0.75,
+                    0.58,
+                );
+                CUBE_COLORS.push(c.getHex());
+            }
+
+            // Apply the "common faces only" + "color by cube" toggles.
+            function applyFaceToggles() {
+                // Single-mode tesseract: always normal coloring, all faces visible.
+                for (const fm of tessSingle.faceMeshes) {
+                    fm.mesh.visible = true;
+                    fm.mesh.material.color.setHex(fm.pairColor);
+                }
+                const anySlice = state.sliceVis.some((v) => v);
+                for (const t of tessGrid) {
+                    for (const fm of t.faceMeshes) {
+                        const isShared = fm.sharedAxes.length > 0;
+                        // Face lies on slice wall k iff k is one of the face's fixed
+                        // axes with global value 0 — i.e., k is in sharedAxes.
+                        // With multiple walls active, show the face if it lies on
+                        // ANY of them (union).
+                        const onSlice =
+                            !anySlice ||
+                            fm.sharedAxes.some((k) => state.sliceVis[k]);
+
+                        let visible = true;
+                        if (state.commonOnly && !isShared) visible = false;
+                        if (anySlice && !onSlice) visible = false;
+                        fm.mesh.visible = visible;
+
+                        if (visible) {
+                            const color =
+                                state.colorCubes && fm.cubeId !== null
+                                    ? CUBE_COLORS[fm.cubeId]
+                                    : fm.pairColor;
+                            fm.mesh.material.color.setHex(color);
+                        }
+                    }
+                }
+            }
+
+            // --- 4D axes overlay ---
+            // Four axes in 4D: each runs from -L*e_i to +L*e_i in 4-space, then
+            // gets passed through the same 4D->3D projection as the tesseract.
+            const AXIS_LEN = 2.6;
+            const AXIS_LINEWIDTH = 5; // pixels
+            const AXIS_DEFS = [
+                { key: "x", dir: [1, 0, 0, 0], color: 0xe63946, label: "x" },
+                { key: "y", dir: [0, 1, 0, 0], color: 0x2a9d8f, label: "y" },
+                { key: "z", dir: [0, 0, 1, 0], color: 0x457bd8, label: "z" },
+                { key: "w", dir: [0, 0, 0, 1], color: 0xb5179e, label: "w" },
+            ];
+
+            function makeLabelSprite(text, hex) {
+                const cv = document.createElement("canvas");
+                cv.width = 128;
+                cv.height = 128;
+                const c = cv.getContext("2d");
+                c.font = "bold 84px system-ui, sans-serif";
+                c.textAlign = "center";
+                c.textBaseline = "middle";
+                c.fillStyle = "#" + hex.toString(16).padStart(6, "0");
+                c.fillText(text, 64, 64);
+                const tex = new THREE.CanvasTexture(cv);
+                tex.colorSpace = THREE.SRGBColorSpace;
+                const mat = new THREE.SpriteMaterial({
+                    map: tex,
+                    transparent: true,
+                    depthWrite: false,
+                });
+                const sp = new THREE.Sprite(mat);
+                sp.scale.set(0.5, 0.5, 1);
+                return sp;
+            }
+
+            const axisMaterials = [];
+
+            const axisGroup = new THREE.Group();
+            axisGroup.visible = false;
+            scene.add(axisGroup);
+
+            const axisObjs = AXIS_DEFS.map((def) => {
+                const g = new LineGeometry();
+                g.setPositions([0, 0, 0, 1, 0, 0]);
+                const mat = new LineMaterial({
+                    color: def.color,
+                    linewidth: AXIS_LINEWIDTH,
+                    transparent: true,
+                    opacity: 0.95,
+                    worldUnits: false,
+                });
+                mat.resolution.set(window.innerWidth, window.innerHeight);
+                axisMaterials.push(mat);
+                const line = new Line2(g, mat);
+                line.computeLineDistances();
+                const sprite = makeLabelSprite(def.label, def.color);
+                axisGroup.add(line);
+                axisGroup.add(sprite);
+                return { def, geom: g, line, sprite };
+            });
+
+            // Clickable axis tip spheres — one at each end of each axis.
+            // In grid mode, clicking a tip toggles the 8 tesseracts on that side.
+            const tipMeshes = [];
+            const tipGeom = new THREE.SphereGeometry(0.14, 20, 20);
+            for (let ai = 0; ai < 4; ai++) {
+                for (const sign of [-1, 1]) {
+                    const mat = new THREE.MeshBasicMaterial({
+                        color: AXIS_DEFS[ai].color,
+                        transparent: true,
+                        opacity: 0.9,
+                    });
+                    const m = new THREE.Mesh(tipGeom, mat);
+                    m.userData = { axisIdx: ai, sign };
+                    axisGroup.add(m);
+                    tipMeshes.push(m);
+                }
+            }
+
+            // --- update loop ---
+            const state = {
+                rxw: 0.35,
+                ryw: 0.2,
+                rzw: 0.0,
+                wdist: 3,
+                opacity: 0.18,
+                edges: true,
+                verts: true,
+                axes: false,
+                grid: false,
+                commonOnly: false,
+                colorCubes: false,
+                sliceVis: [false, false, false, false],
+                visibleMask: new Array(16).fill(true),
+                playing: true,
+                angXw: 0,
+                angYw: 0,
+                angZw: 0,
+            };
+
+            function setTessVisible(t, on) {
+                t.visible = on;
+                t.faceGroup.visible = on;
+                t.edgeLines.visible = on && state.edges;
+                t.vertPoints.visible = on && state.verts;
+            }
+
+            // Project all 16 vertices of one tesseract instance and write into its buffers.
+            const _proj = new Array(16);
+            function updateTess(t, a, b, c) {
+                for (let i = 0; i < 16; i++) {
+                    const v = V4[i];
+                    _proj[i] = project4(
+                        [
+                            v[0] * t.scale + t.offset4[0],
+                            v[1] * t.scale + t.offset4[1],
+                            v[2] * t.scale + t.offset4[2],
+                            v[3] * t.scale + t.offset4[3],
+                        ],
+                        a,
+                        b,
+                        c,
+                        state.wdist,
+                    );
+                }
+
+                for (const fm of t.faceMeshes) {
+                    const pos = fm.geom.attributes.position.array;
+                    for (let k = 0; k < 4; k++) {
+                        const v = _proj[fm.verts[k]];
+                        pos[k * 3] = v.x;
+                        pos[k * 3 + 1] = v.y;
+                        pos[k * 3 + 2] = v.z;
+                    }
+                    fm.geom.attributes.position.needsUpdate = true;
+                    fm.geom.computeBoundingSphere();
+                    fm.mesh.material.opacity = state.opacity;
+                }
+
+                // In slice mode, only keep vertices/edges lying on at least one of
+                // the active wall hyperplanes (global coord on that axis equals 0).
+                // For our grid, that's where the vertex's local sign on the axis is
+                // opposite to the tesseract's center sign on that axis.
+                // Single-mode tesseract has offset 0, so slice filtering is skipped.
+                const sliceActive =
+                    t !== tessSingle && state.sliceVis.some((v) => v);
+                const onWall = (vIdx) => {
+                    if (!sliceActive) return true;
+                    const v = V4[vIdx];
+                    for (let k = 0; k < 4; k++) {
+                        if (
+                            state.sliceVis[k] &&
+                            Math.sign(t.offset4[k]) !== Math.sign(v[k])
+                        ) {
+                            return true;
+                        }
+                    }
+                    return false;
+                };
+
+                const epos = t.edgeGeom.attributes.position.array;
+                let edgeCount = 0;
+                for (let i = 0; i < EDGES.length; i++) {
+                    const [ia, ib] = EDGES[i];
+                    if (!onWall(ia) || !onWall(ib)) continue;
+                    const va = _proj[ia];
+                    const vb = _proj[ib];
+                    const o = edgeCount * 6;
+                    epos[o] = va.x;
+                    epos[o + 1] = va.y;
+                    epos[o + 2] = va.z;
+                    epos[o + 3] = vb.x;
+                    epos[o + 4] = vb.y;
+                    epos[o + 5] = vb.z;
+                    edgeCount++;
+                }
+                t.edgeGeom.attributes.position.needsUpdate = true;
+                t.edgeGeom.setDrawRange(0, edgeCount * 2);
+
+                const vpos = t.vertGeom.attributes.position.array;
+                let vertCount = 0;
+                for (let i = 0; i < 16; i++) {
+                    if (!onWall(i)) continue;
+                    vpos[vertCount * 3] = _proj[i].x;
+                    vpos[vertCount * 3 + 1] = _proj[i].y;
+                    vpos[vertCount * 3 + 2] = _proj[i].z;
+                    vertCount++;
+                }
+                t.vertGeom.attributes.position.needsUpdate = true;
+                t.vertGeom.setDrawRange(0, vertCount);
+            }
+
+            // Per-axis projected positive-tip cache (used by tip click hit-testing).
+            const tipPositions = []; // [{axisIdx, sign, vec3}, ...] in tipMeshes order
+
+            function updateGeometry(dt) {
+                if (state.playing) {
+                    state.angXw += state.rxw * dt;
+                    state.angYw += state.ryw * dt;
+                    state.angZw += state.rzw * dt;
+                }
+                const a = state.angXw;
+                const b = state.angYw;
+                const c = state.angZw;
+
+                if (state.grid) {
+                    setTessVisible(tessSingle, false);
+                    for (let i = 0; i < 16; i++) {
+                        const on = state.visibleMask[i];
+                        setTessVisible(tessGrid[i], on);
+                        if (on) updateTess(tessGrid[i], a, b, c);
+                    }
+                } else {
+                    setTessVisible(tessSingle, true);
+                    for (const t of tessGrid) setTessVisible(t, false);
+                    updateTess(tessSingle, a, b, c);
+                }
+
+                // Axes.
+                axisGroup.visible = state.axes;
+                tipPositions.length = 0;
+                if (state.axes) {
+                    let tipIdx = 0;
+                    for (const ax of axisObjs) {
+                        const tipNeg = tipMeshes[tipIdx++];
+                        const tipPos = tipMeshes[tipIdx++];
+                        const d = ax.def.dir;
+                        const pPos = project4(
+                            [
+                                AXIS_LEN * d[0],
+                                AXIS_LEN * d[1],
+                                AXIS_LEN * d[2],
+                                AXIS_LEN * d[3],
+                            ],
+                            a,
+                            b,
+                            c,
+                            state.wdist,
+                        );
+                        const pNeg = project4(
+                            [
+                                -AXIS_LEN * d[0],
+                                -AXIS_LEN * d[1],
+                                -AXIS_LEN * d[2],
+                                -AXIS_LEN * d[3],
+                            ],
+                            a,
+                            b,
+                            c,
+                            state.wdist,
+                        );
+                        ax.geom.setPositions([
+                            pNeg.x,
+                            pNeg.y,
+                            pNeg.z,
+                            pPos.x,
+                            pPos.y,
+                            pPos.z,
+                        ]);
+                        ax.line.computeLineDistances();
+                        ax.sprite.position.copy(pPos).multiplyScalar(1.06);
+
+                        // place the two tips for this axis
+                        tipNeg.position.copy(pNeg);
+                        tipPos.position.copy(pPos);
+                        // grey out when in grid mode + whole side already hidden
+                        function dimForSide(tipMesh, sign) {
+                            if (!state.grid) {
+                                tipMesh.material.opacity = 0.9;
+                                return;
+                            }
+                            const axisIdx = tipMesh.userData.axisIdx;
+                            let anyOn = false;
+                            for (let k = 0; k < 16; k++) {
+                                if (
+                                    Math.sign(GRID_OFFSETS[k][axisIdx]) ===
+                                        sign &&
+                                    state.visibleMask[k]
+                                ) {
+                                    anyOn = true;
+                                    break;
+                                }
+                            }
+                            tipMesh.material.opacity = anyOn ? 0.9 : 0.25;
+                        }
+                        dimForSide(tipNeg, -1);
+                        dimForSide(tipPos, 1);
+                    }
+                }
+            }
+
+            // --- UI wiring ---
+            // If angleKey is given, moving the slider while paused adds
+            // (delta * SCRUB_GAIN) rad to that angle so the view actually moves.
+            const SCRUB_GAIN = Math.PI;
+            function bindSlider(
+                id,
+                key,
+                fmt = (v) => v.toFixed(2),
+                angleKey = null,
+            ) {
+                const el = document.getElementById(id);
+                const num = document.getElementById(id + "N");
+                let prev = parseFloat(el.value);
+                el.addEventListener("input", () => {
+                    const next = parseFloat(el.value);
+                    if (angleKey && !state.playing) {
+                        state[angleKey] += (next - prev) * SCRUB_GAIN;
+                    }
+                    state[key] = next;
+                    prev = next;
+                    num.textContent = fmt(state[key]);
+                });
+            }
+            bindSlider("rxw", "rxw", undefined, "angXw");
+            bindSlider("ryw", "ryw", undefined, "angYw");
+            bindSlider("rzw", "rzw", undefined, "angZw");
+            bindSlider("wdist", "wdist");
+            bindSlider("op", "opacity");
+
+            document.getElementById("edges").addEventListener("change", (e) => {
+                state.edges = e.target.checked;
+            });
+            document.getElementById("verts").addEventListener("change", (e) => {
+                state.verts = e.target.checked;
+            });
+            document.getElementById("axes").addEventListener("change", (e) => {
+                state.axes = e.target.checked;
+            });
+
+            const gridHint = document.getElementById("gridHint");
+            document.getElementById("grid").addEventListener("change", (e) => {
+                state.grid = e.target.checked;
+                state.visibleMask.fill(true);
+                gridHint.style.display = state.grid ? "block" : "none";
+                // Auto-enable axes overlay so the user can see the clickable tips.
+                if (state.grid) {
+                    const axesEl = document.getElementById("axes");
+                    if (!axesEl.checked) {
+                        axesEl.checked = true;
+                        state.axes = true;
+                    }
+                }
+                applyFaceToggles();
+            });
+            document.getElementById("common").addEventListener("change", (e) => {
+                state.commonOnly = e.target.checked;
+                applyFaceToggles();
+            });
+            document
+                .getElementById("colorCubes")
+                .addEventListener("change", (e) => {
+                    state.colorCubes = e.target.checked;
+                    applyFaceToggles();
+                });
+            const sliceCheckboxIds = ["sliceX", "sliceY", "sliceZ", "sliceW"];
+            for (let i = 0; i < 4; i++) {
+                const idx = i;
+                document
+                    .getElementById(sliceCheckboxIds[i])
+                    .addEventListener("change", (e) => {
+                        state.sliceVis[idx] = e.target.checked;
+                        applyFaceToggles();
+                    });
+            }
+
+            // --- click toggling for axis tips ---
+            const raycaster = new THREE.Raycaster();
+            // make sphere picking forgiving
+            raycaster.params.Mesh = raycaster.params.Mesh || {};
+            const ndc = new THREE.Vector2();
+            let pointerDown = null;
+            renderer.domElement.addEventListener("pointerdown", (e) => {
+                pointerDown = { x: e.clientX, y: e.clientY };
+            });
+            renderer.domElement.addEventListener("pointerup", (e) => {
+                if (!pointerDown) return;
+                const dx = e.clientX - pointerDown.x;
+                const dy = e.clientY - pointerDown.y;
+                pointerDown = null;
+                if (Math.hypot(dx, dy) > 4) return; // was a drag, not a click
+                if (!state.grid || !state.axes) return;
+
+                const rect = renderer.domElement.getBoundingClientRect();
+                ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                raycaster.setFromCamera(ndc, camera);
+                const hits = raycaster.intersectObjects(tipMeshes, false);
+                if (!hits.length) return;
+                const { axisIdx, sign } = hits[0].object.userData;
+                // Check current state of the affected group: if all on -> turn off; else turn on.
+                let allOn = true;
+                for (let i = 0; i < 16; i++) {
+                    if (
+                        Math.sign(GRID_OFFSETS[i][axisIdx]) === sign &&
+                        !state.visibleMask[i]
+                    ) {
+                        allOn = false;
+                        break;
+                    }
+                }
+                for (let i = 0; i < 16; i++) {
+                    if (Math.sign(GRID_OFFSETS[i][axisIdx]) === sign) {
+                        state.visibleMask[i] = !allOn;
+                    }
+                }
+            });
+
+            const playBtn = document.getElementById("play");
+            playBtn.addEventListener("click", () => {
+                state.playing = !state.playing;
+                playBtn.textContent = state.playing ? "pause" : "play";
+            });
+
+            document.getElementById("reset").addEventListener("click", () => {
+                const defaults = {
+                    rxw: 0.35,
+                    ryw: 0.2,
+                    rzw: 0.0,
+                    wdist: 3,
+                    op: 0.18,
+                };
+                for (const [id, v] of Object.entries(defaults)) {
+                    const el = document.getElementById(id);
+                    el.value = v;
+                    el.dispatchEvent(new Event("input"));
+                }
+                state.angXw = 0;
+                state.angYw = 0;
+                state.angZw = 0;
+                state.visibleMask.fill(true);
+                state.commonOnly = false;
+                state.colorCubes = false;
+                state.sliceVis.fill(false);
+                document.getElementById("common").checked = false;
+                document.getElementById("colorCubes").checked = false;
+                for (const id of sliceCheckboxIds) {
+                    document.getElementById(id).checked = false;
+                }
+                applyFaceToggles();
+                camera.position.set(4.2, 3.2, 5.6);
+                controls.target.set(0, 0, 0);
+                controls.update();
+            });
+
+            window.addEventListener("resize", () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                for (const m of axisMaterials) {
+                    m.resolution.set(window.innerWidth, window.innerHeight);
+                }
+            });
+
+            // --- animate ---
+            const clock = new THREE.Clock();
+            function loop() {
+                const dt = clock.getDelta();
+                updateGeometry(dt);
+                controls.update();
+                renderer.render(scene, camera);
+                requestAnimationFrame(loop);
+            }
+            loop();
+        </script>
+    </body>
+</html>
