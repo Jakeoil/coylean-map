@@ -1200,36 +1200,73 @@
             renderer.domElement.addEventListener("pointerdown", (e) => {
                 pointerDown = { x: e.clientX, y: e.clientY };
             });
+            // Double-tap / double-click anywhere on the canvas (except on an
+            // axis tip in grid mode) toggles the control panel.
+            const panel = document.getElementById("panel");
+            const DOUBLE_TAP_MS = 350;
+            const DOUBLE_TAP_PX = 30;
+            let lastTap = { t: 0, x: 0, y: 0 };
+
             renderer.domElement.addEventListener("pointerup", (e) => {
                 if (!pointerDown) return;
                 const dx = e.clientX - pointerDown.x;
                 const dy = e.clientY - pointerDown.y;
                 pointerDown = null;
                 if (Math.hypot(dx, dy) > 4) return; // was a drag, not a click
-                if (!state.grid || !state.axes) return;
 
-                const rect = renderer.domElement.getBoundingClientRect();
-                ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-                ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-                raycaster.setFromCamera(ndc, camera);
-                const hits = raycaster.intersectObjects(tipMeshes, false);
-                if (!hits.length) return;
-                const { axisIdx, sign } = hits[0].object.userData;
-                // Check current state of the affected group: if all on -> turn off; else turn on.
-                let allOn = true;
-                for (let i = 0; i < 16; i++) {
-                    if (
-                        Math.sign(GRID_OFFSETS[i][axisIdx]) === sign &&
-                        !state.visibleMask[i]
-                    ) {
-                        allOn = false;
-                        break;
+                // First, axis-tip hit test (only meaningful in grid mode w/ axes).
+                let tipHit = false;
+                if (state.grid && state.axes) {
+                    const rect = renderer.domElement.getBoundingClientRect();
+                    ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                    ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                    raycaster.setFromCamera(ndc, camera);
+                    const hits = raycaster
+                        .intersectObjects(tipMeshes, false)
+                        .filter((h) => h.object.visible);
+                    if (hits.length) {
+                        tipHit = true;
+                        const { axisIdx, sign } = hits[0].object.userData;
+                        // If all visible -> turn off; else turn all on.
+                        let allOn = true;
+                        for (let i = 0; i < 16; i++) {
+                            if (
+                                Math.sign(GRID_OFFSETS[i][axisIdx]) === sign &&
+                                !state.visibleMask[i]
+                            ) {
+                                allOn = false;
+                                break;
+                            }
+                        }
+                        for (let i = 0; i < 16; i++) {
+                            if (
+                                Math.sign(GRID_OFFSETS[i][axisIdx]) === sign
+                            ) {
+                                state.visibleMask[i] = !allOn;
+                            }
+                        }
                     }
                 }
-                for (let i = 0; i < 16; i++) {
-                    if (Math.sign(GRID_OFFSETS[i][axisIdx]) === sign) {
-                        state.visibleMask[i] = !allOn;
-                    }
+
+                if (tipHit) {
+                    // Tip clicks reset the double-tap tracker so they don't
+                    // chain into a panel toggle.
+                    lastTap = { t: 0, x: 0, y: 0 };
+                    return;
+                }
+
+                // Double-tap detection — toggle the panel.
+                const now = performance.now();
+                const apart = Math.hypot(
+                    e.clientX - lastTap.x,
+                    e.clientY - lastTap.y,
+                );
+                if (now - lastTap.t < DOUBLE_TAP_MS && apart < DOUBLE_TAP_PX) {
+                    panel.style.display =
+                        panel.style.display === "none" ? "" : "none";
+                    lastTap = { t: 0, x: 0, y: 0 };
+                } else {
+                    lastTap = { t: now, x: e.clientX, y: e.clientY };
                 }
             });
 
