@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Sliding Ruler — Test Page</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family:
+                    "Segoe UI",
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: #f8fafc;
+                color: #0f172a;
+                min-height: 100vh;
+                padding: 32px 24px;
+            }
+            main {
+                max-width: 1100px;
+                margin: 0 auto;
+            }
+            .back {
+                display: inline-block;
+                margin-bottom: 20px;
+                color: #2563eb;
+                text-decoration: none;
+                font-size: 0.9rem;
+            }
+            .back:hover {
+                text-decoration: underline;
+            }
+            h1 {
+                font-size: 1.8rem;
+                margin-bottom: 6px;
+                color: #0f172a;
+            }
+            .lede {
+                color: #475569;
+                margin-bottom: 24px;
+                line-height: 1.5;
+                font-size: 0.95rem;
+            }
+
+            .layout {
+                display: grid;
+                grid-template-columns: 1fr 360px;
+                gap: 24px;
+                align-items: start;
+            }
+            @media (max-width: 880px) {
+                .layout {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            .preview {
+                background: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 10px;
+                padding: 24px;
+                box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+            }
+            .preview h2 {
+                font-size: 0.78rem;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                color: #64748b;
+                margin-bottom: 8px;
+            }
+            .value-readout {
+                font-size: 2rem;
+                font-weight: 700;
+                color: #0f172a;
+                margin-bottom: 16px;
+                font-variant-numeric: tabular-nums;
+            }
+            #ruler {
+                display: block;
+                width: 100%;
+            }
+
+            .preview details {
+                margin-top: 20px;
+                border-top: 1px solid #e2e8f0;
+                padding-top: 14px;
+            }
+            .preview summary {
+                cursor: pointer;
+                font-size: 0.85rem;
+                color: #475569;
+                user-select: none;
+            }
+            .preview pre {
+                margin-top: 10px;
+                padding: 12px 14px;
+                background: #0f172a;
+                color: #e2e8f0;
+                border-radius: 6px;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.78rem;
+                line-height: 1.5;
+                overflow-x: auto;
+                white-space: pre-wrap;
+            }
+
+            .note {
+                margin-top: 16px;
+                padding: 12px 14px;
+                background: #fef3c7;
+                border-left: 3px solid #f59e0b;
+                color: #78350f;
+                font-size: 0.85rem;
+                line-height: 1.5;
+                border-radius: 4px;
+            }
+            .note code {
+                background: rgba(120, 53, 15, 0.1);
+                padding: 1px 4px;
+                border-radius: 3px;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.9em;
+            }
+
+            .controls {
+                background: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 10px;
+                padding: 20px 22px;
+                box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+            }
+            .controls h2 {
+                font-size: 0.78rem;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                color: #64748b;
+                margin: 18px 0 10px;
+            }
+            .controls h2:first-child {
+                margin-top: 0;
+            }
+
+            .preset-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+            .preset-row button {
+                flex: 1 0 calc(50% - 6px);
+                padding: 7px 10px;
+                font-size: 0.82rem;
+                font-family: inherit;
+                background: #f1f5f9;
+                color: #0f172a;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.15s;
+            }
+            .preset-row button:hover {
+                background: #e2e8f0;
+                border-color: #94a3b8;
+            }
+            .preset-row button.active {
+                background: #2563eb;
+                color: white;
+                border-color: #2563eb;
+            }
+
+            .field {
+                display: grid;
+                grid-template-columns: 110px 1fr;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 8px;
+            }
+            .field label {
+                font-size: 0.85rem;
+                color: #334155;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+            }
+            .field input[type="number"],
+            .field input[type="text"] {
+                width: 100%;
+                padding: 5px 8px;
+                border: 1px solid #cbd5e1;
+                border-radius: 4px;
+                font-size: 0.85rem;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                color: #0f172a;
+                background: white;
+            }
+            .field input[type="range"] {
+                width: 100%;
+            }
+            .field input:focus {
+                outline: none;
+                border-color: #2563eb;
+                box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+            }
+            .range-with-num {
+                display: grid;
+                grid-template-columns: 1fr 56px;
+                gap: 8px;
+                align-items: center;
+            }
+            .range-with-num input[type="number"] {
+                padding: 4px 6px;
+                text-align: right;
+            }
+
+            .color-field {
+                display: grid;
+                grid-template-columns: 110px 36px 1fr;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 6px;
+            }
+            .color-field label {
+                font-size: 0.8rem;
+                color: #334155;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+            }
+            .color-field input[type="color"] {
+                width: 36px;
+                height: 28px;
+                padding: 0;
+                border: 1px solid #cbd5e1;
+                border-radius: 4px;
+                cursor: pointer;
+                background: white;
+            }
+            .color-field input[type="text"] {
+                width: 100%;
+                padding: 5px 8px;
+                border: 1px solid #cbd5e1;
+                border-radius: 4px;
+                font-size: 0.78rem;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                color: #0f172a;
+                background: white;
+            }
+            .color-field.full-width {
+                grid-template-columns: 110px 1fr;
+            }
+
+            .labels-block {
+                margin-top: 4px;
+            }
+            .labels-block label.toggle {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 0.85rem;
+                color: #334155;
+                margin-bottom: 8px;
+                cursor: pointer;
+            }
+            .labels-block textarea {
+                width: 100%;
+                min-height: 72px;
+                padding: 8px 10px;
+                border: 1px solid #cbd5e1;
+                border-radius: 4px;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.78rem;
+                color: #0f172a;
+                background: white;
+                resize: vertical;
+            }
+            .labels-block textarea:focus {
+                outline: none;
+                border-color: #2563eb;
+                box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+            }
+            .labels-block textarea:disabled {
+                background: #f1f5f9;
+                color: #94a3b8;
+            }
+            .labels-error {
+                margin-top: 6px;
+                font-size: 0.78rem;
+                color: #b91c1c;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <a class="back" href="./">← Sliding Ruler</a>
+            <h1>Sliding Ruler — Test Page</h1>
+            <p class="lede">
+                Live test harness for every <code>SlidingRuler</code>
+                constructor option. Drag the ruler to scrub; tap left/right
+                of center to nudge &plusmn;1; double-tap center to jump to
+                the midpoint. Any control change rebuilds the ruler.
+            </p>
+
+            <div class="layout">
+                <section class="preview">
+                    <h2>Preview</h2>
+                    <div class="value-readout">
+                        Value: <span id="value-display">0</span>
+                    </div>
+                    <canvas id="ruler"></canvas>
+
+                    <details>
+                        <summary>Options being passed</summary>
+                        <pre id="options-dump"></pre>
+                    </details>
+
+                    <div class="note">
+                        <strong>Note on fade color.</strong> The library&rsquo;s
+                        <code>_draw</code> hardcodes one stop of the edge
+                        gradient as <code>rgba(13,24,38,0)</code>, so on
+                        light backgrounds a faint dark tint at the edges
+                        persists no matter what <code>fadeColor</code> you
+                        set. Visible mainly when <code>bgColor</code> is
+                        very pale.
+                    </div>
+                </section>
+
+                <aside class="controls">
+                    <h2>Preset</h2>
+                    <div class="preset-row" id="presets">
+                        <button data-preset="light" class="active">
+                            Light
+                        </button>
+                        <button data-preset="default">Default (dark)</button>
+                        <button data-preset="paper">Paper</button>
+                        <button data-preset="contrast">High contrast</button>
+                        <button data-preset="labeled">Labeled</button>
+                    </div>
+
+                    <h2>Range &amp; size</h2>
+                    <div class="field">
+                        <label for="f-min">min</label>
+                        <input type="number" id="f-min" />
+                    </div>
+                    <div class="field">
+                        <label for="f-max">max</label>
+                        <input type="number" id="f-max" />
+                    </div>
+                    <div class="field">
+                        <label for="f-value">value</label>
+                        <input type="number" id="f-value" />
+                    </div>
+                    <div class="field">
+                        <label for="f-height">height</label>
+                        <div class="range-with-num">
+                            <input
+                                type="range"
+                                id="f-height"
+                                min="30"
+                                max="200"
+                                step="1"
+                            />
+                            <input type="number" id="f-height-num" />
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="f-visible">visibleRange</label>
+                        <div class="range-with-num">
+                            <input
+                                type="range"
+                                id="f-visible"
+                                min="4"
+                                max="100"
+                                step="1"
+                            />
+                            <input type="number" id="f-visible-num" />
+                        </div>
+                    </div>
+
+                    <h2>Colors</h2>
+                    <div class="color-field">
+                        <label for="c-bg">bgColor</label>
+                        <input type="color" id="c-bg" />
+                        <input type="text" id="c-bg-text" />
+                    </div>
+                    <div class="color-field">
+                        <label for="c-ind">indicatorColor</label>
+                        <input type="color" id="c-ind" />
+                        <input type="text" id="c-ind-text" />
+                    </div>
+                    <div class="color-field">
+                        <label for="c-maj">majorTickColor</label>
+                        <input type="color" id="c-maj" />
+                        <input type="text" id="c-maj-text" />
+                    </div>
+                    <div class="color-field">
+                        <label for="c-mid">midTickColor</label>
+                        <input type="color" id="c-mid" />
+                        <input type="text" id="c-mid-text" />
+                    </div>
+                    <div class="color-field">
+                        <label for="c-min">minorTickColor</label>
+                        <input type="color" id="c-min" />
+                        <input type="text" id="c-min-text" />
+                    </div>
+                    <div class="color-field">
+                        <label for="c-lbl">labelColor</label>
+                        <input type="color" id="c-lbl" />
+                        <input type="text" id="c-lbl-text" />
+                    </div>
+                    <div class="color-field full-width">
+                        <label for="c-fade">fadeColor</label>
+                        <input type="text" id="c-fade" />
+                    </div>
+
+                    <h2>Labels</h2>
+                    <div class="labels-block">
+                        <label class="toggle">
+                            <input type="checkbox" id="labels-on" />
+                            Use custom labels (JSON object)
+                        </label>
+                        <textarea
+                            id="labels-json"
+                            spellcheck="false"
+                        ></textarea>
+                        <div class="labels-error" id="labels-error"></div>
+                    </div>
+                </aside>
+            </div>
+        </main>
+
+        <script type="module">
+            import { SlidingRuler } from
+                "https://jakeoil.github.io/lg-remote/volume-ruler-control/sliding-ruler.js";
+
+            const DEFAULTS = {
+                min: 0,
+                max: 100,
+                value: 25,
+                height: 70,
+                visibleRange: 30,
+                bgColor: "#0d1826",
+                indicatorColor: "#4a90d9",
+                majorTickColor: "#4a6080",
+                midTickColor: "#5a7a9a",
+                minorTickColor: "#3a5068",
+                labelColor: "#94a3b8",
+                fadeColor: "rgba(13,24,38,0.9)",
+                labels: null,
+            };
+
+            const PRESETS = {
+                default: { ...DEFAULTS },
+                light: {
+                    ...DEFAULTS,
+                    bgColor: "#f1f5f9",
+                    indicatorColor: "#2563eb",
+                    majorTickColor: "#334155",
+                    midTickColor: "#64748b",
+                    minorTickColor: "#cbd5e1",
+                    labelColor: "#0f172a",
+                    fadeColor: "rgba(241,245,249,0.9)",
+                },
+                paper: {
+                    ...DEFAULTS,
+                    bgColor: "#f5efe0",
+                    indicatorColor: "#9e2a2b",
+                    majorTickColor: "#6d4c2a",
+                    midTickColor: "#8a6a3a",
+                    minorTickColor: "#c4a877",
+                    labelColor: "#3a2a14",
+                    fadeColor: "rgba(245,239,224,0.9)",
+                },
+                contrast: {
+                    ...DEFAULTS,
+                    bgColor: "#ffffff",
+                    indicatorColor: "#000000",
+                    majorTickColor: "#000000",
+                    midTickColor: "#444444",
+                    minorTickColor: "#888888",
+                    labelColor: "#000000",
+                    fadeColor: "rgba(255,255,255,0.9)",
+                },
+                labeled: {
+                    ...DEFAULTS,
+                    min: 0,
+                    max: 6,
+                    value: 0,
+                    visibleRange: 8,
+                    bgColor: "#f1f5f9",
+                    indicatorColor: "#40c080",
+                    majorTickColor: "#334155",
+                    midTickColor: "#64748b",
+                    minorTickColor: "#cbd5e1",
+                    labelColor: "#0f172a",
+                    fadeColor: "rgba(241,245,249,0.9)",
+                    labels: {
+                        0: "Off",
+                        1: "1",
+                        2: "2",
+                        3: "3",
+                        4: "4",
+                        5: "5",
+                        6: "Max",
+                    },
+                },
+            };
+
+            const COLOR_KEYS = [
+                ["bgColor", "c-bg"],
+                ["indicatorColor", "c-ind"],
+                ["majorTickColor", "c-maj"],
+                ["midTickColor", "c-mid"],
+                ["minorTickColor", "c-min"],
+                ["labelColor", "c-lbl"],
+            ];
+
+            const $ = (id) => document.getElementById(id);
+            let ruler = null;
+            let state = { ...PRESETS.light };
+
+            function applyStateToUI() {
+                $("f-min").value = state.min;
+                $("f-max").value = state.max;
+                $("f-value").value = state.value;
+                $("f-height").value = state.height;
+                $("f-height-num").value = state.height;
+                $("f-visible").value = state.visibleRange;
+                $("f-visible-num").value = state.visibleRange;
+
+                for (const [key, idPrefix] of COLOR_KEYS) {
+                    $(idPrefix).value = state[key];
+                    $(idPrefix + "-text").value = state[key];
+                }
+                $("c-fade").value = state.fadeColor;
+
+                const hasLabels = state.labels !== null;
+                $("labels-on").checked = hasLabels;
+                $("labels-json").value = hasLabels
+                    ? JSON.stringify(state.labels, null, 2)
+                    : '{"0":"Off","6":"Max"}';
+                $("labels-json").disabled = !hasLabels;
+                $("labels-error").textContent = "";
+            }
+
+            function buildRuler() {
+                if (ruler) ruler.destroy();
+                const canvas = $("ruler");
+                canvas.style.width = "";
+                canvas.style.height = "";
+
+                const opts = {
+                    min: Number(state.min),
+                    max: Number(state.max),
+                    value: Number(state.value),
+                    height: Number(state.height),
+                    visibleRange: Number(state.visibleRange),
+                    bgColor: state.bgColor,
+                    indicatorColor: state.indicatorColor,
+                    majorTickColor: state.majorTickColor,
+                    midTickColor: state.midTickColor,
+                    minorTickColor: state.minorTickColor,
+                    labelColor: state.labelColor,
+                    fadeColor: state.fadeColor,
+                    labels: state.labels,
+                    onChange(v) {
+                        state.value = v;
+                        $("value-display").textContent = v;
+                        $("f-value").value = v;
+                        dumpOptions();
+                    },
+                };
+
+                ruler = new SlidingRuler(canvas, opts);
+                $("value-display").textContent = ruler.getValue();
+                dumpOptions();
+            }
+
+            function dumpOptions() {
+                const display = { ...state };
+                $("options-dump").textContent = JSON.stringify(
+                    display,
+                    null,
+                    2
+                );
+            }
+
+            function loadPreset(name) {
+                state = JSON.parse(JSON.stringify(PRESETS[name]));
+                applyStateToUI();
+                buildRuler();
+                for (const btn of document.querySelectorAll(
+                    "#presets button"
+                )) {
+                    btn.classList.toggle(
+                        "active",
+                        btn.dataset.preset === name
+                    );
+                }
+            }
+
+            function clearActivePreset() {
+                for (const btn of document.querySelectorAll(
+                    "#presets button"
+                )) {
+                    btn.classList.remove("active");
+                }
+            }
+
+            // ── Wiring ──────────────────────────────────────────────
+
+            for (const btn of document.querySelectorAll("#presets button")) {
+                btn.addEventListener("click", () =>
+                    loadPreset(btn.dataset.preset)
+                );
+            }
+
+            const numFields = [
+                ["f-min", "min"],
+                ["f-max", "max"],
+                ["f-value", "value"],
+            ];
+            for (const [id, key] of numFields) {
+                $(id).addEventListener("input", () => {
+                    state[key] = Number($(id).value);
+                    clearActivePreset();
+                    buildRuler();
+                });
+            }
+
+            function bindRangePair(rangeId, numId, key) {
+                const range = $(rangeId);
+                const num = $(numId);
+                range.addEventListener("input", () => {
+                    num.value = range.value;
+                    state[key] = Number(range.value);
+                    clearActivePreset();
+                    buildRuler();
+                });
+                num.addEventListener("input", () => {
+                    range.value = num.value;
+                    state[key] = Number(num.value);
+                    clearActivePreset();
+                    buildRuler();
+                });
+            }
+            bindRangePair("f-height", "f-height-num", "height");
+            bindRangePair("f-visible", "f-visible-num", "visibleRange");
+
+            for (const [key, idPrefix] of COLOR_KEYS) {
+                const picker = $(idPrefix);
+                const text = $(idPrefix + "-text");
+                picker.addEventListener("input", () => {
+                    text.value = picker.value;
+                    state[key] = picker.value;
+                    clearActivePreset();
+                    buildRuler();
+                });
+                text.addEventListener("change", () => {
+                    state[key] = text.value;
+                    if (/^#[0-9a-fA-F]{6}$/.test(text.value)) {
+                        picker.value = text.value;
+                    }
+                    clearActivePreset();
+                    buildRuler();
+                });
+            }
+
+            $("c-fade").addEventListener("change", () => {
+                state.fadeColor = $("c-fade").value;
+                clearActivePreset();
+                buildRuler();
+            });
+
+            $("labels-on").addEventListener("change", () => {
+                const on = $("labels-on").checked;
+                $("labels-json").disabled = !on;
+                if (!on) {
+                    state.labels = null;
+                    $("labels-error").textContent = "";
+                    clearActivePreset();
+                    buildRuler();
+                    return;
+                }
+                parseLabelsAndRebuild();
+            });
+            $("labels-json").addEventListener("input", () => {
+                if (!$("labels-on").checked) return;
+                parseLabelsAndRebuild();
+            });
+
+            function parseLabelsAndRebuild() {
+                const raw = $("labels-json").value;
+                try {
+                    const obj = JSON.parse(raw);
+                    const result = {};
+                    for (const [k, v] of Object.entries(obj)) {
+                        result[Number(k)] = v;
+                    }
+                    state.labels = result;
+                    $("labels-error").textContent = "";
+                    clearActivePreset();
+                    buildRuler();
+                } catch (err) {
+                    $("labels-error").textContent =
+                        "Invalid JSON: " + err.message;
+                }
+            }
+
+            // Rebuild on viewport resize so the canvas re-fits its width
+            let resizeTimer;
+            window.addEventListener("resize", () => {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(buildRuler, 120);
+            });
+
+            // Initial render
+            applyStateToUI();
+            buildRuler();
+        </script>
+    </body>
+</html>
