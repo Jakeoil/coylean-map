@@ -1,0 +1,1011 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Cube cuts — three.js</title>
+        <style>
+            html,
+            body {
+                margin: 0;
+                height: 100%;
+                overflow: hidden;
+                background: #eaf4ff;
+                color: #1a2a3a;
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    sans-serif;
+            }
+
+            #app {
+                position: fixed;
+                inset: 0;
+            }
+
+            #panel {
+                position: fixed;
+                top: 12px;
+                left: 12px;
+                background: rgba(255, 255, 255, 0.82);
+                backdrop-filter: blur(6px);
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                border-radius: 10px;
+                padding: 12px 14px;
+                font-size: 13px;
+                line-height: 1.45;
+                min-width: 260px;
+                box-shadow: 0 4px 18px rgba(0, 30, 80, 0.08);
+            }
+
+            #panel h1 {
+                margin: 0 0 8px;
+                font-size: 14px;
+                font-weight: 700;
+                letter-spacing: 0.02em;
+            }
+
+            #panel .row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin: 6px 0;
+            }
+
+            #panel label {
+                flex: 1;
+            }
+
+            #panel input[type="range"] {
+                width: 130px;
+            }
+
+            #panel .num {
+                width: 54px;
+                text-align: right;
+                color: #475;
+                font-variant-numeric: tabular-nums;
+            }
+
+            #panel select {
+                background: #fff;
+                border: 1px solid #b9c8d8;
+                border-radius: 4px;
+                padding: 1px 4px;
+                font: inherit;
+                color: #1a2a3a;
+            }
+
+            #panel button {
+                background: #fff;
+                border: 1px solid #b9c8d8;
+                border-radius: 6px;
+                padding: 4px 10px;
+                cursor: pointer;
+                font: inherit;
+                color: #1a2a3a;
+            }
+
+            #panel button:hover {
+                background: #f0f6ff;
+            }
+
+            #panel button:disabled {
+                color: #aab;
+                cursor: not-allowed;
+            }
+
+            #panel .hint {
+                color: #557;
+                font-size: 12px;
+                margin-top: 6px;
+            }
+
+            #panel .legend {
+                margin-top: 8px;
+                font-size: 12px;
+                color: #445;
+            }
+
+            #panel .legend .chip {
+                display: inline-block;
+                width: 10px;
+                height: 10px;
+                border-radius: 2px;
+                margin: 0 4px 0 0;
+                vertical-align: middle;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="app"></div>
+
+        <div id="panel">
+            <a
+                href="./"
+                style="
+                    display: inline-block;
+                    margin-bottom: 6px;
+                    color: #346;
+                    text-decoration: none;
+                    font-size: 12px;
+                "
+                >← 4D</a
+            >
+            <h1>cube cuts</h1>
+
+            <div class="row">
+                <button id="cut1Btn">Cut 1</button>
+                <button id="cut2Btn">Cut 2</button>
+                <button id="cut3Btn">Cut 3</button>
+            </div>
+            <div class="row">
+                <label>scrub</label>
+                <input
+                    id="scrub"
+                    type="range"
+                    min="0"
+                    max="3"
+                    step="0.005"
+                    value="0"
+                />
+                <span class="num" id="scrubN">0.00</span>
+            </div>
+            <div class="row">
+                <label>speed</label>
+                <input
+                    id="speed"
+                    type="range"
+                    min="0.5"
+                    max="10"
+                    step="0.1"
+                    value="3.0"
+                />
+                <span class="num" id="speedN">3.0 s</span>
+            </div>
+            <div class="row">
+                <label>explode</label>
+                <input
+                    id="explode"
+                    type="range"
+                    min="0"
+                    max="1.2"
+                    step="0.01"
+                    value="0"
+                />
+                <span class="num" id="explodeN">0.00</span>
+            </div>
+            <div class="row">
+                <label
+                    ><input id="showCuts" type="checkbox" checked />
+                    cut surfaces</label
+                >
+            </div>
+            <div class="row">
+                <label
+                    ><input id="cellsShow" type="checkbox" />
+                    show cells</label
+                >
+            </div>
+            <div id="cellsConfig" style="display: none">
+                <div class="row">
+                    <label style="flex: 0">mode</label>
+                    <select id="cellsMode">
+                        <option value="label" selected>label</option>
+                        <option value="figure">figure (⅛-size wireframe)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row">
+                <button id="resetBtn">reset</button>
+            </div>
+
+            <div class="legend" id="legend"></div>
+            <div class="hint">drag to orbit · scroll to zoom</div>
+        </div>
+
+        <script type="importmap">
+            {
+                "imports": {
+                    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+                }
+            }
+        </script>
+
+        <script type="module">
+            import * as THREE from "three";
+            import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+            import { Line2 } from "three/addons/lines/Line2.js";
+            import { LineGeometry } from "three/addons/lines/LineGeometry.js";
+            import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+
+            // --- OKLCH color ramps (matches meta/oklch.html) ---
+            // Each ramp has roles: outline, shadow, base, highlight, glow.
+            // Axes use `base`; surfaces perpendicular to the axes use `glow`;
+            // leading-edge outlines + ghost dashes use `outline`.
+            // Amber (hue 70) is reserved for the 4D extension's w axis.
+            function oklchHex(L, C, H) {
+                const h = (H * Math.PI) / 180;
+                const a_ = C * Math.cos(h);
+                const b_ = C * Math.sin(h);
+                const l_ = L + 0.3963377774 * a_ + 0.2158037573 * b_;
+                const m_ = L - 0.1055613458 * a_ - 0.0638541728 * b_;
+                const s_ = L - 0.089484178 * a_ - 1.291485548 * b_;
+                const l = l_ * l_ * l_;
+                const m = m_ * m_ * m_;
+                const s = s_ * s_ * s_;
+                let r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+                let g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+                let bv =
+                    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
+                const enc = (v) => {
+                    v = Math.max(0, Math.min(1, v));
+                    return v > 0.0031308
+                        ? 1.055 * Math.pow(v, 1 / 2.4) - 0.055
+                        : 12.92 * v;
+                };
+                r = enc(r);
+                g = enc(g);
+                bv = enc(bv);
+                const to8 = (v) => Math.round(v * 255);
+                return (to8(r) << 16) | (to8(g) << 8) | to8(bv);
+            }
+            function makeRamp(hue, roles) {
+                const out = { hue };
+                for (const [name, [L, C]] of Object.entries(roles)) {
+                    out[name] = oklchHex(L, C, hue);
+                }
+                return out;
+            }
+            const RAMP = {
+                red: makeRamp(25, {
+                    outline: [0.34, 0.18],
+                    shadow: [0.25, 0.13],
+                    base: [0.57, 0.22],
+                    highlight: [0.74, 0.16],
+                    glow: [0.88, 0.08],
+                }),
+                amber: makeRamp(70, {
+                    outline: [0.36, 0.11],
+                    shadow: [0.27, 0.08],
+                    base: [0.64, 0.16],
+                    highlight: [0.78, 0.12],
+                    glow: [0.9, 0.07],
+                }),
+                green: makeRamp(145, {
+                    outline: [0.34, 0.12],
+                    shadow: [0.25, 0.09],
+                    base: [0.58, 0.16],
+                    highlight: [0.74, 0.12],
+                    glow: [0.88, 0.07],
+                }),
+                blue: makeRamp(260, {
+                    outline: [0.34, 0.15],
+                    shadow: [0.25, 0.11],
+                    base: [0.58, 0.19],
+                    highlight: [0.74, 0.13],
+                    glow: [0.88, 0.07],
+                }),
+            };
+
+            // --- scene ---
+            const app = document.getElementById("app");
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xeaf4ff);
+            scene.fog = new THREE.Fog(0xeaf4ff, 14, 30);
+
+            const camera = new THREE.PerspectiveCamera(
+                45,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                100,
+            );
+            camera.position.set(4.0, 3.0, 5.0);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
+            app.appendChild(renderer.domElement);
+
+            const controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.08;
+
+            scene.add(new THREE.HemisphereLight(0xffffff, 0xdfeaff, 0.9));
+            const sun = new THREE.DirectionalLight(0xffffff, 0.5);
+            sun.position.set(5, 8, 6);
+            scene.add(sun);
+
+            // --- cube wireframe (extent [-1, 1]^3) ---
+            const cubeGeom = new THREE.BoxGeometry(2, 2, 2);
+            const cubeEdgesGeom = new THREE.EdgesGeometry(cubeGeom);
+            const cubeWire = new THREE.LineSegments(
+                cubeEdgesGeom,
+                new THREE.LineBasicMaterial({
+                    color: 0x1a2a3a,
+                    transparent: true,
+                    opacity: 0.45,
+                }),
+            );
+            scene.add(cubeWire);
+
+            // --- starting edges (highlighted) + midpoint spheres ---
+            // Convention: cut 1 perpendicular to z (so edge 1 lies along z),
+            //             cut 2 perpendicular to y,
+            //             cut 3 perpendicular to x.
+            // All three edges meet at the common origin corner (-1, -1, -1).
+            // Axes use the base role of their ramp.
+            const STARTING_EDGES = [
+                {
+                    axis: 2,
+                    ramp: RAMP.blue,
+                    a: [-1, -1, -1],
+                    b: [-1, -1, 1],
+                    label: "edge 1 / z",
+                },
+                {
+                    axis: 1,
+                    ramp: RAMP.green,
+                    a: [-1, -1, -1],
+                    b: [-1, 1, -1],
+                    label: "edge 2 / y",
+                },
+                {
+                    axis: 0,
+                    ramp: RAMP.red,
+                    a: [-1, -1, -1],
+                    b: [1, -1, -1],
+                    label: "edge 3 / x",
+                },
+            ];
+
+            const fatLineMats = [];
+            for (const e of STARTING_EDGES) {
+                const g = new LineGeometry();
+                g.setPositions([...e.a, ...e.b]);
+                const m = new LineMaterial({
+                    color: e.ramp.base,
+                    linewidth: 5,
+                    transparent: true,
+                    opacity: 0.95,
+                });
+                m.resolution.set(window.innerWidth, window.innerHeight);
+                fatLineMats.push(m);
+                scene.add(new Line2(g, m));
+            }
+
+            // Each cut gets two state-aware spheres: one at the midpoint of
+            // its starting edge and one at the midpoint of the opposite edge
+            // (the diagonally opposite edge in the cube cross-section, which
+            // is where the leading-edge ghost finishes its sweep at t=A+B).
+            //
+            // Solid state = an opaque filled sphere.
+            // Ghost state = three thin orthogonal rings (a clean hollow
+            // outline that reads as "empty" at any viewing angle).
+            //
+            // The filled mesh stays in the scene as a click target even in
+            // ghost state — the raycaster ignores Object3D.visible, so a hidden
+            // mesh is still hit-tested. That keeps clicks reliable in either
+            // state regardless of which visual is showing.
+            const SPHERE_R = 0.1;
+            const _sphereGeom = new THREE.SphereGeometry(SPHERE_R, 24, 24);
+            const _ringGeom = new THREE.TorusGeometry(
+                SPHERE_R,
+                0.006,
+                8,
+                48,
+            );
+
+            function makeStateSphere(position, color, cutIndex, role) {
+                const filledMat = new THREE.MeshBasicMaterial({ color });
+                const filled = new THREE.Mesh(_sphereGeom, filledMat);
+                filled.position.set(...position);
+                filled.userData = { cutIndex, role };
+                scene.add(filled);
+
+                // Ghost visual: three thin orthogonal rings (great circles).
+                const wire = new THREE.Group();
+                const ringMat = new THREE.MeshBasicMaterial({ color });
+                const ringXY = new THREE.Mesh(_ringGeom, ringMat);
+                const ringXZ = new THREE.Mesh(_ringGeom, ringMat);
+                ringXZ.rotation.x = Math.PI / 2;
+                const ringYZ = new THREE.Mesh(_ringGeom, ringMat);
+                ringYZ.rotation.y = Math.PI / 2;
+                wire.add(ringXY, ringXZ, ringYZ);
+                wire.position.set(...position);
+                scene.add(wire);
+
+                return { filled, wire };
+            }
+
+            const cutSpheres = STARTING_EDGES.map((e, i) => {
+                const mid = e.a.map((s, j) => (s + e.b[j]) / 2);
+                // Opposite edge midpoint: flip the two non-axis coords. The
+                // leading-edge ghost finishes its sweep here.
+                const opp = mid.map((v, j) => (j === e.axis ? v : -v));
+                return {
+                    start: makeStateSphere(mid, e.ramp.base, i, "start"),
+                    opp: makeStateSphere(opp, e.ramp.base, i, "opp"),
+                };
+            });
+
+            // Small sphere at the common corner.
+            const cornerSph = new THREE.Mesh(
+                new THREE.SphereGeometry(0.06, 16, 16),
+                new THREE.MeshBasicMaterial({ color: 0x1a2a3a }),
+            );
+            cornerSph.position.set(-1, -1, -1);
+            scene.add(cornerSph);
+
+            // --- cuts ---
+            // Each cut takes its colour theme from the ramp of the axis it is
+            // perpendicular to:
+            //   - surface fill  = ramp.glow
+            //   - leading edge  = ramp.outline (solid)
+            //   - ghost edge    = ramp.outline (dashed)
+            const CUTS = [
+                {
+                    axis: 2,
+                    ramp: RAMP.blue,
+                    cellMin: [-1, -1, -1],
+                    cellMax: [1, 1, 1],
+                },
+                {
+                    axis: 1,
+                    ramp: RAMP.green,
+                    cellMin: [-1, -1, -1],
+                    cellMax: [1, 1, 0],
+                },
+                {
+                    axis: 0,
+                    ramp: RAMP.red,
+                    cellMin: [-1, -1, -1],
+                    cellMax: [1, 0, 0],
+                },
+            ];
+            for (const c of CUTS) {
+                c.planePos =
+                    (c.cellMin[c.axis] + c.cellMax[c.axis]) / 2; // = 0
+                c.freeAxes = [0, 1, 2].filter((i) => i !== c.axis);
+                c.size = [
+                    c.cellMax[c.freeAxes[0]] - c.cellMin[c.freeAxes[0]],
+                    c.cellMax[c.freeAxes[1]] - c.cellMin[c.freeAxes[1]],
+                ];
+                c.localOrigin = [
+                    c.cellMin[c.freeAxes[0]],
+                    c.cellMin[c.freeAxes[1]],
+                ];
+                // Cube's cross-section in this cut's plane, expressed in the
+                // same local (u, v) frame as the sub-cell rectangle. Lets us
+                // extend the leading-edge line outside the sub-cell to show
+                // the "ghost" portion.
+                c.cubeMaxLocal = [
+                    1 - c.cellMin[c.freeAxes[0]],
+                    1 - c.cellMin[c.freeAxes[1]],
+                ];
+            }
+
+            // Cross-section polygon in (u, v) midplane-local coords for the
+            // sub-cell rectangle [0, a] × [0, b]; sweep u + v <= t, CCW verts.
+            function crossSection(a, b, t) {
+                if (t <= 0) return [];
+                const verts = [[0, 0]];
+                verts.push([Math.min(t, a), 0]);
+                if (t > a) {
+                    verts.push([a, Math.min(t - a, b)]);
+                }
+                if (t >= a + b) {
+                    verts.push([0, b]);
+                } else if (t > b) {
+                    verts.push([t - b, b]);
+                    verts.push([0, b]);
+                } else {
+                    verts.push([0, t]);
+                }
+                return verts;
+            }
+
+            // Intersection of the line u + v = t with a rectangle [0, A]×[0, B].
+            // Returns [(u1, v1), (u2, v2)] ordered so u1 >= u2, or null if no
+            // intersection lies in the rectangle.
+            function lineRectSegment(A, B, t) {
+                if (t <= 0 || t >= A + B) return null;
+                let p1, p2;
+                if (t <= A && t <= B) {
+                    p1 = [t, 0];
+                    p2 = [0, t];
+                } else if (t > A && t <= B) {
+                    p1 = [A, t - A];
+                    p2 = [0, t];
+                } else if (t > B && t <= A) {
+                    p1 = [t, 0];
+                    p2 = [t - B, B];
+                } else {
+                    p1 = [A, t - A];
+                    p2 = [t - B, B];
+                }
+                return [p1, p2];
+            }
+
+            // For a cut at parameter t, return:
+            //   painting: line segment of leading edge inside the sub-cell.
+            //   ghost:    0-2 line segments of the same diagonal that lie in
+            //             the cube cross-section but outside the sub-cell.
+            function leadingEdgePieces(cut, t) {
+                const [a, b] = cut.size;
+                const [A, B] = cut.cubeMaxLocal;
+                if (t <= 0 || t >= A + B) {
+                    // Nothing yet, or the leading edge has reached the
+                    // opposite corner of the cube cross-section — done.
+                    return { painting: null, ghost: [] };
+                }
+                const cube = lineRectSegment(A, B, t);
+                if (!cube) return { painting: null, ghost: [] };
+
+                // Sub-cell intersection only while the sub-cell hasn't been
+                // fully painted yet (t < a + b).
+                const sub =
+                    t < a + b ? lineRectSegment(a, b, t) : null;
+
+                const ghost = [];
+                if (sub) {
+                    // sub is inside cube along the diagonal:
+                    //   cube[0].u >= sub[0].u >= sub[1].u >= cube[1].u
+                    if (cube[0][0] - sub[0][0] > 1e-9) {
+                        ghost.push([cube[0], sub[0]]);
+                    }
+                    if (sub[1][0] - cube[1][0] > 1e-9) {
+                        ghost.push([sub[1], cube[1]]);
+                    }
+                } else {
+                    // Sub-cell is fully painted; the whole cube-cross-section
+                    // diagonal is ghost.
+                    ghost.push([cube[0], cube[1]]);
+                }
+                return { painting: sub, ghost };
+            }
+
+            // Build the meshes/lines for each cut.
+            const cutEntries = CUTS.map((cut) => {
+                const fillGeom = new THREE.BufferGeometry();
+                const fillMat = new THREE.MeshBasicMaterial({
+                    color: cut.ramp.glow,
+                    transparent: true,
+                    opacity: 0.65,
+                    side: THREE.DoubleSide,
+                    depthWrite: false,
+                });
+                const fill = new THREE.Mesh(fillGeom, fillMat);
+                fill.visible = false;
+                scene.add(fill);
+
+                const leadGeom = new THREE.BufferGeometry();
+                const leadMat = new THREE.LineBasicMaterial({
+                    color: cut.ramp.outline,
+                    transparent: true,
+                    opacity: 1.0,
+                });
+                const lead = new THREE.Line(leadGeom, leadMat);
+                lead.visible = false;
+                scene.add(lead);
+
+                const ghostGeom = new THREE.BufferGeometry();
+                const ghostMat = new THREE.LineDashedMaterial({
+                    color: cut.ramp.outline,
+                    transparent: true,
+                    opacity: 0.85,
+                    dashSize: 0.07,
+                    gapSize: 0.06,
+                });
+                const ghost = new THREE.LineSegments(ghostGeom, ghostMat);
+                ghost.visible = false;
+                scene.add(ghost);
+
+                return { cut, fill, lead, ghost, fillGeom, leadGeom, ghostGeom };
+            });
+
+            // Map a midplane-local (u, v) point to 3D.
+            function mapTo3D(cut, u, v) {
+                const p = [0, 0, 0];
+                p[cut.axis] = cut.planePos;
+                p[cut.freeAxes[0]] = cut.localOrigin[0] + u;
+                p[cut.freeAxes[1]] = cut.localOrigin[1] + v;
+                return p;
+            }
+
+            function updateCut(entry, t) {
+                const { cut, fill, lead, ghost, fillGeom, leadGeom, ghostGeom } =
+                    entry;
+
+                // Filled cross-section (cuts have a sweep parameter t along
+                // u + v <= t within the sub-cell).
+                const poly = crossSection(cut.size[0], cut.size[1], t);
+                if (poly.length < 3) {
+                    fill.visible = false;
+                } else {
+                    fill.visible = true;
+                    const positions = new Float32Array(poly.length * 3);
+                    for (let i = 0; i < poly.length; i++) {
+                        const [u, v] = poly[i];
+                        const p3 = mapTo3D(cut, u, v);
+                        positions[i * 3] = p3[0];
+                        positions[i * 3 + 1] = p3[1];
+                        positions[i * 3 + 2] = p3[2];
+                    }
+                    const indices = [];
+                    for (let i = 1; i < poly.length - 1; i++) {
+                        indices.push(0, i, i + 1);
+                    }
+                    fillGeom.setAttribute(
+                        "position",
+                        new THREE.BufferAttribute(positions, 3),
+                    );
+                    fillGeom.setIndex(indices);
+                    fillGeom.computeBoundingSphere();
+                }
+
+                // Leading edge (solid) and ghost (dashed extensions).
+                const { painting, ghost: ghostSegs } = leadingEdgePieces(
+                    cut,
+                    t,
+                );
+                if (painting) {
+                    lead.visible = true;
+                    const p1 = mapTo3D(cut, painting[0][0], painting[0][1]);
+                    const p2 = mapTo3D(cut, painting[1][0], painting[1][1]);
+                    leadGeom.setAttribute(
+                        "position",
+                        new THREE.Float32BufferAttribute(
+                            [...p1, ...p2],
+                            3,
+                        ),
+                    );
+                } else {
+                    lead.visible = false;
+                }
+                if (ghostSegs.length > 0) {
+                    ghost.visible = true;
+                    const arr = [];
+                    for (const [g1, g2] of ghostSegs) {
+                        arr.push(...mapTo3D(cut, g1[0], g1[1]));
+                        arr.push(...mapTo3D(cut, g2[0], g2[1]));
+                    }
+                    ghostGeom.setAttribute(
+                        "position",
+                        new THREE.Float32BufferAttribute(arr, 3),
+                    );
+                    ghost.computeLineDistances();
+                } else {
+                    ghost.visible = false;
+                }
+            }
+
+            // --- resulting cells ---
+            // After all three cuts: 4 cells, each shown either as a label
+            // sprite at its centroid or as a 1/8-side wireframe of the cell
+            // (or hidden, when "show cells" is unchecked).
+            const CELLS = [
+                { label: "1.1.1", min: [-1, -1, -1], max: [0, 0, 0] },
+                { label: "1.1.2", min: [0, -1, -1], max: [1, 0, 0] },
+                { label: "1.2", min: [-1, 0, -1], max: [1, 1, 0] },
+                { label: "2", min: [-1, -1, 0], max: [1, 1, 1] },
+            ];
+
+            function makeLabelSprite(text, hex) {
+                const cv = document.createElement("canvas");
+                cv.width = 256;
+                cv.height = 128;
+                const c = cv.getContext("2d");
+                c.font = "bold 70px system-ui, sans-serif";
+                c.textAlign = "center";
+                c.textBaseline = "middle";
+                c.fillStyle = "#" + hex.toString(16).padStart(6, "0");
+                c.strokeStyle = "rgba(255,255,255,0.85)";
+                c.lineWidth = 6;
+                c.strokeText(text, 128, 64);
+                c.fillText(text, 128, 64);
+                const tex = new THREE.CanvasTexture(cv);
+                tex.colorSpace = THREE.SRGBColorSpace;
+                const mat = new THREE.SpriteMaterial({
+                    map: tex,
+                    transparent: true,
+                    depthWrite: false,
+                });
+                const sp = new THREE.Sprite(mat);
+                sp.scale.set(0.7, 0.35, 1);
+                return sp;
+            }
+
+            // Build a label sprite and a 1/8-size wireframe figure for each
+            // cell. Both children of one Group whose position we move on
+            // explode. Visibility per-mode is toggled in the update loop.
+            const cellEntries = CELLS.map((cell) => {
+                const size = cell.max.map((v, i) => v - cell.min[i]);
+                const center = cell.min.map((v, i) => v + size[i] / 2);
+                // Cells take a neutral charcoal so the axis-colored cuts stay
+                // dominant; labels and figures contrast against background.
+                const cellColor = 0x36465a;
+
+                const group = new THREE.Group();
+                group.position.set(...center);
+                scene.add(group);
+
+                const figGeom = new THREE.BoxGeometry(
+                    size[0] / 8,
+                    size[1] / 8,
+                    size[2] / 8,
+                );
+                const figEdges = new THREE.LineSegments(
+                    new THREE.EdgesGeometry(figGeom),
+                    new THREE.LineBasicMaterial({
+                        color: cellColor,
+                        transparent: true,
+                        opacity: 0.95,
+                    }),
+                );
+                figEdges.visible = false;
+                group.add(figEdges);
+
+                const sprite = makeLabelSprite(cell.label, cellColor);
+                sprite.visible = false;
+                group.add(sprite);
+
+                // Direction to push outward on explode (radial from origin).
+                const len = Math.hypot(...center) || 1;
+                const dir = center.map((v) => v / len);
+
+                return { cell, group, figEdges, sprite, center, dir };
+            });
+
+            // --- legend ---
+            (function buildLegend() {
+                const el = document.getElementById("legend");
+                const items = [];
+                const labels = ["cut 1 (z)", "cut 2 (y)", "cut 3 (x)"];
+                for (let i = 0; i < CUTS.length; i++) {
+                    const glow = CUTS[i].ramp.glow;
+                    const outline = CUTS[i].ramp.outline;
+                    const c1 =
+                        "#" + glow.toString(16).padStart(6, "0");
+                    const c2 =
+                        "#" + outline.toString(16).padStart(6, "0");
+                    items.push(
+                        `<span class="chip" style="background:${c1}"></span>` +
+                            `<span class="chip" style="background:${c2}"></span>` +
+                            labels[i],
+                    );
+                }
+                el.innerHTML = items.join(" &nbsp; ");
+            })();
+
+            // --- state ---
+            const state = {
+                scrub: 0,
+                explode: 0,
+                showCuts: true,
+                cellsShow: false,
+                cellsMode: "label",
+                speed: 3.0, // seconds per cut
+                // Per-cut sphere state: true = solid, false = ghost (clear).
+                // Both the starting-edge sphere and the opposite-edge sphere
+                // of a given cut share one entry.
+                sphereStates: [true, true, true],
+            };
+
+            // Update cut buttons to glow (sphere solid) / white (ghost).
+            function hexToCss(hex) {
+                return "#" + hex.toString(16).padStart(6, "0");
+            }
+            function updateButtonColors() {
+                for (let i = 0; i < CUTS.length; i++) {
+                    const btn = document.getElementById(
+                        "cut" + (i + 1) + "Btn",
+                    );
+                    if (state.sphereStates[i]) {
+                        // Solid sphere → tint button with the ramp's
+                        // highlight (more saturated than glow, so the
+                        // difference from white is clearly visible).
+                        btn.style.background = hexToCss(
+                            CUTS[i].ramp.highlight,
+                        );
+                        btn.style.borderColor = hexToCss(CUTS[i].ramp.base);
+                    } else {
+                        // Ghost sphere → plain white button.
+                        btn.style.background = "#fff";
+                        btn.style.borderColor = "#b9c8d8";
+                    }
+                }
+            }
+
+            // --- per-frame update ---
+            function updateScene() {
+                // Per-cut sphere visibility (solid vs wireframe).
+                for (let i = 0; i < cutSpheres.length; i++) {
+                    const isSolid = state.sphereStates[i];
+                    const { start, opp } = cutSpheres[i];
+                    start.filled.visible = isSolid;
+                    start.wire.visible = !isSolid;
+                    opp.filled.visible = isSolid;
+                    opp.wire.visible = !isSolid;
+                }
+
+                for (let i = 0; i < cutEntries.length; i++) {
+                    const entry = cutEntries[i];
+                    const progress = Math.max(
+                        0,
+                        Math.min(1, state.scrub - i),
+                    );
+                    if (progress <= 0 || !state.showCuts) {
+                        entry.fill.visible = false;
+                        entry.lead.visible = false;
+                        entry.ghost.visible = false;
+                        continue;
+                    }
+                    // The leading edge now sweeps all the way across the
+                    // cube cross-section (A + B), not just the sub-cell, so
+                    // the ghost finishes at the opposite-edge sphere.
+                    const [A, B] = entry.cut.cubeMaxLocal;
+                    const t = progress * (A + B);
+                    updateCut(entry, t);
+                }
+
+                const allCutsDone = state.scrub >= 3;
+                const show = state.cellsShow && allCutsDone;
+                const mode = state.cellsMode;
+                for (const e of cellEntries) {
+                    e.figEdges.visible = show && mode === "figure";
+                    e.sprite.visible = show && mode === "label";
+                    if (show) {
+                        const off = e.dir.map((d) => d * state.explode);
+                        e.group.position.set(
+                            e.center[0] + off[0],
+                            e.center[1] + off[1],
+                            e.center[2] + off[2],
+                        );
+                    }
+                }
+
+                // Hide the original cube wireframe only when we're exploding
+                // and figures are out (so cells read as separate solids).
+                cubeWire.visible = !(
+                    allCutsDone &&
+                    show &&
+                    mode === "figure" &&
+                    state.explode > 0.05
+                );
+            }
+
+            // --- UI wiring ---
+            const scrubEl = document.getElementById("scrub");
+            const scrubN = document.getElementById("scrubN");
+            scrubEl.addEventListener("input", () => {
+                state.scrub = parseFloat(scrubEl.value);
+                scrubN.textContent = state.scrub.toFixed(2);
+            });
+            const explodeEl = document.getElementById("explode");
+            const explodeN = document.getElementById("explodeN");
+            explodeEl.addEventListener("input", () => {
+                state.explode = parseFloat(explodeEl.value);
+                explodeN.textContent = state.explode.toFixed(2);
+            });
+            const speedEl = document.getElementById("speed");
+            const speedN = document.getElementById("speedN");
+            speedEl.addEventListener("input", () => {
+                state.speed = parseFloat(speedEl.value);
+                speedN.textContent = state.speed.toFixed(1) + " s";
+            });
+            document
+                .getElementById("showCuts")
+                .addEventListener("change", (e) => {
+                    state.showCuts = e.target.checked;
+                });
+
+            const cellsShowEl = document.getElementById("cellsShow");
+            const cellsConfig = document.getElementById("cellsConfig");
+            const cellsModeEl = document.getElementById("cellsMode");
+            cellsShowEl.addEventListener("change", () => {
+                state.cellsShow = cellsShowEl.checked;
+                cellsConfig.style.display = state.cellsShow ? "block" : "none";
+            });
+            cellsModeEl.addEventListener("change", () => {
+                state.cellsMode = cellsModeEl.value;
+            });
+
+            // Click any sphere on the cube to flip that cut's state
+            // (solid ↔ ghost). Both the starting-edge and opposite-edge
+            // spheres of a cut share one state entry. The filled mesh
+            // stays a raycast target even when hidden (Object3D.visible is
+            // not checked by the raycaster), so a ghost-state sphere is
+            // still clickable on the same spot the rings show.
+            const raycaster = new THREE.Raycaster();
+            const ndc = new THREE.Vector2();
+            renderer.domElement.addEventListener("click", (e) => {
+                const rect = renderer.domElement.getBoundingClientRect();
+                ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                raycaster.setFromCamera(ndc, camera);
+                const targets = [];
+                for (const cs of cutSpheres) {
+                    targets.push(cs.start.filled, cs.opp.filled);
+                }
+                const hits = raycaster.intersectObjects(targets, false);
+                if (!hits.length) return;
+                const { cutIndex } = hits[0].object.userData;
+                state.sphereStates[cutIndex] = !state.sphereStates[cutIndex];
+                updateButtonColors();
+            });
+
+            // Animate scrub to a target value at `state.speed` seconds per cut.
+            let anim = null;
+            function animateScrubTo(target) {
+                anim = {
+                    from: state.scrub,
+                    to: target,
+                    t0: performance.now(),
+                    dur:
+                        state.speed *
+                        1000 *
+                        Math.abs(target - state.scrub),
+                };
+            }
+            document
+                .getElementById("cut1Btn")
+                .addEventListener("click", () => animateScrubTo(1));
+            document
+                .getElementById("cut2Btn")
+                .addEventListener("click", () => animateScrubTo(2));
+            document
+                .getElementById("cut3Btn")
+                .addEventListener("click", () => animateScrubTo(3));
+            document
+                .getElementById("resetBtn")
+                .addEventListener("click", () => {
+                    anim = null;
+                    state.scrub = 0;
+                    state.explode = 0;
+                    scrubEl.value = 0;
+                    explodeEl.value = 0;
+                    scrubN.textContent = "0.00";
+                    explodeN.textContent = "0.00";
+                });
+
+            window.addEventListener("resize", () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                for (const m of fatLineMats) {
+                    m.resolution.set(window.innerWidth, window.innerHeight);
+                }
+            });
+
+            // Initialize cut-button tints to match the default sphere states.
+            updateButtonColors();
+
+            // --- animate ---
+            function loop() {
+                if (anim) {
+                    const now = performance.now();
+                    const r = anim.dur > 0 ? (now - anim.t0) / anim.dur : 1;
+                    if (r >= 1) {
+                        state.scrub = anim.to;
+                        anim = null;
+                    } else {
+                        const e = r * r * (3 - 2 * r); // smoothstep
+                        state.scrub = anim.from + (anim.to - anim.from) * e;
+                    }
+                    scrubEl.value = state.scrub;
+                    scrubN.textContent = state.scrub.toFixed(2);
+                }
+                updateScene();
+                controls.update();
+                renderer.render(scene, camera);
+                requestAnimationFrame(loop);
+            }
+            loop();
+        </script>
+    </body>
+</html>
