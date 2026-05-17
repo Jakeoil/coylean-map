@@ -3,6 +3,9 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+        <meta http-equiv="Pragma" content="no-cache" />
+        <meta http-equiv="Expires" content="0" />
         <title>Cube cuts — three.js</title>
         <style>
             html,
@@ -378,60 +381,94 @@
                 scene.add(new Line2(g, m));
             }
 
-            // Each cut gets two state-aware spheres: one at the midpoint of
-            // its starting edge and one at the midpoint of the opposite edge
-            // (the diagonally opposite edge in the cube cross-section, which
-            // is where the leading-edge ghost finishes its sweep at t=A+B).
+            // Each cut now has four disks, sitting flat in the cut plane at
+            // the four cube-edge midpoints that correspond to the corners of
+            // the cube cross-section in that plane:
             //
-            // Solid state = an opaque filled sphere.
-            // Ghost state = three thin orthogonal rings (a clean hollow
-            // outline that reads as "empty" at any viewing angle).
+            //   - start   (u=0, v=0)  — toggleable; the user clicks this to
+            //                           flip the cut's state (filled ↔ outline).
+            //                           Drawn with a halo "shadow" so it
+            //                           reads as interactive.
+            //   - sideA   (u=A, v=0)  — fixed; filled if the leading edge
+            //                           is still painting when it arrives at
+            //                           this corner (i.e., the corner lies in
+            //                           the sub-cell rectangle), else outline.
+            //   - sideB   (u=0, v=B)  — fixed; same rule as sideA.
+            //   - opposite(u=A, v=B)  — fixed; same rule.
             //
-            // The filled mesh stays in the scene as a click target even in
-            // ghost state — the raycaster ignores Object3D.visible, so a hidden
-            // mesh is still hit-tested. That keeps clicks reliable in either
-            // state regardless of which visual is showing.
-            const SPHERE_R = 0.1;
-            const _sphereGeom = new THREE.SphereGeometry(SPHERE_R, 24, 24);
-            const _ringGeom = new THREE.TorusGeometry(
-                SPHERE_R,
-                0.006,
-                8,
-                48,
+            // Result by cut, given the recursive-bisection geometry:
+            //   cut 1 (sub-cell = cube cross-section): all three filled.
+            //   cut 2 (sub-cell 2×1 in 2×2):           sideA filled, sideB
+            //                                          + opposite outline.
+            //   cut 3 (sub-cell 1×1 in 2×2):           all three outline.
+            const DISK_R = 0.1;
+            const DISK_SEG = 48;
+            const _diskFilledGeom = new THREE.CircleGeometry(
+                DISK_R,
+                DISK_SEG,
+            );
+            const _diskOutlineGeom = new THREE.RingGeometry(
+                DISK_R * 0.78,
+                DISK_R,
+                DISK_SEG,
+            );
+            const _diskShadowGeom = new THREE.RingGeometry(
+                DISK_R * 1.08,
+                DISK_R * 1.4,
+                DISK_SEG,
             );
 
-            function makeStateSphere(position, color, cutIndex, role) {
-                const filledMat = new THREE.MeshBasicMaterial({ color });
-                const filled = new THREE.Mesh(_sphereGeom, filledMat);
-                filled.position.set(...position);
-                filled.userData = { cutIndex, role };
-                scene.add(filled);
-
-                // Ghost visual: three thin orthogonal rings (great circles).
-                const wire = new THREE.Group();
-                const ringMat = new THREE.MeshBasicMaterial({ color });
-                const ringXY = new THREE.Mesh(_ringGeom, ringMat);
-                const ringXZ = new THREE.Mesh(_ringGeom, ringMat);
-                ringXZ.rotation.x = Math.PI / 2;
-                const ringYZ = new THREE.Mesh(_ringGeom, ringMat);
-                ringYZ.rotation.y = Math.PI / 2;
-                wire.add(ringXY, ringXZ, ringYZ);
-                wire.position.set(...position);
-                scene.add(wire);
-
-                return { filled, wire };
+            function orientFor(axis) {
+                // The default CircleGeometry / RingGeometry lies in the XY
+                // plane with normal +z. Rotate so its normal lines up with
+                // the cut's perpendicular axis.
+                if (axis === 0) return [0, Math.PI / 2, 0]; // +x
+                if (axis === 1) return [-Math.PI / 2, 0, 0]; // +y
+                return [0, 0, 0]; // +z (cut 1)
             }
 
-            const cutSpheres = STARTING_EDGES.map((e, i) => {
-                const mid = e.a.map((s, j) => (s + e.b[j]) / 2);
-                // Opposite edge midpoint: flip the two non-axis coords. The
-                // leading-edge ghost finishes its sweep here.
-                const opp = mid.map((v, j) => (j === e.axis ? v : -v));
-                return {
-                    start: makeStateSphere(mid, e.ramp.base, i, "start"),
-                    opp: makeStateSphere(opp, e.ramp.base, i, "opp"),
-                };
-            });
+            function makeDisk(position, axis, color, cutIndex, role, withShadow) {
+                const group = new THREE.Group();
+                group.position.set(...position);
+                const [rx, ry, rz] = orientFor(axis);
+                group.rotation.set(rx, ry, rz);
+
+                const filledMat = new THREE.MeshBasicMaterial({
+                    color,
+                    side: THREE.DoubleSide,
+                });
+                const filled = new THREE.Mesh(_diskFilledGeom, filledMat);
+                filled.userData = { cutIndex, role };
+                group.add(filled);
+
+                const outlineMat = new THREE.MeshBasicMaterial({
+                    color,
+                    side: THREE.DoubleSide,
+                });
+                const outline = new THREE.Mesh(_diskOutlineGeom, outlineMat);
+                outline.userData = { cutIndex, role };
+                group.add(outline);
+
+                let shadow = null;
+                if (withShadow) {
+                    shadow = new THREE.Mesh(
+                        _diskShadowGeom,
+                        new THREE.MeshBasicMaterial({
+                            color: 0x000000,
+                            transparent: true,
+                            opacity: 0.28,
+                            side: THREE.DoubleSide,
+                            depthWrite: false,
+                        }),
+                    );
+                    group.add(shadow);
+                }
+
+                scene.add(group);
+                return { group, filled, outline, shadow };
+            }
+
+            // (cutDisks is built below, after CUTS is fully initialized.)
 
             // Small sphere at the common corner.
             const cornerSph = new THREE.Mesh(
@@ -488,6 +525,41 @@
                     1 - c.cellMin[c.freeAxes[1]],
                 ];
             }
+
+            // Build the four state-aware disks per cut (must run after the
+            // CUTS augmentation loop above, since it reads cubeMaxLocal,
+            // freeAxes, etc.).
+            const cutDisks = CUTS.map((cut, cutIndex) => {
+                const [A, B] = cut.cubeMaxLocal;
+                const corners = [
+                    { role: "start", u: 0, v: 0, shadow: true },
+                    { role: "sideA", u: A, v: 0, shadow: false },
+                    { role: "sideB", u: 0, v: B, shadow: false },
+                    { role: "opposite", u: A, v: B, shadow: false },
+                ];
+                const out = {};
+                for (const c of corners) {
+                    const pos = [0, 0, 0];
+                    pos[cut.axis] = cut.planePos;
+                    pos[cut.freeAxes[0]] = cut.cellMin[cut.freeAxes[0]] + c.u;
+                    pos[cut.freeAxes[1]] = cut.cellMin[cut.freeAxes[1]] + c.v;
+                    const disk = makeDisk(
+                        pos,
+                        cut.axis,
+                        cut.ramp.base,
+                        cutIndex,
+                        c.role,
+                        c.shadow,
+                    );
+                    // Fixed-state disks are filled iff the leading edge is
+                    // still inside the sub-cell when it reaches their corner.
+                    disk.fixedFilled =
+                        c.u <= cut.size[0] + 1e-9 &&
+                        c.v <= cut.size[1] + 1e-9;
+                    out[c.role] = disk;
+                }
+                return out;
+            });
 
             // Cross-section polygon in (u, v) midplane-local coords for the
             // sub-cell rectangle [0, a] × [0, b]; sweep u + v <= t, CCW verts.
@@ -790,13 +862,11 @@
                 cellsShow: false,
                 cellsMode: "label",
                 speed: 3.0, // seconds per cut
-                // Per-cut sphere state: true = solid, false = ghost (clear).
-                // Both the starting-edge sphere and the opposite-edge sphere
-                // of a given cut share one entry.
-                sphereStates: [true, true, true],
+                // Per-cut toggleable-disk state: true = filled, false = outline.
+                diskStates: [true, true, true],
             };
 
-            // Update cut buttons to glow (sphere solid) / white (ghost).
+            // Update cut buttons to glow (filled) / white (outline).
             function hexToCss(hex) {
                 return "#" + hex.toString(16).padStart(6, "0");
             }
@@ -805,16 +875,10 @@
                     const btn = document.getElementById(
                         "cut" + (i + 1) + "Btn",
                     );
-                    if (state.sphereStates[i]) {
-                        // Solid sphere → tint button with the ramp's
-                        // highlight (more saturated than glow, so the
-                        // difference from white is clearly visible).
-                        btn.style.background = hexToCss(
-                            CUTS[i].ramp.highlight,
-                        );
+                    if (state.diskStates[i]) {
+                        btn.style.background = hexToCss(CUTS[i].ramp.glow);
                         btn.style.borderColor = hexToCss(CUTS[i].ramp.base);
                     } else {
-                        // Ghost sphere → plain white button.
                         btn.style.background = "#fff";
                         btn.style.borderColor = "#b9c8d8";
                     }
@@ -823,14 +887,19 @@
 
             // --- per-frame update ---
             function updateScene() {
-                // Per-cut sphere visibility (solid vs wireframe).
-                for (let i = 0; i < cutSpheres.length; i++) {
-                    const isSolid = state.sphereStates[i];
-                    const { start, opp } = cutSpheres[i];
-                    start.filled.visible = isSolid;
-                    start.wire.visible = !isSolid;
-                    opp.filled.visible = isSolid;
-                    opp.wire.visible = !isSolid;
+                // Per-cut disk visibility:
+                //   - the toggleable "start" disk follows state.diskStates[i]
+                //   - the three communicating disks are fixed by geometry
+                for (let i = 0; i < cutDisks.length; i++) {
+                    const cd = cutDisks[i];
+                    const startFilled = state.diskStates[i];
+                    cd.start.filled.visible = startFilled;
+                    cd.start.outline.visible = !startFilled;
+                    for (const role of ["sideA", "sideB", "opposite"]) {
+                        const d = cd[role];
+                        d.filled.visible = d.fixedFilled;
+                        d.outline.visible = !d.fixedFilled;
+                    }
                 }
 
                 for (let i = 0; i < cutEntries.length; i++) {
@@ -915,12 +984,11 @@
                 state.cellsMode = cellsModeEl.value;
             });
 
-            // Click any sphere on the cube to flip that cut's state
-            // (solid ↔ ghost). Both the starting-edge and opposite-edge
-            // spheres of a cut share one state entry. The filled mesh
-            // stays a raycast target even when hidden (Object3D.visible is
-            // not checked by the raycaster), so a ghost-state sphere is
-            // still clickable on the same spot the rings show.
+            // Click the toggleable (start) disk to flip a cut's state. The
+            // three communicating disks are fixed by the geometry — not
+            // clickable. The filled CircleGeometry covers the whole disk
+            // area and is always a raycast target (the raycaster ignores
+            // Object3D.visible), so the disk is hit-testable in either state.
             const raycaster = new THREE.Raycaster();
             const ndc = new THREE.Vector2();
             renderer.domElement.addEventListener("click", (e) => {
@@ -929,13 +997,13 @@
                 ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
                 raycaster.setFromCamera(ndc, camera);
                 const targets = [];
-                for (const cs of cutSpheres) {
-                    targets.push(cs.start.filled, cs.opp.filled);
+                for (const cd of cutDisks) {
+                    targets.push(cd.start.filled);
                 }
                 const hits = raycaster.intersectObjects(targets, false);
                 if (!hits.length) return;
                 const { cutIndex } = hits[0].object.userData;
-                state.sphereStates[cutIndex] = !state.sphereStates[cutIndex];
+                state.diskStates[cutIndex] = !state.diskStates[cutIndex];
                 updateButtonColors();
             });
 
