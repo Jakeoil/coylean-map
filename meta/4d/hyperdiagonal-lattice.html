@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>4D Hyperdiagonal Lattice Viewer</title>
+        <style>
+            body {
+                margin: 0;
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    sans-serif;
+                background: #111;
+                color: #eee;
+            }
+
+            header {
+                padding: 12px 16px;
+                background: #1b1b1b;
+                border-bottom: 1px solid #333;
+            }
+
+            h1 {
+                margin: 0 0 6px;
+                font-size: 18px;
+                font-weight: 650;
+            }
+
+            .back {
+                display: inline-block;
+                margin-bottom: 4px;
+                color: #9ab;
+                text-decoration: none;
+                font-size: 12px;
+            }
+
+            .back:hover {
+                text-decoration: underline;
+            }
+
+            .controls {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 12px;
+                align-items: center;
+                font-size: 14px;
+            }
+
+            label {
+                display: inline-flex;
+                gap: 6px;
+                align-items: center;
+            }
+
+            canvas {
+                display: block;
+                width: 100vw;
+                height: calc(100vh - 86px);
+                background: #0d0d0d;
+            }
+
+            select,
+            input,
+            button {
+                background: #242424;
+                color: #eee;
+                border: 1px solid #555;
+                border-radius: 6px;
+                padding: 4px 8px;
+            }
+
+            .note {
+                color: #bbb;
+                font-size: 13px;
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <a class="back" href="./">← 4D</a>
+            <h1>4D hyperdiagonal lattice viewer</h1>
+            <div class="controls">
+                <label
+                    >range
+                    <input id="range" type="number" min="1" max="3" value="1" />
+                </label>
+
+                <label
+                    >projection
+                    <select id="projection">
+                        <option value="xy">x,y only</option>
+                        <option value="xz">x,z only</option>
+                        <option value="xw">x,w only</option>
+                        <option value="iso" selected>
+                            simple 4D isometric
+                        </option>
+                        <option value="split">split: xy plus zw offset</option>
+                    </select>
+                </label>
+
+                <label>
+                    <input id="showEdges" type="checkbox" checked />
+                    show hyperdiagonal edges
+                </label>
+
+                <label>
+                    <input id="showLabels" type="checkbox" />
+                    labels
+                </label>
+
+                <button id="stepBtn">cycle focus</button>
+                <span class="note"
+                    >Edges connect points differing by (±1,±1,±1,±1).</span
+                >
+            </div>
+        </header>
+
+        <canvas id="canvas"></canvas>
+
+        <script>
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+
+            const controls = {
+                range: document.getElementById("range"),
+                projection: document.getElementById("projection"),
+                showEdges: document.getElementById("showEdges"),
+                showLabels: document.getElementById("showLabels"),
+                stepBtn: document.getElementById("stepBtn"),
+            };
+
+            let focusIndex = 0;
+
+            function resize() {
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = Math.floor(canvas.clientWidth * dpr);
+                canvas.height = Math.floor(canvas.clientHeight * dpr);
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                draw();
+            }
+
+            window.addEventListener("resize", resize);
+            Object.values(controls).forEach((el) => {
+                if (el && el.addEventListener)
+                    el.addEventListener("input", draw);
+            });
+            controls.stepBtn.addEventListener("click", () => {
+                focusIndex++;
+                draw();
+            });
+
+            function parity4(p) {
+                return ((p.x + p.y + p.z + p.w) & 1) === 0 ? 0 : 1;
+            }
+
+            function key(p) {
+                return `${p.x},${p.y},${p.z},${p.w}`;
+            }
+
+            function makePoints(n) {
+                const pts = [];
+                for (let x = -n; x <= n; x++) {
+                    for (let y = -n; y <= n; y++) {
+                        for (let z = -n; z <= n; z++) {
+                            for (let w = -n; w <= n; w++) {
+                                pts.push({
+                                    x,
+                                    y,
+                                    z,
+                                    w,
+                                    p: parity4({ x, y, z, w }),
+                                });
+                            }
+                        }
+                    }
+                }
+                return pts;
+            }
+
+            function hyperdiagonalDirections4() {
+                const dirs = [];
+                for (const x of [-1, 1]) {
+                    for (const y of [-1, 1]) {
+                        for (const z of [-1, 1]) {
+                            for (const w of [-1, 1]) {
+                                dirs.push({ x, y, z, w });
+                            }
+                        }
+                    }
+                }
+                return dirs;
+            }
+
+            const dirs4 = hyperdiagonalDirections4();
+
+            function project(p, mode, scale) {
+                if (mode === "xy") return { X: scale * p.x, Y: scale * p.y };
+                if (mode === "xz") return { X: scale * p.x, Y: scale * p.z };
+                if (mode === "xw") return { X: scale * p.x, Y: scale * p.w };
+
+                if (mode === "split") {
+                    // Shows xy as the base grid, with zw shifting the copy diagonally.
+                    return {
+                        X: scale * (p.x + 0.45 * p.z - 0.45 * p.w),
+                        Y: scale * (p.y + 0.45 * p.z + 0.45 * p.w),
+                    };
+                }
+
+                // Simple arbitrary 4D-to-2D projection.
+                // Not mathematically privileged; just useful for seeing the structure.
+                return {
+                    X: scale * (p.x + 0.55 * p.z - 0.35 * p.w),
+                    Y: scale * (p.y - 0.45 * p.z - 0.55 * p.w),
+                };
+            }
+
+            function drawPoint(pt, screen, focused) {
+                const r = focused ? 7 : 4;
+                ctx.beginPath();
+                ctx.arc(screen.X, screen.Y, r, 0, Math.PI * 2);
+                ctx.fillStyle = pt.p === 0 ? "#e05b5b" : "#5b91e0";
+                ctx.fill();
+                ctx.lineWidth = focused ? 3 : 1;
+                ctx.strokeStyle = focused ? "#fff" : "#222";
+                ctx.stroke();
+            }
+
+            function draw() {
+                const W = canvas.clientWidth;
+                const H = canvas.clientHeight;
+                ctx.clearRect(0, 0, W, H);
+
+                const n = Math.max(
+                    1,
+                    Math.min(3, Number(controls.range.value) || 1),
+                );
+                const mode = controls.projection.value;
+                const pts = makePoints(n);
+                const pointMap = new Map(pts.map((p) => [key(p), p]));
+                const focus = pts[focusIndex % pts.length];
+
+                const scale = Math.min(W, H) / (n === 1 ? 6 : n === 2 ? 9 : 12);
+                const projected = new Map();
+
+                for (const p of pts) {
+                    const q = project(p, mode, scale);
+                    projected.set(key(p), {
+                        X: W / 2 + q.X,
+                        Y: H / 2 + q.Y,
+                    });
+                }
+
+                if (controls.showEdges.checked) {
+                    ctx.lineWidth = 1;
+
+                    for (const p of pts) {
+                        const a = projected.get(key(p));
+                        for (const d of dirs4) {
+                            const q = {
+                                x: p.x + d.x,
+                                y: p.y + d.y,
+                                z: p.z + d.z,
+                                w: p.w + d.w,
+                            };
+                            const qKey = key(q);
+                            if (!pointMap.has(qKey)) continue;
+
+                            // Draw each undirected edge only once.
+                            if (key(p) > qKey) continue;
+
+                            const b = projected.get(qKey);
+                            const touchesFocus =
+                                key(p) === key(focus) || qKey === key(focus);
+                            ctx.beginPath();
+                            ctx.moveTo(a.X, a.Y);
+                            ctx.lineTo(b.X, b.Y);
+                            ctx.strokeStyle = touchesFocus
+                                ? "rgba(255,255,255,0.75)"
+                                : "rgba(180,180,180,0.12)";
+                            ctx.stroke();
+                        }
+                    }
+                }
+
+                // Draw non-focused first.
+                for (const p of pts) {
+                    if (key(p) === key(focus)) continue;
+                    drawPoint(p, projected.get(key(p)), false);
+                }
+                drawPoint(focus, projected.get(key(focus)), true);
+
+                if (controls.showLabels.checked) {
+                    ctx.font = "12px system-ui";
+                    ctx.fillStyle = "#ddd";
+                    for (const p of pts) {
+                        const s = projected.get(key(p));
+                        ctx.fillText(
+                            `(${p.x},${p.y},${p.z},${p.w})`,
+                            s.X + 6,
+                            s.Y - 6,
+                        );
+                    }
+                }
+
+                drawLegend(W, H, focus);
+            }
+
+            function drawLegend(W, H, focus) {
+                ctx.save();
+                ctx.font = "13px system-ui";
+                ctx.fillStyle = "rgba(0,0,0,0.62)";
+                ctx.fillRect(12, 12, 360, 88);
+                ctx.strokeStyle = "rgba(255,255,255,0.18)";
+                ctx.strokeRect(12, 12, 360, 88);
+
+                ctx.fillStyle = "#e05b5b";
+                ctx.fillText("red = even parity", 26, 36);
+                ctx.fillStyle = "#5b91e0";
+                ctx.fillText("blue = odd parity", 26, 58);
+                ctx.fillStyle = "#ddd";
+                ctx.fillText(
+                    `focus: (${focus.x}, ${focus.y}, ${focus.z}, ${focus.w})`,
+                    26,
+                    82,
+                );
+                ctx.restore();
+            }
+
+            resize();
+        </script>
+    </body>
+</html>
