@@ -525,6 +525,23 @@
                     1 - c.cellMin[c.freeAxes[1]],
                 ];
             }
+            // Cuts are ordered (1, 2, 3). A given cut's "walls" are the
+            // surfaces of strictly previous cuts whose emitter is paint —
+            // we look for a previous cut whose axis matches this cut's
+            // free-axis-0 (=> wall at u=1) or free-axis-1 (=> wall at v=1).
+            for (let k = 0; k < CUTS.length; k++) {
+                const cut = CUTS[k];
+                cut.gateUCutIndex = -1;
+                cut.gateVCutIndex = -1;
+                for (let j = 0; j < k; j++) {
+                    if (CUTS[j].axis === cut.freeAxes[0]) {
+                        cut.gateUCutIndex = j;
+                    }
+                    if (CUTS[j].axis === cut.freeAxes[1]) {
+                        cut.gateVCutIndex = j;
+                    }
+                }
+            }
 
             // Build the four state-aware disks per cut (must run after the
             // CUTS augmentation loop above, since it reads cubeMaxLocal,
@@ -551,11 +568,11 @@
                         c.role,
                         c.shadow,
                     );
-                    // Fixed-state disks are filled iff the leading edge is
-                    // still inside the sub-cell when it reaches their corner.
-                    disk.fixedFilled =
-                        c.u <= cut.size[0] + 1e-9 &&
-                        c.v <= cut.size[1] + 1e-9;
+                    // Local-frame corner of this disk in the cut's plane.
+                    // Receivers light up when the leading edge first reaches
+                    // them at sweep time t = u + v.
+                    disk.u = c.u;
+                    disk.v = c.v;
                     out[c.role] = disk;
                 }
                 return out;
@@ -607,43 +624,90 @@
             //   painting: line segment of leading edge inside the sub-cell.
             //   ghost:    0-2 line segments of the same diagonal that lie in
             //             the cube cross-section but outside the sub-cell.
-            function leadingEdgePieces(cut, t) {
-                const [a, b] = cut.size;
+            // Per-point state along a cut's plane. The "first-toggle-only"
+            // rule: as the sweep grows outward in any ray from (0,0), the
+            // ray's state toggles the FIRST time it crosses an active wall,
+            // and stays toggled. So a point (u, v) is in the toggled state
+            // iff at least one active wall lies between (0,0) and (u, v) —
+            // for our axis-aligned u=1 / v=1 walls that means u > 1 or v > 1.
+            function pointStatePaint(u, v, emitter, sU, sV) {
+                const behind =
+                    (sU && u > 1 + 1e-9) || (sV && v > 1 + 1e-9);
+                return behind ? !emitter : emitter;
+            }
+
+            // Split the leading edge u + v = t into segments by wall lines
+            // and label each segment paint / ghost via pointStatePaint at its
+            // midpoint. Up to 3 segments in the 2-wall case.
+            function leadingEdgePieces(cut, t, emitter, sU, sV) {
                 const [A, B] = cut.cubeMaxLocal;
-                if (t <= 0 || t >= A + B) {
-                    // Nothing yet, or the leading edge has reached the
-                    // opposite corner of the cube cross-section — done.
-                    return { painting: null, ghost: [] };
-                }
+                if (t <= 0 || t >= A + B) return { painting: [], ghost: [] };
                 const cube = lineRectSegment(A, B, t);
-                if (!cube) return { painting: null, ghost: [] };
-
-                // Sub-cell intersection only while the sub-cell hasn't been
-                // fully painted yet (t < a + b).
-                const sub =
-                    t < a + b ? lineRectSegment(a, b, t) : null;
-
-                const ghost = [];
-                if (sub) {
-                    // sub is inside cube along the diagonal:
-                    //   cube[0].u >= sub[0].u >= sub[1].u >= cube[1].u
-                    if (cube[0][0] - sub[0][0] > 1e-9) {
-                        ghost.push([cube[0], sub[0]]);
-                    }
-                    if (sub[1][0] - cube[1][0] > 1e-9) {
-                        ghost.push([sub[1], cube[1]]);
-                    }
-                } else {
-                    // Sub-cell is fully painted; the whole cube-cross-section
-                    // diagonal is ghost.
-                    ghost.push([cube[0], cube[1]]);
+                if (!cube) return { painting: [], ghost: [] };
+                const [P1, P2] = cube;
+                const crossings = [];
+                if (sU && t >= 1 && t - 1 <= B + 1e-9) {
+                    crossings.push([1, t - 1]);
                 }
-                return { painting: sub, ghost };
+                if (sV && t >= 1 && t - 1 <= A + 1e-9) {
+                    crossings.push([t - 1, 1]);
+                }
+                crossings.sort((p, q) => q[0] - p[0]); // u descending
+                const pts = [P1, ...crossings, P2];
+                const painting = [];
+                const ghost = [];
+                for (let i = 0; i < pts.length - 1; i++) {
+                    const p = pts[i];
+                    const q = pts[i + 1];
+                    const mu = (p[0] + q[0]) / 2;
+                    const mv = (p[1] + q[1]) / 2;
+                    const isP = pointStatePaint(mu, mv, emitter, sU, sV);
+                    if (isP) painting.push([p, q]);
+                    else ghost.push([p, q]);
+                }
+                return { painting, ghost };
+            }
+
+            // Painted-surface polygons (up to 2).
+            //   paint emitter: paint region = sweep ∩ {u ≤ uMax, v ≤ vMax}
+            //                  where uMax = 1 if u-wall active else A, etc.
+            //                  One polygon, computed via crossSection.
+            //   ghost emitter: paint region = sweep ∩ ({u > 1} ∪ {v > 1})
+            //                  for whichever walls are active. Drawn as 0–2
+            //                  half-strip sweeps; their overlap at (>1, >1)
+            //                  is fine since the fill is translucent.
+            function paintingPolygons(cut, t, emitter, sU, sV) {
+                const [A, B] = cut.cubeMaxLocal;
+                if (t <= 0) return [];
+                const polys = [];
+                if (emitter) {
+                    const uMax = sU ? 1 : A;
+                    const vMax = sV ? 1 : B;
+                    const p = crossSection(uMax, vMax, t);
+                    if (p.length >= 3) polys.push(p);
+                } else {
+                    if (sU && t > 1) {
+                        const sub = crossSection(A - 1, B, t - 1);
+                        if (sub.length >= 3) {
+                            polys.push(sub.map(([u, v]) => [u + 1, v]));
+                        }
+                    }
+                    if (sV && t > 1) {
+                        const sub = crossSection(A, B - 1, t - 1);
+                        if (sub.length >= 3) {
+                            polys.push(sub.map(([u, v]) => [u, v + 1]));
+                        }
+                    }
+                }
+                return polys;
             }
 
             // Build the meshes/lines for each cut.
+            // Per-cut render objects. Two fill meshes per cut so the ghost
+            // emitter can show up to two painting regions (sU and sV) at
+            // once. Both lead and ghost lines are LineSegments so each can
+            // carry several painting / ghost pieces.
             const cutEntries = CUTS.map((cut) => {
-                const fillGeom = new THREE.BufferGeometry();
                 const fillMat = new THREE.MeshBasicMaterial({
                     color: cut.ramp.glow,
                     transparent: true,
@@ -651,9 +715,13 @@
                     side: THREE.DoubleSide,
                     depthWrite: false,
                 });
-                const fill = new THREE.Mesh(fillGeom, fillMat);
-                fill.visible = false;
-                scene.add(fill);
+                const fills = [0, 1].map(() => {
+                    const g = new THREE.BufferGeometry();
+                    const m = new THREE.Mesh(g, fillMat);
+                    m.visible = false;
+                    scene.add(m);
+                    return { mesh: m, geom: g };
+                });
 
                 const leadGeom = new THREE.BufferGeometry();
                 const leadMat = new THREE.LineBasicMaterial({
@@ -661,7 +729,7 @@
                     transparent: true,
                     opacity: 1.0,
                 });
-                const lead = new THREE.Line(leadGeom, leadMat);
+                const lead = new THREE.LineSegments(leadGeom, leadMat);
                 lead.visible = false;
                 scene.add(lead);
 
@@ -677,7 +745,7 @@
                 ghost.visible = false;
                 scene.add(ghost);
 
-                return { cut, fill, lead, ghost, fillGeom, leadGeom, ghostGeom };
+                return { cut, fills, lead, ghost, leadGeom, ghostGeom };
             });
 
             // Map a midplane-local (u, v) point to 3D.
@@ -689,67 +757,68 @@
                 return p;
             }
 
-            function updateCut(entry, t) {
-                const { cut, fill, lead, ghost, fillGeom, leadGeom, ghostGeom } =
-                    entry;
+            function writePolyToGeom(geom, poly, cut) {
+                const positions = new Float32Array(poly.length * 3);
+                for (let i = 0; i < poly.length; i++) {
+                    const [u, v] = poly[i];
+                    const p3 = mapTo3D(cut, u, v);
+                    positions[i * 3] = p3[0];
+                    positions[i * 3 + 1] = p3[1];
+                    positions[i * 3 + 2] = p3[2];
+                }
+                const indices = [];
+                for (let i = 1; i < poly.length - 1; i++) {
+                    indices.push(0, i, i + 1);
+                }
+                geom.setAttribute(
+                    "position",
+                    new THREE.BufferAttribute(positions, 3),
+                );
+                geom.setIndex(indices);
+                geom.computeBoundingSphere();
+            }
 
-                // Filled cross-section (cuts have a sweep parameter t along
-                // u + v <= t within the sub-cell).
-                const poly = crossSection(cut.size[0], cut.size[1], t);
-                if (poly.length < 3) {
-                    fill.visible = false;
-                } else {
-                    fill.visible = true;
-                    const positions = new Float32Array(poly.length * 3);
-                    for (let i = 0; i < poly.length; i++) {
-                        const [u, v] = poly[i];
-                        const p3 = mapTo3D(cut, u, v);
-                        positions[i * 3] = p3[0];
-                        positions[i * 3 + 1] = p3[1];
-                        positions[i * 3 + 2] = p3[2];
+            function writeSegmentsToGeom(geom, segs, cut) {
+                const arr = [];
+                for (const [a, b] of segs) {
+                    arr.push(...mapTo3D(cut, a[0], a[1]));
+                    arr.push(...mapTo3D(cut, b[0], b[1]));
+                }
+                geom.setAttribute(
+                    "position",
+                    new THREE.Float32BufferAttribute(arr, 3),
+                );
+            }
+
+            function updateCut(entry, t, emitter, sU, sV) {
+                const { cut, fills, lead, ghost, leadGeom, ghostGeom } = entry;
+
+                const polys = paintingPolygons(cut, t, emitter, sU, sV);
+                for (let i = 0; i < fills.length; i++) {
+                    if (i < polys.length) {
+                        writePolyToGeom(fills[i].geom, polys[i], cut);
+                        fills[i].mesh.visible = true;
+                    } else {
+                        fills[i].mesh.visible = false;
                     }
-                    const indices = [];
-                    for (let i = 1; i < poly.length - 1; i++) {
-                        indices.push(0, i, i + 1);
-                    }
-                    fillGeom.setAttribute(
-                        "position",
-                        new THREE.BufferAttribute(positions, 3),
-                    );
-                    fillGeom.setIndex(indices);
-                    fillGeom.computeBoundingSphere();
                 }
 
-                // Leading edge (solid) and ghost (dashed extensions).
                 const { painting, ghost: ghostSegs } = leadingEdgePieces(
                     cut,
                     t,
+                    emitter,
+                    sU,
+                    sV,
                 );
-                if (painting) {
+                if (painting.length > 0) {
                     lead.visible = true;
-                    const p1 = mapTo3D(cut, painting[0][0], painting[0][1]);
-                    const p2 = mapTo3D(cut, painting[1][0], painting[1][1]);
-                    leadGeom.setAttribute(
-                        "position",
-                        new THREE.Float32BufferAttribute(
-                            [...p1, ...p2],
-                            3,
-                        ),
-                    );
+                    writeSegmentsToGeom(leadGeom, painting, cut);
                 } else {
                     lead.visible = false;
                 }
                 if (ghostSegs.length > 0) {
                     ghost.visible = true;
-                    const arr = [];
-                    for (const [g1, g2] of ghostSegs) {
-                        arr.push(...mapTo3D(cut, g1[0], g1[1]));
-                        arr.push(...mapTo3D(cut, g2[0], g2[1]));
-                    }
-                    ghostGeom.setAttribute(
-                        "position",
-                        new THREE.Float32BufferAttribute(arr, 3),
-                    );
+                    writeSegmentsToGeom(ghostGeom, ghostSegs, cut);
                     ghost.computeLineDistances();
                 } else {
                     ghost.visible = false;
@@ -862,11 +931,14 @@
                 cellsShow: false,
                 cellsMode: "label",
                 speed: 3.0, // seconds per cut
-                // Per-cut toggleable-disk state: true = filled, false = outline.
-                diskStates: [true, true, true],
+                // Per-cut emitter state: true = filled, false = ghost.
+                // Filled emitter paints the full sub-cell (classic behavior).
+                // Ghost emitter only paints downstream of other cuts' filled
+                // surfaces, which propagates into the receiver-disk states.
+                emitterStates: [true, true, true],
             };
 
-            // Update cut buttons to glow (filled) / white (outline).
+            // Update cut buttons to glow (emitter filled) / white (ghost).
             function hexToCss(hex) {
                 return "#" + hex.toString(16).padStart(6, "0");
             }
@@ -875,7 +947,7 @@
                     const btn = document.getElementById(
                         "cut" + (i + 1) + "Btn",
                     );
-                    if (state.diskStates[i]) {
+                    if (state.emitterStates[i]) {
                         btn.style.background = hexToCss(CUTS[i].ramp.glow);
                         btn.style.borderColor = hexToCss(CUTS[i].ramp.base);
                     } else {
@@ -887,18 +959,47 @@
 
             // --- per-frame update ---
             function updateScene() {
-                // Per-cut disk visibility:
-                //   - the toggleable "start" disk follows state.diskStates[i]
-                //   - the three communicating disks are fixed by geometry
+                // Per-cut disk visibility.
+                //   start disk: emitter, always shown as filled or outline.
+                //   side / opposite disks: hidden until the leading edge
+                //     reaches them, then latched to the state of the leading
+                //     edge at the moment of first contact (t_r = u_r + v_r).
                 for (let i = 0; i < cutDisks.length; i++) {
                     const cd = cutDisks[i];
-                    const startFilled = state.diskStates[i];
+                    const cut = CUTS[i];
+                    const startFilled = state.emitterStates[i];
                     cd.start.filled.visible = startFilled;
                     cd.start.outline.visible = !startFilled;
+
+                    const cutProgress = Math.max(
+                        0,
+                        Math.min(1, state.scrub - i),
+                    );
+                    const [A, B] = cut.cubeMaxLocal;
+                    const t_k = cutProgress * (A + B);
+                    const sU =
+                        cut.gateUCutIndex >= 0 &&
+                        state.emitterStates[cut.gateUCutIndex];
+                    const sV =
+                        cut.gateVCutIndex >= 0 &&
+                        state.emitterStates[cut.gateVCutIndex];
                     for (const role of ["sideA", "sideB", "opposite"]) {
                         const d = cd[role];
-                        d.filled.visible = d.fixedFilled;
-                        d.outline.visible = !d.fixedFilled;
+                        const t_r = d.u + d.v;
+                        if (t_k + 1e-9 < t_r) {
+                            d.filled.visible = false;
+                            d.outline.visible = false;
+                        } else {
+                            const isPaint = pointStatePaint(
+                                d.u,
+                                d.v,
+                                startFilled,
+                                sU,
+                                sV,
+                            );
+                            d.filled.visible = isPaint;
+                            d.outline.visible = !isPaint;
+                        }
                     }
                 }
 
@@ -909,17 +1010,25 @@
                         Math.min(1, state.scrub - i),
                     );
                     if (progress <= 0 || !state.showCuts) {
-                        entry.fill.visible = false;
+                        for (const f of entry.fills) f.mesh.visible = false;
                         entry.lead.visible = false;
                         entry.ghost.visible = false;
                         continue;
                     }
-                    // The leading edge now sweeps all the way across the
-                    // cube cross-section (A + B), not just the sub-cell, so
-                    // the ghost finishes at the opposite-edge sphere.
+                    // The leading edge sweeps all the way across the cube
+                    // cross-section (A + B), not just the sub-cell, so the
+                    // ghost finishes at the opposite-edge disk.
                     const [A, B] = entry.cut.cubeMaxLocal;
                     const t = progress * (A + B);
-                    updateCut(entry, t);
+                    const emitter = state.emitterStates[i];
+                    const cut = entry.cut;
+                    const sU =
+                        cut.gateUCutIndex >= 0 &&
+                        state.emitterStates[cut.gateUCutIndex];
+                    const sV =
+                        cut.gateVCutIndex >= 0 &&
+                        state.emitterStates[cut.gateVCutIndex];
+                    updateCut(entry, t, emitter, sU, sV);
                 }
 
                 const allCutsDone = state.scrub >= 3;
@@ -1003,7 +1112,8 @@
                 const hits = raycaster.intersectObjects(targets, false);
                 if (!hits.length) return;
                 const { cutIndex } = hits[0].object.userData;
-                state.diskStates[cutIndex] = !state.diskStates[cutIndex];
+                state.emitterStates[cutIndex] =
+                    !state.emitterStates[cutIndex];
                 updateButtonColors();
             });
 
@@ -1050,7 +1160,8 @@
                 }
             });
 
-            // Initialize cut-button tints to match the default sphere states.
+            // Initialize cut-button tints from defaults. (Receiver states are
+            // recomputed every frame so they latch in sync with the sweep.)
             updateButtonColors();
 
             // --- animate ---
