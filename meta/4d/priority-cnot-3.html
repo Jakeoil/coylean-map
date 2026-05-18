@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+        <meta http-equiv="Pragma" content="no-cache" />
+        <meta http-equiv="Expires" content="0" />
+        <title>priority CNOT — 3 bits (test)</title>
+        <style>
+            html,
+            body {
+                margin: 0;
+                height: 100%;
+                overflow: hidden;
+                background: #eaf4ff;
+                color: #1a2a3a;
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    sans-serif;
+            }
+
+            #app {
+                position: fixed;
+                inset: 0;
+            }
+
+            #panel {
+                position: fixed;
+                top: 12px;
+                left: 12px;
+                background: rgba(255, 255, 255, 0.82);
+                backdrop-filter: blur(6px);
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                border-radius: 10px;
+                padding: 12px 14px;
+                font-size: 13px;
+                line-height: 1.45;
+                min-width: 260px;
+                box-shadow: 0 4px 18px rgba(0, 30, 80, 0.08);
+            }
+
+            #panel h1 {
+                margin: 0 0 8px;
+                font-size: 14px;
+                font-weight: 700;
+                letter-spacing: 0.02em;
+            }
+
+            #panel .row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin: 6px 0;
+            }
+
+            #panel button {
+                background: #fff;
+                border: 1px solid #b9c8d8;
+                border-radius: 6px;
+                padding: 4px 10px;
+                cursor: pointer;
+                font: inherit;
+                color: #1a2a3a;
+            }
+
+            #panel button:hover {
+                background: #f0f6ff;
+            }
+
+            #panel .hint {
+                color: #557;
+                font-size: 12px;
+                margin-top: 6px;
+            }
+
+            #panel .legend {
+                margin-top: 8px;
+                font-size: 12px;
+                color: #445;
+            }
+
+            #panel .legend .chip {
+                display: inline-block;
+                width: 10px;
+                height: 10px;
+                border-radius: 2px;
+                margin: 0 4px 0 0;
+                vertical-align: middle;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="app"></div>
+
+        <div id="panel">
+            <a
+                href="./"
+                style="
+                    display: inline-block;
+                    margin-bottom: 6px;
+                    color: #346;
+                    text-decoration: none;
+                    font-size: 12px;
+                "
+                >← 4D</a
+            >
+            <h1>priority CNOT — 3 bits (test)</h1>
+
+            <div class="row">
+                <button id="resetBtn">reset</button>
+            </div>
+
+            <div class="legend" id="legend"></div>
+            <div class="hint">
+                click an emitter disc (−x / −y / −z face) to toggle its bit
+            </div>
+            <div class="hint">priority order locked: z &gt; y &gt; x</div>
+            <div class="hint">drag to orbit · scroll to zoom</div>
+        </div>
+
+        <script type="importmap">
+            {
+                "imports": {
+                    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+                }
+            }
+        </script>
+
+        <script type="module">
+            import * as THREE from "three";
+            import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+            import { Line2 } from "three/addons/lines/Line2.js";
+            import { LineGeometry } from "three/addons/lines/LineGeometry.js";
+            import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+            import { priority3 } from "./src/3-bit-priority-cnot-cascade.js";
+
+            // --- OKLCH color ramps (matches cube-cuts.html) ---
+            function oklchHex(L, C, H) {
+                const h = (H * Math.PI) / 180;
+                const a_ = C * Math.cos(h);
+                const b_ = C * Math.sin(h);
+                const l_ = L + 0.3963377774 * a_ + 0.2158037573 * b_;
+                const m_ = L - 0.1055613458 * a_ - 0.0638541728 * b_;
+                const s_ = L - 0.089484178 * a_ - 1.291485548 * b_;
+                const l = l_ * l_ * l_;
+                const m = m_ * m_ * m_;
+                const s = s_ * s_ * s_;
+                let r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+                let g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+                let bv =
+                    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
+                const enc = (v) => {
+                    v = Math.max(0, Math.min(1, v));
+                    return v > 0.0031308
+                        ? 1.055 * Math.pow(v, 1 / 2.4) - 0.055
+                        : 12.92 * v;
+                };
+                r = enc(r);
+                g = enc(g);
+                bv = enc(bv);
+                const to8 = (v) => Math.round(v * 255);
+                return (to8(r) << 16) | (to8(g) << 8) | to8(bv);
+            }
+            function makeRamp(hue, roles) {
+                const out = { hue };
+                for (const [name, [L, C]] of Object.entries(roles)) {
+                    out[name] = oklchHex(L, C, hue);
+                }
+                return out;
+            }
+            const RAMP = {
+                red: makeRamp(25, {
+                    outline: [0.34, 0.18],
+                    shadow: [0.25, 0.13],
+                    base: [0.57, 0.22],
+                    highlight: [0.74, 0.16],
+                    glow: [0.88, 0.08],
+                }),
+                green: makeRamp(145, {
+                    outline: [0.34, 0.12],
+                    shadow: [0.25, 0.09],
+                    base: [0.58, 0.16],
+                    highlight: [0.74, 0.12],
+                    glow: [0.88, 0.07],
+                }),
+                blue: makeRamp(260, {
+                    outline: [0.34, 0.15],
+                    shadow: [0.25, 0.11],
+                    base: [0.58, 0.19],
+                    highlight: [0.74, 0.13],
+                    glow: [0.88, 0.07],
+                }),
+            };
+            // Axis index → ramp. 0=x=red, 1=y=green, 2=z=blue.
+            const AXIS_RAMPS = [RAMP.red, RAMP.green, RAMP.blue];
+
+            // --- scene ---
+            const app = document.getElementById("app");
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xeaf4ff);
+            scene.fog = new THREE.Fog(0xeaf4ff, 14, 30);
+
+            const camera = new THREE.PerspectiveCamera(
+                45,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                100,
+            );
+            camera.position.set(4.0, 3.0, 5.0);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
+            app.appendChild(renderer.domElement);
+
+            const controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.08;
+
+            scene.add(new THREE.HemisphereLight(0xffffff, 0xdfeaff, 0.9));
+            const sun = new THREE.DirectionalLight(0xffffff, 0.5);
+            sun.position.set(5, 8, 6);
+            scene.add(sun);
+
+            // --- cube wireframe (extent [-1, 1]^3) ---
+            const cubeGeom = new THREE.BoxGeometry(2, 2, 2);
+            const cubeEdgesGeom = new THREE.EdgesGeometry(cubeGeom);
+            const cubeWire = new THREE.LineSegments(
+                cubeEdgesGeom,
+                new THREE.LineBasicMaterial({
+                    color: 0x1a2a3a,
+                    transparent: true,
+                    opacity: 0.45,
+                }),
+            );
+            scene.add(cubeWire);
+
+            // Three highlighted edges meeting at the origin corner (-1,-1,-1),
+            // colored by their axis. Same convention as cube-cuts.html.
+            const STARTING_EDGES = [
+                {
+                    axis: 2,
+                    ramp: RAMP.blue,
+                    a: [-1, -1, -1],
+                    b: [-1, -1, 1],
+                },
+                {
+                    axis: 1,
+                    ramp: RAMP.green,
+                    a: [-1, -1, -1],
+                    b: [-1, 1, -1],
+                },
+                {
+                    axis: 0,
+                    ramp: RAMP.red,
+                    a: [-1, -1, -1],
+                    b: [1, -1, -1],
+                },
+            ];
+
+            const fatLineMats = [];
+            for (const e of STARTING_EDGES) {
+                const g = new LineGeometry();
+                g.setPositions([...e.a, ...e.b]);
+                const m = new LineMaterial({
+                    color: e.ramp.base,
+                    linewidth: 5,
+                    transparent: true,
+                    opacity: 0.95,
+                });
+                m.resolution.set(window.innerWidth, window.innerHeight);
+                fatLineMats.push(m);
+                scene.add(new Line2(g, m));
+            }
+
+            // Small sphere at the common corner.
+            const cornerSph = new THREE.Mesh(
+                new THREE.SphereGeometry(0.06, 16, 16),
+                new THREE.MeshBasicMaterial({ color: 0x1a2a3a }),
+            );
+            cornerSph.position.set(-1, -1, -1);
+            scene.add(cornerSph);
+
+            // --- port discs (6: emitter on -axis face, receiver on +axis) ---
+            const DISK_R = 0.1;
+            const DISK_SEG = 48;
+            const _diskFilledGeom = new THREE.CircleGeometry(
+                DISK_R,
+                DISK_SEG,
+            );
+            const _diskOutlineGeom = new THREE.RingGeometry(
+                DISK_R * 0.78,
+                DISK_R,
+                DISK_SEG,
+            );
+            const _diskShadowGeom = new THREE.RingGeometry(
+                DISK_R * 1.08,
+                DISK_R * 1.4,
+                DISK_SEG,
+            );
+
+            function orientFor(axis) {
+                if (axis === 0) return [0, Math.PI / 2, 0]; // ±x
+                if (axis === 1) return [-Math.PI / 2, 0, 0]; // ±y
+                return [0, 0, 0]; // ±z
+            }
+
+            function makeDisk(position, axis, color, role, withShadow) {
+                const group = new THREE.Group();
+                group.position.set(...position);
+                const [rx, ry, rz] = orientFor(axis);
+                group.rotation.set(rx, ry, rz);
+
+                const filled = new THREE.Mesh(
+                    _diskFilledGeom,
+                    new THREE.MeshBasicMaterial({
+                        color,
+                        side: THREE.DoubleSide,
+                    }),
+                );
+                filled.userData = { axis, role };
+                group.add(filled);
+
+                const outline = new THREE.Mesh(
+                    _diskOutlineGeom,
+                    new THREE.MeshBasicMaterial({
+                        color,
+                        side: THREE.DoubleSide,
+                    }),
+                );
+                outline.userData = { axis, role };
+                group.add(outline);
+
+                let shadow = null;
+                if (withShadow) {
+                    shadow = new THREE.Mesh(
+                        _diskShadowGeom,
+                        new THREE.MeshBasicMaterial({
+                            color: 0x000000,
+                            transparent: true,
+                            opacity: 0.28,
+                            side: THREE.DoubleSide,
+                            depthWrite: false,
+                        }),
+                    );
+                    group.add(shadow);
+                }
+
+                scene.add(group);
+                return { group, filled, outline, shadow };
+            }
+
+            const emitters = [];
+            const receivers = [];
+            for (let axis = 0; axis < 3; axis++) {
+                const ramp = AXIS_RAMPS[axis];
+                const emPos = [0, 0, 0];
+                emPos[axis] = -1;
+                const rcPos = [0, 0, 0];
+                rcPos[axis] = 1;
+                emitters[axis] = makeDisk(
+                    emPos,
+                    axis,
+                    ramp.base,
+                    "emitter",
+                    true,
+                );
+                receivers[axis] = makeDisk(
+                    rcPos,
+                    axis,
+                    ramp.base,
+                    "receiver",
+                    false,
+                );
+            }
+
+            // --- three axis-aligned tapes through the cube ---
+            // The 6 priority permutations (matches priority3's perms array).
+            // Index i selects which axis is most-significant (perms[i][0]).
+            const PERMS = [
+                [0, 1, 2], // A > B > C  (x > y > z)
+                [0, 2, 1], // A > C > B  (x > z > y)
+                [1, 0, 2], // B > A > C  (y > x > z)
+                [1, 2, 0], // B > C > A  (y > z > x)
+                [2, 0, 1], // C > A > B  (z > x > y)
+                [2, 1, 0], // C > B > A  (z > y > x)  ← cube-cuts default
+            ];
+
+            // Tape widths by priority rank. Highest priority is rank 0.
+            const TAPE_WIDTHS = [0.2, 0.17, 0.14];
+            const TAPE_THICKNESS = 0.02;
+
+            // Locked default order for this page (z > y > x).
+            const ORDER_INDEX = 5;
+
+            function widthForAxis(axis, orderIndex) {
+                const rank = PERMS[orderIndex].indexOf(axis);
+                return TAPE_WIDTHS[rank];
+            }
+
+            function makeTape(axis, width) {
+                const ramp = AXIS_RAMPS[axis];
+                const dims = [0, 0, 0];
+                dims[axis] = 2.0;
+                // width along the next cyclic axis, thickness along the
+                // axis after that — so the three tapes don't lie in the
+                // same plane where they cross at the origin.
+                dims[(axis + 1) % 3] = width;
+                dims[(axis + 2) % 3] = TAPE_THICKNESS;
+                const mesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(dims[0], dims[1], dims[2]),
+                    new THREE.MeshBasicMaterial({
+                        color: ramp.glow,
+                        transparent: true,
+                        opacity: 0.7,
+                        side: THREE.DoubleSide,
+                        depthWrite: false,
+                    }),
+                );
+                mesh.visible = false;
+                scene.add(mesh);
+                return mesh;
+            }
+
+            const tapes = [];
+            for (let axis = 0; axis < 3; axis++) {
+                tapes[axis] = makeTape(
+                    axis,
+                    widthForAxis(axis, ORDER_INDEX),
+                );
+            }
+
+            // --- legend ---
+            (function buildLegend() {
+                const el = document.getElementById("legend");
+                const labels = ["x (red)", "y (green)", "z (blue)"];
+                const items = [];
+                for (let axis = 0; axis < 3; axis++) {
+                    const base = AXIS_RAMPS[axis].base;
+                    const glow = AXIS_RAMPS[axis].glow;
+                    const c1 = "#" + base.toString(16).padStart(6, "0");
+                    const c2 = "#" + glow.toString(16).padStart(6, "0");
+                    items.push(
+                        `<span class="chip" style="background:${c1}"></span>` +
+                            `<span class="chip" style="background:${c2}"></span>` +
+                            labels[axis],
+                    );
+                }
+                el.innerHTML = items.join(" &nbsp; ");
+            })();
+
+            // --- state ---
+            const state = {
+                emitter: [false, false, false],
+            };
+
+            function recompute() {
+                const x =
+                    (state.emitter[0] ? 1 : 0) |
+                    (state.emitter[1] ? 2 : 0) |
+                    (state.emitter[2] ? 4 : 0);
+                const y = priority3(x, ORDER_INDEX);
+                for (let axis = 0; axis < 3; axis++) {
+                    const e = state.emitter[axis];
+                    emitters[axis].filled.visible = e;
+                    emitters[axis].outline.visible = !e;
+                    const r = ((y >> axis) & 1) === 1;
+                    receivers[axis].filled.visible = r;
+                    receivers[axis].outline.visible = !r;
+                    tapes[axis].visible = e;
+                }
+            }
+
+            // --- input ---
+            const raycaster = new THREE.Raycaster();
+            const ndc = new THREE.Vector2();
+            renderer.domElement.addEventListener("click", (e) => {
+                const rect = renderer.domElement.getBoundingClientRect();
+                ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                raycaster.setFromCamera(ndc, camera);
+                const targets = emitters.map((em) => em.filled);
+                const hits = raycaster.intersectObjects(targets, false);
+                if (!hits.length) return;
+                const { axis } = hits[0].object.userData;
+                state.emitter[axis] = !state.emitter[axis];
+                recompute();
+            });
+
+            document
+                .getElementById("resetBtn")
+                .addEventListener("click", () => {
+                    state.emitter = [false, false, false];
+                    recompute();
+                });
+
+            window.addEventListener("resize", () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                for (const m of fatLineMats) {
+                    m.resolution.set(window.innerWidth, window.innerHeight);
+                }
+            });
+
+            recompute();
+
+            function loop() {
+                controls.update();
+                renderer.render(scene, camera);
+                requestAnimationFrame(loop);
+            }
+            loop();
+        </script>
+    </body>
+</html>

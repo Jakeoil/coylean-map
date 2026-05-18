@@ -139,6 +139,32 @@
                     cells in an n-cube.
                 </p>
             </a>
+
+            <a class="card" href="reaction-box.html">
+                <h2>Reaction Box — 3-bit priority CNOT</h2>
+                <p>
+                    A 3-bit reaction box on the same cube as
+                    <em>Cube Cuts</em>: emitter discs on the &minus;x /
+                    &minus;y / &minus;z faces drive axis-aligned tapes
+                    through the cube to receiver discs on the +x / +y / +z
+                    faces. The priority selector picks one of the six
+                    CNOT-cascade orderings; the highest-priority tape is the
+                    widest, the lowest-priority tape the narrowest. Tape
+                    visibility = emitter bit; receiver discs track
+                    <code>priority3()</code>'s output.
+                </p>
+            </a>
+
+            <a class="card" href="priority-cnot-3.html">
+                <h2>Priority CNOT 3 — testbed</h2>
+                <p>
+                    Bare testbed for
+                    <code>src/3-bit-priority-cnot-cascade.js</code>. Same
+                    cube and discs as <em>Reaction Box</em>, default
+                    priority order locked at z &gt; y &gt; x. Click an
+                    emitter and watch the receivers update.
+                </p>
+            </a>
         </main>
     </body>
 </html>
