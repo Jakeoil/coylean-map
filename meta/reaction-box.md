@@ -368,3 +368,118 @@ The interesting research direction is no longer "what does this specific
 map look like" but "which local rules share this property, and how do we
 recognize them." Sections 6 and 7 give the parameter space and the
 measures; the question is what lives in there besides the Coylean rule.
+
+---
+
+## 10. The Reaction Box Is a Familiar Quantum Gate in Disguise
+
+Once the box is framed as a control bit plus two reversible input/output
+qubits, it turns out to be something already studied: the priority bit
+selects between the two flavors of the **CNOT** gate. The Coylean map
+is, on this reading, a 2D lattice of CNOTs with a classical control
+pattern.
+
+### 10.1 The gate
+
+Working from the truth tables in §3, the box implements a unitary
+`U_P : |v⟩|h⟩ → |d⟩|r⟩` parameterized by the classical priority bit `P`:
+
+```
+    Priority V (vertical wins):   d = v,        r = h ⊕ v
+    Priority H (horizontal wins): d = v ⊕ h,    r = h
+```
+
+In the computational basis `(|00⟩, |01⟩, |10⟩, |11⟩)`:
+
+```
+           ┌         ┐                  ┌         ┐
+           │ 1 0 0 0 │                  │ 1 0 0 0 │
+    U_V =  │ 0 1 0 0 │          U_H =   │ 0 0 0 1 │
+           │ 0 0 0 1 │                  │ 0 0 1 0 │
+           │ 0 0 1 0 │                  │ 0 1 0 0 │
+           └         ┘                  └         ┘
+```
+
+These are precisely the two CNOTs, distinguished only by which qubit
+plays the control role:
+
+- `U_V = CNOT(v → h)` — `v` is control, `h` gets XORed.
+- `U_H = CNOT(h → v)` — `h` is control, `v` gets XORed.
+
+The "XOR toggle with priority breaking ties" rule, written out
+classically in §3, is literally the quantum CNOT. "Vertical wins" /
+"horizontal wins" just selects the control/target assignment.
+
+### 10.2 The full controlled gate
+
+Lifting the priority into a quantum register gives a 3-qubit gate `U`
+on `|P⟩|v⟩|h⟩` whose action is a direction-switching CNOT. A clean
+decomposition is a Fredkin–CNOT–Fredkin sandwich:
+
+```
+        P ─────●─────────●─────
+               │         │
+        v ─────×────●────×─────
+               │    │    │
+        h ─────×────⊕────×─────
+              FRED  CNOT FRED
+            (P,v,h) v→h (P,v,h)
+```
+
+The outer Fredkins (controlled-SWAPs on `v` and `h`, conditioned on `P`)
+swap the two data qubits when `P = 1`. Sandwiched around a
+fixed-direction `CNOT(v → h)`, the net effect is a CNOT whose direction
+is dictated by `P`: identity-on-direction when `P = 0`, flipped when
+`P = 1`. Verifying on the basis states reproduces the §3 tables.
+
+### 10.3 Reading "4 reversible input/output pairs"
+
+The phrase admits two readings, both pointing at the same physical
+fact.
+
+**Reading A — 4 ports.** The box has four physical ports (N, W, S, E).
+Because the gate is involutive, each port carries one bit that can be
+read in either direction; the labels "input" and "output" are
+conventional, not physical. Four ports, four bidirectional signals.
+
+**Reading B — 4 basis-state pairings.** The two-qubit gate is a
+permutation in `S₄`. For each priority it is a product of disjoint
+2-cycles (fixed points plus transpositions) — i.e. four reversible
+input/output state pairings.
+
+Both readings reduce to the single fact `U_P² = I`. The gate is unitary
+**and** Hermitian — a **quantum reflection**.
+
+### 10.4 Why this matters
+
+- A Hermitian unitary is the strongest form of self-inverse gate. The
+  only single-qubit Hermitian unitaries are `I, X, Y, Z, H` and their
+  signed variants. The CNOT is the canonical 2-qubit Hermitian unitary.
+  The reaction box sitting exactly on this point of gate space is not
+  coincidence — it is **what makes seam ↔ patch invertibility hold**.
+  The Coylean property in §4 is literally the Hermitian-unitary
+  property in the 2-qubit setting.
+- The Coylean map is a **classical-controlled CNOT lattice**: a 2D
+  tiling of CNOTs with the direction at each cell selected by the
+  2-adic valuation of the absolute coordinates. The "priority field" of
+  §5 is a classical control pattern over a CNOT lattice.
+- This reframes the §7 measures in standard quantum terms. Bijectivity
+  (§7.1) is unitarity. Involutivity (§7.2) is Hermiticity. The
+  Hamming-distance and information-theoretic measures (§7.3, §7.4) are
+  the natural relaxations: distance from a Hermitian unitary in
+  operator norm, and the gate's classical channel capacity.
+- The natural generalizations in §6 acquire concrete quantum names.
+  Port arity `n = 3` over `{0,1}` with the strongest involutive
+  candidate is the **Toffoli** gate. Higher-arity / multi-control
+  Hermitian unitaries (controlled-Z, controlled-controlled-NOT, the
+  full Clifford-group involutions) are the gate-level versions of the
+  Coylean family. The search for "other algorithms with this symmetry"
+  becomes the search for **classically-controlled lattices of
+  Hermitian Clifford gates with a non-trivial priority assignment.**
+
+Read this way, the Coylean map is the simplest non-trivial point in a
+large space already mapped out by reversible-computing and quantum-gate
+taxonomies — but combined with a number-theoretic priority assignment
+that those taxonomies do not, on their own, supply. The interesting
+object is the *combination*: the gate (Hermitian unitary) and the
+classical control field (2-adic valuation) together.
