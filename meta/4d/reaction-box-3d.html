@@ -6,7 +6,7 @@
         <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
         <meta http-equiv="Pragma" content="no-cache" />
         <meta http-equiv="Expires" content="0" />
-        <title>reaction box — three.js</title>
+        <title>reaction box 3D — three.js</title>
         <style>
             html,
             body {
@@ -121,27 +121,16 @@
                 "
                 >← 4D</a
             >
-            <h1>reaction box</h1>
-
-            <div class="row">
-                <label for="orderSel">priority</label>
-                <select id="orderSel">
-                    <option value="5" selected>z &gt; y &gt; x</option>
-                    <option value="4">z &gt; x &gt; y</option>
-                    <option value="3">y &gt; z &gt; x</option>
-                    <option value="2">y &gt; x &gt; z</option>
-                    <option value="1">x &gt; z &gt; y</option>
-                    <option value="0">x &gt; y &gt; z</option>
-                </select>
-            </div>
+            <h1>reaction box (3D)</h1>
 
             <div class="row">
                 <button id="resetBtn">reset</button>
             </div>
 
             <div class="legend" id="legend"></div>
+            <div class="hint">priority order locked: A &gt; B &gt; C</div>
             <div class="hint">
-                click an emitter disc (−x / −y / −z face) to toggle its bit
+                click an emitter disc (−x / +y / +z face) to toggle its bit
             </div>
             <div class="hint">drag to orbit · scroll to zoom</div>
         </div>
@@ -205,13 +194,6 @@
                     highlight: [0.74, 0.16],
                     glow: [0.88, 0.08],
                 }),
-                green: makeRamp(145, {
-                    outline: [0.34, 0.12],
-                    shadow: [0.25, 0.09],
-                    base: [0.58, 0.16],
-                    highlight: [0.74, 0.12],
-                    glow: [0.88, 0.07],
-                }),
                 blue: makeRamp(260, {
                     outline: [0.34, 0.15],
                     shadow: [0.25, 0.11],
@@ -219,8 +201,16 @@
                     highlight: [0.74, 0.13],
                     glow: [0.88, 0.07],
                 }),
+                amber: makeRamp(75, {
+                    outline: [0.34, 0.16],
+                    shadow: [0.25, 0.12],
+                    base: [0.62, 0.18],
+                    highlight: [0.78, 0.14],
+                    glow: [0.9, 0.08],
+                }),
             };
-            const AXIS_RAMPS = [RAMP.red, RAMP.green, RAMP.blue];
+            // Axis → ramp. A (y) red, B (x) blue, C (z) amber.
+            const AXIS_RAMPS = [RAMP.blue, RAMP.red, RAMP.amber];
 
             // --- scene ---
             const app = document.getElementById("app");
@@ -264,25 +254,26 @@
             );
             scene.add(cubeWire);
 
-            // Three highlighted edges from the (-1,-1,-1) corner.
+            // Three highlighted edges from the emitter corner (-1, +1, +1):
+            // x runs right (blue), y runs down (red), z runs inward (amber).
             const STARTING_EDGES = [
                 {
-                    axis: 2,
+                    axis: 0,
                     ramp: RAMP.blue,
-                    a: [-1, -1, -1],
-                    b: [-1, -1, 1],
+                    a: [-1, 1, 1],
+                    b: [1, 1, 1],
                 },
                 {
                     axis: 1,
-                    ramp: RAMP.green,
-                    a: [-1, -1, -1],
-                    b: [-1, 1, -1],
+                    ramp: RAMP.red,
+                    a: [-1, 1, 1],
+                    b: [-1, -1, 1],
                 },
                 {
-                    axis: 0,
-                    ramp: RAMP.red,
-                    a: [-1, -1, -1],
-                    b: [1, -1, -1],
+                    axis: 2,
+                    ramp: RAMP.amber,
+                    a: [-1, 1, 1],
+                    b: [-1, 1, -1],
                 },
             ];
 
@@ -305,7 +296,7 @@
                 new THREE.SphereGeometry(0.06, 16, 16),
                 new THREE.MeshBasicMaterial({ color: 0x1a2a3a }),
             );
-            cornerSph.position.set(-1, -1, -1);
+            cornerSph.position.set(-1, 1, 1);
             scene.add(cornerSph);
 
             // --- port discs ---
@@ -380,14 +371,18 @@
                 return { group, filled, outline, shadow };
             }
 
+            // Emitter face per axis: -x (B rightward), +y (A downward),
+            // +z (C inward). Receiver sits on the opposite face.
+            const EMITTER_SIGN = [-1, 1, 1];
+
             const emitters = [];
             const receivers = [];
             for (let axis = 0; axis < 3; axis++) {
                 const ramp = AXIS_RAMPS[axis];
                 const emPos = [0, 0, 0];
-                emPos[axis] = -1;
+                emPos[axis] = EMITTER_SIGN[axis];
                 const rcPos = [0, 0, 0];
-                rcPos[axis] = 1;
+                rcPos[axis] = -EMITTER_SIGN[axis];
                 emitters[axis] = makeDisk(
                     emPos,
                     axis,
@@ -423,6 +418,9 @@
             const TAPE_WIDTHS = [0.2, 0.17, 0.14];
             const TAPE_THICKNESS = 0.02;
 
+            // Locked priority: PERMS[2] = [1, 0, 2] = y > x > z = A > B > C.
+            const ORDER_INDEX = 2;
+
             function widthForAxis(axis, orderIndex) {
                 const rank = PERMS[orderIndex].indexOf(axis);
                 return TAPE_WIDTHS[rank];
@@ -445,7 +443,8 @@
                 const ramp = AXIS_RAMPS[axis];
                 const [dx, dy, dz] = halfTapeDims(axis, width);
                 const pos = [0, 0, 0];
-                pos[axis] = side === "emitter" ? -0.5 : 0.5;
+                pos[axis] =
+                    (side === "emitter" ? 0.5 : -0.5) * EMITTER_SIGN[axis];
                 const mesh = new THREE.Mesh(
                     new THREE.BoxGeometry(dx, dy, dz),
                     new THREE.MeshBasicMaterial({
@@ -464,31 +463,21 @@
 
             const tapes = [];
             for (let axis = 0; axis < 3; axis++) {
+                const w = widthForAxis(axis, ORDER_INDEX);
                 tapes[axis] = {
-                    emitter: makeHalfTape(axis, 0.17, "emitter"),
-                    receiver: makeHalfTape(axis, 0.17, "receiver"),
+                    emitter: makeHalfTape(axis, w, "emitter"),
+                    receiver: makeHalfTape(axis, w, "receiver"),
                 };
-            }
-
-            function rebuildTapeGeoms(orderIndex) {
-                for (let axis = 0; axis < 3; axis++) {
-                    const w = widthForAxis(axis, orderIndex);
-                    const [dx, dy, dz] = halfTapeDims(axis, w);
-                    for (const side of ["emitter", "receiver"]) {
-                        tapes[axis][side].geometry.dispose();
-                        tapes[axis][side].geometry = new THREE.BoxGeometry(
-                            dx,
-                            dy,
-                            dz,
-                        );
-                    }
-                }
             }
 
             // --- legend ---
             (function buildLegend() {
                 const el = document.getElementById("legend");
-                const labels = ["x (red)", "y (green)", "z (blue)"];
+                const labels = [
+                    "B · x · blue",
+                    "A · y · red",
+                    "C · z · amber",
+                ];
                 const items = [];
                 for (let axis = 0; axis < 3; axis++) {
                     const base = AXIS_RAMPS[axis].base;
@@ -507,7 +496,6 @@
             // --- state ---
             const state = {
                 emitter: [false, false, false],
-                orderIndex: 5, // z > y > x
             };
 
             function recompute() {
@@ -515,7 +503,7 @@
                     (state.emitter[0] ? 1 : 0) |
                     (state.emitter[1] ? 2 : 0) |
                     (state.emitter[2] ? 4 : 0);
-                const y = priority3(x, state.orderIndex);
+                const y = priority3(x, ORDER_INDEX);
                 for (let axis = 0; axis < 3; axis++) {
                     const e = state.emitter[axis];
                     emitters[axis].filled.visible = e;
@@ -547,13 +535,6 @@
                 recompute();
             });
 
-            const orderSel = document.getElementById("orderSel");
-            orderSel.addEventListener("change", () => {
-                state.orderIndex = parseInt(orderSel.value, 10);
-                rebuildTapeGeoms(state.orderIndex);
-                recompute();
-            });
-
             document
                 .getElementById("resetBtn")
                 .addEventListener("click", () => {
@@ -570,8 +551,6 @@
                 }
             });
 
-            // Build the initial tape geometries to match the default order.
-            rebuildTapeGeoms(state.orderIndex);
             recompute();
 
             // ----------------------------------------------------------

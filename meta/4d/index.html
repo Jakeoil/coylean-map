@@ -140,17 +140,18 @@
                 </p>
             </a>
 
-            <a class="card" href="reaction-box.html">
-                <h2>Reaction Box — 3-bit priority CNOT</h2>
+            <a class="card" href="reaction-box-3d.html">
+                <h2>Reaction Box (3D) — 3-bit priority CNOT</h2>
                 <p>
                     A 3-bit reaction box on the same cube as
-                    <em>Cube Cuts</em>: emitter discs on the &minus;x /
-                    &minus;y / &minus;z faces drive axis-aligned tapes
-                    through the cube to receiver discs on the +x / +y / +z
-                    faces. The priority selector picks one of the six
-                    CNOT-cascade orderings; the highest-priority tape is the
-                    widest, the lowest-priority tape the narrowest. Tape
-                    visibility = emitter bit; receiver discs track
+                    <em>Cube Cuts</em>, with priority locked at
+                    <strong>A &gt; B &gt; C</strong>
+                    (y &gt; x &gt; z). A is red on the y-axis (emitter at
+                    top, propagation downward); B is blue on the x-axis
+                    (emitter at &minus;x, propagation rightward); C is amber
+                    on the z-axis (emitter at +z, propagation inward).
+                    Highest-priority tape is the widest. Tape visibility =
+                    emitter bit; receiver discs track
                     <code>priority3()</code>'s output.
                 </p>
             </a>
@@ -163,6 +164,20 @@
                     cube and discs as <em>Reaction Box</em>, default
                     priority order locked at z &gt; y &gt; x. Click an
                     emitter and watch the receivers update.
+                </p>
+            </a>
+
+            <a class="card" href="coylean-3d-test.html">
+                <h2>Coylean 3D core — test</h2>
+                <p>
+                    Exercises
+                    <code>src/coylean-3d-core.js</code>: a panel of
+                    assertions covering <code>pri</code>,
+                    <code>Seniority3D</code>, <code>reactionFromPriority</code>,
+                    and the <code>Propagation</code> class, plus a 3D
+                    visualization of <code>propagate(N,N,N)</code>'s three
+                    flow matrices (red = vertical, blue = horizontal, amber
+                    = inward). Configurable extent and seniority.
                 </p>
             </a>
         </main>
