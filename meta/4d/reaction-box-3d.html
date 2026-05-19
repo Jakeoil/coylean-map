@@ -268,6 +268,14 @@
                         />
                     </div>
                     <div class="row">
+                        <label for="showRibbons">show ribbons</label>
+                        <input
+                            id="showRibbons"
+                            type="checkbox"
+                            checked
+                        />
+                    </div>
+                    <div class="row">
                         <label for="showArrow">show arrow</label>
                         <input id="showArrow" type="checkbox" />
                     </div>
@@ -829,9 +837,12 @@
                     receivers[axis].outline.visible = !r;
                     // Half-tape visibility follows each end's bit value: a
                     // bit XOR'd off at the central cascade leaves only its
-                    // emitter-side half drawn, and vice versa.
-                    tapes[axis].emitter.visible = e;
-                    tapes[axis].receiver.visible = r;
+                    // emitter-side half drawn, and vice versa. The Ribbon
+                    // card's "show ribbons" toggle gates this globally.
+                    const showRibbons =
+                        document.getElementById("showRibbons").checked;
+                    tapes[axis].emitter.visible = showRibbons && e;
+                    tapes[axis].receiver.visible = showRibbons && r;
                 }
                 updateArrows();
             }
@@ -872,6 +883,7 @@
                 widthPct: "0",
                 transparencyPct: "30",
                 usePriority: true,
+                showRibbons: true,
                 showArrow: false,
                 showArrowhead: true,
             };
@@ -916,6 +928,10 @@
                     .getElementById(id)
                     .addEventListener("change", updateArrows);
             }
+            // showRibbons gates half-tape visibility inside recompute().
+            document
+                .getElementById("showRibbons")
+                .addEventListener("change", recompute);
 
             // Wheel-to-scrub on the two number boxes. deltaY < 0 (wheel
             // up) increments; preventDefault stops the page from

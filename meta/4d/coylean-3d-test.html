@@ -106,6 +106,42 @@
                 color: #445;
             }
 
+            #panel details.card {
+                margin: 4px 0;
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                border-radius: 6px;
+                background: rgba(255, 255, 255, 0.4);
+            }
+
+            #panel details.card summary {
+                cursor: pointer;
+                padding: 4px 8px;
+                user-select: none;
+                font-weight: 600;
+                list-style: none;
+            }
+
+            #panel details.card summary::-webkit-details-marker {
+                display: none;
+            }
+
+            #panel details.card summary::before {
+                content: "▸ ";
+            }
+
+            #panel details.card[open] summary::before {
+                content: "▾ ";
+            }
+
+            #panel details.card .card-body {
+                padding: 4px 8px 6px;
+                border-top: 1px solid rgba(0, 0, 0, 0.06);
+            }
+
+            #panel details.card .card-body .row {
+                margin: 4px 0;
+            }
+
             #panel .legend .chip {
                 display: inline-block;
                 width: 10px;
@@ -224,9 +260,56 @@
                 </select>
             </div>
 
+            <details class="card" open>
+                <summary>Ribbon</summary>
+                <div class="card-body">
+                    <div class="row">
+                        <label for="widthPct">width %</label>
+                        <input
+                            id="widthPct"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value="0"
+                        />
+                    </div>
+                    <div class="row">
+                        <label for="usePriority">use priority</label>
+                        <input
+                            id="usePriority"
+                            type="checkbox"
+                            checked
+                        />
+                    </div>
+                    <div class="row">
+                        <label for="transparencyPct">transparency %</label>
+                        <input
+                            id="transparencyPct"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value="30"
+                        />
+                    </div>
+                    <div class="row">
+                        <label for="showRibbons">show ribbons</label>
+                        <input id="showRibbons" type="checkbox" />
+                    </div>
+                    <div class="row">
+                        <label for="showArrow">show arrow</label>
+                        <input id="showArrow" type="checkbox" checked />
+                    </div>
+                    <div class="row">
+                        <label for="showArrowhead">arrowhead</label>
+                        <input id="showArrowhead" type="checkbox" />
+                    </div>
+                </div>
+            </details>
+
             <div class="row">
                 <button id="rerunBtn">rerun</button>
                 <button id="projBtn">isometric</button>
+                <button id="defaultsBtn">defaults</button>
                 <span id="summary"></span>
             </div>
 
@@ -623,6 +706,20 @@
 
             const lineMaterials = [];
 
+            // Per-axis references to the three visualization layers, so
+            // toggles can flip their visibility without rebuilding the
+            // scene. Each entry is the Mesh / LineSegments2 (or null
+            // before the first rerun).
+            const arrowLineMeshes = [null, null, null];
+            const ribbonMeshes = [null, null, null];
+            const arrowheadMeshes = [null, null, null];
+
+            // Last rerun's propagation result + extent — cached so the
+            // Ribbon-card sliders can rebuild geometry without redoing
+            // the propagation.
+            let cachedN = 4;
+            let cachedProp = null;
+
             function clearViz() {
                 while (vizGroup.children.length) {
                     const obj = vizGroup.children[0];
@@ -633,6 +730,36 @@
                     }
                 }
                 lineMaterials.length = 0;
+                arrowLineMeshes.fill(null);
+                ribbonMeshes.fill(null);
+                arrowheadMeshes.fill(null);
+            }
+
+            // Ribbon width tuning. Each grid cell is unit-sized, so the
+            // base ribbon is 10 % of cell width; each pri unit adds
+            // another 8 %. width % from the panel lerps that toward the
+            // cell-width cap of 1.0.
+            const TAPE_BASE = 0.1;
+            const TAPE_PRI_INCREMENT = 0.08;
+            const TAPE_MAX_WIDTH = 1.0;
+            const ARROWHEAD_LEN = 0.22;
+            const ARROWHEAD_HALF_W = 0.11;
+
+            function tapeWidthForPriority(p) {
+                const usePriority =
+                    document.getElementById("usePriority").checked;
+                const pct =
+                    parseInt(
+                        document.getElementById("widthPct").value,
+                        10,
+                    ) || 0;
+                const priorityWidth =
+                    TAPE_BASE +
+                    (usePriority ? TAPE_PRI_INCREMENT * p : 0);
+                return (
+                    priorityWidth +
+                    (TAPE_MAX_WIDTH - priorityWidth) * (pct / 100)
+                );
             }
 
             // World-coordinate mapping:
@@ -730,29 +857,197 @@
                     }
                 }
 
-                const linewidth = Math.max(1.5, 4.5 - Math.log2(N));
-                function addSegments(verts, color) {
-                    if (verts.length === 0) return;
-                    const g = new LineSegmentsGeometry();
-                    g.setPositions(verts);
-                    const m = new LineMaterial({
-                        color,
-                        linewidth,
-                        transparent: true,
-                        opacity: 0.85,
-                    });
-                    m.resolution.set(
-                        window.innerWidth,
-                        window.innerHeight,
+                // Per-axis ribbon vertices + indices. Each true bit
+                // pushes a 4-vertex flat rectangle in the tape's broad
+                // plane, width depending on the axis-of-flow's pri at
+                // that cell (colPriority[i] / rowPriority[j] /
+                // layerPriority[k] for axes 0/1/2 respectively).
+                const ribbonVerts = [[], [], []];
+                const ribbonIdx = [[], [], []];
+                const headVerts = [[], [], []];
+                const headIdx = [[], [], []];
+
+                function pushRect(axisGroup, axis, i, j, k, W) {
+                    const halfW = W / 2;
+                    const baseIdx = ribbonVerts[axisGroup].length / 3;
+                    if (axis === 0) {
+                        const yMid = Y(j) - 0.5;
+                        const z = Z(k) - 0.5;
+                        ribbonVerts[axisGroup].push(
+                            X(i) - 0.5, yMid - halfW, z,
+                            X(i) + 0.5, yMid - halfW, z,
+                            X(i) + 0.5, yMid + halfW, z,
+                            X(i) - 0.5, yMid + halfW, z,
+                        );
+                    } else if (axis === 1) {
+                        const x = X(i) + 0.5;
+                        const zMid = Z(k) - 0.5;
+                        ribbonVerts[axisGroup].push(
+                            x, Y(j) + 0.5, zMid - halfW,
+                            x, Y(j) - 0.5, zMid - halfW,
+                            x, Y(j) - 0.5, zMid + halfW,
+                            x, Y(j) + 0.5, zMid + halfW,
+                        );
+                    } else {
+                        const xMid = X(i) + 0.5;
+                        const y = Y(j) - 0.5;
+                        ribbonVerts[axisGroup].push(
+                            xMid - halfW, y, Z(k) + 0.5,
+                            xMid - halfW, y, Z(k) - 0.5,
+                            xMid + halfW, y, Z(k) - 0.5,
+                            xMid + halfW, y, Z(k) + 0.5,
+                        );
+                    }
+                    ribbonIdx[axisGroup].push(
+                        baseIdx, baseIdx + 1, baseIdx + 2,
+                        baseIdx, baseIdx + 2, baseIdx + 3,
                     );
-                    lineMaterials.push(m);
-                    vizGroup.add(new LineSegments2(g, m));
                 }
 
+                function pushHead(axis, i, j, k) {
+                    const baseIdx = headVerts[axis].length / 3;
+                    if (axis === 0) {
+                        const tipX = X(i) + 0.5;
+                        const baseY = Y(j) - 0.5;
+                        const z = Z(k) - 0.5;
+                        headVerts[axis].push(
+                            tipX, baseY, z,
+                            tipX - ARROWHEAD_LEN, baseY + ARROWHEAD_HALF_W, z,
+                            tipX - ARROWHEAD_LEN, baseY - ARROWHEAD_HALF_W, z,
+                        );
+                    } else if (axis === 1) {
+                        const x = X(i) + 0.5;
+                        const tipY = Y(j) - 0.5;
+                        const z = Z(k) - 0.5;
+                        headVerts[axis].push(
+                            x, tipY, z,
+                            x, tipY + ARROWHEAD_LEN, z + ARROWHEAD_HALF_W,
+                            x, tipY + ARROWHEAD_LEN, z - ARROWHEAD_HALF_W,
+                        );
+                    } else {
+                        const x = X(i) + 0.5;
+                        const y = Y(j) - 0.5;
+                        const tipZ = Z(k) - 0.5;
+                        headVerts[axis].push(
+                            x, y, tipZ,
+                            x + ARROWHEAD_HALF_W, y, tipZ + ARROWHEAD_LEN,
+                            x - ARROWHEAD_HALF_W, y, tipZ + ARROWHEAD_LEN,
+                        );
+                    }
+                    headIdx[axis].push(baseIdx, baseIdx + 1, baseIdx + 2);
+                }
+
+                // Walk every true bit a second time to seed the ribbon
+                // and arrowhead batches.
+                const cP = propResult.colPriority;
+                const rP = propResult.rowPriority;
+                const lP = propResult.layerPriority;
+                for (let j = 0; j < downMatrix.length; j++) {
+                    for (let i = 0; i < downMatrix[j].length; i++) {
+                        for (let k = 0; k < downMatrix[j][i].length; k++) {
+                            if (!downMatrix[j][i][k]) continue;
+                            const W = tapeWidthForPriority(cP[i]);
+                            pushRect(0, 1, i, j, k, W);
+                            pushHead(1, i, j, k);
+                        }
+                    }
+                }
+                for (let i = 0; i < rightMatrix.length; i++) {
+                    for (let j = 0; j < rightMatrix[i].length; j++) {
+                        for (let k = 0; k < rightMatrix[i][j].length; k++) {
+                            if (!rightMatrix[i][j][k]) continue;
+                            const W = tapeWidthForPriority(rP[j]);
+                            pushRect(1, 0, i, j, k, W);
+                            pushHead(0, i, j, k);
+                        }
+                    }
+                }
+                for (let k = 0; k < inMatrix.length; k++) {
+                    for (let i = 0; i < inMatrix[k].length; i++) {
+                        for (let j = 0; j < inMatrix[k][i].length; j++) {
+                            if (!inMatrix[k][i][j]) continue;
+                            const W = tapeWidthForPriority(lP[k]);
+                            pushRect(2, 2, i, j, k, W);
+                            pushHead(2, i, j, k);
+                        }
+                    }
+                }
+
+                const linewidth = Math.max(1.5, 4.5 - Math.log2(N));
                 const axisRamps = currentAxisRamps();
-                addSegments(positions.vert, axisRamps[0].base);
-                addSegments(positions.horz, axisRamps[1].base);
-                addSegments(positions.in, axisRamps[2].base);
+
+                // axis 0 = vertical (down), axis 1 = horizontal (right),
+                // axis 2 = inward. Index here matches the page's
+                // A/B/C ordering, so the line/ribbon/head for axis n all
+                // use axisRamps[n].
+                const linePositions = [
+                    positions.vert,
+                    positions.horz,
+                    positions.in,
+                ];
+                for (let axis = 0; axis < 3; axis++) {
+                    if (linePositions[axis].length > 0) {
+                        const g = new LineSegmentsGeometry();
+                        g.setPositions(linePositions[axis]);
+                        const m = new LineMaterial({
+                            color: axisRamps[axis].base,
+                            linewidth,
+                            transparent: true,
+                            opacity: 0.85,
+                        });
+                        m.resolution.set(
+                            window.innerWidth,
+                            window.innerHeight,
+                        );
+                        lineMaterials.push(m);
+                        const mesh = new LineSegments2(g, m);
+                        arrowLineMeshes[axis] = mesh;
+                        vizGroup.add(mesh);
+                    }
+                    if (ribbonVerts[axis].length > 0) {
+                        const g = new THREE.BufferGeometry();
+                        g.setAttribute(
+                            "position",
+                            new THREE.Float32BufferAttribute(
+                                ribbonVerts[axis],
+                                3,
+                            ),
+                        );
+                        g.setIndex(ribbonIdx[axis]);
+                        const m = new THREE.MeshBasicMaterial({
+                            color: axisRamps[axis].base,
+                            transparent: true,
+                            opacity: 0.7,
+                            side: THREE.DoubleSide,
+                            depthWrite: false,
+                        });
+                        const mesh = new THREE.Mesh(g, m);
+                        ribbonMeshes[axis] = mesh;
+                        vizGroup.add(mesh);
+                    }
+                    if (headVerts[axis].length > 0) {
+                        const g = new THREE.BufferGeometry();
+                        g.setAttribute(
+                            "position",
+                            new THREE.Float32BufferAttribute(
+                                headVerts[axis],
+                                3,
+                            ),
+                        );
+                        g.setIndex(headIdx[axis]);
+                        const m = new THREE.MeshBasicMaterial({
+                            color: axisRamps[axis].base,
+                            side: THREE.DoubleSide,
+                            depthWrite: false,
+                        });
+                        const mesh = new THREE.Mesh(g, m);
+                        arrowheadMeshes[axis] = mesh;
+                        vizGroup.add(mesh);
+                    }
+                }
+
+                applyRibbonOpacity();
+                applyVisibility();
             }
 
             // --- Legend ---
@@ -856,15 +1151,28 @@
                 renderTests(runTests());
                 buildLegend();
 
-                const propResult = propagate(
-                    N,
-                    N,
-                    N,
-                    1,
-                    1,
-                    1,
+                // Use Propagation directly so the per-axis priority
+                // arrays are exposed (rebuildViz uses them to size each
+                // cell's ribbon).
+                const prop = new Propagation({
+                    numRows: N,
+                    numColumns: N,
+                    numLayers: N,
+                    hInitCol: 1,
+                    vInitRow: 1,
+                    iInitLay: 1,
                     seniority,
-                );
+                });
+                const propResult = {
+                    downMatrix: prop.downMatrix,
+                    rightMatrix: prop.rightMatrix,
+                    inMatrix: prop.inMatrix,
+                    colPriority: prop.colPriority,
+                    rowPriority: prop.rowPriority,
+                    layerPriority: prop.layerPriority,
+                };
+                cachedN = N;
+                cachedProp = propResult;
                 rebuildViz(N, propResult);
 
                 // Pull the camera back proportional to N so the grid
@@ -887,6 +1195,45 @@
                 }
             }
 
+            // --- Ribbon-card appliers ---
+            function applyRibbonOpacity() {
+                const t = parseInt(
+                    document.getElementById("transparencyPct").value,
+                    10,
+                );
+                const opacity = Math.max(0, Math.min(1, 1 - t / 100));
+                for (const m of ribbonMeshes) {
+                    if (m) m.material.opacity = opacity;
+                }
+            }
+
+            function applyVisibility() {
+                const showRibbon =
+                    document.getElementById("showRibbons").checked;
+                const showArrow =
+                    document.getElementById("showArrow").checked;
+                const showHead =
+                    document.getElementById("showArrowhead").checked;
+                for (let axis = 0; axis < 3; axis++) {
+                    if (arrowLineMeshes[axis]) {
+                        arrowLineMeshes[axis].visible = showArrow;
+                    }
+                    if (ribbonMeshes[axis]) {
+                        ribbonMeshes[axis].visible = showRibbon;
+                    }
+                    if (arrowheadMeshes[axis]) {
+                        arrowheadMeshes[axis].visible = showHead;
+                    }
+                }
+            }
+
+            // Width/use-priority changes recompute per-cell ribbon
+            // widths, so we rebuild from the cached propagation rather
+            // than redoing it.
+            function rebuildRibbonsFromCache() {
+                if (cachedProp) rebuildViz(cachedN, cachedProp);
+            }
+
             document
                 .getElementById("rerunBtn")
                 .addEventListener("click", rerun);
@@ -904,6 +1251,67 @@
                     .getElementById(ax + "Color")
                     .addEventListener("change", rerun);
             }
+
+            for (const id of ["widthPct", "usePriority"]) {
+                document
+                    .getElementById(id)
+                    .addEventListener("change", rebuildRibbonsFromCache);
+            }
+            document
+                .getElementById("transparencyPct")
+                .addEventListener("change", applyRibbonOpacity);
+            for (const id of ["showRibbons", "showArrow", "showArrowhead"]) {
+                document
+                    .getElementById(id)
+                    .addEventListener("change", applyVisibility);
+            }
+
+            // Wheel-to-scrub on the two number boxes.
+            function attachWheelStep(id, step, applyFn) {
+                const el = document.getElementById(id);
+                el.addEventListener(
+                    "wheel",
+                    (e) => {
+                        e.preventDefault();
+                        const delta = e.deltaY < 0 ? step : -step;
+                        const min = parseInt(el.min || "0", 10);
+                        const max = parseInt(el.max || "100", 10);
+                        let v = parseInt(el.value, 10) || 0;
+                        v = Math.max(min, Math.min(max, v + delta));
+                        el.value = v;
+                        applyFn();
+                    },
+                    { passive: false },
+                );
+            }
+            attachWheelStep("widthPct", 5, rebuildRibbonsFromCache);
+            attachWheelStep("transparencyPct", 5, applyRibbonOpacity);
+
+            // Defaults button: restore every panel control to the value
+            // declared in the HTML, then trigger a full rerun.
+            const DEFAULTS = {
+                extent: "4",
+                senSel: "2",
+                aColor: "red",
+                bColor: "blue",
+                cColor: "green",
+                widthPct: "0",
+                transparencyPct: "30",
+                usePriority: true,
+                showRibbons: false,
+                showArrow: true,
+                showArrowhead: false,
+            };
+            document
+                .getElementById("defaultsBtn")
+                .addEventListener("click", () => {
+                    for (const [id, v] of Object.entries(DEFAULTS)) {
+                        const el = document.getElementById(id);
+                        if (typeof v === "boolean") el.checked = v;
+                        else el.value = v;
+                    }
+                    rerun();
+                });
 
             window.addEventListener("resize", () => {
                 const aspect = window.innerWidth / window.innerHeight;
