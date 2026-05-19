@@ -192,6 +192,39 @@
             </div>
 
             <div class="row">
+                <label for="aColor">A color</label>
+                <select id="aColor">
+                    <option value="red" selected>red</option>
+                    <option value="amber">amber</option>
+                    <option value="green">green</option>
+                    <option value="blue">blue</option>
+                    <option value="violet">violet</option>
+                </select>
+            </div>
+
+            <div class="row">
+                <label for="bColor">B color</label>
+                <select id="bColor">
+                    <option value="red">red</option>
+                    <option value="amber">amber</option>
+                    <option value="green">green</option>
+                    <option value="blue" selected>blue</option>
+                    <option value="violet">violet</option>
+                </select>
+            </div>
+
+            <div class="row">
+                <label for="cColor">C color</label>
+                <select id="cColor">
+                    <option value="red">red</option>
+                    <option value="amber">amber</option>
+                    <option value="green" selected>green</option>
+                    <option value="blue">blue</option>
+                    <option value="violet">violet</option>
+                </select>
+            </div>
+
+            <div class="row">
                 <button id="rerunBtn">rerun</button>
                 <button id="projBtn">isometric</button>
                 <span id="summary"></span>
@@ -232,55 +265,13 @@
                 Col,
                 Layer,
             } from "./src/coylean-3d-core.js";
+            import {
+                currentRampFor,
+                currentAxisRamps,
+            } from "./src/oklch-ramps.js";
 
-            // --- OKLCH color ramps (same scheme as reaction-box-3d.html) ---
-            function oklchHex(L, C, H) {
-                const h = (H * Math.PI) / 180;
-                const a_ = C * Math.cos(h);
-                const b_ = C * Math.sin(h);
-                const l_ = L + 0.3963377774 * a_ + 0.2158037573 * b_;
-                const m_ = L - 0.1055613458 * a_ - 0.0638541728 * b_;
-                const s_ = L - 0.089484178 * a_ - 1.291485548 * b_;
-                const l = l_ * l_ * l_;
-                const m = m_ * m_ * m_;
-                const s = s_ * s_ * s_;
-                let r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
-                let g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
-                let bv =
-                    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
-                const enc = (v) => {
-                    v = Math.max(0, Math.min(1, v));
-                    return v > 0.0031308
-                        ? 1.055 * Math.pow(v, 1 / 2.4) - 0.055
-                        : 12.92 * v;
-                };
-                r = enc(r);
-                g = enc(g);
-                bv = enc(bv);
-                const to8 = (v) => Math.round(v * 255);
-                return (to8(r) << 16) | (to8(g) << 8) | to8(bv);
-            }
-            function makeRamp(hue, roles) {
-                const out = { hue };
-                for (const [name, [L, C]] of Object.entries(roles)) {
-                    out[name] = oklchHex(L, C, hue);
-                }
-                return out;
-            }
-            const RAMP = {
-                red: makeRamp(25, {
-                    base: [0.57, 0.22],
-                    glow: [0.88, 0.08],
-                }),
-                blue: makeRamp(260, {
-                    base: [0.58, 0.19],
-                    glow: [0.88, 0.07],
-                }),
-                amber: makeRamp(75, {
-                    base: [0.62, 0.18],
-                    glow: [0.9, 0.08],
-                }),
-            };
+            // RAMP / COLOR_NAMES / currentRampFor / currentAxisRamps come
+            // from src/oklch-ramps.js (canonical palette + per-axis lookup).
 
             // --- Assertions ---
             // Each test calls into the 3D core and throws on failure. The
@@ -758,30 +749,32 @@
                     vizGroup.add(new LineSegments2(g, m));
                 }
 
-                addSegments(positions.vert, RAMP.red.base);
-                addSegments(positions.horz, RAMP.blue.base);
-                addSegments(positions.in, RAMP.amber.base);
+                const axisRamps = currentAxisRamps();
+                addSegments(positions.vert, axisRamps[0].base);
+                addSegments(positions.horz, axisRamps[1].base);
+                addSegments(positions.in, axisRamps[2].base);
             }
 
             // --- Legend ---
-            (function buildLegend() {
+            // Rebuilds reactively from the current per-axis color selects.
+            function buildLegend() {
                 const el = document.getElementById("legend");
-                const labels = [
-                    "A · vertical · red",
-                    "B · horizontal · blue",
-                    "C · inward · amber",
-                ];
-                const ramps = [RAMP.red, RAMP.blue, RAMP.amber];
-                const items = ramps.map((ramp, idx) => {
+                const axisNames = ["vertical", "horizontal", "inward"];
+                const axisLetters = ["A", "B", "C"];
+                const axisRamps = currentAxisRamps();
+                const items = axisRamps.map((ramp, idx) => {
+                    const colorName = document.getElementById(
+                        axisLetters[idx].toLowerCase() + "Color",
+                    ).value;
                     const c =
                         "#" + ramp.base.toString(16).padStart(6, "0");
                     return (
                         `<span class="chip" style="background:${c}"></span>` +
-                        labels[idx]
+                        `${axisLetters[idx]} · ${axisNames[idx]} · ${colorName}`
                     );
                 });
                 el.innerHTML = items.join("&nbsp;&nbsp;");
-            })();
+            }
 
             // --- Dump (text view of the three matrices) ---
             const ORDER_NAMES = [
@@ -861,6 +854,7 @@
                 const seniority = Seniority3D.fromOrderIndex(orderIdx);
 
                 renderTests(runTests());
+                buildLegend();
 
                 const propResult = propagate(
                     N,
@@ -905,6 +899,11 @@
             document
                 .getElementById("projBtn")
                 .addEventListener("click", toggleProjection);
+            for (const ax of ["a", "b", "c"]) {
+                document
+                    .getElementById(ax + "Color")
+                    .addEventListener("change", rerun);
+            }
 
             window.addEventListener("resize", () => {
                 const aspect = window.innerWidth / window.innerHeight;
