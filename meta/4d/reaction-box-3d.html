@@ -124,6 +124,48 @@
             <h1>reaction box (3D)</h1>
 
             <div class="row">
+                <label for="aOffset">A offset (y)</label>
+                <select id="aOffset">
+                    <option value="1" selected>1 (pri 0)</option>
+                    <option value="2">2 (pri 1)</option>
+                    <option value="3">3 (pri 0)</option>
+                    <option value="4">4 (pri 2)</option>
+                    <option value="5">5 (pri 0)</option>
+                    <option value="6">6 (pri 1)</option>
+                    <option value="7">7 (pri 0)</option>
+                    <option value="8">8 (pri 3)</option>
+                </select>
+            </div>
+
+            <div class="row">
+                <label for="bOffset">B offset (x)</label>
+                <select id="bOffset">
+                    <option value="1" selected>1 (pri 0)</option>
+                    <option value="2">2 (pri 1)</option>
+                    <option value="3">3 (pri 0)</option>
+                    <option value="4">4 (pri 2)</option>
+                    <option value="5">5 (pri 0)</option>
+                    <option value="6">6 (pri 1)</option>
+                    <option value="7">7 (pri 0)</option>
+                    <option value="8">8 (pri 3)</option>
+                </select>
+            </div>
+
+            <div class="row">
+                <label for="cOffset">C offset (z)</label>
+                <select id="cOffset">
+                    <option value="1" selected>1 (pri 0)</option>
+                    <option value="2">2 (pri 1)</option>
+                    <option value="3">3 (pri 0)</option>
+                    <option value="4">4 (pri 2)</option>
+                    <option value="5">5 (pri 0)</option>
+                    <option value="6">6 (pri 1)</option>
+                    <option value="7">7 (pri 0)</option>
+                    <option value="8">8 (pri 3)</option>
+                </select>
+            </div>
+
+            <div class="row">
                 <label for="aColor">A color (y)</label>
                 <select id="aColor">
                     <option value="red" selected>red</option>
@@ -161,7 +203,10 @@
             </div>
 
             <div class="legend" id="legend"></div>
-            <div class="hint">priority order locked: A &gt; B &gt; C</div>
+            <div class="hint">
+                tie-break order: A &gt; B &gt; C (only consulted when
+                axis offsets give equal pri values)
+            </div>
             <div class="hint">
                 click an emitter disc (−x / +y / +z face) to toggle its bit
             </div>
@@ -184,6 +229,11 @@
             import { LineGeometry } from "three/addons/lines/LineGeometry.js";
             import { LineMaterial } from "three/addons/lines/LineMaterial.js";
             import { priority3 } from "./src/3-bit-priority-cnot-cascade.js";
+            import {
+                pri,
+                Seniority3D,
+                orderIndexFromPriorities,
+            } from "./src/coylean-3d-core.js";
             import { currentRampFor } from "./src/oklch-ramps.js";
 
             // Page convention: 3D-axis index 0/1/2 = x/y/z, labelled B/A/C
@@ -374,30 +424,39 @@
             }
 
             // --- tapes ---
-            // The 6 priority permutations (matches priority3's perms array).
-            // perms[i][0] is the highest-priority axis; rank within the
-            // permutation sets each tape's width.
-            const PERMS = [
-                [0, 1, 2], // x > y > z
-                [0, 2, 1], // x > z > y
-                [1, 0, 2], // y > x > z
-                [1, 2, 0], // y > z > x
-                [2, 0, 1], // z > x > y
-                [2, 1, 0], // z > y > x  ← cube-cuts default
-            ];
-
-            // Width by priority rank (0 = highest). Lower priority is
-            // slightly narrower so all three tapes are individually
-            // distinguishable at the central crossing.
-            const TAPE_WIDTHS = [0.2, 0.17, 0.14];
+            // Tape geometry constants. Ribbons start at the emitter disc's
+            // diameter (so a pri-0 tape exactly inscribes the disc) and
+            // widen with the axis's external pri value.
+            const TAPE_BASE = DISK_R * 2;
+            const TAPE_PRI_INCREMENT = 0.15;
             const TAPE_THICKNESS = 0.02;
 
-            // Locked priority: PERMS[2] = [1, 0, 2] = y > x > z = A > B > C.
-            const ORDER_INDEX = 2;
+            // The seniority tie-breaker. Used only when two or three of
+            // the external offsets produce equal pri values. PERMS[2] in
+            // priority3's table is [1, 0, 2] = bit-1 > bit-0 > bit-2,
+            // which the reaction-box maps to user-facing A > B > C
+            // (A = y = bit 1, B = x = bit 0, C = z = bit 2).
+            const TIE_BREAKER = Seniority3D.fromOrderIndex(2);
 
-            function widthForAxis(axis, orderIndex) {
-                const rank = PERMS[orderIndex].indexOf(axis);
-                return TAPE_WIDTHS[rank];
+            // External offsets: which integer geometric offset each axis
+            // sits at in the dyadic priority lattice. axisOffset(i) reads
+            // the matching dropdown; axisExternalPri(i) returns pri() of
+            // that offset.
+            const AXIS_OFFSET_LETTERS = ["b", "a", "c"]; // 3D axis → letter
+            function axisOffset(axis) {
+                return parseInt(
+                    document.getElementById(
+                        AXIS_OFFSET_LETTERS[axis] + "Offset",
+                    ).value,
+                    10,
+                );
+            }
+            function axisExternalPri(axis) {
+                return pri(axisOffset(axis));
+            }
+
+            function tapeWidthForAxis(axis) {
+                return TAPE_BASE + TAPE_PRI_INCREMENT * axisExternalPri(axis);
             }
 
             // Each tape splits into two half-length boxes — emitter-side
@@ -437,11 +496,28 @@
 
             const tapes = [];
             for (let axis = 0; axis < 3; axis++) {
-                const w = widthForAxis(axis, ORDER_INDEX);
+                const w = tapeWidthForAxis(axis);
                 tapes[axis] = {
                     emitter: makeHalfTape(axis, w, "emitter"),
                     receiver: makeHalfTape(axis, w, "receiver"),
                 };
+            }
+
+            // Recreate each tape's box geometry to match the current
+            // pri(offset) for its axis. Called on any A/B/C offset change.
+            function rebuildTapeGeoms() {
+                for (let axis = 0; axis < 3; axis++) {
+                    const w = tapeWidthForAxis(axis);
+                    const [dx, dy, dz] = halfTapeDims(axis, w);
+                    for (const side of ["emitter", "receiver"]) {
+                        tapes[axis][side].geometry.dispose();
+                        tapes[axis][side].geometry = new THREE.BoxGeometry(
+                            dx,
+                            dy,
+                            dz,
+                        );
+                    }
+                }
             }
 
             // --- legend ---
@@ -508,7 +584,18 @@
                     (state.emitter[0] ? 1 : 0) |
                     (state.emitter[1] ? 2 : 0) |
                     (state.emitter[2] ? 4 : 0);
-                const y = priority3(x, ORDER_INDEX);
+                // priority3's bit→letter convention: bit 0 = A, bit 1 = B,
+                // bit 2 = C (internal to priority3). The reaction-box maps
+                // 3D axes to those bits as 0=x, 1=y, 2=z, so the pri values
+                // line up axisExternalPri(0..2) directly with priority3's
+                // A/B/C arguments.
+                const orderIndex = orderIndexFromPriorities(
+                    axisExternalPri(0),
+                    axisExternalPri(1),
+                    axisExternalPri(2),
+                    TIE_BREAKER,
+                );
+                const y = priority3(x, orderIndex);
                 for (let axis = 0; axis < 3; axis++) {
                     const e = state.emitter[axis];
                     emitters[axis].filled.visible = e;
@@ -546,6 +633,15 @@
                     state.emitter = [false, false, false];
                     recompute();
                 });
+
+            for (const letter of ["a", "b", "c"]) {
+                document
+                    .getElementById(letter + "Offset")
+                    .addEventListener("change", () => {
+                        rebuildTapeGeoms();
+                        recompute();
+                    });
+            }
 
             window.addEventListener("resize", () => {
                 camera.aspect = window.innerWidth / window.innerHeight;
