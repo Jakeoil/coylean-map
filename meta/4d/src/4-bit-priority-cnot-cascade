@@ -1,0 +1,79 @@
+// 4-bit priority CNOT cascade
+//
+// orderIndex selects one of the 24 priority permutations.
+//
+// Bits:
+//   bit 0 = A
+//   bit 1 = B
+//   bit 2 = C
+//   bit 3 = D
+//
+// Cascade rule:
+//
+//   p1 ^= p0
+//   p2 ^= p1
+//   p3 ^= p2
+//
+// where p0..p3 are the bits in priority order.
+//
+// All 24 permutations are generated automatically.
+
+function priority4(x, orderIndex) {
+
+    // Extract bits
+    let bits = [
+        (x >> 0) & 1, // A
+        (x >> 1) & 1, // B
+        (x >> 2) & 1, // C
+        (x >> 3) & 1  // D
+    ];
+
+    // Generate all 24 permutations once
+    const perms = generatePermutations([0,1,2,3]);
+
+    const p = perms[orderIndex];
+
+    // Cascade CNOTs
+
+    bits[p[1]] ^= bits[p[0]];
+    bits[p[2]] ^= bits[p[1]];
+    bits[p[3]] ^= bits[p[2]];
+
+    // Repack
+    return (
+        (bits[0] << 0) |
+        (bits[1] << 1) |
+        (bits[2] << 2) |
+        (bits[3] << 3)
+    );
+}
+
+
+// --------------------------------------------------
+// Permutation generator
+// --------------------------------------------------
+
+function generatePermutations(arr) {
+
+    const result = [];
+
+    function permute(prefix, rest) {
+
+        if (rest.length === 0) {
+            result.push(prefix);
+            return;
+        }
+
+        for (let i = 0; i < rest.length; i++) {
+
+            permute(
+                [...prefix, rest[i]],
+                [...rest.slice(0,i), ...rest.slice(i+1)]
+            );
+        }
+    }
+
+    permute([], arr);
+
+    return result;
+}
