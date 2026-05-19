@@ -96,6 +96,44 @@
                 color: #445;
             }
 
+            #panel details.card {
+                margin: 6px 0;
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                border-radius: 6px;
+                background: rgba(255, 255, 255, 0.4);
+            }
+
+            #panel details.card summary {
+                cursor: pointer;
+                padding: 4px 8px;
+                user-select: none;
+                font-weight: 600;
+                list-style: none;
+            }
+
+            #panel details.card summary::-webkit-details-marker {
+                display: none;
+            }
+
+            #panel details.card summary::before {
+                content: "▸ ";
+                display: inline-block;
+                margin-right: 2px;
+            }
+
+            #panel details.card[open] summary::before {
+                content: "▾ ";
+            }
+
+            #panel details.card .card-body {
+                padding: 4px 8px 6px;
+                border-top: 1px solid rgba(0, 0, 0, 0.06);
+            }
+
+            #panel details.card .card-body .row {
+                margin: 4px 0;
+            }
+
             #panel .legend .chip {
                 display: inline-block;
                 width: 10px;
@@ -198,8 +236,51 @@
                 </select>
             </div>
 
+            <details class="card" open>
+                <summary>Ribbon</summary>
+                <div class="card-body">
+                    <div class="row">
+                        <label for="widthPct">width %</label>
+                        <input
+                            id="widthPct"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value="0"
+                        />
+                    </div>
+                    <div class="row">
+                        <label for="usePriority">use priority</label>
+                        <input
+                            id="usePriority"
+                            type="checkbox"
+                            checked
+                        />
+                    </div>
+                    <div class="row">
+                        <label for="transparencyPct">transparency %</label>
+                        <input
+                            id="transparencyPct"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value="30"
+                        />
+                    </div>
+                    <div class="row">
+                        <label for="showArrow">show arrow</label>
+                        <input id="showArrow" type="checkbox" />
+                    </div>
+                    <div class="row">
+                        <label for="showArrowhead">arrowhead</label>
+                        <input id="showArrowhead" type="checkbox" checked />
+                    </div>
+                </div>
+            </details>
+
             <div class="row">
                 <button id="resetBtn">reset</button>
+                <button id="defaultsBtn">defaults</button>
             </div>
 
             <div class="legend" id="legend"></div>
@@ -455,8 +536,29 @@
                 return pri(axisOffset(axis));
             }
 
+            // Ribbon controls live on the panel. width % is a linear lerp
+            // from the "current" (priority-derived) width up to a 100%
+            // ribbon = full cube width (2.0). use-priority toggles whether
+            // the priority contributes to the current width at all.
+            const TAPE_MAX_WIDTH = 2.0;
+
             function tapeWidthForAxis(axis) {
-                return TAPE_BASE + TAPE_PRI_INCREMENT * axisExternalPri(axis);
+                const usePriority =
+                    document.getElementById("usePriority").checked;
+                const pct =
+                    parseInt(
+                        document.getElementById("widthPct").value,
+                        10,
+                    ) || 0;
+                const priorityWidth =
+                    TAPE_BASE +
+                    (usePriority
+                        ? TAPE_PRI_INCREMENT * axisExternalPri(axis)
+                        : 0);
+                return (
+                    priorityWidth +
+                    (TAPE_MAX_WIDTH - priorityWidth) * (pct / 100)
+                );
             }
 
             // Each tape splits into two half-length boxes — emitter-side
@@ -520,6 +622,123 @@
                 }
             }
 
+            // Push the panel's transparency % onto every half-tape's
+            // MeshBasicMaterial opacity. 0% transparent = fully opaque (1.0).
+            function applyTapeOpacity() {
+                const t = parseInt(
+                    document.getElementById("transparencyPct").value,
+                    10,
+                );
+                const opacity = Math.max(0, Math.min(1, 1 - t / 100));
+                for (let axis = 0; axis < 3; axis++) {
+                    tapes[axis].emitter.material.opacity = opacity;
+                    tapes[axis].receiver.material.opacity = opacity;
+                }
+            }
+
+            // Propagation-direction arrows. One per axis, pointing from a
+            // point near the origin toward the receiver disc. Off by
+            // default; toggled by the panel's "show arrow" checkbox.
+            // 2D arrows lying flat in the tape's broad plane (u along
+            // propagation, v along ribbon width, normal = tape thickness
+            // axis). Each arrow is a Mesh with a BufferGeometry rebuilt
+            // whenever its length or arrowhead toggle changes.
+            //
+            // Local u parameter: 0 = emitter face, 1 = central crossing,
+            // 2 = receiver face. updateArrows() picks the tip per the
+            // receiver bit (the bit's fate at the central cascade).
+            const ARROW_SHAFT_HALF_W = 0.03;
+            const ARROW_HEAD_HALF_W = 0.085;
+            const ARROW_HEAD_LEN = 0.15;
+            const ARROW_INSET = 0.04;
+
+            // Project local (u, v) into world coords for the given axis.
+            // u traverses from emitter (u=0) toward receiver (u=2); v is
+            // the ribbon-width direction. The tape-thickness axis stays
+            // at 0 so the arrow lies in the tape's central plane.
+            function projectArrow(u, v, axis) {
+                const out = [0, 0, 0];
+                out[axis] = EMITTER_SIGN[axis] * (1 - u);
+                out[(axis + 1) % 3] = v;
+                return out;
+            }
+
+            function buildArrowGeometry(axis, uEnd, hasHead) {
+                const s = ARROW_SHAFT_HALF_W;
+                const h = ARROW_HEAD_HALF_W;
+                const uStart = ARROW_INSET;
+                const uTip = uEnd - ARROW_INSET;
+                const headLen = hasHead ? ARROW_HEAD_LEN : 0;
+                const uShaftEnd = uTip - headLen;
+                const verts = [];
+                const idx = [];
+                if (hasHead) {
+                    // 7-vertex outline: shaft rectangle + head triangle.
+                    verts.push(...projectArrow(uStart, s, axis)); // 0
+                    verts.push(...projectArrow(uShaftEnd, s, axis)); // 1
+                    verts.push(...projectArrow(uShaftEnd, h, axis)); // 2
+                    verts.push(...projectArrow(uTip, 0, axis)); // 3
+                    verts.push(...projectArrow(uShaftEnd, -h, axis)); // 4
+                    verts.push(...projectArrow(uShaftEnd, -s, axis)); // 5
+                    verts.push(...projectArrow(uStart, -s, axis)); // 6
+                    idx.push(0, 6, 5, 0, 5, 1, 2, 4, 3);
+                } else {
+                    // Plain rectangle from uStart..uTip.
+                    verts.push(...projectArrow(uStart, s, axis)); // 0
+                    verts.push(...projectArrow(uTip, s, axis)); // 1
+                    verts.push(...projectArrow(uTip, -s, axis)); // 2
+                    verts.push(...projectArrow(uStart, -s, axis)); // 3
+                    idx.push(0, 3, 2, 0, 2, 1);
+                }
+                const geom = new THREE.BufferGeometry();
+                geom.setAttribute(
+                    "position",
+                    new THREE.Float32BufferAttribute(verts, 3),
+                );
+                geom.setIndex(idx);
+                geom.computeVertexNormals();
+                return geom;
+            }
+
+            const arrows = [];
+            for (let axis = 0; axis < 3; axis++) {
+                const mat = new THREE.MeshBasicMaterial({
+                    color: axisRamp(axis).base,
+                    side: THREE.DoubleSide,
+                    depthWrite: false,
+                });
+                const mesh = new THREE.Mesh(
+                    new THREE.BufferGeometry(),
+                    mat,
+                );
+                mesh.visible = false;
+                scene.add(mesh);
+                arrows.push(mesh);
+            }
+
+            // Rebuild every arrow's geometry + visibility from the current
+            // emitter / receiver state (passed in) and the two toggles.
+            // Called from recompute() and from the show-arrow / arrowhead
+            // change handlers.
+            function updateArrows() {
+                const showArrow =
+                    document.getElementById("showArrow").checked;
+                const showHead =
+                    document.getElementById("showArrowhead").checked;
+                for (let axis = 0; axis < 3; axis++) {
+                    const visible = showArrow && state.emitter[axis];
+                    arrows[axis].visible = visible;
+                    if (!visible) continue;
+                    const uEnd = state.receiver[axis] ? 2 : 1;
+                    arrows[axis].geometry.dispose();
+                    arrows[axis].geometry = buildArrowGeometry(
+                        axis,
+                        uEnd,
+                        showHead,
+                    );
+                }
+            }
+
             // --- legend ---
             // 3D-axis order; the spec labels them B (x), A (y), C (z).
             const AXIS_DESCRIPTORS = [
@@ -564,6 +783,7 @@
                     receivers[axis].outline.material.color.setHex(ramp.base);
                     tapes[axis].emitter.material.color.setHex(ramp.glow);
                     tapes[axis].receiver.material.color.setHex(ramp.glow);
+                    arrows[axis].material.color.setHex(ramp.base);
                 }
                 buildLegend();
             }
@@ -575,8 +795,11 @@
             }
 
             // --- state ---
+            // receiver[] is updated by recompute() so updateArrows() can
+            // read the post-cascade bits without redoing the gate.
             const state = {
                 emitter: [false, false, false],
+                receiver: [false, false, false],
             };
 
             function recompute() {
@@ -601,6 +824,7 @@
                     emitters[axis].filled.visible = e;
                     emitters[axis].outline.visible = !e;
                     const r = ((y >> axis) & 1) === 1;
+                    state.receiver[axis] = r;
                     receivers[axis].filled.visible = r;
                     receivers[axis].outline.visible = !r;
                     // Half-tape visibility follows each end's bit value: a
@@ -609,6 +833,7 @@
                     tapes[axis].emitter.visible = e;
                     tapes[axis].receiver.visible = r;
                 }
+                updateArrows();
             }
 
             // --- input ---
@@ -634,6 +859,36 @@
                     recompute();
                 });
 
+            // Defaults button: restore every panel control to the value
+            // declared in the HTML, then re-run every applier so the
+            // scene matches.
+            const DEFAULTS = {
+                aOffset: "1",
+                bOffset: "1",
+                cOffset: "1",
+                aColor: "red",
+                bColor: "blue",
+                cColor: "green",
+                widthPct: "0",
+                transparencyPct: "30",
+                usePriority: true,
+                showArrow: false,
+                showArrowhead: true,
+            };
+            document
+                .getElementById("defaultsBtn")
+                .addEventListener("click", () => {
+                    for (const [id, v] of Object.entries(DEFAULTS)) {
+                        const el = document.getElementById(id);
+                        if (typeof v === "boolean") el.checked = v;
+                        else el.value = v;
+                    }
+                    rebuildTapeGeoms();
+                    applyTapeOpacity();
+                    applyAxisColors();
+                    recompute();
+                });
+
             for (const letter of ["a", "b", "c"]) {
                 document
                     .getElementById(letter + "Offset")
@@ -642,6 +897,53 @@
                         recompute();
                     });
             }
+
+            // Ribbon card controls. Width % and use-priority both feed
+            // tapeWidthForAxis, so they trigger a geometry rebuild;
+            // transparency just adjusts material opacity in place; the
+            // two arrow toggles drive updateArrows() (which rebuilds
+            // each arrow's BufferGeometry per emitter/receiver state).
+            for (const id of ["widthPct", "usePriority"]) {
+                document
+                    .getElementById(id)
+                    .addEventListener("change", rebuildTapeGeoms);
+            }
+            document
+                .getElementById("transparencyPct")
+                .addEventListener("change", applyTapeOpacity);
+            for (const id of ["showArrow", "showArrowhead"]) {
+                document
+                    .getElementById(id)
+                    .addEventListener("change", updateArrows);
+            }
+
+            // Wheel-to-scrub on the two number boxes. deltaY < 0 (wheel
+            // up) increments; preventDefault stops the page from
+            // scrolling underneath the panel.
+            function attachWheelStep(id, step, applyFn) {
+                const el = document.getElementById(id);
+                el.addEventListener(
+                    "wheel",
+                    (e) => {
+                        e.preventDefault();
+                        const delta = e.deltaY < 0 ? step : -step;
+                        const min = parseInt(el.min || "0", 10);
+                        const max = parseInt(el.max || "100", 10);
+                        let v = parseInt(el.value, 10) || 0;
+                        v = Math.max(min, Math.min(max, v + delta));
+                        el.value = v;
+                        applyFn();
+                    },
+                    { passive: false },
+                );
+            }
+            attachWheelStep("widthPct", 5, rebuildTapeGeoms);
+            attachWheelStep("transparencyPct", 5, applyTapeOpacity);
+
+            // Run the in-place appliers once so the default panel values
+            // are reflected (initial opacity 0.7 from transparency = 30,
+            // arrows off, etc.).
+            applyTapeOpacity();
 
             window.addEventListener("resize", () => {
                 camera.aspect = window.innerWidth / window.innerHeight;
