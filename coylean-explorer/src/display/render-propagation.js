@@ -83,7 +83,7 @@ function appendLabelWithBg(parent, cx, cy, text, bgFill) {
 //         attach click handlers on every cell — handler then dispatches on
 //         (i, j) to choose init-toggle vs. interior-perturbation behavior.
 export function renderPropagation(svg, config, result, flags, hooks) {
-    const { numRows: nR, numCols: nC, hInitCol, vInitRow, seniority } = config;
+    const { numRows: nR, numCols: nC, hInitCol, vInitRow, seniority, maxPri } = config;
     const { downMatrix: dm, rightMatrix: rm } = result;
     const { showLabels, showReactionLabels, showMinimize, encroachMode = "off", arrowMode = "full", showBorders, showFill = true, initEditable = false, allCellsClickable = false, priorityArrows = false } = flags;
     const showEncroach = encroachMode !== "off";
@@ -158,6 +158,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
     const pipePanel = {
         numRows: nR, numCols: nC,
         hInitCol, vInitRow,
+        maxPri,
         downMatrix: dm, rightMatrix: rm,
     };
     renderPipes(vp, pipePanel, flags);
@@ -201,7 +202,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                 if (!dm[j][i]) continue;
                 const [cx, cy] = downPos(i, j);
                 const arrowColor = initEditable && j === 0 ? "#f00" : "#7a2d2d";
-                const preset = priorityArrows ? presetForPri(pri(i + hInitCol)) : "current";
+                const preset = priorityArrows ? presetForPri(pri(i + hInitCol, maxPri)) : "current";
                 if (arrowMode === "line") {
                     vp.appendChild(svgEl("line", {
                         ...downLineSeg(cx, cy, D, preset),
@@ -227,7 +228,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                 if (!rm[i][j]) continue;
                 const [cx, cy] = rightPos(i, j);
                 const arrowColor = initEditable && i === 0 ? "#00f" : "#3d6a8a";
-                const preset = priorityArrows ? presetForPri(pri(j + vInitRow)) : "current";
+                const preset = priorityArrows ? presetForPri(pri(j + vInitRow, maxPri)) : "current";
                 if (arrowMode === "line") {
                     vp.appendChild(svgEl("line", {
                         ...rightLineSeg(cx, cy, D, preset),
@@ -285,8 +286,8 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             const [cx, cy] = cellPos(i, j);
 
             if (showReactionLabels) {
-                const pI = pri(i + hInitCol);
-                const pJ = pri(j + vInitRow);
+                const pI = pri(i + hInitCol, maxPri);
+                const pJ = pri(j + vInitRow, maxPri);
                 const dw = seniority.isVertical
                     ? pI >= pJ
                     : pI > pJ;

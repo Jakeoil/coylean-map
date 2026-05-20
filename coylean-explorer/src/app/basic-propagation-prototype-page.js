@@ -17,6 +17,7 @@ export function init() {
         numCols: document.getElementById("numCols"),
         hInitCol: document.getElementById("hInitCol"),
         vInitRow: document.getElementById("vInitRow"),
+        maxPri: document.getElementById("maxPri"),
         initDown: document.getElementById("initDown"),
         initRight: document.getElementById("initRight"),
     };
@@ -28,6 +29,7 @@ export function init() {
         numCols: +inputs.numCols.value,
         hInitCol: +inputs.hInitCol.value,
         vInitRow: +inputs.vInitRow.value,
+        maxPri: +inputs.maxPri.value,
         seniority: Seniority.vertical(),
         // Boolean init arrays (top row of downMatrix, left column of rightMatrix).
         initDown: Array(+inputs.numCols.value).fill(true),
@@ -130,6 +132,7 @@ export function init() {
         config.numCols = newNumCols;
         config.hInitCol = +inputs.hInitCol.value;
         config.vInitRow = +inputs.vInitRow.value;
+        config.maxPri = +inputs.maxPri.value;
     }
 
     function paintInitInputs() {
@@ -149,6 +152,7 @@ export function init() {
             hInitCol: config.hInitCol,
             vInitRow: config.vInitRow,
             seniority: config.seniority,
+            maxPri: config.maxPri,
             initDown: config.initDown,
             initRight: config.initRight,
         });
@@ -164,6 +168,7 @@ export function init() {
   initDown:  ${boolsToHex(config.initDown)},
   initRight: ${boolsToHex(config.initRight)},
   ${seniorityCall},
+  maxPri: ${config.maxPri},
 })`;
         paintInitInputs();
         const hooks = flags.initEditable
@@ -175,7 +180,7 @@ export function init() {
     // ── Controls ──
 
     // Numeric inputs render on every keystroke; text init inputs commit on blur/Enter only.
-    for (const key of ["numRows", "numCols", "hInitCol", "vInitRow"]) {
+    for (const key of ["numRows", "numCols", "hInitCol", "vInitRow", "maxPri"]) {
         inputs[key].addEventListener("input", render);
         attachWheelStep(inputs[key]);
     }

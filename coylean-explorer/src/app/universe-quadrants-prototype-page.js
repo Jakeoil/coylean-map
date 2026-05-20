@@ -28,6 +28,7 @@ export function init() {
         eastExtent: document.getElementById("eastExtent"),
         hInitCol: document.getElementById("hInitCol"),
         vInitRow: document.getElementById("vInitRow"),
+        maxPri: document.getElementById("maxPri"),
     };
     const hexInputs = {
         westInitDown:   document.getElementById("westInitDown"),
@@ -68,6 +69,7 @@ export function init() {
         eastExtent:  +numericInputs.eastExtent.value,
         hInitCol: +numericInputs.hInitCol.value,
         vInitRow: +numericInputs.vInitRow.value,
+        maxPri: +numericInputs.maxPri.value,
         seniority: Seniority.vertical(),
         // Shared central-axis init arrays. Each is the initDown / initRight
         // of the two quadrants that touch that side. Default all-true at
@@ -153,6 +155,7 @@ export function init() {
         config.eastExtent  = +numericInputs.eastExtent.value;
         config.hInitCol = +numericInputs.hInitCol.value;
         config.vInitRow = +numericInputs.vInitRow.value;
+        config.maxPri = +numericInputs.maxPri.value;
 
         // Resize each shared init array if its driving extent changed.
         const eff = readEffectiveExtents();
@@ -208,6 +211,7 @@ export function init() {
                 `  vInitRow = ${config.vInitRow},\n` +
                 `  seniority = ${seniorityCall},\n` +
                 initSig +
+                `  { maxPri: ${config.maxPri} },\n` +
                 `)`;
             result = Universe.createUniverseQuadrants(
                 [config.minRow, config.maxRow],
@@ -216,6 +220,7 @@ export function init() {
                 config.vInitRow,
                 config.seniority,
                 initArrays,
+                { maxPri: config.maxPri },
             );
         } else {
             baseSig =
@@ -228,6 +233,7 @@ export function init() {
                 `  vInitRow = ${config.vInitRow},\n` +
                 `  seniority = ${seniorityCall},\n` +
                 initSig +
+                `  { maxPri: ${config.maxPri} },\n` +
                 `)`;
             result = Universe.createUniverseExtents(
                 config.northExtent,
@@ -238,6 +244,7 @@ export function init() {
                 config.vInitRow,
                 config.seniority,
                 initArrays,
+                { maxPri: config.maxPri },
             );
         }
         const { nw, ne, sw, se } = result;

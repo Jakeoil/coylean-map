@@ -35,7 +35,7 @@ const PRESET_PIPE_SCALE = {
 // flags: { pipesMode: "off" | "pipes" | "priority", pipesSize: 0..100 }
 export function renderPipes(parent, panel, flags) {
     const {
-        numRows, numCols, hInitCol, vInitRow,
+        numRows, numCols, hInitCol, vInitRow, maxPri,
         downMatrix: dm, rightMatrix: rm,
         x = 0, y = 0,
         flipJ = false, flipI = false,
@@ -49,12 +49,12 @@ export function renderPipes(parent, panel, flags) {
     const dForDown = (i, val) => {
         if (!val) return 0;
         if (!usePriority) return baseD;
-        return baseD * PRESET_PIPE_SCALE[presetForPri(pri(i + hInitCol))];
+        return baseD * PRESET_PIPE_SCALE[presetForPri(pri(i + hInitCol, maxPri))];
     };
     const dForRight = (j, val) => {
         if (!val) return 0;
         if (!usePriority) return baseD;
-        return baseD * PRESET_PIPE_SCALE[presetForPri(pri(j + vInitRow))];
+        return baseD * PRESET_PIPE_SCALE[presetForPri(pri(j + vInitRow, maxPri))];
     };
 
     // Decorative overlay — never intercept clicks aimed at diamonds beneath.
@@ -94,7 +94,7 @@ export function renderPipes(parent, panel, flags) {
 // Same panel descriptor and flags as renderPipes.
 export function renderOrphanPipes(parent, panel, flags) {
     const {
-        numRows, numCols, hInitCol, vInitRow,
+        numRows, numCols, hInitCol, vInitRow, maxPri,
         downMatrix: dm, rightMatrix: rm,
         x = 0, y = 0,
         flipJ = false, flipI = false,
@@ -110,22 +110,22 @@ export function renderOrphanPipes(parent, panel, flags) {
     const dForDown = (i, val) => {
         if (!val) return 0;
         if (!usePriority) return baseD;
-        return baseD * PRESET_PIPE_SCALE[presetForPri(pri(i + hInitCol))];
+        return baseD * PRESET_PIPE_SCALE[presetForPri(pri(i + hInitCol, maxPri))];
     };
     const dForRight = (j, val) => {
         if (!val) return 0;
         if (!usePriority) return baseD;
-        return baseD * PRESET_PIPE_SCALE[presetForPri(pri(j + vInitRow))];
+        return baseD * PRESET_PIPE_SCALE[presetForPri(pri(j + vInitRow, maxPri))];
     };
     // Ghost-crossbar diameter: applies the same priority rule, but
     // unconditionally (the non-existent pipe is assumed present).
     const dGhostRow = (jGhost) => {
         if (!usePriority) return baseD;
-        return baseD * PRESET_PIPE_SCALE[presetForPri(pri(jGhost + vInitRow))];
+        return baseD * PRESET_PIPE_SCALE[presetForPri(pri(jGhost + vInitRow, maxPri))];
     };
     const dGhostCol = (iGhost) => {
         if (!usePriority) return baseD;
-        return baseD * PRESET_PIPE_SCALE[presetForPri(pri(iGhost + hInitCol))];
+        return baseD * PRESET_PIPE_SCALE[presetForPri(pri(iGhost + hInitCol, maxPri))];
     };
 
     // Edge diamond indices (panel-local) at each visual edge.

@@ -22,19 +22,32 @@ export class Seniority {
 }
 
 /**
+ * Default ceiling for the priority sequence. Clamping at 20 keeps the
+ * 0 → "infinite priority" axis cell distinguishable from any practical
+ * map's interior priorities (2^20 cells is well past anything we render),
+ * while still making the priority sequence periodic when callers shrink
+ * the ceiling explicitly.
+ */
+export const DEFAULT_MAX_PRI = 20;
+
+/**
  * Evenness (2-adic valuation) of n.
  * Counts trailing zeros in binary representation.
- * 0 has infinite evenness (returns 100).
+ * 0 has infinite evenness (returns DEFAULT_MAX_PRI by default).
  * evenness(n) == oddness(n - 1)
+ *
+ * Optional `maxPri` clamps the result, producing a periodic priority
+ * sequence of length 2^maxPri (so a smaller ceiling shortens the
+ * propagation period).
  */
-export function pri(n) {
+export function pri(n, maxPri = DEFAULT_MAX_PRI) {
     let p = 0;
-    if (n === 0) return 100;
+    if (n === 0) return maxPri;
     while (n % 2 === 0) {
         p++;
         n = Math.floor(n / 2);
     }
-    return p;
+    return Math.min(p, maxPri);
 }
 
 /**
@@ -315,6 +328,11 @@ export function universalPropagate(
  *   Vertical offset applied to row indices when computing priority.
  * @param {Seniority} [options.seniority]
  *   Tie-breaking rule for priority comparisons. Defaults to vertical.
+ * @param {number} [options.maxPri]
+ *   Ceiling applied to the priority sequence. The standard map uses the
+ *   unclamped 2-adic valuation; lowering this makes priorities periodic
+ *   so the propagation pattern repeats at shorter intervals. Defaults
+ *   to {@link DEFAULT_MAX_PRI}.
  * @param {boolean[]} [options.initDown]
  *   Top-row down inputs (length = numColumns). Defaults to all-true.
  * @param {boolean[]} [options.initRight]
@@ -326,6 +344,7 @@ export function universalPropagate(
  * @property {number} hInitCol
  * @property {number} vInitRow
  * @property {Seniority} seniority
+ * @property {number} maxPri
  * @property {Row[]} downMatrix
  * @property {Col[]} rightMatrix
  * @property {number[]} colPriority  Precomputed pri(i + hInitCol) per column.
@@ -353,6 +372,7 @@ export class Propagation {
         hInitCol,
         vInitRow,
         seniority = Seniority.vertical(),
+        maxPri = DEFAULT_MAX_PRI,
         initDown,
         initRight,
     }) {
@@ -369,10 +389,13 @@ export class Propagation {
         this.hInitCol = hInitCol;
         this.vInitRow = vInitRow;
         this.seniority = seniority;
+        this.maxPri = maxPri;
         this.colPriority = [...Array(numColumns)].map((_, i) =>
-            pri(i + hInitCol),
+            pri(i + hInitCol, maxPri),
         );
-        this.rowPriority = [...Array(numRows)].map((_, j) => pri(j + vInitRow));
+        this.rowPriority = [...Array(numRows)].map((_, j) =>
+            pri(j + vInitRow, maxPri),
+        );
 
         const downMatrix = createDownMatrix(numRows);
         const rightMatrix = createRightMatrix(numColumns);
@@ -523,6 +546,7 @@ export class Propagation {
             hInitCol,
             vInitRow,
             seniority: anyQuad.seniority,
+            maxPri: anyQuad.maxPri,
             initDown,
             initRight,
         });
@@ -642,6 +666,7 @@ export class Universe {
         hInitCol,
         vInitRow,
         seniority,
+        maxPri = DEFAULT_MAX_PRI,
         nw,
         ne,
         sw,
@@ -655,6 +680,7 @@ export class Universe {
             hInitCol,
             vInitRow,
             seniority,
+            maxPri,
             nw,
             ne,
             sw,
@@ -681,6 +707,7 @@ export class Universe {
         hInitCol = 1,
         vInitRow = 1,
         seniority = Seniority.vertical(),
+        { maxPri = DEFAULT_MAX_PRI } = {},
     ) {
         const quadrant = (direction, h, v) =>
             new Propagation({
@@ -690,6 +717,7 @@ export class Universe {
                 hInitCol: h,
                 vInitRow: v,
                 seniority,
+                maxPri,
             });
         return new Universe(
             numRows,
@@ -699,6 +727,7 @@ export class Universe {
             hInitCol,
             vInitRow,
             seniority,
+            maxPri,
             quadrant("nw", 1 - hInitCol, 1 - vInitRow),
             quadrant("ne", hInitCol, 1 - vInitRow),
             quadrant("sw", 1 - hInitCol, vInitRow),
@@ -744,6 +773,7 @@ export class Universe {
         vInitRow = 1,
         seniority = Seniority.vertical(),
         initArrays = {},
+        { maxPri = DEFAULT_MAX_PRI } = {},
     ) {
         const [minRow, maxRow] = rowRange;
         const [minCol, maxCol] = colRange;
@@ -757,6 +787,7 @@ export class Universe {
         return Universe.createUniverseExtents(
             northExtent, southExtent, westExtent, eastExtent,
             hInitCol, vInitRow, seniority, initArrays,
+            { maxPri },
         );
     }
 
@@ -793,6 +824,7 @@ export class Universe {
         vInitRow = 1,
         seniority = Seniority.vertical(),
         initArrays = {},
+        { maxPri = DEFAULT_MAX_PRI } = {},
     ) {
         if (northExtent < 0 || southExtent < 0 || westExtent < 0 || eastExtent < 0) {
             throw new Error("Universe extents must be non-negative");
@@ -808,7 +840,7 @@ export class Universe {
             (numRows && numColumns)
                 ? new Propagation({
                     direction, numRows, numColumns,
-                    hInitCol: h, vInitRow: v, seniority,
+                    hInitCol: h, vInitRow: v, seniority, maxPri,
                     initDown, initRight,
                 })
                 : null;
@@ -844,7 +876,7 @@ export class Universe {
      * @returns {Universe}
      */
     static hPartition(propagation, downs, i) {
-        const { numRows, numColumns, hInitCol, vInitRow, seniority, initRight } = propagation;
+        const { numRows, numColumns, hInitCol, vInitRow, seniority, maxPri, initRight } = propagation;
         if (i < 0 || i > numRows) {
             throw new Error(`hPartition: i=${i} out of range [0, ${numRows}]`);
         }
@@ -874,10 +906,11 @@ export class Universe {
             northExtent, southExtent, westExtent, eastExtent,
             hInitCol, vInitRowPassed, seniority,
             { eastInitDown, northInitRight, southInitRight },
+            { maxPri },
         );
         return Universe.fromPropagations({
             northExtent, southExtent, westExtent, eastExtent,
-            hInitCol, vInitRow: vInitRowPassed, seniority,
+            hInitCol, vInitRow: vInitRowPassed, seniority, maxPri,
             nw, ne, sw, se,
         });
     }
@@ -902,7 +935,7 @@ export class Universe {
      * @returns {Universe}
      */
     static vPartition(propagation, rights, j) {
-        const { numRows, numColumns, hInitCol, vInitRow, seniority, initDown } = propagation;
+        const { numRows, numColumns, hInitCol, vInitRow, seniority, maxPri, initDown } = propagation;
         if (j < 0 || j > numColumns) {
             throw new Error(`vPartition: j=${j} out of range [0, ${numColumns}]`);
         }
@@ -931,10 +964,11 @@ export class Universe {
             northExtent, southExtent, westExtent, eastExtent,
             hInitColPassed, vInitRow, seniority,
             { westInitDown, eastInitDown, southInitRight },
+            { maxPri },
         );
         return Universe.fromPropagations({
             northExtent, southExtent, westExtent, eastExtent,
-            hInitCol: hInitColPassed, vInitRow, seniority,
+            hInitCol: hInitColPassed, vInitRow, seniority, maxPri,
             nw, ne, sw, se,
         });
     }
@@ -969,6 +1003,7 @@ export class Universe {
         hInitCol,
         vInitRow,
         seniority = Seniority.vertical(),
+        maxPri = DEFAULT_MAX_PRI,
         westInitDown,
         eastInitDown,
         northInitRight,
@@ -982,6 +1017,7 @@ export class Universe {
                 hInitCol: h,
                 vInitRow: v,
                 seniority,
+                maxPri,
                 initDown,
                 initRight,
             });
@@ -993,6 +1029,7 @@ export class Universe {
             hInitCol,
             vInitRow,
             seniority,
+            maxPri,
             quadrant("nw", northExtent, westExtent, 1 - hInitCol, 1 - vInitRow, westInitDown, northInitRight),
             quadrant("ne", northExtent, eastExtent, hInitCol,     1 - vInitRow, eastInitDown, northInitRight),
             quadrant("sw", southExtent, westExtent, 1 - hInitCol, vInitRow,     westInitDown, southInitRight),
@@ -1016,6 +1053,7 @@ export class Universe {
         hInitCol,
         vInitRow,
         seniority,
+        maxPri,
         nw,
         ne,
         sw,
@@ -1028,6 +1066,7 @@ export class Universe {
         this.hInitCol = hInitCol;
         this.vInitRow = vInitRow;
         this.seniority = seniority;
+        this.maxPri = maxPri ?? DEFAULT_MAX_PRI;
         this.nw = nw;
         this.ne = ne;
         this.sw = sw;
@@ -1042,6 +1081,7 @@ export class Universe {
             eastExtent,
             hInitCol,
             vInitRow,
+            maxPri,
             nw,
             ne,
             sw,
@@ -1059,10 +1099,10 @@ export class Universe {
 
         // Global index → local coordinate (relative to origin) → priority.
         const colPriority = [...Array(numColumns)].map((_, i) =>
-            pri(i - originCol + hInitCol),
+            pri(i - originCol + hInitCol, maxPri),
         );
         const rowPriority = [...Array(numRows)].map((_, j) =>
-            pri(j - originRow + vInitRow),
+            pri(j - originRow + vInitRow, maxPri),
         );
 
         const downMatrix = [...Array(numRows)].map(() => {

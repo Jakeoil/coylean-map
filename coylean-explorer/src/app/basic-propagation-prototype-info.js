@@ -8,9 +8,9 @@ function valSpan(v) {
 export function makeInfo(info, getCtx) {
     function showDownInfo(i, j, val) {
         const { config } = getCtx();
-        const { hInitCol, vInitRow } = config;
-        const pI = pri(i + hInitCol);
-        const pJ = pri(j + vInitRow);
+        const { hInitCol, vInitRow, maxPri } = config;
+        const pI = pri(i + hInitCol, maxPri);
+        const pJ = pri(j + vInitRow, maxPri);
         info.innerHTML = `
         <div class="title" style="color:#9a4a4a">Down Matrix r${j}c${i}</div>
         <div class="row">downMatrix[${j}][${i}] = ${valSpan(val)}</div>
@@ -23,9 +23,9 @@ export function makeInfo(info, getCtx) {
 
     function showRightInfo(i, j, val) {
         const { config } = getCtx();
-        const { hInitCol, vInitRow } = config;
-        const pI = pri(i + hInitCol);
-        const pJ = pri(j + vInitRow);
+        const { hInitCol, vInitRow, maxPri } = config;
+        const pI = pri(i + hInitCol, maxPri);
+        const pJ = pri(j + vInitRow, maxPri);
         info.innerHTML = `
         <div class="title" style="color:#5a8aaa">Right Matrix c${i}r${j}</div>
         <div class="row">rightMatrix[${i}][${j}] = ${valSpan(val)}</div>
@@ -38,7 +38,7 @@ export function makeInfo(info, getCtx) {
 
     function showCellInfo(i, j) {
         const { config, result } = getCtx();
-        const { hInitCol, vInitRow, seniority } = config;
+        const { hInitCol, vInitRow, seniority, maxPri } = config;
         const { downMatrix: dm, rightMatrix: rm } = result;
         const dIn = dm[j][i];
         const rIn = rm[i][j];
@@ -51,8 +51,8 @@ export function makeInfo(info, getCtx) {
             vInitRow,
             seniority,
         );
-        const pI = pri(i + hInitCol);
-        const pJ = pri(j + vInitRow);
+        const pI = pri(i + hInitCol, maxPri);
+        const pJ = pri(j + vInitRow, maxPri);
         const winner = (seniority.isVertical ? pI >= pJ : pI > pJ)
             ? "down wins"
             : "right wins";

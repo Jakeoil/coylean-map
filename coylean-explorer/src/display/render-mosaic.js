@@ -312,6 +312,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks, labelBg) {
     const pipePanel = {
         numRows, numCols,
         hInitCol: p.hInitCol, vInitRow: p.vInitRow,
+        maxPri: p.maxPri,
         downMatrix: p.downMatrix, rightMatrix: p.rightMatrix,
         x, y,
         flipJ, flipI,
@@ -357,7 +358,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks, labelBg) {
                 if (!p.downMatrix[j][i]) continue;
                 const [cx, cy] = downC(i, j);
                 const arrowColor = initEditable && j === 0 ? "#f00" : ARROW_DOWN;
-                const preset = priorityArrows ? presetForPri(pri(i + p.hInitCol)) : "current";
+                const preset = priorityArrows ? presetForPri(pri(i + p.hInitCol, p.maxPri)) : "current";
                 if (arrowMode === "line") {
                     group.appendChild(svgEl("line", {
                         ...downLineSeg(cx, cy, D, preset),
@@ -384,7 +385,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks, labelBg) {
                 if (!p.rightMatrix[i][j]) continue;
                 const [cx, cy] = rightC(i, j);
                 const arrowColor = initEditable && i === 0 ? "#00f" : ARROW_RIGHT;
-                const preset = priorityArrows ? presetForPri(pri(j + p.vInitRow)) : "current";
+                const preset = priorityArrows ? presetForPri(pri(j + p.vInitRow, p.maxPri)) : "current";
                 if (arrowMode === "line") {
                     group.appendChild(svgEl("line", {
                         ...rightLineSeg(cx, cy, D, preset),
@@ -447,8 +448,8 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks, labelBg) {
         for (let j = 0; j < numRows; j++) {
             for (let i = 0; i < numCols; i++) {
                 const [cx, cy] = cellC(i, j);
-                const pI = pri(i + p.hInitCol);
-                const pJ = pri(j + p.vInitRow);
+                const pI = pri(i + p.hInitCol, p.maxPri);
+                const pJ = pri(j + p.vInitRow, p.maxPri);
                 const dw = isVert ? pI >= pJ : pI > pJ;
 
                 group.appendChild(Object.assign(
