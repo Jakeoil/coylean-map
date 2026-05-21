@@ -23,7 +23,7 @@ export function makeMosaicInfo(info, getCtx) {
         if (!q) return;
         const p = q.p;
         info.innerHTML = `
-            <div class="title" style="color:#9a4a4a">${quadName.toUpperCase()} · Down r${j}c${i}</div>
+            <div class="title" style="color:var(--row-outline)">${quadName.toUpperCase()} · Down r${j}c${i}</div>
             <div class="row">downMatrix[${j}][${i}] = ${valSpan(val)}</div>
             <div class="row dim">quadrant ${p.numRows}×${p.numColumns}, h/v=${p.hInitCol}/${p.vInitRow}</div>
         `;
@@ -34,7 +34,7 @@ export function makeMosaicInfo(info, getCtx) {
         if (!q) return;
         const p = q.p;
         info.innerHTML = `
-            <div class="title" style="color:#5a8aaa">${quadName.toUpperCase()} · Right c${i}r${j}</div>
+            <div class="title" style="color:var(--col-outline)">${quadName.toUpperCase()} · Right c${i}r${j}</div>
             <div class="row">rightMatrix[${i}][${j}] = ${valSpan(val)}</div>
             <div class="row dim">quadrant ${p.numRows}×${p.numColumns}, h/v=${p.hInitCol}/${p.vInitRow}</div>
         `;

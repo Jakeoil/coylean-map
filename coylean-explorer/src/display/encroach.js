@@ -1,10 +1,10 @@
 import { svgEl } from "./svg.js";
 import { D } from "./diagram-coords.js";
+import { theme } from "./theme.js";
 
-const FILL_DOWN = "#e0a8a8";
-const FILL_RIGHT = "#bcd8e8";
-const STROKE_DOWN = "#7a2d2d";
-const STROKE_RIGHT = "#3d6a8a";
+// Encroach overlay: half-fills match the diamond fill (theme.*.glow);
+// bisecting lines and incursion edges match the diamond border
+// (theme.*.outline). Read live at draw time so theme toggles flow through.
 
 // Render the encroachment overlay into `parent`.
 //
@@ -40,7 +40,7 @@ export function renderEncroach(parent, opts) {
                 parent.appendChild(
                     svgEl("polygon", {
                         points: `${cx},${cy - D} ${cx},${cy + D} ${wX(cx)},${cy}`,
-                        fill: FILL_DOWN,
+                        fill: theme.row.glow,
                         stroke: "none",
                     }),
                 );
@@ -49,7 +49,7 @@ export function renderEncroach(parent, opts) {
                 parent.appendChild(
                     svgEl("polygon", {
                         points: `${cx},${cy - D} ${eX(cx)},${cy} ${cx},${cy + D}`,
-                        fill: FILL_DOWN,
+                        fill: theme.row.glow,
                         stroke: "none",
                     }),
                 );
@@ -61,7 +61,7 @@ export function renderEncroach(parent, opts) {
                         y1: cy - D,
                         x2: cx,
                         y2: cy + D,
-                        stroke: STROKE_DOWN,
+                        stroke: theme.row.outline,
                         "stroke-width": "1.5",
                     }),
                 );
@@ -86,7 +86,7 @@ export function renderEncroach(parent, opts) {
                 parent.appendChild(
                     svgEl("polygon", {
                         points: `${cx},${nY(cy)} ${cx + D},${cy} ${cx - D},${cy}`,
-                        fill: FILL_RIGHT,
+                        fill: theme.col.glow,
                         stroke: "none",
                     }),
                 );
@@ -95,7 +95,7 @@ export function renderEncroach(parent, opts) {
                 parent.appendChild(
                     svgEl("polygon", {
                         points: `${cx - D},${cy} ${cx + D},${cy} ${cx},${sY(cy)}`,
-                        fill: FILL_RIGHT,
+                        fill: theme.col.glow,
                         stroke: "none",
                     }),
                 );
@@ -107,7 +107,7 @@ export function renderEncroach(parent, opts) {
                         y1: cy,
                         x2: cx + D,
                         y2: cy,
-                        stroke: STROKE_RIGHT,
+                        stroke: theme.col.outline,
                         "stroke-width": "1.5",
                     }),
                 );
@@ -131,7 +131,7 @@ export function renderEncroach(parent, opts) {
                         y1,
                         x2,
                         y2,
-                        stroke: STROKE_DOWN,
+                        stroke: theme.row.outline,
                         "stroke-width": "2.5",
                     }),
                 );
@@ -158,7 +158,7 @@ export function renderEncroach(parent, opts) {
                         y1,
                         x2,
                         y2,
-                        stroke: STROKE_RIGHT,
+                        stroke: theme.col.outline,
                         "stroke-width": "2.5",
                     }),
                 );

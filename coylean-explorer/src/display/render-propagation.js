@@ -4,15 +4,12 @@ import { S, D, PAD, downPos, rightPos, cellPos } from "./diagram-coords.js";
 import { downArrowPath, rightArrowPath, downLineSeg, rightLineSeg, presetForPri } from "./arrows.js";
 import { renderEncroach } from "./encroach.js";
 import { renderPipes, renderOrphanPipes } from "./render-pipes.js";
+import { theme } from "./theme.js";
 
 // Radial label-bg gradients: base color at the center fading to fully
 // transparent at the rect's edges, so the rect has no visible boundary —
 // the text floats over a soft halo blending into the diamonds below.
-const LABEL_BG_COLORS = {
-    down:  "rgb(224, 168, 168)",
-    right: "rgb(188, 216, 232)",
-    white: "rgb(255, 255, 255)",
-};
+// Built per render so theme changes (legacy/oklch) flow through.
 const LABEL_BG_CENTER_OPACITY = 0.85;
 
 let labelGradSeq = 0;
@@ -21,8 +18,13 @@ function installLabelBgGradients(viewport) {
     const seq = labelGradSeq++;
     const defs = svgEl("defs", {});
     viewport.appendChild(defs);
+    const labelBgColors = {
+        down:  theme.row.glow,
+        right: theme.col.glow,
+        white: "rgb(255, 255, 255)",
+    };
     const out = {};
-    for (const [kind, color] of Object.entries(LABEL_BG_COLORS)) {
+    for (const [kind, color] of Object.entries(labelBgColors)) {
         const id = `prop-lbl-${kind}-${seq}`;
         const grad = svgEl("radialGradient", { id, cx: 0.5, cy: 0.5, r: 0.5 });
         grad.appendChild(svgEl("stop", {
@@ -119,7 +121,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy),
                 class: isInit ? "diamond init-cell" : "diamond",
-                fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : "#e0a8a8"),
+                fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : theme.row.glow),
                 stroke: "none",
                 "stroke-width": 0,
             });
@@ -141,7 +143,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy),
                 class: isInit ? "diamond init-cell" : "diamond",
-                fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : "#bcd8e8"),
+                fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : theme.col.glow),
                 stroke: "none",
                 "stroke-width": 0,
             });
@@ -173,7 +175,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                     points: diamondPts(cx, cy),
                     class: "diamond-border",
                     fill: "none",
-                    stroke: "#9a4a4a",
+                    stroke: theme.row.outline,
                     "stroke-width": 1.5,
                     "pointer-events": "none",
                 }));
@@ -186,7 +188,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                     points: diamondPts(cx, cy),
                     class: "diamond-border",
                     fill: "none",
-                    stroke: "#5a8aaa",
+                    stroke: theme.col.outline,
                     "stroke-width": 1.5,
                     "pointer-events": "none",
                 }));
@@ -201,7 +203,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             for (let i = 0; i < nC; i++) {
                 if (!dm[j][i]) continue;
                 const [cx, cy] = downPos(i, j);
-                const arrowColor = initEditable && j === 0 ? "#f00" : "#7a2d2d";
+                const arrowColor = initEditable && j === 0 ? theme.row.gaudy : theme.row.shadow;
                 const preset = priorityArrows ? presetForPri(pri(i + hInitCol, maxPri)) : "current";
                 if (arrowMode === "line") {
                     vp.appendChild(svgEl("line", {
@@ -227,7 +229,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
             for (let j = 0; j < nR; j++) {
                 if (!rm[i][j]) continue;
                 const [cx, cy] = rightPos(i, j);
-                const arrowColor = initEditable && i === 0 ? "#00f" : "#3d6a8a";
+                const arrowColor = initEditable && i === 0 ? theme.col.gaudy : theme.col.shadow;
                 const preset = priorityArrows ? presetForPri(pri(j + vInitRow, maxPri)) : "current";
                 if (arrowMode === "line") {
                     vp.appendChild(svgEl("line", {
@@ -310,7 +312,7 @@ export function renderPropagation(svg, config, result, flags, hooks) {
                             x: cx,
                             y: cy + 16,
                             class: "coord-label",
-                            fill: dw ? "#9a4a4a" : "#5a8aaa",
+                            fill: dw ? theme.row.outline : theme.col.outline,
                             "font-size": "16px",
                             "font-weight": "bold",
                         }),

@@ -2,6 +2,7 @@ import { Seniority, Propagation, Universe } from "../../coylean-core.js";
 import { renderPropagation } from "../display/render-propagation.js";
 import { attachSvgPanZoom } from "../display/svg-pan-zoom.js";
 import { saveSvgFullExtent } from "../display/save-svg.js";
+import { theme, setMode as setThemeMode } from "../display/theme.js";
 import { makeInfo } from "./basic-propagation-prototype-info.js";
 import { boolsToHex, hexToBools } from "./init-hex.js";
 import { attachWheelStep } from "./wheel-input.js";
@@ -275,6 +276,14 @@ export function init() {
     };
     wireToggle("tog-fill", "showFill");
     wireToggle("tog-borders", "showBorders");
+
+    const themeBtn = document.getElementById("tog-theme");
+    themeBtn.onclick = () => {
+        setThemeMode(theme.mode === "oklch" ? "legacy" : "oklch");
+        themeBtn.textContent = theme.mode === "oklch" ? "OKLCH" : "Legacy";
+        themeBtn.classList.toggle("active", theme.mode === "oklch");
+        render();
+    };
 
     // ── Pipes section ──
     const pipesModeBtn = document.getElementById("pipes-mode");

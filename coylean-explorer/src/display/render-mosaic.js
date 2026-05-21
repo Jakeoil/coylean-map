@@ -3,6 +3,7 @@ import { svgEl, diamondPts } from "./svg.js";
 import { downArrowPath, rightArrowPath, downLineSeg, rightLineSeg, presetForPri } from "./arrows.js";
 import { renderEncroach } from "./encroach.js";
 import { renderPipes, renderOrphanPipes } from "./render-pipes.js";
+import { theme } from "./theme.js";
 
 // Layout constants for the 2x2 quadrant mosaic.
 const S = 96;          // cell size (basic-propagation scale)
@@ -11,25 +12,10 @@ const PAD = 64;        // interior padding — must be >= D so edge diamonds sta
 const GAP = 48;        // gap between adjacent panels
 const LABEL_H = 44;    // vertical space reserved for the panel label
 
-// Diamond-style colours match basic-propagation: stroke-less tiles, true vs
-// false distinguished only by arrow presence.
-const FILL_DOWN = "#e0a8a8";
-const FILL_RIGHT = "#bcd8e8";
-const ARROW_DOWN = "#7a2d2d";
-const ARROW_RIGHT = "#3d6a8a";
-const STROKE_DOWN = "#9a4a4a";
-const STROKE_RIGHT = "#5a8aaa";
-
 // Radial label-bg gradients: base color at the center fading to fully
 // transparent at the rect's edges, so the rect has no visible boundary —
 // the text floats over a soft halo blending into the diamonds below.
-// Installed as <radialGradient>s in <defs> per render and referenced via
-// url(#…) below.
-const LABEL_BG_COLORS = {
-    down:  "rgb(224, 168, 168)",
-    right: "rgb(188, 216, 232)",
-    white: "rgb(255, 255, 255)",
-};
+// Built per render so theme changes (legacy/oklch) flow through.
 const LABEL_BG_CENTER_OPACITY = 0.85;
 
 let labelGradSeq = 0;
@@ -38,8 +24,13 @@ function installLabelBgGradients(viewport) {
     const seq = labelGradSeq++;
     const defs = svgEl("defs", {});
     viewport.appendChild(defs);
+    const labelBgColors = {
+        down:  theme.row.glow,
+        right: theme.col.glow,
+        white: "rgb(255, 255, 255)",
+    };
     const out = {};
-    for (const [kind, color] of Object.entries(LABEL_BG_COLORS)) {
+    for (const [kind, color] of Object.entries(labelBgColors)) {
         const id = `mosaic-lbl-${kind}-${seq}`;
         const grad = svgEl("radialGradient", { id, cx: 0.5, cy: 0.5, r: 0.5 });
         grad.appendChild(svgEl("stop", {
@@ -261,7 +252,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks, labelBg) {
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy, D),
                 class: isInit ? "diamond init-cell" : "diamond",
-                fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : FILL_DOWN),
+                fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : theme.row.glow),
                 stroke: "none",
                 "stroke-width": 0,
                 "data-quad": name,
@@ -289,7 +280,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks, labelBg) {
             const poly = svgEl("polygon", {
                 points: diamondPts(cx, cy, D),
                 class: isInit ? "diamond init-cell" : "diamond",
-                fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : FILL_RIGHT),
+                fill: !showFill ? "none" : (!val && showMinimize ? "#fff" : theme.col.glow),
                 stroke: "none",
                 "stroke-width": 0,
                 "data-quad": name,
@@ -329,7 +320,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks, labelBg) {
                     points: diamondPts(cx, cy, D),
                     class: "diamond-border",
                     fill: "none",
-                    stroke: STROKE_DOWN,
+                    stroke: theme.row.outline,
                     "stroke-width": 1.5,
                     "pointer-events": "none",
                 }));
@@ -342,7 +333,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks, labelBg) {
                     points: diamondPts(cx, cy, D),
                     class: "diamond-border",
                     fill: "none",
-                    stroke: STROKE_RIGHT,
+                    stroke: theme.col.outline,
                     "stroke-width": 1.5,
                     "pointer-events": "none",
                 }));
@@ -357,7 +348,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks, labelBg) {
             for (let i = 0; i < numCols; i++) {
                 if (!p.downMatrix[j][i]) continue;
                 const [cx, cy] = downC(i, j);
-                const arrowColor = initEditable && j === 0 ? "#f00" : ARROW_DOWN;
+                const arrowColor = initEditable && j === 0 ? theme.row.gaudy : theme.row.shadow;
                 const preset = priorityArrows ? presetForPri(pri(i + p.hInitCol, p.maxPri)) : "current";
                 if (arrowMode === "line") {
                     group.appendChild(svgEl("line", {
@@ -384,7 +375,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks, labelBg) {
             for (let j = 0; j < numRows; j++) {
                 if (!p.rightMatrix[i][j]) continue;
                 const [cx, cy] = rightC(i, j);
-                const arrowColor = initEditable && i === 0 ? "#00f" : ARROW_RIGHT;
+                const arrowColor = initEditable && i === 0 ? theme.col.gaudy : theme.col.shadow;
                 const preset = priorityArrows ? presetForPri(pri(j + p.vInitRow, p.maxPri)) : "current";
                 if (arrowMode === "line") {
                     group.appendChild(svgEl("line", {
@@ -465,7 +456,7 @@ function renderQuadrant(parent, quad, x, y, w, h, flags, hooks, labelBg) {
                     svgEl("text", {
                         x: cx, y: cy + 16,
                         class: "coord-label",
-                        fill: dw ? "#9a4a4a" : "#5a8aaa",
+                        fill: dw ? theme.row.outline : theme.col.outline,
                         "font-size": "16px",
                         "font-weight": "bold",
                     }),

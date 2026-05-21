@@ -12,7 +12,7 @@ export function makeInfo(info, getCtx) {
         const pI = pri(i + hInitCol, maxPri);
         const pJ = pri(j + vInitRow, maxPri);
         info.innerHTML = `
-        <div class="title" style="color:#9a4a4a">Down Matrix r${j}c${i}</div>
+        <div class="title" style="color:var(--row-outline)">Down Matrix r${j}c${i}</div>
         <div class="row">downMatrix[${j}][${i}] = ${valSpan(val)}</div>
         <div class="row dim">vertical arrow entering row ${j} at column ${i}</div>
         <div class="row">pri(${i} + ${hInitCol}) = pri(${i + hInitCol}) = ${pI}</div>
@@ -27,7 +27,7 @@ export function makeInfo(info, getCtx) {
         const pI = pri(i + hInitCol, maxPri);
         const pJ = pri(j + vInitRow, maxPri);
         info.innerHTML = `
-        <div class="title" style="color:#5a8aaa">Right Matrix c${i}r${j}</div>
+        <div class="title" style="color:var(--col-outline)">Right Matrix c${i}r${j}</div>
         <div class="row">rightMatrix[${i}][${j}] = ${valSpan(val)}</div>
         <div class="row dim">horizontal arrow entering column ${i} at row ${j}</div>
         <div class="row">pri(${i} + ${hInitCol}) = pri(${i + hInitCol}) = ${pI}</div>
