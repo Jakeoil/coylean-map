@@ -153,29 +153,6 @@ export function reaction(
     );
 }
 
-/**
- * Propagate arrows through a grid from arbitrary boundary inputs.
- *
- * Function-style wrapper around the Propagation constructor — retained
- * for callers that want a plain { downMatrix, rightMatrix } result without
- * constructing a Propagation instance.
- *
- * downMatrix[j][i]  — vertical arrow entering row j at column i
- * rightMatrix[i][j] — horizontal arrow entering column i at row j
- *
- * The top row of downMatrix and the left column of rightMatrix are
- * seeded from the supplied initDown / initRight arrays. Grid size is
- * inferred from their lengths.
- * last 'extra' row in downMatrix and col in rightMatrix provides new init value
- * for subsequent call. (It is necessary for user to adjust the priority offsets
- * by the width or height)
- *
- * @param {boolean[]} initDown  - top-row down inputs (length = numColumns)
- * @param {boolean[]} initRight - left-column right inputs (length = numRows)
- * @param {number}    hInitCol  - horizontal priority offset
- * @param {number}    vInitRow  - vertical priority offset
- * @returns {{ downMatrix: Row[], rightMatrix: Col[] }}
- */
 // Note: the +1 allocates an extra trailing row/col beyond the grid.
 // Original intent was that this extra slice could seed the init of a
 // subsequent call (a natural continuation of the propagation); the current
@@ -186,98 +163,6 @@ export function createDownMatrix(numRows) {
 
 export function createRightMatrix(numColumns) {
     return [...Array(numColumns + 1)].map(() => new Col());
-}
-
-export function propagateFromBoundary(
-    initDown,
-    initRight,
-    hInitCol,
-    vInitRow,
-    seniority = Seniority.vertical(),
-) {
-    const { downMatrix, rightMatrix } = new Propagation({
-        hInitCol,
-        vInitRow,
-        seniority,
-        initDown,
-        initRight,
-    });
-    return { downMatrix, rightMatrix };
-}
-
-/**
- * Propagate arrows through a grid with all-true boundaries.
- *
- * Function-style wrapper retained for legacy callers; new Propagation({...})
- * is the class-based equivalent.
- *
- * Initial conditions: top row all true, left column all true.
- * This is equivalent to the d[0]=true seed after it has propagated
- * through the first row of the standard algorithm (the seed at maximum
- * priority flips r[0]=true, which then flips every d[i] in row 0 to true).
- *
- * @param {number} numRows    - grid height
- * @param {number} numColumns - grid width
- * @param {number} hInitCol   - horizontal priority offset (initial column)
- * @param {number} vInitRow   - vertical priority offset (initial row)
- * @returns {{ downMatrix: Row[], rightMatrix: Col[] }}
- */
-export function propagate(
-    numRows,
-    numColumns,
-    hInitCol = 1,
-    vInitRow = 1,
-    seniority = Seniority.vertical(),
-) {
-    return propagateFromBoundary(
-        new Row(numColumns).fill(true),
-        new Col(numRows).fill(true),
-        hInitCol,
-        vInitRow,
-        seniority,
-    );
-}
-
-/**
- * Universal propagation across all four quadrants.
- *
- * Function-style wrapper around Universe.createSymmetric — returns the raw
- * { nw, ne, sw, se } quadrant bundle for callers that don't need the
- * Universe assembly abstraction.
- *
- * Computes the full Coylean map extending in every direction from the
- * axis crossing point. Each quadrant is an independent propagate() call
- * with the appropriate (hInitCol, vInitRow) offset:
- *
- *       NW (0,0) │ NE (1,0)
- *       ─────────┼─────────
- *       SW (0,1) │ SE (1,1)
- *
- * The axis boundary (all-true initial conditions) is shared by
- * construction — each quadrant starts from the axis and propagates
- * outward. The rendering flips local coordinates to global canvas
- * positions, which automatically produces the correct axis segments.
- *
- * @param {number} numRows    - cells per quadrant in the vertical direction
- * @param {number} numColumns - cells per quadrant in the horizontal direction
- * @returns {{ nw, ne, sw, se }}
- *   Each quadrant is a { downMatrix, rightMatrix } object from propagate().
- */
-export function universalPropagate(
-    numRows,
-    numColumns,
-    hInitCol = 1,
-    vInitRow = 1,
-    seniority = Seniority.vertical(),
-) {
-    const { nw, ne, sw, se } = Universe.createSymmetric(
-        numRows,
-        numColumns,
-        hInitCol,
-        vInitRow,
-        seniority,
-    );
-    return { nw, ne, sw, se };
 }
 
 /**
@@ -691,8 +576,12 @@ export class Universe {
     /**
      * Build a symmetric Universe by computing four quadrant propagations.
      *
-     * The four quadrants share the given numRows × numColumns extent, and
-     * use the same priority-offset assignment as universalPropagate().
+     * The four quadrants share the given numRows × numColumns extent, with
+     * priority offsets mirrored about the origin:
+     *
+     *       NW (1 - hInitCol, 1 - vInitRow) │ NE (hInitCol, 1 - vInitRow)
+     *       ────────────────────────────────┼────────────────────────────
+     *       SW (1 - hInitCol, vInitRow)     │ SE (hInitCol, vInitRow)
      *
      * @param {number} numRows
      * @param {number} numColumns

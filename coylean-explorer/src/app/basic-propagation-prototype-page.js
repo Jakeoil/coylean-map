@@ -23,7 +23,7 @@ export function init() {
     };
     const initModeBtn = document.getElementById("init-mode");
 
-    // Propagation input — the values that determine what propagate() produces.
+    // Propagation input — the values that determine what Propagation produces.
     const config = {
         numRows: +inputs.numRows.value,
         numCols: +inputs.numCols.value,

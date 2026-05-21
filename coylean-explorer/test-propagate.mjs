@@ -1,4 +1,4 @@
-import { propagate } from "./coylean-core.js";
+import { Propagation } from "./coylean-core.js";
 
 function countTrue(matrix) {
     let n = 0;
@@ -11,7 +11,12 @@ function countTrue(matrix) {
 function checksum(sizes) {
     const results = [];
     for (const [nR, nC] of sizes) {
-        const { downMatrix, rightMatrix } = propagate(nR, nC);
+        const { downMatrix, rightMatrix } = new Propagation({
+            numRows: nR,
+            numColumns: nC,
+            hInitCol: 1,
+            vInitRow: 1,
+        });
         results.push({
             size: `${nR}x${nC}`,
             downTrue: countTrue(downMatrix),

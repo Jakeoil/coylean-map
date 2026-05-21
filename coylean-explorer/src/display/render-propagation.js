@@ -67,7 +67,7 @@ function appendLabelWithBg(parent, cx, cy, text, bgFill) {
 }
 
 // config: { numRows, numCols, hInitCol, vInitRow, seniority }  — propagation input
-// result: { downMatrix, rightMatrix }                          — propagate() output
+// result: { downMatrix, rightMatrix }                          — Propagation output
 // flags:  { showLabels, arrowMode, showReactionLabels, priorityArrows, showMinimize, encroachMode, initEditable }
 //         priorityArrows: when true, each arrow's thickness is keyed off its
 //                         axis priority (pri(i + hInitCol) for down,
