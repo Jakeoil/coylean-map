@@ -1,5 +1,5 @@
 "use strict";
-import { pri, Seniority, propagate, universalPropagate } from "./coylean-core.js";
+import { pri, Seniority, Propagation } from "./coylean-core.js";
 
 let g; // canvas 2D context
 
@@ -210,7 +210,13 @@ function cell(down, right, i, j, dx = 1, dy = 1, downPri = -1, rightPri = -1, do
 }
 
 function coyleanExploration(numRows, numCols) {
-    let { downMatrix, rightMatrix } = propagate(numRows, numCols, hInitCol, vInitRow, seniority);
+    let { downMatrix, rightMatrix } = new Propagation({
+        numRows,
+        numColumns: numCols,
+        hInitCol,
+        vInitRow,
+        seniority,
+    });
 
     for (let j = 0; j < numRows; j++) {
         for (let i = 0; i < numCols; i++) {
@@ -281,7 +287,19 @@ function coyleanLegacy(numRows, numCols) {
 }
 
 function coyleanUniverse(numRows, numCols) {
-    const { nw, ne, sw, se } = universalPropagate(numRows, numCols, hInitCol, vInitRow, seniority);
+    const quadrant = (direction, h, v) =>
+        new Propagation({
+            direction,
+            numRows,
+            numColumns: numCols,
+            hInitCol: h,
+            vInitRow: v,
+            seniority,
+        });
+    const nw = quadrant("nw", 1 - hInitCol, 1 - vInitRow);
+    const ne = quadrant("ne", hInitCol, 1 - vInitRow);
+    const sw = quadrant("sw", 1 - hInitCol, vInitRow);
+    const se = quadrant("se", hInitCol, vInitRow);
 
     // SE: identity — full range, owns both axes
     for (let j = 0; j < numRows; j++) {

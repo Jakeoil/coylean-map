@@ -5,7 +5,7 @@
 import {
     pri,
     Seniority,
-    propagateFromBoundary,
+    Propagation,
 } from "../coylean-explorer/coylean-core.js";
 
 // ── Baby Blocks (lazy-loaded) ──
@@ -99,13 +99,13 @@ function drawGlyph(canvas, downCode, rightCode, seniority, fTransform) {
 
     // Propagate the 3×3 glyph using the shared core. hInitCol/vInitRow=1
     // matches the original priority(x+1)/priority(y+1) tie-breaking.
-    const { downMatrix, rightMatrix } = propagateFromBoundary(
-        bitsToBoundary(downCode, NUM_CELLS),
-        bitsToBoundary(rightCode, NUM_CELLS),
-        1,
-        1,
+    const { downMatrix, rightMatrix } = new Propagation({
+        initDown: bitsToBoundary(downCode, NUM_CELLS),
+        initRight: bitsToBoundary(rightCode, NUM_CELLS),
+        hInitCol: 1,
+        vInitRow: 1,
         seniority,
-    );
+    });
 
     // Vertical segments at col x+1, rows y..y+1
     for (let y = 0; y <= NUM_CELLS; y++) {
@@ -272,13 +272,13 @@ function buildGrid(tableId, prefix, seniority) {
 //   s_d2 : v'[a][b] = h[3-b][2-a],   h'[a][b] = v[2-b][3-a]
 
 function computePattern(downCode, rightCode, seniority) {
-    const { downMatrix, rightMatrix } = propagateFromBoundary(
-        bitsToBoundary(downCode, NUM_CELLS),
-        bitsToBoundary(rightCode, NUM_CELLS),
-        1,
-        1,
+    const { downMatrix, rightMatrix } = new Propagation({
+        initDown: bitsToBoundary(downCode, NUM_CELLS),
+        initRight: bitsToBoundary(rightCode, NUM_CELLS),
+        hInitCol: 1,
+        vInitRow: 1,
         seniority,
-    );
+    });
     // v[x][y] = vertical at col x+1, row y; h[x][y] = horizontal at row y+1, col x
     const v = Array.from({ length: 3 }, () => Array(4).fill(false));
     const h = Array.from({ length: 4 }, () => Array(3).fill(false));
@@ -489,13 +489,13 @@ function drawCoyleanMap(canvasEl, Nr, Nc, cell, opts) {
 
     // hInitCol=vInitRow=0 keeps the axis cells (priority pri(0)=∞) as the
     // first row/column, matching glyphs.js's pri(x)/pri(y) convention.
-    const { downMatrix, rightMatrix } = propagateFromBoundary(
+    const { downMatrix, rightMatrix } = new Propagation({
         initDown,
         initRight,
-        0,
-        0,
+        hInitCol: 0,
+        vInitRow: 0,
         seniority,
-    );
+    });
 
     const lw = (cell * 1.2) / CELL_PX;
     ctx.lineWidth = lw;
@@ -569,13 +569,13 @@ function drawCoyleanMap(canvasEl, Nr, Nc, cell, opts) {
 
             if (ft) {
                 // Assigned letter: draw overlay lines, dots, and transformed letter
-                const { downMatrix: secDown, rightMatrix: secRight } = propagateFromBoundary(
-                    bitsToBoundary(dc, 3),
-                    bitsToBoundary(rc, 3),
-                    1,
-                    1,
+                const { downMatrix: secDown, rightMatrix: secRight } = new Propagation({
+                    initDown: bitsToBoundary(dc, 3),
+                    initRight: bitsToBoundary(rc, 3),
+                    hInitCol: 1,
+                    vInitRow: 1,
                     seniority,
-                );
+                });
 
                 ctx.strokeStyle = "#90caf9";
                 ctx.lineWidth = lw;
@@ -692,13 +692,13 @@ function getSectionData(Nr, Nc, seniority) {
     if (!seniority.isVertical) initRight[0] = true;
     else initDown[0] = true;
 
-    const { downMatrix, rightMatrix } = propagateFromBoundary(
+    const { downMatrix, rightMatrix } = new Propagation({
         initDown,
         initRight,
-        0,
-        0,
+        hInitCol: 0,
+        vInitRow: 0,
         seniority,
-    );
+    });
 
     const codes = Array.from({ length: NSr }, () =>
         Array.from({ length: NSc }, () => [0, 0]),
