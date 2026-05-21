@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Big Map — Coylean</title>
+<style>
+  body { font: 16px/1.55 system-ui, sans-serif; max-width: 720px;
+         margin: 2em auto; padding: 0 1em; color: #222; }
+  h1 { font-size: 1.5em; margin-bottom: 0.2em; }
+  .sub { color: #666; margin-top: 0; }
+  .back { display: inline-block; margin-bottom: 0.8em;
+          color: #557; text-decoration: none; font-size: 0.9em; }
+  .back:hover { text-decoration: underline; }
+  nav { margin: 1.5em 0; }
+  nav a { display: block; margin: 0.7em 0; padding: 0.8em 1em;
+          border: 1px solid #ccd; border-radius: 6px;
+          text-decoration: none; color: #114; background: #fafbfd; }
+  nav a:hover { background: #eef0fa; }
+  nav a strong { display: block; font-size: 1.1em; }
+  nav a span { color: #555; font-size: 0.9em; }
+  code { font-family: ui-monospace, Menlo, monospace;
+         background: #f3f3f3; padding: 0 0.25em; border-radius: 3px; }
+  ul { padding-left: 1.4em; }
+</style>
+</head>
+<body>
+<a class="back" href="../">← Meta</a>
+<h1>Big Map</h1>
+<p class="sub">Lazy tile reconstruction over very large Coylean universes.</p>
+
+<p>The universe is logically an L × L propagation, but we never hold the
+whole thing. We sweep it once in K × K blocks, save the horizontal and
+vertical <em>seams</em> (one per K rows, one per K columns), and discard
+the interior. Any tile can then be rebuilt from its two adjacent seams
+in O(K²) time.</p>
+
+<nav>
+  <a href="explain.html">
+    <strong>Explain</strong>
+    <span>Exercise <code>buildScaffold</code> / <code>tile</code>;
+          see seams, ratios, and a tile beside the full reference.</span>
+  </a>
+  <a href="explore.html">
+    <strong>Explore</strong>
+    <span>Pan and zoom across the universe; arrows zoom-aware,
+          dyadic gridlines thicken with priority.</span>
+  </a>
+</nav>
+
+<p>Source modules in this directory:</p>
+<ul>
+  <li><code>scaffold.mjs</code> — <code>buildScaffold({ L, K, ... })</code></li>
+  <li><code>tile.mjs</code> — <code>tile(scaffold, k1, k2)</code></li>
+  <li><code>selfcheck.mjs</code> — block-wise vs. full propagation</li>
+  <li><code>render.mjs</code> — canvas helpers shared by the two pages</li>
+</ul>
+</body>
+</html>

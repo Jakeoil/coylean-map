@@ -1,0 +1,113 @@
+// Seam scaffold for a logical SE-quadrant propagation.
+// Starts empty (nBlocks=0) and can be grown to any extent on demand.
+//
+// State after extendScaffold(s, N):
+//   nBlocks      = N (square: nBlocksX == nBlocksY == N)
+//   hSeams[k1]   = Row of length N*K  — down-arrows entering row k1*K
+//   vSeams[k2]   = Col of length N*K  — right-arrows entering col k2*K
+// hSeams[0] / vSeams[0] are the all-true N/W universe boundaries.
+//
+// Working memory: 2 N^2 K booleans (the seams) plus one K x K block
+// during propagation. The full N*K square is never materialised.
+
+import {
+    Propagation,
+    Row,
+    Col,
+    Seniority,
+    DEFAULT_MAX_PRI,
+} from "../../coylean-explorer/coylean-core.js";
+
+export function createScaffold({
+    K,
+    hInitCol0 = 1,
+    vInitRow0 = 1,
+    seniority = Seniority.vertical(),
+    maxPri = DEFAULT_MAX_PRI,
+}) {
+    if (!Number.isInteger(K) || K <= 0) {
+        throw new Error(`K must be a positive integer (got K=${K})`);
+    }
+    return {
+        K,
+        hInitCol0,
+        vInitRow0,
+        seniority,
+        maxPri,
+        nBlocks: 0,
+        get L() { return this.nBlocks * this.K; },
+        hSeams: [new Row()],
+        vSeams: [new Col()],
+    };
+}
+
+function propagateBlock(s, k1, k2) {
+    const { K, hInitCol0, vInitRow0, seniority, maxPri, hSeams, vSeams } = s;
+    const block = new Propagation({
+        numRows: K,
+        numColumns: K,
+        hInitCol: hInitCol0 + k2 * K,
+        vInitRow: vInitRow0 + k1 * K,
+        seniority,
+        maxPri,
+        initDown: hSeams[k1].slice(k2 * K, (k2 + 1) * K),
+        initRight: vSeams[k2].slice(k1 * K, (k1 + 1) * K),
+    });
+    const south = block.resultDown;
+    const east = block.resultRight;
+    for (let i = 0; i < K; i++) hSeams[k1 + 1][k2 * K + i] = south[i];
+    for (let j = 0; j < K; j++) vSeams[k2 + 1][k1 * K + j] = east[j];
+}
+
+// Grow the scaffold square to newN blocks. Idempotent if newN <= nBlocks.
+// Iteration order matters: a block's inputs are always seams set by an
+// earlier block in the same call (or by the original build).
+export function extendScaffold(s, newN) {
+    if (!Number.isInteger(newN) || newN < 0) {
+        throw new Error(`newN must be a non-negative integer (got ${newN})`);
+    }
+    if (newN <= s.nBlocks) return s;
+    const { K, hSeams, vSeams } = s;
+    const oldN = s.nBlocks;
+
+    for (let c = oldN * K; c < newN * K; c++) hSeams[0][c] = true;
+    for (let r = oldN * K; r < newN * K; r++) vSeams[0][r] = true;
+
+    while (hSeams.length < newN + 1) hSeams.push(new Row(newN * K));
+    while (vSeams.length < newN + 1) vSeams.push(new Col(newN * K));
+
+    for (let k1 = 0; k1 < oldN; k1++) {
+        for (let k2 = oldN; k2 < newN; k2++) propagateBlock(s, k1, k2);
+    }
+    for (let k1 = oldN; k1 < newN; k1++) {
+        for (let k2 = 0; k2 < newN; k2++) propagateBlock(s, k1, k2);
+    }
+
+    s.nBlocks = newN;
+    return s;
+}
+
+export function buildScaffold({
+    L,
+    K,
+    hInitCol0,
+    vInitRow0,
+    seniority,
+    maxPri,
+}) {
+    if (!Number.isInteger(L) || L <= 0) {
+        throw new Error(`L must be a positive integer (got L=${L})`);
+    }
+    if (L % K !== 0) {
+        throw new Error(`L=${L} must be divisible by K=${K}`);
+    }
+    const s = createScaffold({
+        K,
+        hInitCol0,
+        vInitRow0,
+        seniority,
+        maxPri,
+    });
+    extendScaffold(s, L / K);
+    return s;
+}
