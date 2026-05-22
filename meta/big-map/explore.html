@@ -63,6 +63,15 @@
   </label>
   <label>K <input id="K" type="number" min="2" step="1" value="256"></label>
   <label>maxPri <input id="maxPri" type="number" placeholder="auto"></label>
+  <label title="h offset in pri(i + hInitCol); 1 = canonical">
+    hInitCol <input id="hInitCol" type="number" step="1" value="1">
+  </label>
+  <label title="v offset in pri(j + vInitRow); 1 = canonical">
+    vInitRow <input id="vInitRow" type="number" step="1" value="1">
+  </label>
+  <label title="tie-breaking: vertical (down) wins ties by default; check for horizontal">
+    <input id="seniorityH" type="checkbox"> horiz seniority
+  </label>
   <button id="rebuild">Rebuild universe</button>
   <button id="recenter">Recenter</button>
   <label><input id="showGrid" type="checkbox"> dyadic grid</label>

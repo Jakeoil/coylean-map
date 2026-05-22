@@ -13,8 +13,9 @@ const ctx = cv.getContext("2d", { alpha: false });
 // propagations, then Propagation.fromUniverseBoundary collapses their
 // outer N/W edges into a single (2L-1) × (2L-1) SE-flowing Propagation.
 // That integrated propagation has a uniform symmetric priority landscape
-// (hInitCol = 1 - L, vInitRow = 1 - L), with the dyadic singular point
-// pri(0)=maxPri landing exactly on the origin column/row.
+// (hInitCol = 1 - L, vInitRow = 1 - L for the canonical hInitCol=1,
+// vInitRow=1 case), with the dyadic singular point pri(0)=maxPri landing
+// exactly on the origin column/row.
 //
 // We deliberately avoid Universe.create / universe.assemble() here:
 // assemble stitches the four quadrants into a (2L-1)² raster whose
@@ -26,6 +27,38 @@ const ctx = cv.getContext("2d", { alpha: false });
 // (originRow, originCol) = (L-1, L-1); pan/zoom freely (including
 // negative). Logical (dyadic) indices on the labels are measured relative
 // to the origin so the origin cell reads as (0, 0).
+//
+// ----------------------------------------------------------------------
+// URL query parameters
+// ----------------------------------------------------------------------
+// Construction params (drive Universe.createUniverseExtents; changing
+// them in the URL pre-fills the inputs, then we build once):
+//   L          int ≥ 2       per-quadrant extent. Total grid is
+//                             (2L-1) × (2L-1). Default 1024.
+//   K          int ≥ 1       tile block size for the bitmap cache.
+//                             Default 256.
+//   maxPri     int 1..31     priority cap. Default ⌈log₂ L⌉ + 1.
+//   hInitCol   int           h priority offset, pri(i + hInitCol).
+//                             Default 1 (canonical).
+//   vInitRow   int           v priority offset, pri(j + vInitRow).
+//                             Default 1 (canonical).
+//   seniority  "v" | "h"     tie-breaking: vertical (down wins) or
+//                             horizontal (right wins). Default "v".
+//
+// View params (applied once after build; cellPx/cellX/cellY are still
+// mutable via pan/zoom afterwards):
+//   cx         number        viewport centre x, origin-relative cells
+//                             (cx=0 ⇒ origin at centre). Default 0.
+//   cy         number        viewport centre y, origin-relative cells.
+//                             Default 0.
+//   px         number > 0    initial cellPx. Default = auto fit-to-
+//                             screen (recenter()'s normal behaviour).
+//   grid       "0" | "1"     dyadic-grid checkbox initial state.
+//                             Default 0.
+//   labels     "0" | "1"     labels checkbox initial state. Default 0.
+//
+// Example:
+//   explore.html?cx=0&cy=0&px=5&grid=1&labels=1
 
 let state = null;
 let tileCache = new Map();
@@ -58,9 +91,16 @@ function readParams() {
     const K = Number($("K").value);
     const mp = $("maxPri").value.trim();
     const maxPri = mp ? Number(mp) : autoMaxPri(L);
+    const hInitCol = Number($("hInitCol").value);
+    const vInitRow = Number($("vInitRow").value);
+    const seniority = $("seniorityH").checked
+        ? Seniority.horizontal()
+        : Seniority.vertical();
     if (!Number.isInteger(L) || L < 2) throw new Error("L must be ≥ 2");
     if (!Number.isInteger(K) || K < 1) throw new Error("K must be ≥ 1");
-    return { L, K, maxPri };
+    if (!Number.isInteger(hInitCol)) throw new Error("hInitCol must be int");
+    if (!Number.isInteger(vInitRow)) throw new Error("vInitRow must be int");
+    return { L, K, maxPri, hInitCol, vInitRow, seniority };
 }
 
 async function build() {
@@ -71,15 +111,15 @@ async function build() {
         $("hudTitle").textContent = `ERROR: ${e.message}`;
         return;
     }
-    const { L, K, maxPri } = params;
+    const { L, K, maxPri, hInitCol, vInitRow, seniority } = params;
     $("hudTitle").textContent = `building universe L=${L}…`;
     $("rebuild").disabled = true;
     await new Promise((r) => requestAnimationFrame(r));
     const t0 = performance.now();
     const quadrants = Universe.createUniverseExtents(
         L, L, L, L,
-        1, 1,
-        Seniority.vertical(),
+        hInitCol, vInitRow,
+        seniority,
         {},
         { maxPri },
     );
@@ -109,18 +149,35 @@ async function build() {
         `L=${L}, K=${K}, ${nRows}×${nCols}, built ${ms(dt)}`
         + ` (integrate ${ms(tIntegrate)})`;
     $("rebuild").disabled = false;
-    recenter();
+    // First post-build placement respects URL view params; afterward
+    // rebuilds just recenter normally.
+    applyView(pendingView);
+    pendingView = null;
 }
 
-function recenter(redraw = true) {
+// pendingView holds URL-supplied view params (cx, cy, px) consumed
+// exactly once on the first build after page load.
+let pendingView = null;
+
+function applyView(overrides) {
     if (!state) return;
     const w = cv.width / (window.devicePixelRatio || 1);
     const h = cv.height / (window.devicePixelRatio || 1);
-    const target = Math.min(Math.max(state.nRows, state.nCols), 1024);
-    view.cellPx = Math.min(w, h) / target;
-    view.cellX = state.originCol - w / view.cellPx / 2;
-    view.cellY = state.originRow - h / view.cellPx / 2;
-    if (redraw) schedule();
+    const cx = overrides?.cx ?? 0;
+    const cy = overrides?.cy ?? 0;
+    if (overrides?.px && overrides.px > 0) {
+        view.cellPx = overrides.px;
+    } else {
+        const target = Math.min(Math.max(state.nRows, state.nCols), 1024);
+        view.cellPx = Math.min(w, h) / target;
+    }
+    view.cellX = state.originCol + cx - w / view.cellPx / 2;
+    view.cellY = state.originRow + cy - h / view.cellPx / 2;
+    schedule();
+}
+
+function recenter() {
+    applyView(null);
 }
 
 // Slice the universe matrices into a K-aligned tile at block (k1, k2).
@@ -261,11 +318,11 @@ function render() {
         }
     }
 
-    // Logical-index offsets passed to grid/labels: integrated propagation
-    // has colPriority[c] = pri(c - originCol), so the origin column itself
-    // is the dyadic singular point pri(0)=maxPri.
-    const hLabelOffset = -originCol;
-    const vLabelOffset = -originRow;
+    // Match the integrated propagation's actual priority landscape so
+    // labels reflect each cell's true priority. For non-canonical
+    // hInitCol/vInitRow this shifts the singular point off the origin.
+    const hLabelOffset = state.integrated.hInitCol;
+    const vLabelOffset = state.integrated.vInitRow;
 
     if ($("showGrid").checked) {
         drawDyadicGrid(ctx, {
@@ -370,5 +427,31 @@ $("recenter").addEventListener("click", () => recenter());
 $("showGrid").addEventListener("change", schedule);
 $("showLabels").addEventListener("change", schedule);
 
+// Parse URL query and apply to inputs / pendingView before the first
+// build. See the spec block at the top of this file.
+function applyQueryParams() {
+    const q = new URLSearchParams(window.location.search);
+    const setNum = (key, id) => {
+        if (!q.has(key)) return;
+        const v = q.get(key);
+        if (v !== "") $(id).value = v;
+    };
+    setNum("L", "L");
+    setNum("K", "K");
+    setNum("maxPri", "maxPri");
+    setNum("hInitCol", "hInitCol");
+    setNum("vInitRow", "vInitRow");
+    if (q.get("seniority") === "h") $("seniorityH").checked = true;
+    if (q.has("grid")) $("showGrid").checked = q.get("grid") !== "0";
+    if (q.has("labels")) $("showLabels").checked = q.get("labels") !== "0";
+    const cx = q.has("cx") ? Number(q.get("cx")) : undefined;
+    const cy = q.has("cy") ? Number(q.get("cy")) : undefined;
+    const px = q.has("px") ? Number(q.get("px")) : undefined;
+    if (cx !== undefined || cy !== undefined || px !== undefined) {
+        pendingView = { cx, cy, px };
+    }
+}
+
+applyQueryParams();
 resizeCanvas();
 build();
