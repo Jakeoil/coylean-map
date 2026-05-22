@@ -9,17 +9,18 @@ import {
 const cv = document.getElementById("cv");
 const ctx = cv.getContext("2d", { alpha: false });
 
-// Four mirrored quadrants are built via Universe.create, then collapsed
-// into a single (2L-1) × (2L-1) SE-flowing Propagation by
-// Propagation.fromUniverseBoundary. That integrated propagation has a
-// uniform symmetric priority landscape across the whole grid
+// Universe.createUniverseExtents builds the four mirrored quadrant
+// propagations, then Propagation.fromUniverseBoundary collapses their
+// outer N/W edges into a single (2L-1) × (2L-1) SE-flowing Propagation.
+// That integrated propagation has a uniform symmetric priority landscape
 // (hInitCol = 1 - L, vInitRow = 1 - L), with the dyadic singular point
-// pri(0)=maxPri landing exactly on the origin column/row. Without this
-// integration step, reading universe.downMatrix / rightMatrix directly
-// gives a map where each quadrant uses its own priority offsets — the
-// off-diagonal quadrants (NE/SW) end up with hInitCol=0 or vInitRow=0,
-// which kills one axis' flow at the seam-adjacent row/column and renders
-// sparsely. Integrating recovers a single self-consistent map.
+// pri(0)=maxPri landing exactly on the origin column/row.
+//
+// We deliberately avoid Universe.create / universe.assemble() here:
+// assemble stitches the four quadrants into a (2L-1)² raster whose
+// quadrants disagree on the priority of cells (NE has hInitCol=1 but
+// vInitRow=0, etc.) and renders sparsely at the seams. The boundary
+// integration is the only step we need.
 //
 // Rendering: world coords are matrix coords. The origin lives at
 // (originRow, originCol) = (L-1, L-1); pan/zoom freely (including
@@ -75,19 +76,19 @@ async function build() {
     $("rebuild").disabled = true;
     await new Promise((r) => requestAnimationFrame(r));
     const t0 = performance.now();
-    const universe = Universe.create({
-        northExtent: L, southExtent: L,
-        westExtent:  L, eastExtent:  L,
-        hInitCol: 1, vInitRow: 1,
-        seniority: Seniority.vertical(),
-        maxPri,
-    });
+    const quadrants = Universe.createUniverseExtents(
+        L, L, L, L,
+        1, 1,
+        Seniority.vertical(),
+        {},
+        { maxPri },
+    );
     const tIntegrate0 = performance.now();
-    const integrated = Propagation.fromUniverseBoundary(universe);
+    const integrated = Propagation.fromUniverseBoundary(quadrants);
     const tIntegrate = performance.now() - tIntegrate0;
     const dt = performance.now() - t0;
-    const originRow = universe.originRow;
-    const originCol = universe.originCol;
+    const originRow = L - 1;
+    const originCol = L - 1;
     const nRows = integrated.numRows;
     const nCols = integrated.numColumns;
     state = {
