@@ -12,10 +12,30 @@ export function autoMaxPri(L) {
     return Math.ceil(Math.log2(Math.max(2, L))) + 1;
 }
 
+// Memoized CSS-string → packed uint32 RGBA. Used so callers can pass OKLCH
+// (or any CSS color) without doing the conversion themselves.
+const _packedColorCache = new Map();
+function packCssColor(cssColor) {
+    const hit = _packedColorCache.get(cssColor);
+    if (hit !== undefined) return hit;
+    const cv = document.createElement("canvas");
+    cv.width = 1;
+    cv.height = 1;
+    const ctx = cv.getContext("2d");
+    ctx.fillStyle = cssColor;
+    ctx.fillRect(0, 0, 1, 1);
+    const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+    const packed = ((a << 24) | (b << 16) | (g << 8) | r) >>> 0;
+    _packedColorCache.set(cssColor, packed);
+    return packed;
+}
+
 export function makeTileBitmap(propagation, K, opts = {}) {
     const {
         bg = [255, 255, 255, 255],
         fg = [32, 32, 32, 255],
+        fgDown,
+        fgRight,
     } = opts;
     const cv = document.createElement("canvas");
     cv.width = K;
@@ -24,9 +44,11 @@ export function makeTileBitmap(propagation, K, opts = {}) {
     const imageData = ctx.createImageData(K, K);
     const u32 = new Uint32Array(imageData.data.buffer);
     const bgPacked =
-        (bg[3] << 24) | (bg[2] << 16) | (bg[1] << 8) | bg[0];
+        ((bg[3] << 24) | (bg[2] << 16) | (bg[1] << 8) | bg[0]) >>> 0;
     const fgPacked =
-        (fg[3] << 24) | (fg[2] << 16) | (fg[1] << 8) | fg[0];
+        ((fg[3] << 24) | (fg[2] << 16) | (fg[1] << 8) | fg[0]) >>> 0;
+    const fgDownPacked = fgDown != null ? packCssColor(fgDown) : fgPacked;
+    const fgRightPacked = fgRight != null ? packCssColor(fgRight) : fgPacked;
     u32.fill(bgPacked);
 
     const { downMatrix, rightMatrix, numRows, numColumns } = propagation;
@@ -34,13 +56,13 @@ export function makeTileBitmap(propagation, K, opts = {}) {
         const row = downMatrix[j];
         const base = j * K;
         for (let i = 0; i < numColumns; i++) {
-            if (row[i]) u32[base + i] = fgPacked;
+            if (row[i]) u32[base + i] = fgDownPacked;
         }
     }
     for (let i = 0; i < numColumns; i++) {
         const col = rightMatrix[i];
         for (let j = 0; j < numRows; j++) {
-            if (col[j]) u32[j * K + i] = fgPacked;
+            if (col[j]) u32[j * K + i] = fgRightPacked;
         }
     }
     ctx.putImageData(imageData, 0, 0);
@@ -49,21 +71,23 @@ export function makeTileBitmap(propagation, K, opts = {}) {
 
 // Vector draw: each arrow as a one-cell line segment. Crisp at any zoom.
 // (x0, y0) is the screen position of cell (0, 0) of the propagation.
+// strokeStyleDown / strokeStyleRight let the caller color the two axes
+// independently; both fall back to strokeStyle if not provided.
 export function drawArrowsVector(ctx, propagation, x0, y0, cellPx, opts = {}) {
     const {
         strokeStyle = "#202020",
+        strokeStyleDown = strokeStyle,
+        strokeStyleRight = strokeStyle,
         lineWidth = Math.max(0.5, cellPx * 0.06),
     } = opts;
     const { downMatrix, rightMatrix, numRows, numColumns } = propagation;
 
-    ctx.strokeStyle = strokeStyle;
     ctx.lineWidth = lineWidth;
     ctx.lineCap = "butt";
 
+    // Down arrows.
+    ctx.strokeStyle = strokeStyleDown;
     ctx.beginPath();
-    // Each arrow runs from the center of its source cell to the center of
-    // its destination cell. Adjacent arrows along a stream share endpoints,
-    // and corner deflections meet correctly at the destination cell center.
     for (let j = 0; j <= numRows; j++) {
         const row = downMatrix[j];
         if (!row) continue;
@@ -77,6 +101,11 @@ export function drawArrowsVector(ctx, propagation, x0, y0, cellPx, opts = {}) {
             }
         }
     }
+    ctx.stroke();
+
+    // Right arrows.
+    ctx.strokeStyle = strokeStyleRight;
+    ctx.beginPath();
     for (let i = 0; i <= numColumns; i++) {
         const col = rightMatrix[i];
         if (!col) continue;

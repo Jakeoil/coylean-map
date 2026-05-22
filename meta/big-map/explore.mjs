@@ -66,7 +66,7 @@ async function build() {
     $("hudTitle").textContent =
         `L=${L}, K=${K}, blocks=${scaffold.nBlocks}², built ${ms(dt)}`;
     $("rebuild").disabled = false;
-    recenter(false);
+    recenter();
 }
 
 function recenter(redraw = true) {
@@ -98,6 +98,14 @@ function getPropagation(k1, k2) {
     return p;
 }
 
+// OKLCH red/blue from the theme sketch (meta/oklch.html). Down arrows take
+// the red ramp, right arrows the blue. Bitmap mode (cellPx ≤ 2.5) uses the
+// brighter `base` tier so single-pixel arrows stay visible at high density;
+// vector mode (cellPx > 2.5) uses the darker `outline` tier with a fade
+// alpha — see the render() vector branch.
+const COLOR_DOWN_BITMAP = "oklch(57% 0.22 25)";
+const COLOR_RIGHT_BITMAP = "oklch(58% 0.19 260)";
+
 function getTileBitmap(k1, k2) {
     const key = `${k1},${k2}`;
     let bmp = tileCache.get(key);
@@ -107,7 +115,10 @@ function getTileBitmap(k1, k2) {
         return bmp;
     }
     const p = getPropagation(k1, k2);
-    bmp = makeTileBitmap(p, scaffold.K);
+    bmp = makeTileBitmap(p, scaffold.K, {
+        fgDown: COLOR_DOWN_BITMAP,
+        fgRight: COLOR_RIGHT_BITMAP,
+    });
     tileCache.set(key, bmp);
     if (tileCache.size > TILE_CACHE_LIMIT) {
         const firstKey = tileCache.keys().next().value;
@@ -162,13 +173,17 @@ function render() {
 
     if (useVector) {
         const fade = Math.max(0, Math.min(1, (cellPx - 2.5) / 3));
+        const alpha = 0.55 + 0.35 * fade;
+        const downColor = `oklch(34% 0.18 25 / ${alpha})`;
+        const rightColor = `oklch(34% 0.15 260 / ${alpha})`;
         for (let k1 = k1Min; k1 <= k1Max; k1++) {
             for (let k2 = k2Min; k2 <= k2Max; k2++) {
                 const p = getPropagation(k1, k2);
                 const x0 = (k2 * K - cellX) * cellPx;
                 const y0 = (k1 * K - cellY) * cellPx;
                 drawArrowsVector(ctx, p, x0, y0, cellPx, {
-                    strokeStyle: `rgba(30,30,40,${0.55 + 0.35 * fade})`,
+                    strokeStyleDown: downColor,
+                    strokeStyleRight: rightColor,
                 });
             }
         }
