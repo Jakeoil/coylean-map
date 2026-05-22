@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>OKLCH Ramps in Rotation</title>
+        <link rel="icon" type="image/png" href="../map-icon.png" />
+        <style>
+            :root {
+                color-scheme: dark;
+
+                --bg: oklch(14% 0.025 260);
+                --panel: oklch(19% 0.03 260);
+                --panel-2: oklch(23% 0.035 260);
+                --text: oklch(92% 0.02 260);
+                --muted: oklch(72% 0.025 260);
+                --line: oklch(35% 0.035 260);
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                margin: 0;
+                font-family:
+                    ui-sans-serif,
+                    system-ui,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    sans-serif;
+                background:
+                    radial-gradient(
+                        circle at top left,
+                        oklch(26% 0.08 260),
+                        transparent 32rem
+                    ),
+                    linear-gradient(180deg, var(--bg), oklch(10% 0.02 260));
+                color: var(--text);
+                line-height: 1.55;
+            }
+
+            main {
+                width: min(1120px, calc(100% - 32px));
+                margin: 0 auto;
+                padding: 48px 0 72px;
+            }
+
+            h1,
+            h2 {
+                line-height: 1.15;
+                margin: 0;
+            }
+
+            h1 {
+                font-size: clamp(2rem, 5vw, 3.4rem);
+                letter-spacing: -0.04em;
+                margin-bottom: 14px;
+            }
+
+            h2 {
+                font-size: clamp(1.2rem, 3vw, 1.7rem);
+                letter-spacing: -0.02em;
+                margin-top: 42px;
+                margin-bottom: 12px;
+            }
+
+            p {
+                color: var(--muted);
+                max-width: 78ch;
+            }
+
+            code {
+                background: oklch(24% 0.035 260);
+                border: 1px solid var(--line);
+                padding: 0.12em 0.38em;
+                border-radius: 7px;
+                color: var(--text);
+                font-size: 0.85em;
+            }
+
+            .page-nav {
+                display: flex;
+                gap: 10px;
+                align-items: center;
+                margin-bottom: 18px;
+                font-size: 0.9rem;
+                flex-wrap: wrap;
+            }
+            .page-nav a {
+                color: var(--text);
+                opacity: 0.75;
+                text-decoration: none;
+            }
+            .page-nav a:hover {
+                opacity: 1;
+                text-decoration: underline;
+            }
+            .page-nav .sep {
+                color: var(--muted);
+                opacity: 0.5;
+            }
+
+            .lede {
+                font-size: 1.05rem;
+                margin-bottom: 8px;
+            }
+
+            .spec {
+                background: oklch(20% 0.035 260);
+                border: 1px solid var(--line);
+                border-left: 5px solid oklch(58% 0.19 260);
+                border-radius: 14px;
+                padding: 14px 18px;
+                margin: 18px 0 24px;
+                font-size: 0.9rem;
+            }
+            .spec p {
+                margin: 0;
+            }
+            .spec code {
+                font-size: 0.82em;
+            }
+
+            .ramps {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                margin-top: 18px;
+            }
+
+            .ramp-header {
+                display: grid;
+                grid-template-columns: 140px repeat(6, 1fr);
+                height: 32px;
+                background: var(--panel-2);
+                border-radius: 10px;
+                overflow: hidden;
+                border: 1px solid rgb(255 255 255 / 0.05);
+                color: var(--muted);
+                font-size: 0.74rem;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+            }
+            .ramp-header > div {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .ramp-header > div:first-child {
+                justify-content: flex-start;
+                padding-left: 14px;
+            }
+
+            .ramp {
+                display: grid;
+                grid-template-columns: 140px repeat(6, 1fr);
+                height: 64px;
+                border-radius: 10px;
+                overflow: hidden;
+                border: 1px solid rgb(255 255 255 / 0.06);
+            }
+            .ramp-label {
+                background: var(--panel);
+                color: var(--text);
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: flex-start;
+                padding-left: 14px;
+                gap: 2px;
+            }
+            .ramp-label .hue-angle {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.92rem;
+            }
+            .ramp-label .hue-name {
+                font-size: 0.78rem;
+                color: var(--muted);
+                letter-spacing: 0.02em;
+            }
+            .ramp-label .hue-name em {
+                font-style: normal;
+                color: var(--text);
+                opacity: 0.92;
+            }
+            .ramp-chip {
+                min-width: 0;
+            }
+
+            .legend {
+                margin-top: 22px;
+                color: var(--muted);
+                font-size: 0.88rem;
+            }
+            .legend code {
+                font-size: 0.82em;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <nav class="page-nav">
+                <a href="oklch.html">← OKLCH</a>
+                <span class="sep">·</span>
+                <a href="index.html">Meta</a>
+                <span class="sep">·</span>
+                <a href="../coylean-explorer/basic-propagation-prototype.html">Basic Propagation</a>
+                <span class="sep">·</span>
+                <a href="../coylean-explorer/universe-quadrants-prototype.html">Universe-Quadrants</a>
+            </nav>
+
+            <h1>OKLCH Ramps in Rotation</h1>
+            <p class="lede">
+                Ten hue families at 36° increments around the OKLCH wheel,
+                shown with the same five-role ladder plus a gaudy chip on
+                each. Lightness and chroma are constant within each column
+                — only the hue rotates — so the wheel reads as a true
+                perceptual rotation, the way the OKLab space is designed to
+                support.
+            </p>
+
+            <div class="spec">
+                <p>
+                    Per-role spec used across every hue:
+                    <code>outline 34% .12 H</code> ·
+                    <code>shadow 25% .09 H</code> ·
+                    <code>base 58% .16 H</code> ·
+                    <code>highlight 74% .12 H</code> ·
+                    <code>glow 88% .07 H</code> ·
+                    <code>gaudy 68% .30 H</code>.
+                    Hue <code>H</code> steps through <code>0°, 36°, 72°,
+                    108°, 144°, 180°, 216°, 252°, 288°, 324°</code>.
+                </p>
+            </div>
+
+            <section class="ramps">
+                <div class="ramp-header">
+                    <div>hue · name</div>
+                    <div>outline</div>
+                    <div>shadow</div>
+                    <div>base</div>
+                    <div>highlight</div>
+                    <div>glow</div>
+                    <div>gaudy</div>
+                </div>
+
+                <div class="ramp">
+                    <div class="ramp-label">
+                        <span class="hue-angle">0°</span>
+                        <span class="hue-name">rose</span>
+                    </div>
+                    <div class="ramp-chip" style="background:oklch(34% 0.12 0)"></div>
+                    <div class="ramp-chip" style="background:oklch(25% 0.09 0)"></div>
+                    <div class="ramp-chip" style="background:oklch(58% 0.16 0)"></div>
+                    <div class="ramp-chip" style="background:oklch(74% 0.12 0)"></div>
+                    <div class="ramp-chip" style="background:oklch(88% 0.07 0)"></div>
+                    <div class="ramp-chip" style="background:oklch(68% 0.30 0)"></div>
+                </div>
+                <div class="ramp">
+                    <div class="ramp-label">
+                        <span class="hue-angle">36°</span>
+                        <span class="hue-name"><em>red</em></span>
+                    </div>
+                    <div class="ramp-chip" style="background:oklch(34% 0.12 36)"></div>
+                    <div class="ramp-chip" style="background:oklch(25% 0.09 36)"></div>
+                    <div class="ramp-chip" style="background:oklch(58% 0.16 36)"></div>
+                    <div class="ramp-chip" style="background:oklch(74% 0.12 36)"></div>
+                    <div class="ramp-chip" style="background:oklch(88% 0.07 36)"></div>
+                    <div class="ramp-chip" style="background:oklch(68% 0.30 36)"></div>
+                </div>
+                <div class="ramp">
+                    <div class="ramp-label">
+                        <span class="hue-angle">72°</span>
+                        <span class="hue-name"><em>amber</em></span>
+                    </div>
+                    <div class="ramp-chip" style="background:oklch(34% 0.12 72)"></div>
+                    <div class="ramp-chip" style="background:oklch(25% 0.09 72)"></div>
+                    <div class="ramp-chip" style="background:oklch(58% 0.16 72)"></div>
+                    <div class="ramp-chip" style="background:oklch(74% 0.12 72)"></div>
+                    <div class="ramp-chip" style="background:oklch(88% 0.07 72)"></div>
+                    <div class="ramp-chip" style="background:oklch(68% 0.30 72)"></div>
+                </div>
+                <div class="ramp">
+                    <div class="ramp-label">
+                        <span class="hue-angle">108°</span>
+                        <span class="hue-name">lime</span>
+                    </div>
+                    <div class="ramp-chip" style="background:oklch(34% 0.12 108)"></div>
+                    <div class="ramp-chip" style="background:oklch(25% 0.09 108)"></div>
+                    <div class="ramp-chip" style="background:oklch(58% 0.16 108)"></div>
+                    <div class="ramp-chip" style="background:oklch(74% 0.12 108)"></div>
+                    <div class="ramp-chip" style="background:oklch(88% 0.07 108)"></div>
+                    <div class="ramp-chip" style="background:oklch(68% 0.30 108)"></div>
+                </div>
+                <div class="ramp">
+                    <div class="ramp-label">
+                        <span class="hue-angle">144°</span>
+                        <span class="hue-name"><em>green</em></span>
+                    </div>
+                    <div class="ramp-chip" style="background:oklch(34% 0.12 144)"></div>
+                    <div class="ramp-chip" style="background:oklch(25% 0.09 144)"></div>
+                    <div class="ramp-chip" style="background:oklch(58% 0.16 144)"></div>
+                    <div class="ramp-chip" style="background:oklch(74% 0.12 144)"></div>
+                    <div class="ramp-chip" style="background:oklch(88% 0.07 144)"></div>
+                    <div class="ramp-chip" style="background:oklch(68% 0.30 144)"></div>
+                </div>
+                <div class="ramp">
+                    <div class="ramp-label">
+                        <span class="hue-angle">180°</span>
+                        <span class="hue-name">teal</span>
+                    </div>
+                    <div class="ramp-chip" style="background:oklch(34% 0.12 180)"></div>
+                    <div class="ramp-chip" style="background:oklch(25% 0.09 180)"></div>
+                    <div class="ramp-chip" style="background:oklch(58% 0.16 180)"></div>
+                    <div class="ramp-chip" style="background:oklch(74% 0.12 180)"></div>
+                    <div class="ramp-chip" style="background:oklch(88% 0.07 180)"></div>
+                    <div class="ramp-chip" style="background:oklch(68% 0.30 180)"></div>
+                </div>
+                <div class="ramp">
+                    <div class="ramp-label">
+                        <span class="hue-angle">216°</span>
+                        <span class="hue-name">azure</span>
+                    </div>
+                    <div class="ramp-chip" style="background:oklch(34% 0.12 216)"></div>
+                    <div class="ramp-chip" style="background:oklch(25% 0.09 216)"></div>
+                    <div class="ramp-chip" style="background:oklch(58% 0.16 216)"></div>
+                    <div class="ramp-chip" style="background:oklch(74% 0.12 216)"></div>
+                    <div class="ramp-chip" style="background:oklch(88% 0.07 216)"></div>
+                    <div class="ramp-chip" style="background:oklch(68% 0.30 216)"></div>
+                </div>
+                <div class="ramp">
+                    <div class="ramp-label">
+                        <span class="hue-angle">252°</span>
+                        <span class="hue-name"><em>blue</em></span>
+                    </div>
+                    <div class="ramp-chip" style="background:oklch(34% 0.12 252)"></div>
+                    <div class="ramp-chip" style="background:oklch(25% 0.09 252)"></div>
+                    <div class="ramp-chip" style="background:oklch(58% 0.16 252)"></div>
+                    <div class="ramp-chip" style="background:oklch(74% 0.12 252)"></div>
+                    <div class="ramp-chip" style="background:oklch(88% 0.07 252)"></div>
+                    <div class="ramp-chip" style="background:oklch(68% 0.30 252)"></div>
+                </div>
+                <div class="ramp">
+                    <div class="ramp-label">
+                        <span class="hue-angle">288°</span>
+                        <span class="hue-name"><em>violet</em></span>
+                    </div>
+                    <div class="ramp-chip" style="background:oklch(34% 0.12 288)"></div>
+                    <div class="ramp-chip" style="background:oklch(25% 0.09 288)"></div>
+                    <div class="ramp-chip" style="background:oklch(58% 0.16 288)"></div>
+                    <div class="ramp-chip" style="background:oklch(74% 0.12 288)"></div>
+                    <div class="ramp-chip" style="background:oklch(88% 0.07 288)"></div>
+                    <div class="ramp-chip" style="background:oklch(68% 0.30 288)"></div>
+                </div>
+                <div class="ramp">
+                    <div class="ramp-label">
+                        <span class="hue-angle">324°</span>
+                        <span class="hue-name">magenta</span>
+                    </div>
+                    <div class="ramp-chip" style="background:oklch(34% 0.12 324)"></div>
+                    <div class="ramp-chip" style="background:oklch(25% 0.09 324)"></div>
+                    <div class="ramp-chip" style="background:oklch(58% 0.16 324)"></div>
+                    <div class="ramp-chip" style="background:oklch(74% 0.12 324)"></div>
+                    <div class="ramp-chip" style="background:oklch(88% 0.07 324)"></div>
+                    <div class="ramp-chip" style="background:oklch(68% 0.30 324)"></div>
+                </div>
+            </section>
+
+            <p class="legend">
+                Names in italics — <em>red</em>, <em>amber</em>,
+                <em>green</em>, <em>blue</em>, <em>violet</em> — mark the
+                five rows that align (within a few degrees) with the
+                theme's existing families in
+                <code>theme.js</code>. Diametrically-opposite rows are
+                complements: rose↔teal (0°↔180°), red↔azure (36°↔216°),
+                amber↔blue (72°↔252°), lime↔violet (108°↔288°),
+                green↔magenta (144°↔324°). Reading the table top-to-bottom
+                traces the full hue wheel once.
+            </p>
+
+            <h2>Gray — for completeness</h2>
+            <p>
+                Chroma is zero, so the hue parameter has no effect and the
+                ramp is pure lightness. Included here for parity with the
+                colored families; in practice it serves as the achromatic
+                baseline for scaffolding, disabled state, or unclassified
+                values. The <em>gaudy</em> slot is shown at the
+                <code>base</code> value since "gaudy" implies saturation
+                and there's none available.
+            </p>
+
+            <section class="ramps">
+                <div class="ramp-header">
+                    <div>hue · name</div>
+                    <div>outline</div>
+                    <div>shadow</div>
+                    <div>base</div>
+                    <div>highlight</div>
+                    <div>glow</div>
+                    <div>gaudy</div>
+                </div>
+                <div class="ramp">
+                    <div class="ramp-label">
+                        <span class="hue-angle">—</span>
+                        <span class="hue-name">gray</span>
+                    </div>
+                    <div class="ramp-chip" style="background:oklch(34% 0 0)"></div>
+                    <div class="ramp-chip" style="background:oklch(25% 0 0)"></div>
+                    <div class="ramp-chip" style="background:oklch(58% 0 0)"></div>
+                    <div class="ramp-chip" style="background:oklch(74% 0 0)"></div>
+                    <div class="ramp-chip" style="background:oklch(88% 0 0)"></div>
+                    <div class="ramp-chip" style="background:oklch(58% 0 0)"></div>
+                </div>
+            </section>
+        </main>
+    </body>
+</html>

@@ -44,6 +44,12 @@
                 --violet-base: oklch(58% 0.2 305);
                 --violet-highlight: oklch(74% 0.14 305);
                 --violet-glow: oklch(88% 0.08 305);
+
+                --gray-outline: oklch(34% 0 0);
+                --gray-shadow: oklch(25% 0 0);
+                --gray-base: oklch(58% 0 0);
+                --gray-highlight: oklch(74% 0 0);
+                --gray-glow: oklch(88% 0 0);
             }
 
             * {
@@ -312,6 +318,13 @@
                 --highlight: var(--violet-highlight);
                 --glow: var(--violet-glow);
             }
+            .gray {
+                --outline: var(--gray-outline);
+                --shadow: var(--gray-shadow);
+                --base: var(--gray-base);
+                --highlight: var(--gray-highlight);
+                --glow: var(--gray-glow);
+            }
 
             .gaudy-red {
                 --outline: oklch(43% 0.28 25);
@@ -429,6 +442,59 @@
                 background: var(--violet-glow);
             }
 
+            .gray .chip:nth-child(1) {
+                background: var(--gray-outline);
+            }
+            .gray .chip:nth-child(2) {
+                background: var(--gray-shadow);
+            }
+            .gray .chip:nth-child(3) {
+                background: var(--gray-base);
+            }
+            .gray .chip:nth-child(4) {
+                background: var(--gray-highlight);
+            }
+            .gray .chip:nth-child(5) {
+                background: var(--gray-glow);
+            }
+
+            /* Page nav: small breadcrumb-style links above the hero. */
+            .page-nav {
+                display: flex;
+                gap: 10px;
+                align-items: center;
+                margin-bottom: 18px;
+                font-size: 0.9rem;
+            }
+            .page-nav a {
+                color: var(--text);
+                opacity: 0.75;
+                text-decoration: none;
+            }
+            .page-nav a:hover {
+                opacity: 1;
+                text-decoration: underline;
+            }
+            .page-nav .sep {
+                color: var(--muted);
+                opacity: 0.5;
+            }
+
+            /* Legacy/OKLCH comparison: two stacked chip rows per axis. */
+            .compare-label {
+                margin: 0 0 6px;
+                font-size: 0.8rem;
+                color: var(--muted);
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+            }
+            .compare-label + .chips {
+                margin-bottom: 10px;
+            }
+            .family.compare .roles code {
+                font-size: 0.78rem;
+            }
+
             table {
                 width: 100%;
                 border-collapse: collapse;
@@ -460,6 +526,13 @@
     </head>
     <body>
         <main>
+            <nav class="page-nav">
+                <a href="index.html">← Meta</a>
+                <span class="sep">·</span>
+                <a href="../coylean-explorer/basic-propagation-prototype.html">Basic Propagation</a>
+                <span class="sep">·</span>
+                <a href="../coylean-explorer/universe-quadrants-prototype.html">Universe-Quadrants</a>
+            </nav>
             <section class="hero">
                 <h1>OKLCH Color Theme Sketch</h1>
                 <p class="tagline">
@@ -525,6 +598,14 @@
                         <td>
                             meta layer, alternate propagation, exotic/special
                             state
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Gray</td>
+                        <td>—</td>
+                        <td>
+                            achromatic baseline, disabled/inactive, scaffolding,
+                            unclassified state (chroma = 0, hue irrelevant)
                         </td>
                     </tr>
                 </tbody>
@@ -685,6 +766,34 @@
                         </div>
                     </div>
                 </article>
+
+                <article class="family gray">
+                    <h3>Gray</h3>
+                    <div class="chips">
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                        <div class="chip"></div>
+                    </div>
+                    <div class="roles">
+                        <div class="role">
+                            <span>outline</span><code>34 0 —</code>
+                        </div>
+                        <div class="role">
+                            <span>shadow</span><code>25 0 —</code>
+                        </div>
+                        <div class="role">
+                            <span>base</span><code>58 0 —</code>
+                        </div>
+                        <div class="role">
+                            <span>highlight</span><code>74 0 —</code>
+                        </div>
+                        <div class="role">
+                            <span>glow</span><code>88 0 —</code>
+                        </div>
+                    </div>
+                </article>
             </section>
 
             <h2>Rendering samples</h2>
@@ -715,7 +824,107 @@
                     <h3>Violet</h3>
                     <p>Meta layer, alternate rule, special propagation.</p>
                 </article>
+                <article class="demo-card gray">
+                    <h3>Gray</h3>
+                    <p>Achromatic baseline, scaffolding, inactive state.</p>
+                </article>
             </section>
+
+            <h2>Comparison to original (legacy) ramps</h2>
+            <p>
+                The current prototype pages ship with a small set of hand-tuned
+                hexes — two effective hues (a warm row family and a cool column
+                family) with only three distinct lightness tiers. The new OKLCH
+                ramps split those tiers into five, so the diamond border, the
+                arrow fill, and the diamond fill are no longer forced to share
+                a value. Toggling <em>Legacy ↔ OKLCH</em> on either prototype
+                swaps between them at draw time.
+            </p>
+
+            <section class="swatch-grid">
+                <article class="family compare">
+                    <h3>Row family — down arrows</h3>
+                    <p class="compare-label">Legacy (hand-tuned hex)</p>
+                    <div class="chips">
+                        <div class="chip" style="background:#9a4a4a"></div>
+                        <div class="chip" style="background:#7a2d2d"></div>
+                        <div class="chip" style="background:#9a4a4a"></div>
+                        <div class="chip" style="background:#e0a8a8"></div>
+                        <div class="chip" style="background:#e0a8a8"></div>
+                    </div>
+                    <p class="compare-label">OKLCH — red @ hue 25°</p>
+                    <div class="chips">
+                        <div class="chip" style="background:oklch(34% 0.18 25)"></div>
+                        <div class="chip" style="background:oklch(25% 0.13 25)"></div>
+                        <div class="chip" style="background:oklch(57% 0.22 25)"></div>
+                        <div class="chip" style="background:oklch(74% 0.16 25)"></div>
+                        <div class="chip" style="background:oklch(88% 0.08 25)"></div>
+                    </div>
+                    <div class="roles">
+                        <div class="role">
+                            <span>outline</span><code>#9a4a4a → 34 .18 25</code>
+                        </div>
+                        <div class="role">
+                            <span>shadow</span><code>#7a2d2d → 25 .13 25</code>
+                        </div>
+                        <div class="role">
+                            <span>base</span><code>#9a4a4a → 57 .22 25</code>
+                        </div>
+                        <div class="role">
+                            <span>highlight</span><code>#e0a8a8 → 74 .16 25</code>
+                        </div>
+                        <div class="role">
+                            <span>glow</span><code>#e0a8a8 → 88 .08 25</code>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="family compare">
+                    <h3>Col family — right arrows</h3>
+                    <p class="compare-label">Legacy (hand-tuned hex)</p>
+                    <div class="chips">
+                        <div class="chip" style="background:#5a8aaa"></div>
+                        <div class="chip" style="background:#3d6a8a"></div>
+                        <div class="chip" style="background:#5a8aaa"></div>
+                        <div class="chip" style="background:#bcd8e8"></div>
+                        <div class="chip" style="background:#bcd8e8"></div>
+                    </div>
+                    <p class="compare-label">OKLCH — blue @ hue 260°</p>
+                    <div class="chips">
+                        <div class="chip" style="background:oklch(34% 0.15 260)"></div>
+                        <div class="chip" style="background:oklch(25% 0.11 260)"></div>
+                        <div class="chip" style="background:oklch(58% 0.19 260)"></div>
+                        <div class="chip" style="background:oklch(74% 0.13 260)"></div>
+                        <div class="chip" style="background:oklch(88% 0.07 260)"></div>
+                    </div>
+                    <div class="roles">
+                        <div class="role">
+                            <span>outline</span><code>#5a8aaa → 34 .15 260</code>
+                        </div>
+                        <div class="role">
+                            <span>shadow</span><code>#3d6a8a → 25 .11 260</code>
+                        </div>
+                        <div class="role">
+                            <span>base</span><code>#5a8aaa → 58 .19 260</code>
+                        </div>
+                        <div class="role">
+                            <span>highlight</span><code>#bcd8e8 → 74 .13 260</code>
+                        </div>
+                        <div class="role">
+                            <span>glow</span><code>#bcd8e8 → 88 .07 260</code>
+                        </div>
+                    </div>
+                </article>
+            </section>
+            <p>
+                The legacy palette collapses <strong>base ≡ outline</strong> and
+                <strong>glow ≡ highlight</strong> — only three distinct tiers
+                per axis (plus a separate gaudy <code>#f00</code> / <code>#00f</code>
+                for the editable-init arrow). The OKLCH version pulls them apart
+                onto a clean lightness ladder, so each draw site can pick the
+                tier that fits without forcing two different uses to share a
+                color.
+            </p>
 
             <h2>Complementarity</h2>
             <p>
@@ -737,6 +946,9 @@
                 want <em>near complements</em>: blue vs amber, red vs
                 greenish-cyan, green vs violet. These are still oppositional,
                 but less like a warning sign.
+                See the
+                <a href="oklch-ramps.html">full hue wheel laid out as ramps →</a>
+                — diametrically-opposite rows are the true 180° complements.
             </p>
 
             <h2>Gaudy / glow-in-the-dark variants</h2>
