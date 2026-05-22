@@ -58,12 +58,12 @@
 </div>
 
 <div id="controls">
-  <label title="initial scaffold size — universe grows past this as you pan">
-    initial&nbsp;L <input id="L" type="number" min="4" step="1" value="1024">
+  <label title="per-quadrant extent — total grid is (2L-1) × (2L-1), origin centered">
+    L <input id="L" type="number" min="4" step="1" value="1024">
   </label>
   <label>K <input id="K" type="number" min="2" step="1" value="256"></label>
   <label>maxPri <input id="maxPri" type="number" placeholder="auto"></label>
-  <button id="rebuild">Reset scaffold</button>
+  <button id="rebuild">Rebuild universe</button>
   <button id="recenter">Recenter</button>
   <label><input id="showGrid" type="checkbox"> dyadic grid</label>
   <label><input id="showLabels" type="checkbox"> labels</label>
@@ -79,8 +79,8 @@
   <strong>drag</strong> to pan ·
   <strong>wheel</strong> to zoom (anchored at cursor) ·
   <kbd>0</kbd> recenter · <kbd>+</kbd>/<kbd>-</kbd> zoom · <kbd>g</kbd> grid
-  <br><span style="color:#789">universe grows southeast as you pan
-  past the current extent</span>
+  <br><span style="color:#789">all four quadrants built from
+  Universe.create; pan freely past the origin</span>
 </div>
 
 <script type="module" src="./explore.mjs"></script>

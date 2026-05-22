@@ -1,6 +1,6 @@
-import { Propagation, pri } from "../../coylean-explorer/coylean-core.js";
-import { buildScaffold, extendScaffold } from "./scaffold.mjs";
-import { tile } from "./tile.mjs";
+import {
+    Propagation, Universe, Seniority,
+} from "../../coylean-explorer/coylean-core.js";
 import {
     makeTileBitmap, drawArrowsVector,
     drawDyadicGrid, drawDyadicLabels, autoMaxPri,
@@ -9,7 +9,24 @@ import {
 const cv = document.getElementById("cv");
 const ctx = cv.getContext("2d", { alpha: false });
 
-let scaffold = null;
+// Four mirrored quadrants are built via Universe.create, then collapsed
+// into a single (2L-1) × (2L-1) SE-flowing Propagation by
+// Propagation.fromUniverseBoundary. That integrated propagation has a
+// uniform symmetric priority landscape across the whole grid
+// (hInitCol = 1 - L, vInitRow = 1 - L), with the dyadic singular point
+// pri(0)=maxPri landing exactly on the origin column/row. Without this
+// integration step, reading universe.downMatrix / rightMatrix directly
+// gives a map where each quadrant uses its own priority offsets — the
+// off-diagonal quadrants (NE/SW) end up with hInitCol=0 or vInitRow=0,
+// which kills one axis' flow at the seam-adjacent row/column and renders
+// sparsely. Integrating recovers a single self-consistent map.
+//
+// Rendering: world coords are matrix coords. The origin lives at
+// (originRow, originCol) = (L-1, L-1); pan/zoom freely (including
+// negative). Logical (dyadic) indices on the labels are measured relative
+// to the origin so the origin cell reads as (0, 0).
+
+let state = null;
 let tileCache = new Map();
 let propCache = new Map();
 
@@ -42,7 +59,6 @@ function readParams() {
     const maxPri = mp ? Number(mp) : autoMaxPri(L);
     if (!Number.isInteger(L) || L < 2) throw new Error("L must be ≥ 2");
     if (!Number.isInteger(K) || K < 1) throw new Error("K must be ≥ 1");
-    if (L % K !== 0) throw new Error(`L=${L} must be divisible by K=${K}`);
     return { L, K, maxPri };
 }
 
@@ -55,30 +71,79 @@ async function build() {
         return;
     }
     const { L, K, maxPri } = params;
-    $("hudTitle").textContent = `building scaffold L=${L} K=${K}…`;
+    $("hudTitle").textContent = `building universe L=${L}…`;
     $("rebuild").disabled = true;
     await new Promise((r) => requestAnimationFrame(r));
     const t0 = performance.now();
-    scaffold = buildScaffold({ L, K, maxPri });
+    const universe = Universe.create({
+        northExtent: L, southExtent: L,
+        westExtent:  L, eastExtent:  L,
+        hInitCol: 1, vInitRow: 1,
+        seniority: Seniority.vertical(),
+        maxPri,
+    });
+    const tIntegrate0 = performance.now();
+    const integrated = Propagation.fromUniverseBoundary(universe);
+    const tIntegrate = performance.now() - tIntegrate0;
     const dt = performance.now() - t0;
+    const originRow = universe.originRow;
+    const originCol = universe.originCol;
+    const nRows = integrated.numRows;
+    const nCols = integrated.numColumns;
+    state = {
+        integrated,
+        K,
+        nRows,
+        nCols,
+        nBlocksRow: Math.ceil(nRows / K),
+        nBlocksCol: Math.ceil(nCols / K),
+        originRow,
+        originCol,
+        maxPri,
+        L,
+    };
     tileCache = new Map();
     propCache = new Map();
     $("hudTitle").textContent =
-        `L=${L}, K=${K}, blocks=${scaffold.nBlocks}², built ${ms(dt)}`;
+        `L=${L}, K=${K}, ${nRows}×${nCols}, built ${ms(dt)}`
+        + ` (integrate ${ms(tIntegrate)})`;
     $("rebuild").disabled = false;
     recenter();
 }
 
 function recenter(redraw = true) {
-    if (!scaffold) return;
-    const { L } = scaffold;
+    if (!state) return;
     const w = cv.width / (window.devicePixelRatio || 1);
     const h = cv.height / (window.devicePixelRatio || 1);
-    const target = Math.min(L, 1024);
+    const target = Math.min(Math.max(state.nRows, state.nCols), 1024);
     view.cellPx = Math.min(w, h) / target;
-    view.cellX = 0;
-    view.cellY = 0;
+    view.cellX = state.originCol - w / view.cellPx / 2;
+    view.cellY = state.originRow - h / view.cellPx / 2;
     if (redraw) schedule();
+}
+
+// Slice the universe matrices into a K-aligned tile at block (k1, k2).
+// Returned object shapes itself like a Propagation for makeTileBitmap /
+// drawArrowsVector. Edge tiles where K doesn't divide the universe extent
+// come back with numRows or numColumns < K; the bitmap path still allocates
+// a K × K canvas, leaving the unused region bg-coloured (and on screen that
+// region falls outside the universe, where the canvas is white anyway).
+function tileSlice(k1, k2) {
+    const { integrated, K, nRows, nCols } = state;
+    const r0 = k1 * K;
+    const c0 = k2 * K;
+    const nR = Math.min(K, nRows - r0);
+    const nC = Math.min(K, nCols - c0);
+    if (nR <= 0 || nC <= 0) return null;
+    const dM = new Array(nR);
+    for (let j = 0; j < nR; j++) {
+        dM[j] = integrated.downMatrix[r0 + j].slice(c0, c0 + nC);
+    }
+    const rM = new Array(nC);
+    for (let i = 0; i < nC; i++) {
+        rM[i] = integrated.rightMatrix[c0 + i].slice(r0, r0 + nR);
+    }
+    return { downMatrix: dM, rightMatrix: rM, numRows: nR, numColumns: nC };
 }
 
 function getPropagation(k1, k2) {
@@ -89,7 +154,8 @@ function getPropagation(k1, k2) {
         propCache.set(key, p);
         return p;
     }
-    p = tile(scaffold, k1, k2);
+    p = tileSlice(k1, k2);
+    if (!p) return null;
     propCache.set(key, p);
     if (propCache.size > PROP_CACHE_LIMIT) {
         const firstKey = propCache.keys().next().value;
@@ -115,7 +181,8 @@ function getTileBitmap(k1, k2) {
         return bmp;
     }
     const p = getPropagation(k1, k2);
-    bmp = makeTileBitmap(p, scaffold.K, {
+    if (!p) return null;
+    bmp = makeTileBitmap(p, state.K, {
         fgDown: COLOR_DOWN_BITMAP,
         fgRight: COLOR_RIGHT_BITMAP,
     });
@@ -144,27 +211,19 @@ function render() {
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, W, H);
 
-    if (!scaffold) return;
-    const { K } = scaffold;
+    if (!state) return;
+    const { K, nBlocksRow, nBlocksCol, originRow, originCol, maxPri } = state;
     const { cellX, cellY, cellPx } = view;
 
-    const iMin = Math.max(0, Math.floor(cellX));
-    const iMax = Math.max(iMin, Math.ceil(cellX + W / cellPx));
-    const jMin = Math.max(0, Math.floor(cellY));
-    const jMax = Math.max(jMin, Math.ceil(cellY + H / cellPx));
+    const iMin = Math.floor(cellX);
+    const iMax = Math.ceil(cellX + W / cellPx);
+    const jMin = Math.floor(cellY);
+    const jMax = Math.ceil(cellY + H / cellPx);
 
-    const k1Min = Math.floor(jMin / K);
-    const k1Max = Math.floor(jMax / K);
-    const k2Min = Math.floor(iMin / K);
-    const k2Max = Math.floor(iMax / K);
-
-    const needN = Math.max(k1Max, k2Max) + 1;
-    let extendMs = 0;
-    if (needN > scaffold.nBlocks) {
-        const tx0 = performance.now();
-        extendScaffold(scaffold, needN);
-        extendMs = performance.now() - tx0;
-    }
+    const k1Min = Math.max(0, Math.floor(jMin / K));
+    const k1Max = Math.min(nBlocksRow - 1, Math.floor(jMax / K));
+    const k2Min = Math.max(0, Math.floor(iMin / K));
+    const k2Max = Math.min(nBlocksCol - 1, Math.floor(iMax / K));
 
     const useVector = cellPx >= 2.5;
 
@@ -179,6 +238,7 @@ function render() {
         for (let k1 = k1Min; k1 <= k1Max; k1++) {
             for (let k2 = k2Min; k2 <= k2Max; k2++) {
                 const p = getPropagation(k1, k2);
+                if (!p) continue;
                 const x0 = (k2 * K - cellX) * cellPx;
                 const y0 = (k1 * K - cellY) * cellPx;
                 drawArrowsVector(ctx, p, x0, y0, cellPx, {
@@ -191,6 +251,7 @@ function render() {
         for (let k1 = k1Min; k1 <= k1Max; k1++) {
             for (let k2 = k2Min; k2 <= k2Max; k2++) {
                 const bmp = getTileBitmap(k1, k2);
+                if (!bmp) continue;
                 const x = (k2 * K - cellX) * cellPx;
                 const y = (k1 * K - cellY) * cellPx;
                 const sz = K * cellPx;
@@ -199,13 +260,19 @@ function render() {
         }
     }
 
+    // Logical-index offsets passed to grid/labels: integrated propagation
+    // has colPriority[c] = pri(c - originCol), so the origin column itself
+    // is the dyadic singular point pri(0)=maxPri.
+    const hLabelOffset = -originCol;
+    const vLabelOffset = -originRow;
+
     if ($("showGrid").checked) {
         drawDyadicGrid(ctx, {
             canvas: { width: W, height: H },
             viewCellX: cellX, viewCellY: cellY, cellPx,
-            hInitCol0: scaffold.hInitCol0,
-            vInitRow0: scaffold.vInitRow0,
-            maxPri: scaffold.maxPri,
+            hInitCol0: hLabelOffset,
+            vInitRow0: vLabelOffset,
+            maxPri,
             minPri: 2,
         });
     }
@@ -213,22 +280,26 @@ function render() {
         drawDyadicLabels(ctx, {
             canvas: { width: W, height: H },
             viewCellX: cellX, viewCellY: cellY, cellPx,
-            hInitCol0: scaffold.hInitCol0,
-            vInitRow0: scaffold.vInitRow0,
-            maxPri: scaffold.maxPri,
+            hInitCol0: hLabelOffset,
+            vInitRow0: vLabelOffset,
+            maxPri,
             labelMinPri: cellPx >= 2 ? 3 : 5,
         });
     }
 
+    // HUD viewBounds in origin-relative coords (origin is 0).
+    const iLogMin = iMin - originCol;
+    const iLogMax = iMax - originCol;
+    const jLogMin = jMin - originRow;
+    const jLogMax = jMax - originRow;
     $("viewBounds").textContent =
-        `[${iMin}..${iMax}] × [${jMin}..${jMax}]`;
+        `cols [${iLogMin}..${iLogMax}] × rows [${jLogMin}..${jLogMax}]`;
     $("cellPx").textContent = cellPx.toFixed(2);
     $("mode").textContent = useVector ? "vector" : "bitmap";
     $("cacheSize").textContent =
         `${tileCache.size} bmp · ${propCache.size} prop`;
     $("extent").textContent =
-        `${scaffold.nBlocks}² blocks · L=${scaffold.L}`
-        + (extendMs > 0 ? `  (+${ms(extendMs)})` : "");
+        `${state.nRows}×${state.nCols} cells · L=${state.L}`;
     const dt = performance.now() - t0;
     $("frameTime").textContent = ms(dt);
 }
