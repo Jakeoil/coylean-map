@@ -216,8 +216,8 @@ function getHaloCanvas() {
 // Labels every column/row whose pri >= labelMinPri.
 // Down (column) labels: two lines (index above, p{pri} below) centered
 // horizontally on the column's vertical line, pinned to the top margin.
-// Right (row) labels: two lines centered vertically on the row's horizontal
-// line, pinned to the left margin.
+// Right (row) labels: single line "idx · p{pri}" whose vertical middle
+// sits on the row's horizontal line, pinned to the left margin.
 export function drawDyadicLabels(ctx, opts) {
     const {
         canvas,
@@ -274,21 +274,18 @@ export function drawDyadicLabels(ctx, opts) {
         ctx.fillText(priStr, x, topY + padY + lineH);
     }
 
-    // Right labels — centered on the horizontal row line, pinned to left.
+    // Right labels — single line, text's vertical middle on the row line.
     ctx.textAlign = "left";
-    ctx.textBaseline = "top";
+    ctx.textBaseline = "middle";
     const leftX = 3;
     for (let j = jMin; j <= jMax; j++) {
         const p = pri(j + vInitRow0, maxPri);
         if (p < labelMinPri) continue;
         const y = (j - viewCellY) * cellPx;
         if (y < 0 || y > H) continue;
-        const idxStr = `${j + vInitRow0}`;
-        const priStr = `p${p}`;
-        const boxW =
-            Math.max(ctx.measureText(idxStr).width, ctx.measureText(priStr).width)
-            + 2 * padX;
-        const boxH = 2 * lineH + 2 * padY;
+        const text = `${j + vInitRow0} · p${p}`;
+        const boxW = ctx.measureText(text).width + 2 * padX;
+        const boxH = lineH + 2 * padY;
         const boxY = y - boxH / 2;
         ctx.drawImage(
             halo,
@@ -298,8 +295,7 @@ export function drawDyadicLabels(ctx, opts) {
             boxH + 2 * haloOverY,
         );
         ctx.fillStyle = colorRight;
-        ctx.fillText(idxStr, leftX + padX, boxY + padY);
-        ctx.fillText(priStr, leftX + padX, boxY + padY + lineH);
+        ctx.fillText(text, leftX + padX, y);
     }
     ctx.restore();
 }
