@@ -188,8 +188,36 @@ export function drawDyadicGrid(ctx, opts) {
     ctx.restore();
 }
 
+// Reusable soft-white halo: one offscreen canvas with a radial-gradient blob
+// built once at module load. Stretched per label via drawImage so the
+// transparent edges fade smoothly behind any text size. Avoids the cost of
+// createRadialGradient per label.
+let _haloCv = null;
+function getHaloCanvas() {
+    if (_haloCv) return _haloCv;
+    const size = 64;
+    _haloCv = document.createElement("canvas");
+    _haloCv.width = size;
+    _haloCv.height = size;
+    const c = _haloCv.getContext("2d");
+    const g = c.createRadialGradient(
+        size / 2, size / 2, 0,
+        size / 2, size / 2, size / 2,
+    );
+    g.addColorStop(0.0, "rgba(255, 255, 255, 0.92)");
+    g.addColorStop(0.55, "rgba(255, 255, 255, 0.78)");
+    g.addColorStop(1.0, "rgba(255, 255, 255, 0)");
+    c.fillStyle = g;
+    c.fillRect(0, 0, size, size);
+    return _haloCv;
+}
+
 // Dyadic axis labels along the top and left margins.
 // Labels every column/row whose pri >= labelMinPri.
+// Down (column) labels: two lines (index above, p{pri} below) centered
+// horizontally on the column's vertical line, pinned to the top margin.
+// Right (row) labels: two lines centered vertically on the row's horizontal
+// line, pinned to the left margin.
 export function drawDyadicLabels(ctx, opts) {
     const {
         canvas,
@@ -198,7 +226,8 @@ export function drawDyadicLabels(ctx, opts) {
         maxPri = DEFAULT_MAX_PRI,
         labelMinPri = 4,
         font = "10px ui-monospace, Menlo, monospace",
-        color = "rgba(20, 30, 60, 0.85)",
+        colorDown = "oklch(25% 0.13 25)",
+        colorRight = "oklch(25% 0.11 260)",
     } = opts;
     const W = canvas.width;
     const H = canvas.height;
@@ -208,24 +237,69 @@ export function drawDyadicLabels(ctx, opts) {
     const jMax = Math.ceil(viewCellY + H / cellPx);
 
     ctx.save();
-    ctx.fillStyle = color;
     ctx.font = font;
-    ctx.textBaseline = "top";
+    const halo = getHaloCanvas();
+    const lineH = 11; // tuned for 10px monospace
+    const padX = 4;
+    const padY = 3;
+    // Halo overshoots the text box so the gradient's transparent edge is
+    // visible rather than being clipped to a hard rectangle.
+    const haloOverX = 8;
+    const haloOverY = 5;
 
+    // Down labels — centered on the vertical column line, pinned to top.
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    const topY = 3;
     for (let i = iMin; i <= iMax; i++) {
         const p = pri(i + hInitCol0, maxPri);
         if (p < labelMinPri) continue;
         const x = (i - viewCellX) * cellPx;
         if (x < 0 || x > W) continue;
-        ctx.fillText(`${i + hInitCol0} · p${p}`, x + 2, 2);
+        const idxStr = `${i + hInitCol0}`;
+        const priStr = `p${p}`;
+        const boxW =
+            Math.max(ctx.measureText(idxStr).width, ctx.measureText(priStr).width)
+            + 2 * padX;
+        const boxH = 2 * lineH + 2 * padY;
+        ctx.drawImage(
+            halo,
+            x - boxW / 2 - haloOverX,
+            topY - haloOverY,
+            boxW + 2 * haloOverX,
+            boxH + 2 * haloOverY,
+        );
+        ctx.fillStyle = colorDown;
+        ctx.fillText(idxStr, x, topY + padY);
+        ctx.fillText(priStr, x, topY + padY + lineH);
     }
-    ctx.textBaseline = "alphabetic";
+
+    // Right labels — centered on the horizontal row line, pinned to left.
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    const leftX = 3;
     for (let j = jMin; j <= jMax; j++) {
         const p = pri(j + vInitRow0, maxPri);
         if (p < labelMinPri) continue;
         const y = (j - viewCellY) * cellPx;
         if (y < 0 || y > H) continue;
-        ctx.fillText(`${j + vInitRow0} · p${p}`, 2, y - 2);
+        const idxStr = `${j + vInitRow0}`;
+        const priStr = `p${p}`;
+        const boxW =
+            Math.max(ctx.measureText(idxStr).width, ctx.measureText(priStr).width)
+            + 2 * padX;
+        const boxH = 2 * lineH + 2 * padY;
+        const boxY = y - boxH / 2;
+        ctx.drawImage(
+            halo,
+            leftX - haloOverX,
+            boxY - haloOverY,
+            boxW + 2 * haloOverX,
+            boxH + 2 * haloOverY,
+        );
+        ctx.fillStyle = colorRight;
+        ctx.fillText(idxStr, leftX + padX, boxY + padY);
+        ctx.fillText(priStr, leftX + padX, boxY + padY + lineH);
     }
     ctx.restore();
 }
