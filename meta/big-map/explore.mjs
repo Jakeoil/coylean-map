@@ -1,6 +1,10 @@
 import {
-    Propagation, Universe, Seniority,
+    Seniority, Row, Col,
 } from "../../coylean-explorer/coylean-core.js";
+import {
+    createScaffold, allocateScaffold, propagateBlock, isBlockBuilt,
+} from "./scaffold.mjs";
+import { tile } from "./tile.mjs";
 import {
     makeTileBitmap, drawArrowsVector,
     drawDyadicGrid, drawDyadicLabels, autoMaxPri,
@@ -9,69 +13,56 @@ import {
 const cv = document.getElementById("cv");
 const ctx = cv.getContext("2d", { alpha: false });
 
-// Universe.createUniverseExtents builds the four mirrored quadrant
-// propagations, then Propagation.fromUniverseBoundary collapses their
-// outer N/W edges into a single (2L-1) × (2L-1) SE-flowing Propagation.
-// That integrated propagation has a uniform symmetric priority landscape
-// (hInitCol = 1 - L, vInitRow = 1 - L for the canonical hInitCol=1,
-// vInitRow=1 case), with the dyadic singular point pri(0)=maxPri landing
-// exactly on the origin column/row.
+// Lazy-scaffold rendering, two-phase:
 //
-// We deliberately avoid Universe.create / universe.assemble() here:
-// assemble stitches the four quadrants into a (2L-1)² raster whose
-// quadrants disagree on the priority of cells (NE has hInitCol=1 but
-// vInitRow=0, etc.) and renders sparsely at the seams. The boundary
-// integration is the only step we need.
+//   Phase 1 ("boundary"): build four quadrant scaffolds in rAF chunks.
+//     Each is an SE-flow scaffold with quadrant-specific hInitCol0 /
+//     vInitRow0 (mirroring Universe.createUniverseExtents). We only need
+//     their far-from-origin seams (hSeams[L/K], vSeams[L/K]) — these
+//     stitch into the universe boundary seed.
 //
-// Rendering: world coords are matrix coords. The origin lives at
-// (originRow, originCol) = (L-1, L-1); pan/zoom freely (including
-// negative). Logical (dyadic) indices on the labels are measured relative
-// to the origin so the origin cell reads as (0, 0).
+//   Phase 2 ("ready"): create the INTEGRATED scaffold seeded from the
+//     stitched boundary (per Propagation.fromUniverseBoundary). Discard
+//     the four quadrant scaffolds. Build integrated blocks lazily,
+//     viewport-prioritized.
+//
+// The integrated scaffold gives the same mathematically consistent
+// representation as the eager fromUniverseBoundary path used previously,
+// but holds only seam data (~K× memory reduction) and only builds blocks
+// the viewport actually visits.
 //
 // ----------------------------------------------------------------------
 // URL query parameters
 // ----------------------------------------------------------------------
-// Construction params (drive Universe.createUniverseExtents; changing
-// them in the URL pre-fills the inputs, then we build once):
-//   L          int ≥ 2       per-quadrant extent. Total grid is
-//                             (2L-1) × (2L-1). Default 1024.
-//   K          int ≥ 1       tile block size for the bitmap cache.
-//                             Default 256.
+// Construction params:
+//   L          int ≥ 2       per-quadrant extent. Integrated grid covers
+//                             (2L-1) × (2L-1) cells, rounded up to K.
+//                             Default 1024.
+//   K          int ≥ 1       scaffold block size. Default 256.
 //   maxPri     int 1..31     priority cap. Default ⌈log₂ L⌉ + 1.
-//   hInitCol   int           h priority offset, pri(i + hInitCol).
-//                             Default 1 (canonical).
-//   vInitRow   int           v priority offset, pri(j + vInitRow).
-//                             Default 1 (canonical).
-//   seniority  "v" | "h"     tie-breaking: vertical (down wins) or
-//                             horizontal (right wins). Default "v".
+//   hInitCol   int           h priority offset. Default 1 (canonical).
+//   vInitRow   int           v priority offset. Default 1 (canonical).
+//   seniority  "v" | "h"     tie-breaking. Default "v".
 //
-// View params (applied once after build; cellPx/cellX/cellY are still
-// mutable via pan/zoom afterwards):
-//   cx         number        viewport centre x, origin-relative cells
-//                             (cx=0 ⇒ origin at centre). Default 0.
-//   cy         number        viewport centre y, origin-relative cells.
-//                             Default 0.
-//   px         number > 0    initial cellPx. Default = auto fit-to-
-//                             screen (recenter()'s normal behaviour).
-//   grid       "0" | "1"     dyadic-grid checkbox initial state.
-//                             Default 0.
-//   labels     "0" | "1"     labels checkbox initial state. Default 0.
-//
-// Example:
-//   explore.html?cx=0&cy=0&px=5&grid=1&labels=1
+// View params (applied once after build):
+//   cx, cy     number        viewport centre in origin-relative cells.
+//   px         number > 0    initial cellPx. Default = auto fit.
+//   grid       "0" | "1"     dyadic grid initial state. Default 0.
+//   labels     "0" | "1"     labels initial state. Default 0.
 
 let state = null;
-let tileCache = new Map();
 let propCache = new Map();
+let tileCache = new Map();
+
+const PROP_CACHE_LIMIT = 256;
+const TILE_CACHE_LIMIT = 256;
+const FRAME_BUDGET_MS = 8;
 
 const view = {
     cellX: 0,
     cellY: 0,
     cellPx: 4,
 };
-
-const PROP_CACHE_LIMIT = 64;
-const TILE_CACHE_LIMIT = 256;
 
 function $(id) { return document.getElementById(id); }
 function ms(t) { return `${t.toFixed(1)} ms`; }
@@ -83,7 +74,6 @@ function resizeCanvas() {
     cv.style.width = `${window.innerWidth}px`;
     cv.style.height = `${window.innerHeight}px`;
     ctx.setTransform(r, 0, 0, r, 0, 0);
-    schedule();
 }
 
 function readParams() {
@@ -98,12 +88,17 @@ function readParams() {
         : Seniority.vertical();
     if (!Number.isInteger(L) || L < 2) throw new Error("L must be ≥ 2");
     if (!Number.isInteger(K) || K < 1) throw new Error("K must be ≥ 1");
+    if (L % K !== 0) throw new Error(`L=${L} must be divisible by K=${K}`);
     if (!Number.isInteger(hInitCol)) throw new Error("hInitCol must be int");
     if (!Number.isInteger(vInitRow)) throw new Error("vInitRow must be int");
     return { L, K, maxPri, hInitCol, vInitRow, seniority };
 }
 
-async function build() {
+// pendingView holds URL-supplied view params, applied once after Phase 1
+// completes (when we know the integrated dimensions).
+let pendingView = null;
+
+function build() {
     let params;
     try {
         params = readParams();
@@ -112,55 +107,137 @@ async function build() {
         return;
     }
     const { L, K, maxPri, hInitCol, vInitRow, seniority } = params;
-    $("hudTitle").textContent = `building universe L=${L}…`;
     $("rebuild").disabled = true;
-    await new Promise((r) => requestAnimationFrame(r));
-    const t0 = performance.now();
-    const quadrants = Universe.createUniverseExtents(
-        L, L, L, L,
-        hInitCol, vInitRow,
-        seniority,
-        {},
-        { maxPri },
-    );
-    const tIntegrate0 = performance.now();
-    const integrated = Propagation.fromUniverseBoundary(quadrants);
-    const tIntegrate = performance.now() - tIntegrate0;
-    const dt = performance.now() - t0;
-    const originRow = L - 1;
-    const originCol = L - 1;
-    const nRows = integrated.numRows;
-    const nCols = integrated.numColumns;
-    state = {
-        integrated,
-        K,
-        nRows,
-        nCols,
-        nBlocksRow: Math.ceil(nRows / K),
-        nBlocksCol: Math.ceil(nCols / K),
-        originRow,
-        originCol,
-        maxPri,
-        L,
+
+    const nBlocksPerQuad = L / K;
+
+    // Phase-1 quadrant scaffolds. createUniverseExtents-equivalent
+    // per-quadrant offsets.
+    const quadScaffolds = {
+        nw: createScaffold({
+            K, hInitCol0: 1 - hInitCol, vInitRow0: 1 - vInitRow,
+            seniority, maxPri,
+        }),
+        ne: createScaffold({
+            K, hInitCol0: hInitCol, vInitRow0: 1 - vInitRow,
+            seniority, maxPri,
+        }),
+        sw: createScaffold({
+            K, hInitCol0: 1 - hInitCol, vInitRow0: vInitRow,
+            seniority, maxPri,
+        }),
+        se: createScaffold({
+            K, hInitCol0: hInitCol, vInitRow0: vInitRow,
+            seniority, maxPri,
+        }),
     };
-    tileCache = new Map();
+    for (const q of Object.values(quadScaffolds)) {
+        allocateScaffold(q, nBlocksPerQuad);
+    }
+
+    // SE-march order, interleaved across the 4 quadrants so they make
+    // progress in parallel (visually all four corners fill at once if we
+    // ever start rendering Phase-1 progress).
+    const boundaryQueue = [];
+    for (let d = 0; d < nBlocksPerQuad * 2 - 1; d++) {
+        for (let k1 = Math.max(0, d - nBlocksPerQuad + 1);
+                 k1 <= Math.min(d, nBlocksPerQuad - 1); k1++) {
+            const k2 = d - k1;
+            for (const quad of ["nw", "ne", "sw", "se"]) {
+                boundaryQueue.push({ quad, k1, k2 });
+            }
+        }
+    }
+
+    state = {
+        phase: "boundary",
+        params,
+        L, K, maxPri,
+        nBlocksPerQuad,
+        quadScaffolds,
+        boundaryQueue,
+        boundaryDone: 0,
+        boundaryTotal: boundaryQueue.length,
+        // Phase-2 fields, populated at transition.
+        integrated: null,
+        integratedNBlocks: 0,
+        integratedCells: 0,    // cell extent of valid universe region
+        originRow: L - 1,
+        originCol: L - 1,
+        tBuildStart: performance.now(),
+        tBoundaryEnd: 0,
+        tReadyStart: 0,
+    };
     propCache = new Map();
-    $("hudTitle").textContent =
-        `L=${L}, K=${K}, ${nRows}×${nCols}, built ${ms(dt)}`
-        + ` (integrate ${ms(tIntegrate)})`;
-    $("rebuild").disabled = false;
-    // First post-build placement respects URL view params; afterward
-    // rebuilds just recenter normally.
-    applyView(pendingView);
-    pendingView = null;
+    tileCache = new Map();
+    // Loop is already running (started once at page load).
+    $("hudTitle").textContent = `building boundary L=${L}…`;
 }
 
-// pendingView holds URL-supplied view params (cx, cy, px) consumed
-// exactly once on the first build after page load.
-let pendingView = null;
+function transitionToIntegrated() {
+    const { L, K, maxPri, params, nBlocksPerQuad, quadScaffolds } = state;
+    const { hInitCol, vInitRow, seniority } = params;
+    state.tBoundaryEnd = performance.now();
+
+    // Per fromUniverseBoundary's stitching (with all 4 quadrants present):
+    //   initDown  = NW.resultDown reversed ++ NE.resultDown      (length 2L)
+    //   initRight = NW.resultRight reversed ++ SW.resultRight     (length 2L)
+    // resultDown of a quadrant scaffold = hSeams[nBlocks]
+    // resultRight                     = vSeams[nBlocks]
+    const N = nBlocksPerQuad;
+    const nwResultDown  = quadScaffolds.nw.hSeams[N];
+    const neResultDown  = quadScaffolds.ne.hSeams[N];
+    const nwResultRight = quadScaffolds.nw.vSeams[N];
+    const swResultRight = quadScaffolds.sw.vSeams[N];
+
+    const initDown = new Row(2 * L);
+    for (let i = 0; i < L; i++) initDown[i] = nwResultDown[L - 1 - i];
+    for (let i = 0; i < L; i++) initDown[L + i] = neResultDown[i];
+    const initRight = new Col(2 * L);
+    for (let j = 0; j < L; j++) initRight[j] = nwResultRight[L - 1 - j];
+    for (let j = 0; j < L; j++) initRight[L + j] = swResultRight[j];
+
+    // Integrated scaffold: round extent up to next K-multiple ≥ (2L - 1).
+    // For typical L_q divisible by K, 2L is already a multiple of K, so
+    // the integrated covers (2L) cells per axis (1 cell beyond the
+    // universe's SE edge; that cell exists in the scaffold but never
+    // renders inside the universe).
+    const cellExtent = 2 * L - 1;
+    const blockExtent = Math.ceil(cellExtent / K);
+    const integrated = createScaffold({
+        K,
+        hInitCol0: hInitCol - L,
+        vInitRow0: vInitRow - L,
+        seniority,
+        maxPri,
+    });
+    allocateScaffold(integrated, blockExtent);
+
+    // Overwrite the all-true seeds with the universe boundary.
+    for (let i = 0; i < initDown.length; i++) {
+        integrated.hSeams[0][i] = initDown[i];
+    }
+    for (let j = 0; j < initRight.length; j++) {
+        integrated.vSeams[0][j] = initRight[j];
+    }
+
+    state.integrated = integrated;
+    state.integratedNBlocks = blockExtent;
+    state.integratedCells = cellExtent;
+    state.quadScaffolds = null;          // GC the 4 quadrants
+    state.boundaryQueue = null;
+    state.phase = "ready";
+    state.tReadyStart = performance.now();
+    propCache = new Map();
+    tileCache = new Map();
+
+    applyView(pendingView);
+    pendingView = null;
+    $("rebuild").disabled = false;
+}
 
 function applyView(overrides) {
-    if (!state) return;
+    if (!state || state.phase !== "ready") return;
     const w = cv.width / (window.devicePixelRatio || 1);
     const h = cv.height / (window.devicePixelRatio || 1);
     const cx = overrides?.cx ?? 0;
@@ -168,40 +245,87 @@ function applyView(overrides) {
     if (overrides?.px && overrides.px > 0) {
         view.cellPx = overrides.px;
     } else {
-        const target = Math.min(Math.max(state.nRows, state.nCols), 1024);
+        const target = Math.min(state.integratedCells, 1024);
         view.cellPx = Math.min(w, h) / target;
     }
     view.cellX = state.originCol + cx - w / view.cellPx / 2;
     view.cellY = state.originRow + cy - h / view.cellPx / 2;
-    schedule();
 }
 
-function recenter() {
-    applyView(null);
+function recenter() { applyView(null); }
+
+// Walk back from (k1, k2) along its SE-march dependency chain to the
+// closest unbuilt block that IS ready (both upstream seams populated).
+// Returns null if nothing left to do; otherwise {k1, k2}.
+function nextReadyAncestor(s, k1, k2) {
+    while (k1 >= 0 && k2 >= 0) {
+        if (isBlockBuilt(s, k1, k2)) return null;
+        const needUp = k1 > 0 && !isBlockBuilt(s, k1 - 1, k2);
+        const needLeft = k2 > 0 && !isBlockBuilt(s, k1, k2 - 1);
+        if (!needUp && !needLeft) return { k1, k2 };
+        // Walk toward origin along whichever axis still needs work.
+        // Prefer the larger remaining distance to bias toward diagonal march.
+        if (needUp && (!needLeft || k1 >= k2)) { k1--; }
+        else { k2--; }
+    }
+    return null;
 }
 
-// Slice the universe matrices into a K-aligned tile at block (k1, k2).
-// Returned object shapes itself like a Propagation for makeTileBitmap /
-// drawArrowsVector. Edge tiles where K doesn't divide the universe extent
-// come back with numRows or numColumns < K; the bitmap path still allocates
-// a K × K canvas, leaving the unused region bg-coloured (and on screen that
-// region falls outside the universe, where the canvas is white anyway).
-function tileSlice(k1, k2) {
-    const { integrated, K, nRows, nCols } = state;
-    const r0 = k1 * K;
-    const c0 = k2 * K;
-    const nR = Math.min(K, nRows - r0);
-    const nC = Math.min(K, nCols - c0);
-    if (nR <= 0 || nC <= 0) return null;
-    const dM = new Array(nR);
-    for (let j = 0; j < nR; j++) {
-        dM[j] = integrated.downMatrix[r0 + j].slice(c0, c0 + nC);
+// Per frame, drain work up to FRAME_BUDGET_MS. In "boundary" phase: pop
+// from the pre-built quadrant queue. In "ready" phase: walk back from
+// visible-but-unbuilt blocks.
+function drainWork() {
+    if (!state) return;
+    const deadline = performance.now() + FRAME_BUDGET_MS;
+    if (state.phase === "boundary") {
+        const q = state.boundaryQueue;
+        const scaffolds = state.quadScaffolds;
+        while (performance.now() < deadline && q.length > 0) {
+            const job = q.shift();
+            propagateBlock(scaffolds[job.quad], job.k1, job.k2);
+            state.boundaryDone++;
+        }
+        if (q.length === 0) transitionToIntegrated();
+        return;
     }
-    const rM = new Array(nC);
-    for (let i = 0; i < nC; i++) {
-        rM[i] = integrated.rightMatrix[c0 + i].slice(r0, r0 + nR);
+    // ready: viewport-driven lazy build
+    const visible = visibleBlockRange();
+    if (!visible) return;
+    const s = state.integrated;
+    const { k1Min, k1Max, k2Min, k2Max } = visible;
+    // Diagonal-spiral order from top-left of viewport (closest to origin
+    // is built first, which is what's needed anyway for dependency).
+    outer:
+    for (let d = 0; d <= (k1Max - k1Min) + (k2Max - k2Min); d++) {
+        for (let dk = 0; dk <= d; dk++) {
+            const k1 = k1Min + dk;
+            const k2 = k2Min + (d - dk);
+            if (k1 > k1Max || k2 > k2Max) continue;
+            if (isBlockBuilt(s, k1, k2)) continue;
+            const anc = nextReadyAncestor(s, k1, k2);
+            if (!anc) continue;
+            propagateBlock(s, anc.k1, anc.k2);
+            if (performance.now() >= deadline) break outer;
+        }
     }
-    return { downMatrix: dM, rightMatrix: rM, numRows: nR, numColumns: nC };
+}
+
+function visibleBlockRange() {
+    if (!state || state.phase !== "ready") return null;
+    const W = cv.width / (window.devicePixelRatio || 1);
+    const H = cv.height / (window.devicePixelRatio || 1);
+    const { K, integratedNBlocks } = state;
+    const { cellX, cellY, cellPx } = view;
+    const iMin = Math.floor(cellX);
+    const iMax = Math.ceil(cellX + W / cellPx);
+    const jMin = Math.floor(cellY);
+    const jMax = Math.ceil(cellY + H / cellPx);
+    const k1Min = Math.max(0, Math.floor(jMin / K));
+    const k1Max = Math.min(integratedNBlocks - 1, Math.floor(jMax / K));
+    const k2Min = Math.max(0, Math.floor(iMin / K));
+    const k2Max = Math.min(integratedNBlocks - 1, Math.floor(iMax / K));
+    if (k1Min > k1Max || k2Min > k2Max) return null;
+    return { k1Min, k1Max, k2Min, k2Max };
 }
 
 function getPropagation(k1, k2) {
@@ -212,8 +336,14 @@ function getPropagation(k1, k2) {
         propCache.set(key, p);
         return p;
     }
-    p = tileSlice(k1, k2);
-    if (!p) return null;
+    const s = state.integrated;
+    // Upstream seams must be populated. tile() requires them; even if
+    // (k1, k2) itself isn't "built" (meaning its OWN downstream seams
+    // aren't written), the inputs come from the upstream neighbours.
+    const upOK = k1 === 0 || isBlockBuilt(s, k1 - 1, k2);
+    const leftOK = k2 === 0 || isBlockBuilt(s, k1, k2 - 1);
+    if (!upOK || !leftOK) return null;
+    p = tile(s, k1, k2);
     propCache.set(key, p);
     if (propCache.size > PROP_CACHE_LIMIT) {
         const firstKey = propCache.keys().next().value;
@@ -222,11 +352,6 @@ function getPropagation(k1, k2) {
     return p;
 }
 
-// OKLCH red/blue from the theme sketch (meta/oklch.html). Down arrows take
-// the red ramp, right arrows the blue. Bitmap mode (cellPx ≤ 2.5) uses the
-// brighter `base` tier so single-pixel arrows stay visible at high density;
-// vector mode (cellPx > 2.5) uses the darker `outline` tier with a fade
-// alpha — see the render() vector branch.
 const COLOR_DOWN_BITMAP = "oklch(57% 0.22 25)";
 const COLOR_RIGHT_BITMAP = "oklch(58% 0.19 260)";
 
@@ -252,16 +377,6 @@ function getTileBitmap(k1, k2) {
     return bmp;
 }
 
-let scheduled = false;
-function schedule() {
-    if (scheduled) return;
-    scheduled = true;
-    requestAnimationFrame(() => {
-        scheduled = false;
-        render();
-    });
-}
-
 function render() {
     const t0 = performance.now();
     const W = cv.width / (window.devicePixelRatio || 1);
@@ -270,66 +385,72 @@ function render() {
     ctx.fillRect(0, 0, W, H);
 
     if (!state) return;
-    const { K, nBlocksRow, nBlocksCol, originRow, originCol, maxPri } = state;
+
+    if (state.phase === "boundary") {
+        const pct = (state.boundaryDone / state.boundaryTotal) * 100;
+        $("hudTitle").textContent =
+            `building boundary ${state.boundaryDone.toLocaleString()}`
+            + ` / ${state.boundaryTotal.toLocaleString()} blocks`
+            + ` (${pct.toFixed(1)}%)`;
+        $("viewBounds").textContent = "—";
+        $("cellPx").textContent = "—";
+        $("mode").textContent = "boundary";
+        $("cacheSize").textContent = "0";
+        $("extent").textContent = `4 × ${state.nBlocksPerQuad}² quadrant blocks`;
+        $("frameTime").textContent = ms(performance.now() - t0);
+        return;
+    }
+
+    // Phase: ready
+    const visible = visibleBlockRange();
+    const { K, integratedCells, originRow, originCol, maxPri } = state;
     const { cellX, cellY, cellPx } = view;
-
-    const iMin = Math.floor(cellX);
-    const iMax = Math.ceil(cellX + W / cellPx);
-    const jMin = Math.floor(cellY);
-    const jMax = Math.ceil(cellY + H / cellPx);
-
-    const k1Min = Math.max(0, Math.floor(jMin / K));
-    const k1Max = Math.min(nBlocksRow - 1, Math.floor(jMax / K));
-    const k2Min = Math.max(0, Math.floor(iMin / K));
-    const k2Max = Math.min(nBlocksCol - 1, Math.floor(iMax / K));
-
     const useVector = cellPx >= 2.5;
-
     ctx.imageSmoothingEnabled = cellPx < 1.5;
     ctx.imageSmoothingQuality = "low";
 
-    if (useVector) {
-        const fade = Math.max(0, Math.min(1, (cellPx - 2.5) / 3));
-        const alpha = 0.55 + 0.35 * fade;
-        const downColor = `oklch(34% 0.18 25 / ${alpha})`;
-        const rightColor = `oklch(34% 0.15 260 / ${alpha})`;
-        for (let k1 = k1Min; k1 <= k1Max; k1++) {
-            for (let k2 = k2Min; k2 <= k2Max; k2++) {
-                const p = getPropagation(k1, k2);
-                if (!p) continue;
-                const x0 = (k2 * K - cellX) * cellPx;
-                const y0 = (k1 * K - cellY) * cellPx;
-                drawArrowsVector(ctx, p, x0, y0, cellPx, {
-                    strokeStyleDown: downColor,
-                    strokeStyleRight: rightColor,
-                });
+    let drawn = 0, pending = 0;
+    if (visible) {
+        const { k1Min, k1Max, k2Min, k2Max } = visible;
+        if (useVector) {
+            const fade = Math.max(0, Math.min(1, (cellPx - 2.5) / 3));
+            const alpha = 0.55 + 0.35 * fade;
+            const downColor = `oklch(34% 0.18 25 / ${alpha})`;
+            const rightColor = `oklch(34% 0.15 260 / ${alpha})`;
+            for (let k1 = k1Min; k1 <= k1Max; k1++) {
+                for (let k2 = k2Min; k2 <= k2Max; k2++) {
+                    const p = getPropagation(k1, k2);
+                    if (!p) { pending++; drawPlaceholder(k1, k2); continue; }
+                    const x0 = (k2 * K - cellX) * cellPx;
+                    const y0 = (k1 * K - cellY) * cellPx;
+                    drawArrowsVector(ctx, p, x0, y0, cellPx, {
+                        strokeStyleDown: downColor,
+                        strokeStyleRight: rightColor,
+                    });
+                    drawn++;
+                }
             }
-        }
-    } else {
-        for (let k1 = k1Min; k1 <= k1Max; k1++) {
-            for (let k2 = k2Min; k2 <= k2Max; k2++) {
-                const bmp = getTileBitmap(k1, k2);
-                if (!bmp) continue;
-                const x = (k2 * K - cellX) * cellPx;
-                const y = (k1 * K - cellY) * cellPx;
-                const sz = K * cellPx;
-                ctx.drawImage(bmp, x, y, sz, sz);
+        } else {
+            for (let k1 = k1Min; k1 <= k1Max; k1++) {
+                for (let k2 = k2Min; k2 <= k2Max; k2++) {
+                    const bmp = getTileBitmap(k1, k2);
+                    if (!bmp) { pending++; drawPlaceholder(k1, k2); continue; }
+                    const x = (k2 * K - cellX) * cellPx;
+                    const y = (k1 * K - cellY) * cellPx;
+                    const sz = K * cellPx;
+                    ctx.drawImage(bmp, x, y, sz, sz);
+                    drawn++;
+                }
             }
         }
     }
-
-    // Match the integrated propagation's actual priority landscape so
-    // labels reflect each cell's true priority. For non-canonical
-    // hInitCol/vInitRow this shifts the singular point off the origin.
-    const hLabelOffset = state.integrated.hInitCol;
-    const vLabelOffset = state.integrated.vInitRow;
 
     if ($("showGrid").checked) {
         drawDyadicGrid(ctx, {
             canvas: { width: W, height: H },
             viewCellX: cellX, viewCellY: cellY, cellPx,
-            hInitCol0: hLabelOffset,
-            vInitRow0: vLabelOffset,
+            hInitCol0: state.integrated.hInitCol0,
+            vInitRow0: state.integrated.vInitRow0,
             maxPri,
             minPri: 2,
         });
@@ -338,18 +459,22 @@ function render() {
         drawDyadicLabels(ctx, {
             canvas: { width: W, height: H },
             viewCellX: cellX, viewCellY: cellY, cellPx,
-            hInitCol0: hLabelOffset,
-            vInitRow0: vLabelOffset,
+            hInitCol0: state.integrated.hInitCol0,
+            vInitRow0: state.integrated.vInitRow0,
             maxPri,
             labelMinPri: cellPx >= 2 ? 3 : 5,
         });
     }
 
-    // HUD viewBounds in origin-relative coords (origin is 0).
-    const iLogMin = iMin - originCol;
-    const iLogMax = iMax - originCol;
-    const jLogMin = jMin - originRow;
-    const jLogMax = jMax - originRow;
+    // HUD
+    const iLogMin = Math.floor(cellX) - originCol;
+    const iLogMax = Math.ceil(cellX + W / cellPx) - originCol;
+    const jLogMin = Math.floor(cellY) - originRow;
+    const jLogMax = Math.ceil(cellY + H / cellPx) - originRow;
+    $("hudTitle").textContent = pending > 0
+        ? `building viewport (${pending} pending, ${drawn} drawn)`
+        : `L=${state.L}, K=${state.K},`
+          + ` ${integratedCells}² integrated (lazy)`;
     $("viewBounds").textContent =
         `cols [${iLogMin}..${iLogMax}] × rows [${jLogMin}..${jLogMax}]`;
     $("cellPx").textContent = cellPx.toFixed(2);
@@ -357,11 +482,27 @@ function render() {
     $("cacheSize").textContent =
         `${tileCache.size} bmp · ${propCache.size} prop`;
     $("extent").textContent =
-        `${state.nRows}×${state.nCols} cells · L=${state.L}`;
-    const dt = performance.now() - t0;
-    $("frameTime").textContent = ms(dt);
+        `${integratedCells}² cells · L=${state.L}`;
+    $("frameTime").textContent = ms(performance.now() - t0);
 }
 
+function drawPlaceholder(k1, k2) {
+    const { K } = state;
+    const { cellX, cellY, cellPx } = view;
+    const x = (k2 * K - cellX) * cellPx;
+    const y = (k1 * K - cellY) * cellPx;
+    const sz = K * cellPx;
+    ctx.fillStyle = "#f0f0f4";
+    ctx.fillRect(x, y, sz, sz);
+}
+
+function frame() {
+    drainWork();
+    render();
+    requestAnimationFrame(frame);
+}
+
+// Pointer / wheel / keys.
 let dragging = false;
 let lastX = 0;
 let lastY = 0;
@@ -380,7 +521,6 @@ cv.addEventListener("pointermove", (e) => {
     lastY = e.clientY;
     view.cellX -= dx / view.cellPx;
     view.cellY -= dy / view.cellPx;
-    schedule();
 });
 cv.addEventListener("pointerup", (e) => {
     dragging = false;
@@ -403,7 +543,6 @@ cv.addEventListener("wheel", (e) => {
     view.cellPx = Math.max(0.1, Math.min(64, view.cellPx * factor));
     view.cellX = wx - mx / view.cellPx;
     view.cellY = wy - my / view.cellPx;
-    schedule();
 }, { passive: false });
 
 window.addEventListener("keydown", (e) => {
@@ -411,24 +550,17 @@ window.addEventListener("keydown", (e) => {
     if (e.key === "0") { recenter(); }
     else if (e.key === "+" || e.key === "=") {
         view.cellPx = Math.min(64, view.cellPx * 1.4);
-        schedule();
     } else if (e.key === "-" || e.key === "_") {
         view.cellPx = Math.max(0.1, view.cellPx / 1.4);
-        schedule();
     } else if (e.key === "g") {
         $("showGrid").checked = !$("showGrid").checked;
-        schedule();
     }
 });
 
 window.addEventListener("resize", resizeCanvas);
 $("rebuild").addEventListener("click", build);
-$("recenter").addEventListener("click", () => recenter());
-$("showGrid").addEventListener("change", schedule);
-$("showLabels").addEventListener("change", schedule);
+$("recenter").addEventListener("click", recenter);
 
-// Parse URL query and apply to inputs / pendingView before the first
-// build. See the spec block at the top of this file.
 function applyQueryParams() {
     const q = new URLSearchParams(window.location.search);
     const setNum = (key, id) => {
@@ -454,4 +586,5 @@ function applyQueryParams() {
 
 applyQueryParams();
 resizeCanvas();
+requestAnimationFrame(frame);
 build();
