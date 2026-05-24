@@ -16,6 +16,14 @@ let babyBlocksOutline = true;
 // Maps: when true, show each section's V##/H## index instead of its letter.
 let showIndices = false;
 
+// Priority-offset tie-break for the glyph catalog: pri(i + curHInit),
+// pri(j + curVInit). The standard glyph uses 1/1; the sidebar boxes vary
+// these to explore other tie-breaks. (Catalog only for now — the maps still
+// use their own fixed offsets; see substitution-plan.md / priority-offset
+// plan for extending to the maps with cage realignment.)
+let curHInit = 1;
+let curVInit = 1;
+
 // Canvas size for each glyph
 const CELL_PX = 16;
 const DOT_R = 2.5;
@@ -106,13 +114,14 @@ function drawGlyph(canvas, downCode, rightCode, seniority, fTransform) {
     ctx.strokeStyle = "#000";
     ctx.lineWidth = 1.2;
 
-    // Propagate the 3×3 glyph using the shared core. hInitCol/vInitRow=1
-    // matches the original priority(x+1)/priority(y+1) tie-breaking.
+    // Propagate the 3×3 glyph using the shared core. curHInit/curVInit default
+    // to 1 (the original priority(x+1)/priority(y+1) tie-breaking); the sidebar
+    // boxes vary them.
     const { downMatrix, rightMatrix } = new Propagation({
         initDown: bitsToBoundary(downCode, NUM_CELLS),
         initRight: bitsToBoundary(rightCode, NUM_CELLS),
-        hInitCol: 1,
-        vInitRow: 1,
+        hInitCol: curHInit,
+        vInitRow: curVInit,
         seniority,
     });
 
@@ -282,8 +291,8 @@ function computePattern(downCode, rightCode, seniority) {
     const { downMatrix, rightMatrix } = new Propagation({
         initDown: bitsToBoundary(downCode, NUM_CELLS),
         initRight: bitsToBoundary(rightCode, NUM_CELLS),
-        hInitCol: 1,
-        vInitRow: 1,
+        hInitCol: curHInit,
+        vInitRow: curVInit,
         seniority,
     });
     // v[x][y] = vertical at col x+1, row y; h[x][y] = horizontal at row y+1, col x
@@ -1023,19 +1032,24 @@ function buildSubstitutionRules(vhContainerId, hvContainerId) {
 }
 
 // ── Init ──
-const V_CLASSES = classifyVisualD4(Seniority.vertical());
-const H_CLASSES = classifyVisualD4(Seniority.horizontal());
+// Recomputed for the current priority offsets (curHInit/curVInit), since
+// classifyVisualD4 reads them through computePattern. Called at the top of
+// applyAssignmentsAndRender so changing the offsets reshapes the catalog.
+let V_CLASSES;
+let H_CLASSES;
 
-// Find which orbits are shared between V and H
-const vOrbitKeys = new Set(V_CLASSES.map(orbitKey));
-const hOrbitKeys = new Set(H_CLASSES.map(orbitKey));
-
-V_CLASSES.forEach((c) => {
-    c.colorClass = hOrbitKeys.has(orbitKey(c)) ? "both" : "v-only";
-});
-H_CLASSES.forEach((c) => {
-    c.colorClass = vOrbitKeys.has(orbitKey(c)) ? "both" : "h-only";
-});
+function rebuildClasses() {
+    V_CLASSES = classifyVisualD4(Seniority.vertical());
+    H_CLASSES = classifyVisualD4(Seniority.horizontal());
+    const vKeys = new Set(V_CLASSES.map(orbitKey));
+    const hKeys = new Set(H_CLASSES.map(orbitKey));
+    V_CLASSES.forEach((c) => {
+        c.colorClass = hKeys.has(orbitKey(c)) ? "both" : "v-only";
+    });
+    H_CLASSES.forEach((c) => {
+        c.colorClass = vKeys.has(orbitKey(c)) ? "both" : "h-only";
+    });
+}
 
 // ── Letter assignments ──
 // Old: V upright, H sideways (backslash dual). New: V sideways on each
@@ -1154,6 +1168,7 @@ function redrawMap(id) {
 }
 
 function applyAssignmentsAndRender(useNew) {
+    rebuildClasses();
     GLYPH_LETTERS = {};
     H_GLYPH_LETTERS = {};
     if (useNew) applyNewAssignments();
@@ -1261,6 +1276,26 @@ if (showIndicesToggle) {
             if (document.getElementById(id)) redrawMap(id);
         }
     });
+}
+
+// ── Tie-break offset inputs (hInitCol / vInitRow, catalog only) ──
+
+const hInitInput = document.getElementById("hinit-input");
+const vInitInput = document.getElementById("vinit-input");
+
+function readOffset(el, fallback) {
+    const n = parseInt(el.value, 10);
+    return Number.isFinite(n) ? n : fallback;
+}
+
+if (hInitInput && vInitInput) {
+    const onOffsetChange = function () {
+        curHInit = readOffset(hInitInput, 1);
+        curVInit = readOffset(vInitInput, 1);
+        applyAssignmentsAndRender(useNewAssignments);
+    };
+    hInitInput.addEventListener("change", onOffsetChange);
+    vInitInput.addEventListener("change", onOffsetChange);
 }
 
 applyAssignmentsAndRender(useNewAssignments);

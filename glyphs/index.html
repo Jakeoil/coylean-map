@@ -234,6 +234,12 @@
             .sidebar label:last-child {
                 margin-bottom: 0;
             }
+            .sidebar input[type="number"] {
+                width: 3.4em;
+                margin-left: 6px;
+                font-family: inherit;
+                font-size: 0.85rem;
+            }
         </style>
     </head>
     <body>
@@ -280,6 +286,27 @@
                     <label>
                         <input type="checkbox" id="bb-outline" checked />
                         Outline
+                    </label>
+                </div>
+                <div class="side-group">
+                    <div class="side-title">Tie-break (catalog)</div>
+                    <label>
+                        hInitCol
+                        <input
+                            type="number"
+                            id="hinit-input"
+                            value="1"
+                            step="1"
+                        />
+                    </label>
+                    <label>
+                        vInitRow
+                        <input
+                            type="number"
+                            id="vinit-input"
+                            value="1"
+                            step="1"
+                        />
                     </label>
                 </div>
             </aside>
