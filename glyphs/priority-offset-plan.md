@@ -53,9 +53,26 @@ This is precisely how the "unused glyphs" become visible and nameable.
 
 ## Terminology — dyadic location
 
-The offset pair is the **dyadic location** of the priority lattice:
-- **latitude** = `vInitRow` — the row offset (N–S); sidebar `#vinit-input`.
-- **longitude** = `hInitCol` — the column offset (E–W); sidebar `#hinit-input`.
+The offset pair is the **dyadic location** of the priority lattice. The clean
+baseline is **latitude/longitude = 1/1** (the box default and the standard
+glyph). In raw `Propagation` terms:
+- **latitude** — the row offset (N–S); sidebar `#vinit-input`, `curVInit`.
+- **longitude** — the column offset (E–W); sidebar `#hinit-input`, `curHInit`.
+
+**Catalog vs map axis offset (important for the map pass).** The catalog glyph
+is clean at raw `hInitCol = 1`, but the **map is clean at raw `hInitCol = 0`** —
+its column 0 is the ∞-priority axis, and columns 1–3 then carry the glyph's
+`pri(1),pri(2),pri(3)` interior. So the map's axis convention is one cell left of
+the catalog's. To keep the unified coordinate (clean = 1/1) consistent, the map
+must use **raw offset = lat/long − 1**: `hInitCol = curHInit - 1`,
+`vInitRow = curVInit - 1` (so box 1/1 → map raw 0/0 = clean).
+
+Lesson (2026-05-24): driving the map at raw = box value put the default (1/1) at
+raw 1/1, which sends the ∞-axis off the top-left corner; the seed (single arrow
+pinned at column 0) is then a lowest-priority column and the map collapses to a
+sparse blue-horizontal scatter. This is exactly why the map pass needs the
+**+3-cell extend-then-crop**: extend N/W so the axis stays inside the
+propagation for any offset, then crop the visible window.
 
 ## Negative offsets
 
