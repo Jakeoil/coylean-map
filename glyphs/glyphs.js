@@ -13,6 +13,9 @@ let babyBlocks = null;
 let useBabyBlocks = false;
 let babyBlocksOutline = true;
 
+// Maps: when true, show each section's V##/H## index instead of its letter.
+let showIndices = false;
+
 // Canvas size for each glyph
 const CELL_PX = 16;
 const DOT_R = 2.5;
@@ -30,19 +33,16 @@ function bitsToBoundary(code, n) {
 
 // ── Glyph Renderer — uses the real Coylean algorithm ──
 
-// D4 transform index → [scaleX, scaleY] for letter overlay
-// s_h = flip upside down (horizontal axis mirror), s_v = flip left/right (vertical axis mirror)
-const D4_TO_SCALE = {
-    0: [1, 1], // e
-    2: [-1, -1], // r²
-    4: [1, -1], // s_h
-    5: [-1, 1], // s_v
-};
-
-// Populated after V_CLASSES is computed: "d,r" → [letter, scaleX, scaleY]
+// Stored per assigned glyph: "d,r" → [letter, d4Index]. d4Index is the
+// single D4 element (0–7, indexing VISUAL_D4 / D4_NAMES) the letter is drawn
+// under, so rendered orientations match the glyph's true D4 relationships.
 let GLYPH_LETTERS = {};
 let H_GLYPH_LETTERS = {};
 
+// baseD4 = the orientation the named glyph's letter is drawn under (0 = e
+// upright, 6 = s_d1 "\", 7 = s_d2 "/"). Each orbit member's stored element is
+// (member transform from base) ∘ baseD4, so member-to-member relationships
+// render as the true glyph D4 relationships.
 function assignLetter(
     classes,
     downCode,
@@ -50,10 +50,11 @@ function assignLetter(
     letter,
     target = GLYPH_LETTERS,
     seniority = Seniority.vertical(),
+    baseD4 = 0,
 ) {
     for (const cls of classes) {
         if (cls.orbit.some(([d, r]) => d === downCode && r === rightCode)) {
-            // Compute transforms relative to the specified glyph (not the orbit rep)
+            // Transforms are relative to the named glyph (not the orbit rep).
             const base = computePattern(downCode, rightCode, seniority);
             for (let i = 0; i < cls.orbit.length; i++) {
                 const [d, r] = cls.orbit[i];
@@ -61,9 +62,7 @@ function assignLetter(
                 const memKey = transformedPatternKey(mem.v, mem.h, 0);
                 for (let ti = 0; ti < 8; ti++) {
                     if (transformedPatternKey(base.v, base.h, ti) === memKey) {
-                        const scale = D4_TO_SCALE[ti];
-                        if (scale)
-                            target[d + "," + r] = [letter, scale[0], scale[1]];
+                        target[d + "," + r] = [letter, d4Compose(ti, baseD4)];
                         break;
                     }
                 }
@@ -71,6 +70,16 @@ function assignLetter(
             break;
         }
     }
+}
+
+const V_COLOR = "rgba(0, 0, 100, 0.4)";
+const H_COLOR = "rgba(139, 0, 0, 0.5)";
+
+// Build a draw tuple [letter, color, d4Index] from a stored
+// [letter, d4Index] entry.
+function toFt(entry, color) {
+    if (!entry) return null;
+    return [entry[0], color, entry[1]];
 }
 
 function drawGlyph(canvas, downCode, rightCode, seniority, fTransform) {
@@ -143,7 +152,7 @@ function drawGlyph(canvas, downCode, rightCode, seniority, fTransform) {
     }
 
     // Letter overlay
-    // fTransform: [letter, scaleX, scaleY, color, backslash]
+    // fTransform: [letter, color, d4Index]
     if (fTransform) {
         const gridCx = MARGIN + (GRID_CELLS * CELL_PX) / 2;
         const gridCy = MARGIN + (GRID_CELLS * CELL_PX) / 2;
@@ -167,11 +176,11 @@ function drawGlyph(canvas, downCode, rightCode, seniority, fTransform) {
             );
             ctx.restore();
         } else {
+            const m = D4_MATRIX[fTransform[2]] || D4_MATRIX[0];
             ctx.save();
-            ctx.translate(gridCx, gridCy + fontSize * 0.05 * fTransform[2]);
-            if (fTransform[4]) ctx.transform(0, 1, 1, 0, 0, 0);
-            ctx.scale(fTransform[1], fTransform[2]);
-            ctx.fillStyle = fTransform[3] || "rgba(0, 0, 100, 0.4)";
+            ctx.translate(gridCx, gridCy);
+            ctx.transform(m[0], m[1], m[2], m[3], 0, 0);
+            ctx.fillStyle = fTransform[1] || "rgba(0, 0, 100, 0.4)";
             ctx.font = "bold " + fontSize + "px Monaco, Menlo, monospace";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
@@ -231,11 +240,9 @@ function buildGrid(tableId, prefix, seniority) {
             const canvas = document.createElement("canvas");
             let ft = null;
             if (seniority.isVertical) {
-                ft = GLYPH_LETTERS[d + "," + r];
+                ft = toFt(GLYPH_LETTERS[d + "," + r], V_COLOR);
             } else {
-                const hft = H_GLYPH_LETTERS[d + "," + r];
-                if (hft)
-                    ft = [hft[0], hft[1], hft[2], "rgba(139, 0, 0, 0.5)", true];
+                ft = toFt(H_GLYPH_LETTERS[d + "," + r], H_COLOR);
             }
             drawGlyph(canvas, d, r, seniority, ft);
             td.appendChild(canvas);
@@ -319,6 +326,90 @@ function transformedPatternKey(v, h, ti) {
             if (t.h(v, h, a, b)) key |= 1 << (12 + a * 3 + b);
     return key;
 }
+
+// ── D4 group: canvas matrices + composition, calibrated to VISUAL_D4 ──
+//
+// Canvas affine [a, b, c, d] maps (x, y) → (a·x + c·y, b·x + d·y). Indices
+// match VISUAL_D4 / D4_NAMES. The six unambiguous elements are written out;
+// the two rotations (1, 3) are filled by calibration so they stay in
+// lock-step with the pattern transforms (no hand-guessed axis).
+const D4_MATRIX = [
+    [1, 0, 0, 1], // 0 e
+    null, //          1 r   (filled below)
+    [-1, 0, 0, -1], // 2 r²
+    null, //          3 r³  (filled below)
+    [1, 0, 0, -1], // 4 s_h  flip vertical (upside-down)
+    [-1, 0, 0, 1], // 5 s_v  flip horizontal (mirror)
+    [0, 1, 1, 0], //  6 s_d1 main diagonal (transpose, "\")
+    [0, -1, -1, 0], // 7 s_d2 anti-diagonal ("/")
+];
+
+// 2×2 product in [a, b, c, d] form (matrix [[a, c], [b, d]]).
+function matMul(A, B) {
+    return [
+        A[0] * B[0] + A[2] * B[1],
+        A[1] * B[0] + A[3] * B[1],
+        A[0] * B[2] + A[2] * B[3],
+        A[1] * B[2] + A[3] * B[3],
+    ];
+}
+
+// Apply VISUAL_D4[ti] to a pattern, returning fresh {v, h} arrays.
+function applyVisual(v, h, ti) {
+    const t = VISUAL_D4[ti];
+    const nv = Array.from({ length: 3 }, () => Array(4).fill(false));
+    const nh = Array.from({ length: 4 }, () => Array(3).fill(false));
+    for (let a = 0; a < 3; a++)
+        for (let b = 0; b < 4; b++) nv[a][b] = t.v(v, h, a, b);
+    for (let a = 0; a < 4; a++)
+        for (let b = 0; b < 3; b++) nh[a][b] = t.h(v, h, a, b);
+    return { v: nv, h: nh };
+}
+
+// Cayley table[i][j] = k with VISUAL_D4[i] ∘ VISUAL_D4[j] = VISUAL_D4[k],
+// found via an asymmetric probe (one off-axis segment → 8 distinct keys).
+// The two rotation matrices are then derived as products of known elements.
+const D4_COMPOSE = (() => {
+    const pv = Array.from({ length: 3 }, () => Array(4).fill(false));
+    const ph = Array.from({ length: 4 }, () => Array(3).fill(false));
+    pv[0][0] = true;
+    const probeKey = [];
+    for (let ti = 0; ti < 8; ti++)
+        probeKey[ti] = transformedPatternKey(pv, ph, ti);
+
+    const table = Array.from({ length: 8 }, () => Array(8).fill(0));
+    for (let i = 0; i < 8; i++)
+        for (let j = 0; j < 8; j++) {
+            const pj = applyVisual(pv, ph, j);
+            const pij = applyVisual(pj.v, pj.h, i);
+            table[i][j] = probeKey.indexOf(
+                transformedPatternKey(pij.v, pij.h, 0),
+            );
+        }
+
+    D4_MATRIX[table[6][4]] = matMul(D4_MATRIX[6], D4_MATRIX[4]); // s_d1∘s_h
+    D4_MATRIX[table[6][5]] = matMul(D4_MATRIX[6], D4_MATRIX[5]); // s_d1∘s_v
+    return table;
+})();
+
+function d4Compose(i, j) {
+    return D4_COMPOSE[i][j];
+}
+
+// Suffix naming a lettered glyph's orientation, indexed by D4 element.
+const D4_SUFFIX = [
+    "", //        0 e
+    "↻", //  1 r   ↻
+    "⟲", //  2 r²  ⟲
+    "↺", //  3 r³  ↺
+    "↕", //  4 s_h ↕
+    "↔", //  5 s_v ↔
+    "\\", //      6 s_d1
+    "/", //       7 s_d2
+];
+
+// D4 element index → baby-blocks transform name.
+const D4_TO_BABY = ["e", "r", "r2", "r3", "sh", "sv", "d", "d'"];
 
 // Unicode subscript digits: ₀₁₂₃₄₅₆₇
 const SUB_DIGITS = "\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087";
@@ -426,17 +517,9 @@ function buildEquivalenceClasses(
             const canvas = document.createElement("canvas");
             let ft2 = null;
             if (seniority.isVertical) {
-                ft2 = GLYPH_LETTERS[d + "," + r];
+                ft2 = toFt(GLYPH_LETTERS[d + "," + r], V_COLOR);
             } else {
-                const hft = H_GLYPH_LETTERS[d + "," + r];
-                if (hft)
-                    ft2 = [
-                        hft[0],
-                        hft[1],
-                        hft[2],
-                        "rgba(139, 0, 0, 0.5)",
-                        true,
-                    ];
+                ft2 = toFt(H_GLYPH_LETTERS[d + "," + r], H_COLOR);
             }
             drawGlyph(canvas, d, r, seniority, ft2);
             cell.appendChild(canvas);
@@ -555,12 +638,11 @@ function drawCoyleanMap(canvasEl, Nr, Nc, cell, opts) {
             const [dc, rc] = secCodes[sr][sc];
             let ft;
             if (!seniority.isVertical) {
-                const hft = H_GLYPH_LETTERS[dc + "," + rc];
-                if (hft)
-                    ft = [hft[0], hft[1], hft[2], "rgba(139, 0, 0, 0.5)", true];
+                ft = toFt(H_GLYPH_LETTERS[dc + "," + rc], H_COLOR);
             } else {
-                ft = GLYPH_LETTERS[dc + "," + rc];
+                ft = toFt(GLYPH_LETTERS[dc + "," + rc], V_COLOR);
             }
+            if (showIndices) ft = null; // force the V##/H## placeholder
 
             const sx = (sc * SEC + 1) * cell;
             const sy = (sr * SEC + 1) * cell;
@@ -653,11 +735,11 @@ function drawCoyleanMap(canvasEl, Nr, Nc, cell, opts) {
                     ctx.restore();
                 } else {
                     const mapFontSize = 3 * cell;
+                    const m = D4_MATRIX[ft[2]] || D4_MATRIX[0];
                     ctx.save();
-                    ctx.translate(cx, cy + mapFontSize * 0.05 * ft[2]);
-                    if (ft[4]) ctx.transform(0, 1, 1, 0, 0, 0);
-                    ctx.scale(ft[1], ft[2]);
-                    ctx.fillStyle = ft[3] || "rgba(0, 0, 100, 0.4)";
+                    ctx.translate(cx, cy);
+                    ctx.transform(m[0], m[1], m[2], m[3], 0, 0);
+                    ctx.fillStyle = ft[1] || "rgba(0, 0, 100, 0.4)";
                     ctx.font =
                         "bold " + mapFontSize + "px Monaco, Menlo, monospace";
                     ctx.textAlign = "center";
@@ -750,29 +832,19 @@ function getSectionData(Nr, Nc, seniority) {
 function glyphLabel(dc, rc) {
     const ft = GLYPH_LETTERS[dc + "," + rc];
     if (!ft) return "V" + SUB_DIGITS[dc] + SUB_DIGITS[rc];
-    const [letter, sx, sy] = ft;
-    if (sx === 1 && sy === 1) return letter;
-    if (sx === 1 && sy === -1) return letter + "\u2195"; // ↕ s_h
-    if (sx === -1 && sy === 1) return letter + "\u2194"; // ↔ s_v
-    if (sx === -1 && sy === -1) return letter + "\u27F2"; // ⟲ r²
-    return letter;
+    return ft[0] + D4_SUFFIX[ft[1]];
 }
 
 function hGlyphLabel(dc, rc) {
     const ft = H_GLYPH_LETTERS[dc + "," + rc];
     if (!ft) return "H" + SUB_DIGITS[dc] + SUB_DIGITS[rc];
-    const [letter, sx, sy] = ft;
-    const bs = "\\";
-    if (sx === 1 && sy === 1) return letter + bs;
-    if (sx === 1 && sy === -1) return letter + bs + "\u2195";
-    if (sx === -1 && sy === 1) return letter + bs + "\u2194";
-    if (sx === -1 && sy === -1) return letter + bs + "\u27F2";
-    return letter + bs;
+    return ft[0] + D4_SUFFIX[ft[1]];
 }
 
 function buildTranslationTable(containerId) {
     const container = document.getElementById(containerId);
     if (!container) return;
+    container.innerHTML = "";
 
     const o5 = getSectionData(32, 32, Seniority.vertical());
     const o6 = getSectionData(64, 64, Seniority.vertical());
@@ -878,6 +950,7 @@ function buildSubstitutionRules(vhContainerId, hvContainerId) {
     // V → H (1×2 horizontal pair)
     const vhContainer = document.getElementById(vhContainerId);
     if (vhContainer) {
+        vhContainer.innerHTML = "";
         const grid = document.createElement("div");
         grid.className = "trans-grid";
         const seen = new Set();
@@ -907,6 +980,7 @@ function buildSubstitutionRules(vhContainerId, hvContainerId) {
     // H → V (2×1 vertical pair)
     const hvContainer = document.getElementById(hvContainerId);
     if (hvContainer) {
+        hvContainer.innerHTML = "";
         const grid = document.createElement("div");
         grid.className = "trans-grid";
         const seen = new Set();
@@ -949,34 +1023,85 @@ H_CLASSES.forEach((c) => {
     c.colorClass = vOrbitKeys.has(orbitKey(c)) ? "both" : "h-only";
 });
 
-// Assign letters to glyph families
-assignLetter(V_CLASSES, 7, 7, "F");
-assignLetter(V_CLASSES, 1, 7, "P");
-assignLetter(V_CLASSES, 6, 6, "J");
-assignLetter(V_CLASSES, 5, 6, "M");
-assignLetter(V_CLASSES, 0, 0, "O");
-assignLetter(V_CLASSES, 1, 1, "L");
-assignLetter(V_CLASSES, 2, 5, "Q");
-assignLetter(V_CLASSES, 0, 7, "T");
-assignLetter(V_CLASSES, 1, 5, "B");
-assignLetter(V_CLASSES, 5, 1, "Y");
-assignLetter(V_CLASSES, 6, 1, "R");
-assignLetter(V_CLASSES, 1, 6, "S");
-
-// H-grid letter assignments (backslash reflection: V_{d,r} → H_{r,d})
+// ── Letter assignments ──
+// The two grids swap orientation between schemes. Old: V upright, H
+// sideways (backslash dual). New: V sideways — each family on its own
+// diagonal ("\\" = main, "/" = anti) — and H upright/upside-down. The
+// letters are the same set either way; only orientation moves. Switch
+// with the checkbox at the top of the page (chicken switch).
 const H_SENIORITY = Seniority.horizontal();
-assignLetter(H_CLASSES, 7, 7, "F", H_GLYPH_LETTERS, H_SENIORITY);
-assignLetter(H_CLASSES, 7, 1, "P", H_GLYPH_LETTERS, H_SENIORITY);
-assignLetter(H_CLASSES, 6, 6, "J", H_GLYPH_LETTERS, H_SENIORITY);
-assignLetter(H_CLASSES, 6, 5, "M", H_GLYPH_LETTERS, H_SENIORITY);
-assignLetter(H_CLASSES, 0, 0, "O", H_GLYPH_LETTERS, H_SENIORITY);
-assignLetter(H_CLASSES, 1, 1, "L", H_GLYPH_LETTERS, H_SENIORITY);
-assignLetter(H_CLASSES, 5, 2, "Q", H_GLYPH_LETTERS, H_SENIORITY);
-assignLetter(H_CLASSES, 7, 0, "T", H_GLYPH_LETTERS, H_SENIORITY);
-assignLetter(H_CLASSES, 5, 1, "B", H_GLYPH_LETTERS, H_SENIORITY);
-assignLetter(H_CLASSES, 1, 5, "Y", H_GLYPH_LETTERS, H_SENIORITY);
-assignLetter(H_CLASSES, 1, 6, "R", H_GLYPH_LETTERS, H_SENIORITY);
-assignLetter(H_CLASSES, 6, 1, "S", H_GLYPH_LETTERS, H_SENIORITY);
+
+// Slash string → base D4 orientation index (0 = upright).
+function slashToD4(slash) {
+    return slash === "\\" ? 6 : slash === "/" ? 7 : 0;
+}
+
+// H-grid assignments. baseD4 sets orientation: 6 (old, sideways "\") or
+// 0 (new, upright). Letters are the dual of the old V assignment.
+function applyHAssignments(baseD4) {
+    assignLetter(H_CLASSES, 7, 7, "F", H_GLYPH_LETTERS, H_SENIORITY, baseD4);
+    assignLetter(H_CLASSES, 7, 1, "P", H_GLYPH_LETTERS, H_SENIORITY, baseD4);
+    assignLetter(H_CLASSES, 6, 6, "J", H_GLYPH_LETTERS, H_SENIORITY, baseD4);
+    assignLetter(H_CLASSES, 6, 5, "M", H_GLYPH_LETTERS, H_SENIORITY, baseD4);
+    assignLetter(H_CLASSES, 0, 0, "O", H_GLYPH_LETTERS, H_SENIORITY, baseD4);
+    assignLetter(H_CLASSES, 1, 1, "L", H_GLYPH_LETTERS, H_SENIORITY, baseD4);
+    assignLetter(H_CLASSES, 5, 2, "Q", H_GLYPH_LETTERS, H_SENIORITY, baseD4);
+    assignLetter(H_CLASSES, 7, 0, "T", H_GLYPH_LETTERS, H_SENIORITY, baseD4);
+    assignLetter(H_CLASSES, 5, 1, "B", H_GLYPH_LETTERS, H_SENIORITY, baseD4);
+    assignLetter(H_CLASSES, 1, 5, "Y", H_GLYPH_LETTERS, H_SENIORITY, baseD4);
+    assignLetter(H_CLASSES, 1, 6, "R", H_GLYPH_LETTERS, H_SENIORITY, baseD4);
+    assignLetter(H_CLASSES, 6, 1, "S", H_GLYPH_LETTERS, H_SENIORITY, baseD4);
+}
+
+// Preserved baseline — the original upright V assignments, kept verbatim.
+function applyOldAssignments() {
+    assignLetter(V_CLASSES, 7, 7, "F");
+    assignLetter(V_CLASSES, 1, 7, "P");
+    assignLetter(V_CLASSES, 6, 6, "J");
+    assignLetter(V_CLASSES, 5, 6, "M");
+    assignLetter(V_CLASSES, 0, 0, "O");
+    assignLetter(V_CLASSES, 1, 1, "L");
+    assignLetter(V_CLASSES, 2, 5, "Q");
+    assignLetter(V_CLASSES, 0, 7, "T");
+    assignLetter(V_CLASSES, 1, 5, "B");
+    assignLetter(V_CLASSES, 5, 1, "Y");
+    assignLetter(V_CLASSES, 6, 1, "R");
+    assignLetter(V_CLASSES, 1, 6, "S");
+    applyHAssignments(6); // sideways H (s_d1), as in the original
+}
+
+// New V assignments. Each family's glyph at (d,r) — the one the old scheme
+// lettered `was` — now shows `sym` drawn on its diagonal (`slash`: "\\" =
+// s_d1, "/" = s_d2); orbit-mates inherit the correct D4 variant.
+const NEW_ASSIGNMENTS = [
+    { d: 7, r: 7, was: "F", sym: "F", slash: "\\" },
+    { d: 1, r: 7, was: "P", sym: "P", slash: "/" },
+    { d: 6, r: 6, was: "J", sym: "J", slash: "\\" },
+    { d: 5, r: 6, was: "M", sym: "B", slash: "/" },
+    { d: 0, r: 0, was: "O", sym: "O", slash: "\\" },
+    { d: 1, r: 1, was: "L", sym: "L", slash: "/" },
+    { d: 2, r: 5, was: "Q", sym: "Q", slash: "\\" },
+    { d: 0, r: 7, was: "T", sym: "E", slash: "\\" },
+    { d: 1, r: 5, was: "B", sym: "V", slash: "/" },
+    { d: 5, r: 1, was: "Y", sym: "C", slash: "/" },
+    { d: 6, r: 1, was: "R", sym: "R", slash: "\\" },
+    { d: 1, r: 6, was: "S", sym: "N", slash: "/" },
+];
+
+function applyNewAssignments() {
+    for (const a of NEW_ASSIGNMENTS) {
+        assignLetter(
+            V_CLASSES,
+            a.d,
+            a.r,
+            a.sym,
+            GLYPH_LETTERS,
+            Seniority.vertical(),
+            slashToD4(a.slash),
+        );
+    }
+    applyHAssignments(0); // upright H
+}
 
 // Per-map baby blocks state
 const mapBBState = {
@@ -1003,29 +1128,24 @@ function redrawMap(id) {
     });
 }
 
-for (const id of Object.keys(mapConfigs)) {
-    if (document.getElementById(id)) redrawMap(id);
+function applyAssignmentsAndRender(useNew) {
+    GLYPH_LETTERS = {};
+    H_GLYPH_LETTERS = {};
+    if (useNew) applyNewAssignments();
+    else applyOldAssignments();
+
+    for (const id of Object.keys(mapConfigs)) {
+        if (document.getElementById(id)) redrawMap(id);
+    }
+    buildTranslationTable("translation-table");
+    buildSubstitutionRules("vh-sub-table", "hv-sub-table");
+    rebuildGrids();
 }
 
-buildTranslationTable("translation-table");
-buildSubstitutionRules("vh-sub-table", "hv-sub-table");
-
-// ── fTransform → D4 name (for baby blocks) ──
+// ── fTransform → baby-blocks D4 name ──
 
 function ftToD4Glyph(ft) {
-    const [, sx, sy, , backslash] = ft;
-    if (!backslash) {
-        if (sx === 1 && sy === 1) return "e";
-        if (sx === -1 && sy === -1) return "r2";
-        if (sx === 1 && sy === -1) return "sh";
-        if (sx === -1 && sy === 1) return "sv";
-    } else {
-        if (sx === 1 && sy === 1) return "d";
-        if (sx === -1 && sy === -1) return "d'";
-        if (sx === 1 && sy === -1) return "r3";
-        if (sx === -1 && sy === 1) return "r";
-    }
-    return "e";
+    return D4_TO_BABY[ft[2]] || "e";
 }
 
 // ── Build grids ──
@@ -1044,8 +1164,6 @@ function rebuildGrids() {
     buildGrid("h-grid", "H", Seniority.horizontal());
     buildEquivalenceClasses("h-eq-classes", "H", Seniority.horizontal(), H_CLASSES);
 }
-
-rebuildGrids();
 
 // ── Baby Blocks Toggle ──
 
@@ -1111,3 +1229,29 @@ document.querySelectorAll(".map-bb-outline").forEach((el) => {
         if (mapBBState[id].bb) redrawMap(id);
     });
 });
+
+// ── Assignment toggle (chicken switch) ──
+
+const newAssignToggle = document.getElementById("new-assignment-toggle");
+let useNewAssignments = newAssignToggle ? newAssignToggle.checked : true;
+if (newAssignToggle) {
+    newAssignToggle.addEventListener("change", function () {
+        useNewAssignments = this.checked;
+        applyAssignmentsAndRender(useNewAssignments);
+    });
+}
+
+// ── Show-indices toggle (maps show V##/H## instead of letters) ──
+
+const showIndicesToggle = document.getElementById("show-indices-toggle");
+showIndices = showIndicesToggle ? showIndicesToggle.checked : false;
+if (showIndicesToggle) {
+    showIndicesToggle.addEventListener("change", function () {
+        showIndices = this.checked;
+        for (const id of Object.keys(mapConfigs)) {
+            if (document.getElementById(id)) redrawMap(id);
+        }
+    });
+}
+
+applyAssignmentsAndRender(useNewAssignments);
