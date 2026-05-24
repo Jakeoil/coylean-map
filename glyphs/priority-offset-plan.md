@@ -41,6 +41,22 @@ Net: the map looks the same shape, but the cage grid tracks the senior lattice
 for any offset, exposing section codes outside today's 34-reachable set
 ("unused glyphs").
 
+## Map section labels (assigned symbol, else index name)
+
+Each map section shows the **assigned symbol** if its `(dc,rc)` code has a letter
+in `GLYPH_LETTERS` / `H_GLYPH_LETTERS`, otherwise the **`V##`/`H##` index name**.
+This is already `drawCoyleanMap`'s behavior (assigned → letter overlay via `ft`;
+unassigned → placeholder). The thing to preserve under varying offsets: changing
+`hInitCol`/`vInitRow` changes which codes are reachable, so codes that were never
+drawn before will appear — and must fall back to their index name until assigned.
+This is precisely how the "unused glyphs" become visible and nameable.
+
+## Terminology — dyadic location
+
+The offset pair is the **dyadic location** of the priority lattice:
+- **latitude** = `vInitRow` — the row offset (N–S); sidebar `#vinit-input`.
+- **longitude** = `hInitCol` — the column offset (E–W); sidebar `#hinit-input`.
+
 ## Negative offsets
 
 `pri(n)` is only valid for `n ≥ 0` (`n & -n`). With `hInitCol < 0`, small `i`

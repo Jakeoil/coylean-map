@@ -16,11 +16,12 @@ let babyBlocksOutline = true;
 // Maps: when true, show each section's V##/H## index instead of its letter.
 let showIndices = false;
 
-// Priority-offset tie-break for the glyph catalog: pri(i + curHInit),
-// pri(j + curVInit). The standard glyph uses 1/1; the sidebar boxes vary
-// these to explore other tie-breaks. (Catalog only for now — the maps still
-// use their own fixed offsets; see substitution-plan.md / priority-offset
-// plan for extending to the maps with cage realignment.)
+// Dyadic location of the priority lattice for the glyph catalog:
+// pri(i + curHInit), pri(j + curVInit). curHInit = longitude (hInitCol, E–W),
+// curVInit = latitude (vInitRow, N–S). The standard glyph uses 1/1; the sidebar
+// boxes vary these. Catalog only for now — the maps still use their own fixed
+// offsets; see priority-offset-plan.md for extending to the maps (cage
+// realignment).
 let curHInit = 1;
 let curVInit = 1;
 
