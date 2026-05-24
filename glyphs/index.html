@@ -187,6 +187,53 @@
             .trans-2x2 .trans-cell.border-bottom {
                 border-bottom: 1.5px solid #000;
             }
+
+            /* ── Sidebar layout ── */
+            .layout {
+                display: flex;
+                gap: 24px;
+                align-items: flex-start;
+            }
+            .content {
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+            .sidebar {
+                flex: 0 0 190px;
+                position: sticky;
+                top: 24px;
+                align-self: flex-start;
+                background: #fafafa;
+                border: 1px solid #e0e0e0;
+                border-radius: 6px;
+                padding: 12px 14px;
+                font-size: 0.85rem;
+            }
+            .side-group {
+                margin-bottom: 16px;
+            }
+            .side-group:last-child {
+                margin-bottom: 0;
+            }
+            .side-title {
+                font-weight: bold;
+                font-size: 0.65rem;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                color: #999;
+                margin-bottom: 8px;
+                border-bottom: 1px solid #e8e8e8;
+                padding-bottom: 4px;
+            }
+            .sidebar label {
+                display: block;
+                cursor: pointer;
+                margin-bottom: 8px;
+                line-height: 1.35;
+            }
+            .sidebar label:last-child {
+                margin-bottom: 0;
+            }
         </style>
     </head>
     <body>
@@ -207,112 +254,50 @@
             have priority 0. Solid dots = line present, hollow dots = absent.
         </p>
 
-        <div
-            style="
-                margin: 16px 0;
-                padding: 8px 12px;
-                background: #fff8e1;
-                border: 1px solid #ffe082;
-                border-radius: 4px;
-            "
-        >
-            <label
-                style="font-size: 0.9rem; font-weight: bold; cursor: pointer"
-            >
-                <input type="checkbox" id="new-assignment-toggle" checked />
-                New letter assignment (V sideways, H upright) — uncheck to
-                revert
-            </label>
-            <label
-                style="
-                    font-size: 0.9rem;
-                    font-weight: bold;
-                    cursor: pointer;
-                    margin-left: 20px;
-                "
-            >
-                <input type="checkbox" id="show-indices-toggle" />
-                Show section indices (V##/H##) on maps
-            </label>
-        </div>
+        <div class="layout">
+            <aside class="sidebar">
+                <div class="side-group">
+                    <div class="side-title">Letters</div>
+                    <label>
+                        <input
+                            type="checkbox"
+                            id="new-assignment-toggle"
+                            checked
+                        />
+                        New assignment (V sideways, H upright)
+                    </label>
+                    <label>
+                        <input type="checkbox" id="show-indices-toggle" />
+                        Show section indices (V##/H##)
+                    </label>
+                </div>
+                <div class="side-group">
+                    <div class="side-title">Rendering</div>
+                    <label>
+                        <input type="checkbox" id="bb-toggle" />
+                        Baby Blocks
+                    </label>
+                    <label>
+                        <input type="checkbox" id="bb-outline" checked />
+                        Outline
+                    </label>
+                </div>
+            </aside>
+            <main class="content">
+                <h2>Coylean Map — Order 5</h2>
+                <div class="figure">
+                    <canvas id="coylean-map"></canvas>
+                </div>
 
-        <h2>Coylean Map — Order 5</h2>
-        <div
-            style="margin: 8px 0; display: flex; align-items: center; gap: 10px"
-        >
-            <label style="font-size: 0.85rem; cursor: pointer">
-                <input
-                    type="checkbox"
-                    class="map-bb-toggle"
-                    data-map="coylean-map"
-                />
-                Baby Blocks
-            </label>
-            <label style="font-size: 0.85rem; cursor: pointer">
-                <input
-                    type="checkbox"
-                    class="map-bb-outline"
-                    data-map="coylean-map"
-                    checked
-                />
-                Outline
-            </label>
-        </div>
-        <div class="figure">
-            <canvas id="coylean-map"></canvas>
-        </div>
+                <h2>Coylean Map — Order 6h</h2>
+                <div class="figure">
+                    <canvas id="coylean-map-6h"></canvas>
+                </div>
 
-        <h2>Coylean Map — Order 6h</h2>
-        <div
-            style="margin: 8px 0; display: flex; align-items: center; gap: 10px"
-        >
-            <label style="font-size: 0.85rem; cursor: pointer">
-                <input
-                    type="checkbox"
-                    class="map-bb-toggle"
-                    data-map="coylean-map-6h"
-                />
-                Baby Blocks
-            </label>
-            <label style="font-size: 0.85rem; cursor: pointer">
-                <input
-                    type="checkbox"
-                    class="map-bb-outline"
-                    data-map="coylean-map-6h"
-                    checked
-                />
-                Outline
-            </label>
-        </div>
-        <div class="figure">
-            <canvas id="coylean-map-6h"></canvas>
-        </div>
-
-        <h2>Coylean Map — Order 6</h2>
-        <div
-            style="margin: 8px 0; display: flex; align-items: center; gap: 10px"
-        >
-            <label style="font-size: 0.85rem; cursor: pointer">
-                <input
-                    type="checkbox"
-                    class="map-bb-toggle"
-                    data-map="coylean-map-6"
-                />
-                Baby Blocks
-            </label>
-            <label style="font-size: 0.85rem; cursor: pointer">
-                <input
-                    type="checkbox"
-                    class="map-bb-outline"
-                    data-map="coylean-map-6"
-                    checked
-                />
-                Outline
-            </label>
-        </div>
-        <div class="figure">
-            <canvas id="coylean-map-6"></canvas>
-        </div>
+                <h2>Coylean Map — Order 6</h2>
+                <div class="figure">
+                    <canvas id="coylean-map-6"></canvas>
+                </div>
 
         <h2>Substitution Rule — V → H (1×2 horizontal)</h2>
         <p class="subtitle">
@@ -336,24 +321,6 @@
             at the boundary.
         </p>
         <div class="grid-wrapper" id="translation-table"></div>
-
-        <div
-            style="
-                margin: 24px 0 12px;
-                display: flex;
-                align-items: center;
-                gap: 10px;
-            "
-        >
-            <label style="font-size: 0.85rem; cursor: pointer">
-                <input type="checkbox" id="baby-blocks-toggle" />
-                Baby Blocks
-            </label>
-            <label style="font-size: 0.85rem; cursor: pointer">
-                <input type="checkbox" id="baby-blocks-outline" checked />
-                Outline
-            </label>
-        </div>
 
         <h2>Vertical-Seniority Grid (vertical wins ties)</h2>
         <div class="grid-wrapper">
@@ -379,6 +346,8 @@
             Equal-priority intersections resolve in favor of horizontal lines.
         </p>
         <div class="eq-classes" id="h-eq-classes"></div>
+            </main>
+        </div>
 
         <script type="module" src="glyphs.js"></script>
     </body>

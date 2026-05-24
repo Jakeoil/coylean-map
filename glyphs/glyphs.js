@@ -1176,37 +1176,7 @@ function rebuildGrids() {
     buildEquivalenceClasses("h-eq-classes", "H", Seniority.horizontal(), H_CLASSES);
 }
 
-// ── Baby Blocks Toggle ──
-
-const bbToggle = document.getElementById("baby-blocks-toggle");
-const bbOutline = document.getElementById("baby-blocks-outline");
-
-if (bbToggle) {
-    bbToggle.addEventListener("change", function () {
-        useBabyBlocks = this.checked;
-        if (useBabyBlocks && !babyBlocks) {
-            import("../baby-blocks/baby-blocks.js").then((mod) => {
-                mod.BabyBlocks.load("../baby-blocks/AlphabetBlocks.svg").then(
-                    (bb) => {
-                        babyBlocks = bb;
-                        rebuildGrids();
-                    },
-                );
-            });
-        } else {
-            rebuildGrids();
-        }
-    });
-}
-
-if (bbOutline) {
-    bbOutline.addEventListener("change", function () {
-        babyBlocksOutline = this.checked;
-        if (useBabyBlocks) rebuildGrids();
-    });
-}
-
-// ── Per-map Baby Blocks Toggles ──
+// ── Baby Blocks + Outline (global: all maps and grids) ──
 
 function ensureBabyBlocksLoaded(cb) {
     if (babyBlocks) {
@@ -1221,25 +1191,38 @@ function ensureBabyBlocksLoaded(cb) {
     });
 }
 
-document.querySelectorAll(".map-bb-toggle").forEach((el) => {
-    el.addEventListener("change", function () {
-        const id = this.dataset.map;
-        mapBBState[id].bb = this.checked;
-        if (this.checked) {
-            ensureBabyBlocksLoaded(() => redrawMap(id));
+// Mirror the global state into every map, then redraw maps and grids.
+function applyBabyBlocks() {
+    for (const id of Object.keys(mapBBState)) {
+        mapBBState[id].bb = useBabyBlocks;
+        mapBBState[id].outline = babyBlocksOutline;
+    }
+    for (const id of Object.keys(mapConfigs)) {
+        if (document.getElementById(id)) redrawMap(id);
+    }
+    rebuildGrids();
+}
+
+const bbToggle = document.getElementById("bb-toggle");
+const bbOutline = document.getElementById("bb-outline");
+
+if (bbToggle) {
+    bbToggle.addEventListener("change", function () {
+        useBabyBlocks = this.checked;
+        if (useBabyBlocks && !babyBlocks) {
+            ensureBabyBlocksLoaded(applyBabyBlocks);
         } else {
-            redrawMap(id);
+            applyBabyBlocks();
         }
     });
-});
+}
 
-document.querySelectorAll(".map-bb-outline").forEach((el) => {
-    el.addEventListener("change", function () {
-        const id = this.dataset.map;
-        mapBBState[id].outline = this.checked;
-        if (mapBBState[id].bb) redrawMap(id);
+if (bbOutline) {
+    bbOutline.addEventListener("change", function () {
+        babyBlocksOutline = this.checked;
+        applyBabyBlocks();
     });
-});
+}
 
 // ── Assignment toggle (chicken switch) ──
 
