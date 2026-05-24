@@ -408,8 +408,22 @@ const D4_SUFFIX = [
     "/", //       7 s_d2
 ];
 
-// D4 element index → baby-blocks transform name.
-const D4_TO_BABY = ["e", "r", "r2", "r3", "sh", "sv", "d", "d'"];
+// D4 element index → baby-blocks transform name. Calibrated on load by
+// matching the baby-blocks D4 matrices against D4_MATRIX, so a block's
+// orientation always equals the rendered letter's. (Baby Blocks names its
+// two rotations opposite to ours, which this matching corrects.) The static
+// values below are the correct fallback for any call before load.
+let D4_TO_BABY = ["e", "r3", "r2", "r", "sh", "sv", "d", "d'"];
+
+function calibrateBabyNames(babyD4) {
+    const names = Object.keys(babyD4);
+    D4_TO_BABY = D4_MATRIX.map((m) => {
+        const hit = names.find((n) =>
+            babyD4[n].every((val, k) => val === m[k]),
+        );
+        return hit || "e";
+    });
+}
 
 // Unicode subscript digits: ₀₁₂₃₄₅₆₇
 const SUB_DIGITS = "\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087";
@@ -1184,6 +1198,7 @@ function ensureBabyBlocksLoaded(cb) {
         return;
     }
     import("../baby-blocks/baby-blocks.js").then((mod) => {
+        calibrateBabyNames(mod.D4);
         mod.BabyBlocks.load("../baby-blocks/AlphabetBlocks.svg").then((bb) => {
             babyBlocks = bb;
             cb();
