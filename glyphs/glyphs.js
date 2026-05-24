@@ -1024,11 +1024,10 @@ H_CLASSES.forEach((c) => {
 });
 
 // ── Letter assignments ──
-// The two grids swap orientation between schemes. Old: V upright, H
-// sideways (backslash dual). New: V sideways — each family on its own
-// diagonal ("\\" = main, "/" = anti) — and H upright/upside-down. The
-// letters are the same set either way; only orientation moves. Switch
-// with the checkbox at the top of the page (chicken switch).
+// Old: V upright, H sideways (backslash dual). New: V sideways on each
+// family's diagonal ("\\" = s_d1, "/" = s_d2); H is the whole-map backslash
+// dual of V — same symbol, oriented s_d1 ∘ (V orientation), so upright or
+// 180°, never sideways. Switch with the checkbox at the top (chicken switch).
 const H_SENIORITY = Seniority.horizontal();
 
 // Slash string → base D4 orientation index (0 = upright).
@@ -1036,8 +1035,8 @@ function slashToD4(slash) {
     return slash === "\\" ? 6 : slash === "/" ? 7 : 0;
 }
 
-// H-grid assignments. baseD4 sets orientation: 6 (old, sideways "\") or
-// 0 (new, upright). Letters are the dual of the old V assignment.
+// Old-scheme H grid: the original letters at the dual codes, drawn
+// sideways (baseD4 = 6 = s_d1). The new scheme assigns H inline below.
 function applyHAssignments(baseD4) {
     assignLetter(H_CLASSES, 7, 7, "F", H_GLYPH_LETTERS, H_SENIORITY, baseD4);
     assignLetter(H_CLASSES, 7, 1, "P", H_GLYPH_LETTERS, H_SENIORITY, baseD4);
@@ -1090,6 +1089,7 @@ const NEW_ASSIGNMENTS = [
 
 function applyNewAssignments() {
     for (const a of NEW_ASSIGNMENTS) {
+        const vBase = slashToD4(a.slash);
         assignLetter(
             V_CLASSES,
             a.d,
@@ -1097,10 +1097,21 @@ function applyNewAssignments() {
             a.sym,
             GLYPH_LETTERS,
             Seniority.vertical(),
-            slashToD4(a.slash),
+            vBase,
+        );
+        // H is the whole-map backslash dual: same symbol at the dual code
+        // (r,d), oriented s_d1 ∘ (V orientation) — i.e. upright or 180°,
+        // never sideways.
+        assignLetter(
+            H_CLASSES,
+            a.r,
+            a.d,
+            a.sym,
+            H_GLYPH_LETTERS,
+            H_SENIORITY,
+            d4Compose(6, vBase),
         );
     }
-    applyHAssignments(0); // upright H
 }
 
 // Per-map baby blocks state
