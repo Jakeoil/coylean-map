@@ -1,0 +1,17 @@
+{
+  "description": "Original baseline Coylean glyph -> symbol assignments (the chicken-switch alternative to assignments.json). Same member-index format: grid letter (V or H) + down-code digit + right-code digit, each 0-7. V upright with no transform suffixes; the H grid follows as the backslash dual (drawn sideways). See assignments.json for the active scheme and the full format notes.",
+  "assignments": {
+    "V77": "F",
+    "V17": "P",
+    "V66": "J",
+    "V56": "M",
+    "V00": "O",
+    "V11": "L",
+    "V25": "Q",
+    "V07": "T",
+    "V15": "B",
+    "V51": "Y",
+    "V61": "R",
+    "V16": "S"
+  }
+}

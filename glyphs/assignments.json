@@ -1,0 +1,17 @@
+{
+  "description": "Coylean glyph -> symbol assignments, loaded on page refresh. Keys are member indices: grid letter (V or H) + the down-code digit + the right-code digit (each 0-7). The value is a unicode character assigned to that member (expressing it as an image is a higher-level concern). Naming a member makes it the identity (state e) of its D4 group; the whole orbit (spanning both V and H grids, via the backslash dual) follows automatically. An optional trailing transform suffix relocates the identity to another member of the group -- e = identity; 1, 2, 3 = rotations; - = flip across the horizontal mirror; | = flip across the vertical mirror; backslash = backslash-diagonal reflection; / = slash-diagonal reflection. To letter a newly uncovered glyph, add its member index with a symbol. This is the active (new) scheme; the original baseline lives in assignments-old.json, selected by the chicken-switch checkbox.",
+  "assignments": {
+    "V77": "F\\",
+    "V17": "P/",
+    "V66": "J\\",
+    "V56": "B/",
+    "V00": "O\\",
+    "V11": "L/",
+    "V25": "Q\\",
+    "V07": "E\\",
+    "V15": "V/",
+    "V51": "C/",
+    "V61": "R\\",
+    "V16": "N/"
+  }
+}

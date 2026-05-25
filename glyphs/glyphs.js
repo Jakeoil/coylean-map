@@ -1080,11 +1080,6 @@ function rebuildClasses() {
 // 180°, never sideways. Switch with the checkbox at the top (chicken switch).
 const H_SENIORITY = Seniority.horizontal();
 
-// Slash string → base D4 orientation index (0 = upright).
-function slashToD4(slash) {
-    return slash === "\\" ? 6 : slash === "/" ? 7 : 0;
-}
-
 // Old-scheme H grid: the original letters at the dual codes, drawn
 // sideways (baseD4 = 6 = s_d1). The new scheme assigns H inline below.
 function applyHAssignments(baseD4) {
@@ -1119,48 +1114,132 @@ function applyOldAssignments() {
     applyHAssignments(6); // sideways H (s_d1), as in the original
 }
 
-// New V assignments. Each family's glyph at (d,r) — the one the old scheme
-// lettered `was` — now shows `sym` drawn on its diagonal (`slash`: "\\" =
-// s_d1, "/" = s_d2); orbit-mates inherit the correct D4 variant.
-const NEW_ASSIGNMENTS = [
-    { d: 7, r: 7, was: "F", sym: "F", slash: "\\" },
-    { d: 1, r: 7, was: "P", sym: "P", slash: "/" },
-    { d: 6, r: 6, was: "J", sym: "J", slash: "\\" },
-    { d: 5, r: 6, was: "M", sym: "B", slash: "/" },
-    { d: 0, r: 0, was: "O", sym: "O", slash: "\\" },
-    { d: 1, r: 1, was: "L", sym: "L", slash: "/" },
-    { d: 2, r: 5, was: "Q", sym: "Q", slash: "\\" },
-    { d: 0, r: 7, was: "T", sym: "E", slash: "\\" },
-    { d: 1, r: 5, was: "B", sym: "V", slash: "/" },
-    { d: 5, r: 1, was: "Y", sym: "C", slash: "/" },
-    { d: 6, r: 1, was: "R", sym: "R", slash: "\\" },
-    { d: 1, r: 6, was: "S", sym: "N", slash: "/" },
-];
+// New-scheme assignments: a dict from member index — grid letter ("V"/"H") +
+// down-code digit + right-code digit, each 0–7 — to a symbol. Naming a member
+// makes it the identity (state e) of its D4 group; the whole orbit, spanning
+// both the V and H grids via the backslash dual, follows. A trailing transform
+// suffix relocates the identity to another member of the group:
+//   e=identity  1,2,3=rotations  -=flip(↕)  |=flip(↔)  \=backslash  /=slash
+// The symbol is a unicode character; expressing it as an image (e.g. the baby-
+// blocks SVG render) is a higher-level concern driven by the same [symbol, d4].
+// glyphs/assignments.json is authoritative (fetched each refresh); the dict
+// below mirrors it as a fallback (e.g. file://).
+const DEFAULT_ASSIGNMENTS = {
+    V77: "F\\",
+    V17: "P/",
+    V66: "J\\",
+    V56: "B/",
+    V00: "O\\",
+    V11: "L/",
+    V25: "Q\\",
+    V07: "E\\",
+    V15: "V/",
+    V51: "C/",
+    V61: "R\\",
+    V16: "N/",
+};
+let NEW_ASSIGNMENTS = DEFAULT_ASSIGNMENTS;
 
-function applyNewAssignments() {
-    for (const a of NEW_ASSIGNMENTS) {
-        const vBase = slashToD4(a.slash);
-        assignLetter(
-            V_CLASSES,
-            a.d,
-            a.r,
-            a.sym,
-            GLYPH_LETTERS,
-            Seniority.vertical(),
-            vBase,
-        );
-        // H is the whole-map backslash dual: same symbol at the dual code
-        // (r,d), oriented s_d1 ∘ (V orientation) — i.e. upright or 180°,
-        // never sideways.
-        assignLetter(
-            H_CLASSES,
-            a.r,
-            a.d,
-            a.sym,
-            H_GLYPH_LETTERS,
-            H_SENIORITY,
-            d4Compose(6, vBase),
-        );
+// Old-scheme dict, loaded from assignments-old.json. Null until loaded; when
+// null, applyAssignmentsAndRender falls back to the hard-coded applyOldAssignments
+// baseline, so nothing depends on the file being present.
+let OLD_ASSIGNMENTS = null;
+
+// Transform suffix → D4 index (catalog D4_SUFFIX order). e/\\// are exercised by
+// the defaults; rotations/flips are positional and easy to recalibrate.
+const SUFFIX_TO_D4 = {
+    e: 0,
+    "1": 1,
+    "2": 2,
+    "3": 3,
+    "-": 4,
+    "|": 5,
+    "\\": 6,
+    "/": 7,
+};
+// "F" / "P/" / "p-" → { symbol, d4 }. The symbol is a unicode character (which
+// may itself stand in for an image/glyph — that's a higher-level concern); an
+// optional trailing transform suffix sets the named member's orientation.
+function parseAssignmentValue(val) {
+    let d4 = 0;
+    let symbol = val;
+    if (val.length >= 2) {
+        const last = val.slice(-1);
+        if (Object.prototype.hasOwnProperty.call(SUFFIX_TO_D4, last)) {
+            d4 = SUFFIX_TO_D4[last];
+            symbol = val.slice(0, -1);
+        }
+    }
+    return { symbol, d4 };
+}
+
+// "V15" / "H37" → { grid, d, r }.
+function parseMemberKey(key) {
+    return {
+        grid: key[0].toUpperCase(),
+        d: parseInt(key[1], 10),
+        r: parseInt(key[2], 10),
+    };
+}
+
+// Fetch one assignment file and return its member-index dict, or null on any
+// failure. cache:"no-store" so editing the file and refreshing takes effect.
+async function fetchAssignmentDict(path) {
+    try {
+        const res = await fetch(path, { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        if (data && data.assignments && typeof data.assignments === "object") {
+            return data.assignments;
+        }
+        throw new Error("no .assignments object");
+    } catch (e) {
+        console.warn("glyphs: could not load", path + ";", "using fallback.", e);
+        return null;
+    }
+}
+
+// Load both schemes from their own files. New falls back to the built-in
+// DEFAULT_ASSIGNMENTS; old stays null so applyAssignmentsAndRender falls back to
+// the hard-coded applyOldAssignments baseline.
+async function loadAssignments() {
+    const [newDict, oldDict] = await Promise.all([
+        fetchAssignmentDict("./assignments.json"),
+        fetchAssignmentDict("./assignments-old.json"),
+    ]);
+    if (newDict) NEW_ASSIGNMENTS = newDict;
+    if (oldDict) OLD_ASSIGNMENTS = oldDict;
+}
+
+// Apply one member-index dict (new or old scheme — same machinery; the old set
+// is just this format with no suffixes, so its H dual lands at baseD4 = 6).
+function applyAssignmentDict(dict) {
+    for (const [key, val] of Object.entries(dict)) {
+        if (!/^[VH][0-7][0-7]$/.test(key)) continue; // skip non-member keys
+        const { grid, d, r } = parseMemberKey(key);
+        const { symbol, d4 } = parseAssignmentValue(val);
+        // Anchor on the named grid (named member = identity in state `d4`); the
+        // other grid gets the whole-map backslash dual at the transposed code,
+        // oriented s_d1 ∘ d4 — i.e. upright/180°, never sideways.
+        if (grid === "H") {
+            assignLetter(
+                H_CLASSES, d, r, symbol,
+                H_GLYPH_LETTERS, H_SENIORITY, d4,
+            );
+            assignLetter(
+                V_CLASSES, r, d, symbol,
+                GLYPH_LETTERS, Seniority.vertical(), d4Compose(6, d4),
+            );
+        } else {
+            assignLetter(
+                V_CLASSES, d, r, symbol,
+                GLYPH_LETTERS, Seniority.vertical(), d4,
+            );
+            assignLetter(
+                H_CLASSES, r, d, symbol,
+                H_GLYPH_LETTERS, H_SENIORITY, d4Compose(6, d4),
+            );
+        }
     }
 }
 
@@ -1193,8 +1272,9 @@ function applyAssignmentsAndRender(useNew) {
     rebuildClasses();
     GLYPH_LETTERS = {};
     H_GLYPH_LETTERS = {};
-    if (useNew) applyNewAssignments();
-    else applyOldAssignments();
+    if (useNew) applyAssignmentDict(NEW_ASSIGNMENTS);
+    else if (OLD_ASSIGNMENTS) applyAssignmentDict(OLD_ASSIGNMENTS);
+    else applyOldAssignments(); // hard-coded baseline (file absent)
 
     for (const id of Object.keys(mapConfigs)) {
         if (document.getElementById(id)) redrawMap(id);
@@ -1320,4 +1400,4 @@ if (hInitInput && vInitInput) {
     vInitInput.addEventListener("change", onOffsetChange);
 }
 
-applyAssignmentsAndRender(useNewAssignments);
+loadAssignments().then(() => applyAssignmentsAndRender(useNewAssignments));
