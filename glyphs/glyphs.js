@@ -6,6 +6,7 @@ import {
     pri,
     Seniority,
     Propagation,
+    Universe,
 } from "../coylean-explorer/coylean-core.js";
 
 // ── Baby Blocks (lazy-loaded) ──
@@ -16,12 +17,12 @@ let babyBlocksOutline = true;
 // Maps: when true, show each section's V##/H## index instead of its letter.
 let showIndices = false;
 
-// Dyadic location of the priority lattice for the glyph catalog:
-// pri(i + curHInit), pri(j + curVInit). curHInit = longitude (hInitCol, E–W),
-// curVInit = latitude (vInitRow, N–S). The standard glyph uses 1/1; the sidebar
-// boxes vary these. Catalog only for now — the maps still use their own fixed
-// offsets; see priority-offset-plan.md for extending to the maps (cage
-// realignment).
+// Dyadic location of the priority lattice. Catalog: pri(i + curHInit),
+// pri(j + curVInit). curHInit = longitude (hInitCol, E–W), curVInit = latitude
+// (vInitRow, N–S). The standard glyph uses 1/1; the sidebar boxes vary these.
+// Maps use the same pair via a westExtent=1/northExtent=1 universe integration
+// (Propagation.fromUniverseBoundary), which bakes in the catalog→map −1 and
+// the proper boundary seed; see priority-offset-plan.md.
 let curHInit = 1;
 let curVInit = 1;
 
@@ -575,8 +576,40 @@ function drawCoyleanMap(canvasEl, Nr, Nc, cell, opts) {
     const mapBB = opts && opts.babyBlocks;
     const mapBBOutline = opts ? opts.outline : true;
     const seniority = (opts && opts.seniority) || Seniority.vertical();
-    const Mr = Nr + 1;
-    const Mc = Nc + 1;
+    const SEC = 4;
+
+    // Dyadic location. The map is an SE patch of the infinite Coylean map; we
+    // realize it as a universe with westExtent=northExtent=1 (just the origin
+    // row/col on the N/W side) and eastExtent/southExtent reaching across the
+    // map, then integrate its boundary into one SE propagation. This bakes in
+    // the catalog→map −1 (fromUniverseBoundary sets hInitCol = curHInit −
+    // westExtent = curHInit − 1) and, crucially, derives the correct all-true
+    // boundary seed instead of a hand-rolled single arrow. At 1/1 the section
+    // codes match the historical clean map exactly; varying the offset slides
+    // the senior (≥P2) lattice, so codes outside the standard set surface.
+    const hInitCol = curHInit - 1;
+    const vInitRow = curVInit - 1;
+    // First senior column/row: where pri(k + hInitCol) ≥ 2, i.e. k ≡ −hInitCol
+    // (mod 4). The 4×4 cages sit on this lattice; a partial cage may precede it
+    // on the N/W edge. Extend E/S by that shift so a full run of cages still
+    // fits after realignment.
+    const firstDarkCol = (((-hInitCol) % SEC) + SEC) % SEC;
+    const firstDarkRow = (((-vInitRow) % SEC) + SEC) % SEC;
+
+    const universe = Universe.create({
+        northExtent: 1,
+        westExtent: 1,
+        eastExtent: Nc + firstDarkCol,
+        southExtent: Nr + firstDarkRow,
+        hInitCol: curHInit,
+        vInitRow: curVInit,
+        seniority,
+    });
+    const { downMatrix, rightMatrix, colPriority, rowPriority, numRows, numColumns } =
+        Propagation.fromUniverseBoundary(universe);
+
+    const Mr = numRows;
+    const Mc = numColumns;
     const w = Mc * cell;
     const h = Mr * cell;
     canvasEl.width = w;
@@ -586,43 +619,33 @@ function drawCoyleanMap(canvasEl, Nr, Nc, cell, opts) {
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, w, h);
 
-    // Seed: SE-patch boundary input from the implicit larger map.
-    // V uses a single down-arrow at col 0; H is the backslash dual,
-    // so it uses a single right-arrow at row 0.
-    const initDown = new Array(Mc).fill(false);
-    const initRight = new Array(Mr).fill(false);
-    if (!seniority.isVertical) initRight[0] = true;
-    else initDown[0] = true;
-
-    // hInitCol=vInitRow=0 keeps the axis cells (priority pri(0)=∞) as the
-    // first row/column, matching glyphs.js's pri(x)/pri(y) convention.
-    const { downMatrix, rightMatrix } = new Propagation({
-        initDown,
-        initRight,
-        hInitCol: 0,
-        vInitRow: 0,
-        seniority,
-    });
+    // Bounds-guarded reads (cages near the edges may probe one past the grid).
+    const dAt = (y, x) =>
+        y >= 0 && x >= 0 && downMatrix[y] && x < downMatrix[y].length
+            ? downMatrix[y][x]
+            : false;
+    const rAt = (x, y) =>
+        x >= 0 && y >= 0 && rightMatrix[x] && y < rightMatrix[x].length
+            ? rightMatrix[x][y]
+            : false;
 
     const lw = (cell * 1.2) / CELL_PX;
     ctx.lineWidth = lw;
 
-    // Section bookkeeping: capture input codes during the same pass that
-    // draws segments. Each section is a 4×4 block whose interior is a 3×3
-    // glyph; rowInSec/colInSec ∈ {0,1,2} are interior, ==3 is the exit edge.
-    const SEC = 4;
-    const NSr = Nr / SEC;
-    const NSc = Nc / SEC;
+    // Cage grid: full 4×4 sections anchored on the senior lattice. Only full
+    // cages hold a glyph; the partial N/W margin (firstDark cells) gets none.
+    const NSr = Math.floor((Mr - firstDarkRow) / SEC);
+    const NSc = Math.floor((Mc - firstDarkCol) / SEC);
     const secCodes = Array.from({ length: NSr }, () =>
         Array.from({ length: NSc }, () => [0, 0]),
     );
 
     for (let y = 0; y < Mr; y++) {
-        const rp = pri(y);
+        const rp = rowPriority[y];
         for (let x = 0; x < Mc; x++) {
-            const preD = !!downMatrix[y][x];
-            const preR = !!rightMatrix[x][y];
-            const dp = pri(x);
+            const preD = !!(downMatrix[y] && downMatrix[y][x]);
+            const preR = !!(rightMatrix[x] && rightMatrix[x][y]);
+            const dp = colPriority[x];
 
             if (preD) {
                 ctx.strokeStyle = dp < 2 ? "#90caf9" : "#000";
@@ -641,17 +664,15 @@ function drawCoyleanMap(canvasEl, Nr, Nc, cell, opts) {
         }
     }
 
-    // Capture section input codes by reading the propagated matrices at
-    // the section-boundary cells. For section (sr, sc), the down inputs
-    // come from downMatrix at y = sr*SEC+1 and x = sc*SEC+1+colInSec; the
-    // right inputs come from rightMatrix at x = sc*SEC+1 and y = sr*SEC+1+rowInSec.
+    // Capture section input codes at each full cage's interior, offset onto
+    // the senior lattice by firstDarkRow/Col.
     for (let sr = 0; sr < NSr; sr++) {
         for (let sc = 0; sc < NSc; sc++) {
-            const y0 = sr * SEC + 1;
-            const x0 = sc * SEC + 1;
+            const y0 = firstDarkRow + sr * SEC + 1;
+            const x0 = firstDarkCol + sc * SEC + 1;
             for (let i = 0; i < 3; i++) {
-                if (downMatrix[y0][x0 + i]) secCodes[sr][sc][0] |= 1 << i;
-                if (rightMatrix[x0][y0 + i]) secCodes[sr][sc][1] |= 1 << i;
+                if (dAt(y0, x0 + i)) secCodes[sr][sc][0] |= 1 << i;
+                if (rAt(x0, y0 + i)) secCodes[sr][sc][1] |= 1 << i;
             }
         }
     }
@@ -668,8 +689,8 @@ function drawCoyleanMap(canvasEl, Nr, Nc, cell, opts) {
             }
             if (showIndices) ft = null; // force the V##/H## placeholder
 
-            const sx = (sc * SEC + 1) * cell;
-            const sy = (sr * SEC + 1) * cell;
+            const sx = (firstDarkCol + sc * SEC + 1) * cell;
+            const sy = (firstDarkRow + sr * SEC + 1) * cell;
             const cx = sx + 2 * cell;
             const cy = sy + 2 * cell;
 
@@ -1279,7 +1300,7 @@ if (showIndicesToggle) {
     });
 }
 
-// ── Tie-break offset inputs (hInitCol / vInitRow, catalog only) ──
+// ── Tie-break offset inputs (hInitCol / vInitRow — catalog + maps) ──
 
 const hInitInput = document.getElementById("hinit-input");
 const vInitInput = document.getElementById("vinit-input");

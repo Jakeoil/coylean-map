@@ -1,5 +1,50 @@
 # Plan — hInitCol / vInitRow tie-break offsets on the maps
 
+**Status: sidebar + catalog DONE; maps DONE (2026-05-24).**
+
+## What shipped — universe-boundary integration
+
+The map is a finite SE patch of the infinite Coylean map. `drawCoyleanMap` now
+realizes it the principled way: build a `Universe.create({ northExtent: 1,
+westExtent: 1, eastExtent: Nc + firstDarkCol, southExtent: Nr + firstDarkRow,
+hInitCol: curHInit, vInitRow: curVInit, seniority })` and integrate its boundary
+with `Propagation.fromUniverseBoundary(universe)`. That single call:
+
+- **Bakes in the catalog→map −1.** `fromUniverseBoundary` sets the propagation's
+  `hInitCol = curHInit − westExtent = curHInit − 1` (likewise vInitRow). No
+  manual offset arithmetic.
+- **Derives the correct boundary seed** (the all-true quadrant edges integrated
+  into `initDown`/`initRight`) instead of the old hand-rolled single arrow.
+  Without this, a shifted `pri` on a single-arrow seed degenerates — the ∞-axis
+  goes off-grid and the map collapses to a sparse blue scatter (the earlier
+  "Background only first" failure).
+
+Verified in Node: at **1/1 the integrated map is pixel-identical** to the old
+single-arrow clean map (both V and H, full down+right matrices) — the gating
+checkpoint. For longitude 2,3,4 the senior (≥P2) lattice slides left by 1 each
+step (`{0,4,8…}→{3,7,11}→{2,6,10}→{1,5,9}`), the blue pattern changes, and
+section codes outside the standard set surface as the "unused" glyphs.
+
+**Cage realignment.** Senior columns sit at `k ≡ −hInitCol (mod 4)`; the first
+is `firstDarkCol = ((−hInitCol) mod 4 + 4) % 4` (0 at 1/1, 3 at longitude 2,
+etc.). The E/S extents are padded by `firstDark` so a full run of 4×4 cages
+still fits after the shift; a partial cage may precede the lattice on the N/W
+edge and **gets no glyph** (only full cages are lettered — assigned code → its
+letter, else `V##`/`H##`). Coloring uses the propagation's own `colPriority` /
+`rowPriority`, so the dark lines track the shifted lattice.
+
+**Negative offsets** propagate without crashing (`firstDark` wraps mod 4, reads
+are bounds-guarded) but a true westward/northward exploration would want
+westExtent/northExtent > 1 — follow-up.
+
+`getSectionData` (translation + substitution tables) intentionally stays on its
+own fixed seed: section codes there match the integrated map at 1/1 (verified),
+so the order-5↔6 relationship is unchanged.
+
+---
+
+## Original framing (superseded — kept for the reasoning trail)
+
 **Status: sidebar + catalog DONE; map integration PLANNED.** 2026-05-24.
 
 The sidebar has two number boxes (`#hinit-input`, `#vinit-input`, default 1,
