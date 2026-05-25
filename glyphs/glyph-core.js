@@ -7,7 +7,11 @@
 // (coylean-core.js). The canvas representation of D4 (D4_MATRIX) and all
 // drawing live in glyph-render.js / glyphs.js.
 
-import { Seniority, Propagation } from "../coylean-explorer/coylean-core.js";
+import {
+    Seniority,
+    Propagation,
+    Universe,
+} from "../coylean-explorer/coylean-core.js";
 
 const NUM_CELLS = 3;
 
@@ -75,6 +79,26 @@ function computePattern(downCode, rightCode, seniority) {
         }
     }
     return { v, h };
+}
+
+// Raw propagation matrices for a single 3-cell glyph (including the exit row /
+// column the renderer needs for output dots). hInitCol/vInitRow default to the
+// current offset (catalog glyphs); the map overlay passes 1/1 (clean glyph).
+function computeGlyphMatrices(
+    downCode,
+    rightCode,
+    seniority,
+    hInitCol = curHInit,
+    vInitRow = curVInit,
+) {
+    const { downMatrix, rightMatrix } = new Propagation({
+        initDown: bitsToBoundary(downCode, NUM_CELLS),
+        initRight: bitsToBoundary(rightCode, NUM_CELLS),
+        hInitCol,
+        vInitRow,
+        seniority,
+    });
+    return { downMatrix, rightMatrix };
 }
 
 const VISUAL_D4 = [
@@ -280,6 +304,93 @@ function getSectionData(Nr, Nc, seniority) {
         }
     }
     return { codes, NSr, NSc, vBound, hBound };
+}
+
+// SE-patch map model for the catalog maps. Realizes the map as a universe with
+// westExtent=northExtent=1 and east/south reaching across, then integrates its
+// boundary into one SE propagation (fromUniverseBoundary bakes in the catalog→
+// map −1 and the correct all-true boundary seed; see priority-offset-plan.md).
+// Returns the matrices, priorities, cage geometry, and per-cage section codes;
+// the renderer consumes this and only draws. Pure (no canvas).
+function computeMapModel(Nr, Nc, opts) {
+    const seniority = (opts && opts.seniority) || Seniority.vertical();
+    const SEC = 4;
+    const hInitCol = curHInit - 1;
+    const vInitRow = curVInit - 1;
+    // First senior column/row: where pri(k + hInitCol) ≥ 2, i.e. k ≡ −hInitCol
+    // (mod 4). The 4×4 cages sit on this lattice; a partial cage may precede it
+    // on the N/W edge. Extend E/S by that shift so a full run of cages still
+    // fits after realignment.
+    const firstDarkCol = (((-hInitCol) % SEC) + SEC) % SEC;
+    const firstDarkRow = (((-vInitRow) % SEC) + SEC) % SEC;
+
+    const universe = Universe.create({
+        northExtent: 1,
+        westExtent: 1,
+        eastExtent: Nc + firstDarkCol,
+        southExtent: Nr + firstDarkRow,
+        hInitCol: curHInit,
+        vInitRow: curVInit,
+        seniority,
+    });
+    const {
+        downMatrix,
+        rightMatrix,
+        colPriority,
+        rowPriority,
+        numRows,
+        numColumns,
+    } = Propagation.fromUniverseBoundary(universe);
+
+    const Mr = numRows;
+    const Mc = numColumns;
+
+    // Bounds-guarded reads (cages near the edges may probe one past the grid).
+    const dAt = (y, x) =>
+        y >= 0 && x >= 0 && downMatrix[y] && x < downMatrix[y].length
+            ? downMatrix[y][x]
+            : false;
+    const rAt = (x, y) =>
+        x >= 0 && y >= 0 && rightMatrix[x] && y < rightMatrix[x].length
+            ? rightMatrix[x][y]
+            : false;
+
+    // Cage grid: full 4×4 sections anchored on the senior lattice. Only full
+    // cages hold a glyph; the partial N/W margin (firstDark cells) gets none.
+    const NSr = Math.floor((Mr - firstDarkRow) / SEC);
+    const NSc = Math.floor((Mc - firstDarkCol) / SEC);
+    const secCodes = Array.from({ length: NSr }, () =>
+        Array.from({ length: NSc }, () => [0, 0]),
+    );
+    // Section input codes at each full cage's interior, offset onto the senior
+    // lattice by firstDarkRow/Col.
+    for (let sr = 0; sr < NSr; sr++) {
+        for (let sc = 0; sc < NSc; sc++) {
+            const y0 = firstDarkRow + sr * SEC + 1;
+            const x0 = firstDarkCol + sc * SEC + 1;
+            for (let i = 0; i < 3; i++) {
+                if (dAt(y0, x0 + i)) secCodes[sr][sc][0] |= 1 << i;
+                if (rAt(x0, y0 + i)) secCodes[sr][sc][1] |= 1 << i;
+            }
+        }
+    }
+
+    return {
+        downMatrix,
+        rightMatrix,
+        colPriority,
+        rowPriority,
+        numRows: Mr,
+        numColumns: Mc,
+        SEC,
+        firstDarkCol,
+        firstDarkRow,
+        NSr,
+        NSc,
+        secCodes,
+        seniority,
+        isVertical: seniority.isVertical,
+    };
 }
 
 // ── Assignment model ──
@@ -539,6 +650,8 @@ export {
     D4_SUFFIX,
     pairKey,
     getSectionData,
+    computeGlyphMatrices,
+    computeMapModel,
     GLYPH_LETTERS,
     H_GLYPH_LETTERS,
     V_CLASSES,
