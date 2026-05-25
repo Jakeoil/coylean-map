@@ -461,6 +461,13 @@ export class Propagation {
  * Universe owns the stitching, origin geometry, and global raster output
  * that renderers consume.
  *
+ * ⚠️ BREADCRUMB (2026-05-24): the assembled mosaic raster — `assemble()` and
+ * the resulting `universe.downMatrix` / `rightMatrix` — is BROKEN; do not
+ * consume it and do not try to "assemble the universes." The working path to a
+ * single coherent map from a Universe is `Propagation.fromUniverseBoundary`,
+ * which reads only the four quadrants' boundary slices and re-propagates. See
+ * glyphs/glyphs.js (drawCoyleanMap) for the canonical usage.
+ *
  * A Universe represents a finite rectangular region centered on a propagation
  * origin, constructed by stitching together four quadrant Propagation objects:
  *   - nw (northwest)
@@ -978,6 +985,11 @@ export class Universe {
         this.se = se;
     }
 
+    // ⚠️ BROKEN — do not use (2026-05-24). The stitched mosaic this produces is
+    // wrong; renderers must not consume universe.downMatrix/rightMatrix. For a
+    // coherent map from a Universe use Propagation.fromUniverseBoundary instead.
+    // Kept only because Universe.create still calls it (its output is ignored on
+    // the fromUniverseBoundary path).
     assemble() {
         const {
             northExtent,
