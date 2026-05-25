@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Coylean Glyphs — Assignment Editor</title>
+        <link rel="icon" type="image/png" href="../map-icon.png" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family: Menlo, Monaco, "Courier New", monospace;
+                background: #fff;
+                color: #222;
+                padding: 24px;
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+
+            .breadcrumb {
+                font-size: 0.85rem;
+                color: #888;
+                margin-bottom: 16px;
+            }
+            .breadcrumb a {
+                color: #555;
+                text-decoration: none;
+            }
+            .breadcrumb a:hover {
+                text-decoration: underline;
+            }
+
+            h1 {
+                font-size: 1.6rem;
+                margin-bottom: 8px;
+            }
+            .subtitle {
+                color: #666;
+                font-size: 0.9rem;
+                margin-bottom: 24px;
+                max-width: 720px;
+                line-height: 1.5;
+            }
+            h2 {
+                font-size: 1.2rem;
+                margin: 32px 0 12px;
+                border-bottom: 1px solid #ccc;
+                padding-bottom: 4px;
+            }
+
+            /* ── 8×8 Grid ── */
+            .grid-wrapper {
+                overflow-x: auto;
+                margin-bottom: 16px;
+            }
+            .glyph-grid {
+                border-collapse: collapse;
+            }
+            .glyph-grid th {
+                font-size: 0.7rem;
+                padding: 4px 6px;
+                color: #666;
+                font-weight: normal;
+                white-space: nowrap;
+            }
+            .glyph-grid th.col-header {
+                text-align: center;
+            }
+            .glyph-grid th.row-header {
+                text-align: right;
+                padding-right: 8px;
+            }
+            .glyph-grid td {
+                padding: 3px;
+                border: 1px solid #eee;
+                text-align: center;
+                cursor: pointer;
+            }
+            .glyph-grid td:hover {
+                background: #fffde7;
+            }
+            .glyph-label {
+                font-size: 0.7rem;
+                font-weight: bold;
+                color: #555;
+            }
+            .glyph-grid th.corner-label {
+                font-size: 0.65rem;
+                color: #999;
+                text-align: right;
+                padding-right: 8px;
+                vertical-align: bottom;
+            }
+
+            /* ── Equivalence Classes ── */
+            .eq-classes {
+                margin-top: 12px;
+            }
+            .eq-line {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 16px;
+                margin-bottom: 4px;
+            }
+            .eq-group {
+                display: flex;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                overflow: hidden;
+            }
+            .eq-group.both .eq-cell {
+                background: #ede7f6;
+            }
+            .eq-group.v-only .eq-cell {
+                background: #e3f2fd;
+            }
+            .eq-group.h-only .eq-cell {
+                background: #fce4ec;
+            }
+            .eq-cell {
+                text-align: center;
+                padding: 4px 6px;
+                cursor: pointer;
+            }
+            .eq-cell:hover {
+                outline: 2px solid #ffca28;
+                outline-offset: -2px;
+            }
+            .eq-cell .sym-name {
+                font-size: 0.7rem;
+                font-weight: bold;
+                color: #333;
+            }
+            .eq-cell .transform {
+                font-size: 0.6rem;
+                color: #888;
+            }
+            .eq-separator {
+                height: 12px;
+            }
+            .figure {
+                margin: 12px 0 24px;
+            }
+            .figure canvas {
+                display: block;
+                cursor: crosshair;
+            }
+
+            /* ── Selection highlight (shared by grid td and eq-cell) ── */
+            .coy-selected {
+                outline: 3px solid #e53935 !important;
+                outline-offset: -3px;
+            }
+
+            /* ── Sidebar layout ── */
+            .layout {
+                display: flex;
+                gap: 24px;
+                align-items: flex-start;
+            }
+            .content {
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+            .sidebar {
+                flex: 0 0 230px;
+                position: sticky;
+                top: 24px;
+                align-self: flex-start;
+                background: #fafafa;
+                border: 1px solid #e0e0e0;
+                border-radius: 6px;
+                padding: 12px 14px;
+                font-size: 0.85rem;
+            }
+            .side-group {
+                margin-bottom: 16px;
+            }
+            .side-group:last-child {
+                margin-bottom: 0;
+            }
+            .side-title {
+                font-weight: bold;
+                font-size: 0.65rem;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                color: #999;
+                margin-bottom: 8px;
+                border-bottom: 1px solid #e8e8e8;
+                padding-bottom: 4px;
+            }
+            .sidebar label {
+                display: block;
+                margin-bottom: 8px;
+                line-height: 1.35;
+            }
+            .sidebar label:last-child {
+                margin-bottom: 0;
+            }
+            .sidebar input[type="number"] {
+                width: 3.4em;
+                margin-left: 6px;
+                font-family: inherit;
+                font-size: 0.85rem;
+            }
+
+            /* ── Editor panel ── */
+            #sel-readout {
+                font-weight: bold;
+                color: #333;
+                margin-bottom: 10px;
+                min-height: 1.3em;
+            }
+            #sel-current {
+                font-weight: normal;
+                color: #888;
+                font-size: 0.8rem;
+            }
+            #sym-input {
+                width: 3em;
+                font-family: inherit;
+                font-size: 1.1rem;
+                text-align: center;
+                margin-left: 6px;
+            }
+            #orient-select {
+                width: 100%;
+                margin-top: 4px;
+                font-family: inherit;
+                font-size: 0.8rem;
+            }
+            .sidebar button {
+                font-family: inherit;
+                font-size: 0.8rem;
+                padding: 5px 8px;
+                margin: 4px 4px 0 0;
+                cursor: pointer;
+                border: 1px solid #bbb;
+                border-radius: 4px;
+                background: #fff;
+            }
+            .sidebar button:hover {
+                background: #f0f0f0;
+            }
+            .sidebar button.primary {
+                border-color: #1976d2;
+                color: #1976d2;
+                font-weight: bold;
+            }
+            #status-line {
+                margin-top: 10px;
+                font-size: 0.75rem;
+                color: #2e7d32;
+                min-height: 1.2em;
+                line-height: 1.3;
+            }
+            .hint {
+                font-size: 0.72rem;
+                color: #999;
+                line-height: 1.4;
+                margin-top: 6px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="breadcrumb">
+            <a href="../">Coylean Map</a> /
+            <a href="index.html">Glyphs</a> / Assignment Editor
+        </div>
+
+        <h1>Coylean Glyphs — Assignment Editor</h1>
+        <p class="subtitle">
+            Click a glyph — in a group, in the V/H grids, or directly in a map
+            section — to select it. Type a symbol, pick its orientation, and
+            Assign: that member becomes the identity of its D4 group and the
+            whole orbit (plus its V↔H dual) follows. Edits persist in this
+            browser; Download writes a fresh assignments.json.
+        </p>
+
+        <div class="layout">
+            <aside class="sidebar">
+                <div class="side-group">
+                    <div class="side-title">Assignment editor</div>
+                    <div id="sel-readout">No glyph selected</div>
+                    <label>
+                        symbol
+                        <input
+                            type="text"
+                            id="sym-input"
+                            autocomplete="off"
+                        />
+                    </label>
+                    <label>
+                        orientation
+                        <select id="orient-select"></select>
+                    </label>
+                    <button id="assign-btn" class="primary">Assign</button>
+                    <button id="clear-sel-btn">Clear group</button>
+                    <div class="hint">
+                        Orientation e = upright. Others append the suffix shown,
+                        relocating the identity within the group.
+                    </div>
+                </div>
+
+                <div class="side-group">
+                    <div class="side-title">Dyadic location</div>
+                    <label>
+                        latitude
+                        <input
+                            type="number"
+                            id="vinit-input"
+                            value="1"
+                            step="1"
+                        />
+                    </label>
+                    <label>
+                        longitude
+                        <input
+                            type="number"
+                            id="hinit-input"
+                            value="1"
+                            step="1"
+                        />
+                    </label>
+                </div>
+
+                <div class="side-group">
+                    <div class="side-title">Assignments</div>
+                    <button id="load-file-btn">Load from file</button>
+                    <button id="clear-all-btn">Clear all</button>
+                    <button id="download-btn" class="primary">
+                        Download JSON
+                    </button>
+                    <div id="status-line"></div>
+                </div>
+            </aside>
+
+            <main class="content">
+                <h2>Coylean Map — Order 5</h2>
+                <div class="figure">
+                    <canvas id="coylean-map"></canvas>
+                </div>
+
+                <h2>Coylean Map — Order 6h</h2>
+                <div class="figure">
+                    <canvas id="coylean-map-6h"></canvas>
+                </div>
+
+                <h2>Coylean Map — Order 6</h2>
+                <div class="figure">
+                    <canvas id="coylean-map-6"></canvas>
+                </div>
+
+                <h2>Vertical-Seniority Grid (vertical wins ties)</h2>
+                <div class="grid-wrapper">
+                    <table class="glyph-grid" id="v-grid"></table>
+                </div>
+
+                <h3>V — Equivalence Classes under D4</h3>
+                <div class="eq-classes" id="v-eq-classes"></div>
+
+                <h2>Horizontal-Seniority Grid (horizontal wins ties)</h2>
+                <div class="grid-wrapper">
+                    <table class="glyph-grid" id="h-grid"></table>
+                </div>
+
+                <h3>H — Equivalence Classes under D4</h3>
+                <div class="eq-classes" id="h-eq-classes"></div>
+            </main>
+        </div>
+
+        <script type="module" src="./assign.mjs"></script>
+    </body>
+</html>

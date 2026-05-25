@@ -248,6 +248,9 @@ function buildGrid(tableId, prefix, seniority) {
 
         for (let r = 0; r < 8; r++) {
             const td = document.createElement("td");
+            td.dataset.grid = prefix; // "V" / "H" — for the assignment editor
+            td.dataset.d = d;
+            td.dataset.r = r;
             const canvas = document.createElement("canvas");
             let ft = null;
             if (seniority.isVertical) {
@@ -538,6 +541,9 @@ function buildEquivalenceClasses(
             const [d, r] = cls.orbit[i];
             const cell = document.createElement("div");
             cell.className = "eq-cell";
+            cell.dataset.grid = prefix; // "V" / "H" — for the assignment editor
+            cell.dataset.d = d;
+            cell.dataset.r = r;
 
             const canvas = document.createElement("canvas");
             let ft2 = null;
@@ -803,6 +809,19 @@ function drawCoyleanMap(canvasEl, Nr, Nc, cell, opts) {
             }
         }
     }
+
+    // Stash section geometry so the assignment editor can hit-test a map click
+    // back to a (grid, d, r) member. Editor-only; the catalog never reads it.
+    canvasEl._coySections = {
+        firstDarkCol,
+        firstDarkRow,
+        cell,
+        SEC,
+        isVertical: seniority.isVertical,
+        secCodes,
+        NSr,
+        NSc,
+    };
 }
 
 // ── Translation Table ──
@@ -1140,6 +1159,37 @@ const DEFAULT_ASSIGNMENTS = {
 };
 let NEW_ASSIGNMENTS = DEFAULT_ASSIGNMENTS;
 
+// Editor hooks: assign.mjs reads/replaces the working (new-scheme) dict, then
+// calls applyAssignmentsAndRender(true) to re-render maps + grids + groups.
+function getWorkingAssignments() {
+    return NEW_ASSIGNMENTS;
+}
+function setWorkingAssignments(dict) {
+    NEW_ASSIGNMENTS = dict;
+}
+
+// Effective rendered letter at a member: [symbol, d4] or null. Reads the live
+// GLYPH_LETTERS / H_GLYPH_LETTERS the renderer just built, so the editor can
+// pre-fill the current letter when a member is selected.
+function glyphLetterAt(grid, d, r) {
+    const map = grid === "H" ? H_GLYPH_LETTERS : GLYPH_LETTERS;
+    return map[d + "," + r] || null;
+}
+
+// Member keys ("V77", …) of the D4 orbit containing (d, r) in one grid. Lets the
+// editor clear a whole group when re-lettering one of its members, keeping one
+// dict entry per group. V_CLASSES/H_CLASSES are populated by the time the editor
+// (which runs after the first render) calls this.
+function orbitMemberKeys(grid, d, r) {
+    const classes = grid === "H" ? H_CLASSES : V_CLASSES;
+    for (const cls of classes) {
+        if (cls.orbit.some(([dd, rr]) => dd === d && rr === r)) {
+            return cls.orbit.map(([dd, rr]) => grid + dd + rr);
+        }
+    }
+    return [grid + d + r];
+}
+
 // Old-scheme dict, loaded from assignments-old.json. Null until loaded; when
 // null, applyAssignmentsAndRender falls back to the hard-coded applyOldAssignments
 // baseline, so nothing depends on the file being present.
@@ -1400,4 +1450,22 @@ if (hInitInput && vInitInput) {
     vInitInput.addEventListener("change", onOffsetChange);
 }
 
-loadAssignments().then(() => applyAssignmentsAndRender(useNewAssignments));
+const whenLoaded = loadAssignments().then(() =>
+    applyAssignmentsAndRender(useNewAssignments),
+);
+
+// ── Editor API ──
+// Consumed by assign.mjs; index.html's <script type="module"> tag ignores these
+// exports. whenLoaded resolves after the initial file-driven render, so the
+// editor can layer its localStorage override without a render race.
+export {
+    applyAssignmentsAndRender,
+    getWorkingAssignments,
+    setWorkingAssignments,
+    glyphLetterAt,
+    orbitMemberKeys,
+    parseAssignmentValue,
+    SUFFIX_TO_D4,
+    D4_SUFFIX,
+    whenLoaded,
+};
