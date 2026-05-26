@@ -29,19 +29,40 @@ functions via a trailing options object, never new positional params.
 
 ## The glyphs catalog — `glyphs/` (main active work)
 
-`glyphs/index.html` + `glyphs/glyphs.js` (ES module). 4×4 section catalog,
-three Coylean maps, equivalence classes, substitution + translation tables.
+`glyphs/index.html` is the 4×4 section catalog (three Coylean maps, equivalence
+classes, substitution + translation tables); `glyphs/assign.html` is the
+interactive symbol-assignment editor. Both load via a single entry module.
+
+**Three-layer split** (one-way chain `coylean-core → glyph-core → glyph-render →
+glyphs.js`):
+
+- **`glyph-core.js`** — pure math + assignment model. No DOM, no canvas, no
+  `fetch`; imports only the engine. Owns `computePattern`, the D4 algebra
+  (`VISUAL_D4`, `D4_COMPOSE`/`d4Compose`), `classifyVisualD4`, the letter maps +
+  `assignLetter`/`applyAssignmentDict`, the dyadic offsets (`curHInit`/`curVInit`
+  + `setOffset`), and the pure model generators `computeMapModel` (offset
+  universe-integration map + section codes) and `computeGlyphMatrices`. **This is
+  the Node-importable layer — do algorithm validation here** (see the engine
+  note above), not against the canvas.
+- **`glyph-render.js`** — canvas drawing only (`drawGlyph`, `drawDot`,
+  `drawCoyleanMap(canvas, model, opts)` consuming `computeMapModel`'s output),
+  the calibrated `D4_MATRIX`, Baby Blocks, and a `renderState` config object the
+  controller mutates. Imports only `glyph-core` — holds no `Propagation`/DOM.
+- **`glyphs.js`** — page controller: DOM table builders, `mapConfigs`, event
+  wiring, IO (`loadAssignments`), and the re-export barrel `assign.mjs` imports.
 
 - **Dyadic location** = the priority-lattice offset pair. **latitude =
   `vInitRow`** (N–S), **longitude = `hInitCol`** (E–W). Clean baseline = **1/1**.
-  Sidebar boxes `#vinit-input` / `#hinit-input` drive `curVInit` / `curHInit`.
+  Sidebar boxes `#vinit-input` / `#hinit-input` drive `curVInit` / `curHInit`
+  (in `glyph-core`, via `setOffset`).
 - Catalog is clean at raw offset 1; the **map is clean at raw 0**, so
-  **map raw = lat/long − 1**. `drawCoyleanMap` gets this for free from
+  **map raw = lat/long − 1**. `computeMapModel` gets this for free from
   `fromUniverseBoundary` with `westExtent = northExtent = 1`. At 1/1 the map is
   pixel-identical to the historical clean map (verified).
-- Letters render via one calibrated D4 matrix per glyph (`D4_MATRIX`), not
-  scale+slash. See `memory` and `glyphs/priority-offset-plan.md` for the
-  reasoning trail on the map↔catalog reconciliation.
+- Letters render via one calibrated D4 matrix per glyph (`D4_MATRIX` in
+  `glyph-render`), not scale+slash. The matrix's two rotation entries are filled
+  from `glyph-core`'s `d4Compose` Cayley table. See `memory` and
+  `glyphs/priority-offset-plan.md` for the map↔catalog reconciliation trail.
 
 ## House rules
 
