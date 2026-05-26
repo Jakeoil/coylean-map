@@ -313,16 +313,47 @@ function drawMap(division, yLimit, lineScale, density) {
     const dy = (2 * yLimit) / D;
     const latAt = (y) => latFromMercatorY((y - (axisRow + 0.5)) * dy);
 
-    // Same density throttle as the ruled grid: draw every `stride`-th
-    // meridian/parallel so the line density matches across the toggle.
-    const stride = Math.max(1, Math.ceil(D / density));
-    const thickness = 0.45 * lineScale;
+    const { colPriority, rowPriority, numColumns, numRows } = prop;
+    // A column's meridian / a row's parallel is as "important" as its dyadic
+    // priority (the same pri the ruler grid weights by). Clamp to log2(D):
+    // the axis itself is pri = maxPri, drawn anyway by the orientation overlay.
+    const pCap = Math.log2(D);
+    // Priority level-of-detail. Lines with pri ≥ p number ≈ D / 2^p, so to
+    // show ≈ density lines/axis we drop everything below this floor. Without
+    // it the map floods to a white ball as D grows — worst vertically, where
+    // meridians crowd toward the poles. Keeps the dyadic skeleton legible.
+    const minPri = Math.max(0, Math.round(Math.log2(D / density)));
 
-    for (let i = 0; i < prop.numColumns; i += stride) {
-        drawMapMeridian(i, prop, lonAt, latAt, thickness, 0.62);
+    // Bucket columns / rows by clamped priority.
+    const colByPri = new Map();
+    for (let i = 0; i < numColumns; i++) {
+        const p = Math.min(colPriority[i], pCap);
+        if (p < minPri) continue;
+        if (!colByPri.has(p)) colByPri.set(p, []);
+        colByPri.get(p).push(i);
     }
-    for (let j = 0; j < prop.numRows; j += stride) {
-        drawMapParallel(j, prop, lonAt, latAt, thickness, 0.52);
+    const rowByPri = new Map();
+    for (let j = 0; j < numRows; j++) {
+        const p = Math.min(rowPriority[j], pCap);
+        if (p < minPri) continue;
+        if (!rowByPri.has(p)) rowByPri.set(p, []);
+        rowByPri.get(p).push(j);
+    }
+
+    // Thin first, thick last so heavy dyadic lines sit on top — the ruled
+    // grid's exact thickness/alpha ramp (rv = pri + 1).
+    for (let p = minPri; p <= pCap; p++) {
+        const rv = p + 1;
+        const colThick = (0.22 + rv * 0.38) * lineScale;
+        const colAlpha = Math.min(0.16 + rv * 0.08, 0.82);
+        for (const i of colByPri.get(p) ?? []) {
+            drawMapMeridian(i, prop, lonAt, latAt, colThick, colAlpha);
+        }
+        const rowThick = (0.2 + rv * 0.34) * lineScale;
+        const rowAlpha = Math.min(0.14 + rv * 0.075, 0.76);
+        for (const j of rowByPri.get(p) ?? []) {
+            drawMapParallel(j, prop, lonAt, latAt, rowThick, rowAlpha);
+        }
     }
 
     mapInfo.textContent =
