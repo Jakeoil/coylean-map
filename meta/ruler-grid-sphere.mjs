@@ -19,11 +19,10 @@ const divisionSelect = document.getElementById("division");
 const renderModeSelect = document.getElementById("renderMode");
 const lonCapSelect = document.getElementById("lonCap");
 const latCapSelect = document.getElementById("latCap");
-const latLimitInput = document.getElementById("latLimit");
+const vextInput = document.getElementById("vext");
 const lineScaleInput = document.getElementById("lineScale");
 const densityInput = document.getElementById("density");
 
-const latLimitValue = document.getElementById("latLimitValue");
 const lineScaleValue = document.getElementById("lineScaleValue");
 const densityValue = document.getElementById("densityValue");
 const mapInfo = document.getElementById("mapInfo");
@@ -60,6 +59,10 @@ for (const sel of [lonCapSelect, latCapSelect]) {
 // and the badge notes the clamp. Rough cost of one (cached) build at the
 // ceiling: 4096 ≈ 1.6 s and ~0.7 GB — a one-off freeze on first selection.
 const MAP_MAX_DIVISION = 4096;
+// Cell budget (numColumns × numRows) for the integrated map, bounding build
+// memory/time. vext is trimmed so D × (D·vext) stays under this; at the
+// MAP_MAX_DIVISION ceiling it permits exactly vext = 1.
+const MAP_MAX_CELLS = MAP_MAX_DIVISION * MAP_MAX_DIVISION;
 let mapCache = null;
 
 let width = 0,
@@ -217,14 +220,19 @@ function squareGridLat(j, division, yLimit) {
 // Universe.create, whose internal assemble() is broken and wasteful — the
 // boundary integration is the only consumer and it ignores the mosaic anyway.
 // Verified identical to the Universe.create path, ~2× faster.
-function buildSphereMap(division) {
-    const half = division / 2;
+// `vext` (vertical extent, in circumferences) sets the latitude row count to
+// division × vext — so each cell stays square (Mercator-y step = 2π/division =
+// the longitude step) and the map reaches further toward the poles as vext
+// grows, instead of stretching a fixed row count over a wider degree range.
+function buildSphereMap(division, vext) {
+    const halfCol = division / 2;
+    const halfRow = (division * vext) / 2;
     const maxLongPri = Math.log2(division);
     const quad = (direction, hInitCol, vInitRow) =>
         new Propagation({
             direction,
-            numRows: half,
-            numColumns: half,
+            numRows: halfRow,
+            numColumns: halfCol,
             hInitCol,
             vInitRow,
             maxLongPri,
@@ -237,12 +245,16 @@ function buildSphereMap(division) {
     });
     const axisCol = prop.colPriority.indexOf(Math.max(...prop.colPriority));
     const axisRow = prop.rowPriority.indexOf(Math.max(...prop.rowPriority));
-    return { division, prop, axisCol, axisRow };
+    return { division, vext, prop, axisCol, axisRow };
 }
 
-function getSphereMap(division) {
-    if (!mapCache || mapCache.division !== division) {
-        mapCache = buildSphereMap(division);
+function getSphereMap(division, vext) {
+    if (
+        !mapCache ||
+        mapCache.division !== division ||
+        mapCache.vext !== vext
+    ) {
+        mapCache = buildSphereMap(division, vext);
     }
     return mapCache;
 }
@@ -314,9 +326,12 @@ function drawMapParallel(j, prop, lonAt, latAt, thickness, alpha, samp) {
     ctx.stroke();
 }
 
-function drawMap(division, yLimit, lineScale, density) {
+function drawMap(division, rawVext, lineScale, density) {
     const D = Math.min(division, MAP_MAX_DIVISION);
-    const { prop, axisCol, axisRow } = getSphereMap(D);
+    // Trim vext so D × (D·vext) stays within the cell budget.
+    const vext = Math.max(1, Math.min(rawVext, Math.floor(MAP_MAX_CELLS / (D * D))));
+    const { prop, axisCol, axisRow } = getSphereMap(D, vext);
+    const yLimit = Math.PI * vext;
 
     // Cell-index → sphere coordinate, dyadic axes pinned to lon = lat = 0.
     // Coylean latitude is south-positive (increasing row flows south) and
@@ -324,8 +339,9 @@ function drawMap(division, yLimit, lineScale, density) {
     // negated here: spherePoint sweeps the visible face N→S downward already
     // for lat but W→E *leftward* for lon, so the negations land south at the
     // bottom and east to the right — the canonical, un-mirrored orientation.
+    // dy = 2π/D, so cells are square regardless of vext.
     const lonAt = (x) => (-2 * Math.PI * (x - (axisCol + 0.5))) / D;
-    const dy = (2 * yLimit) / D;
+    const dy = (2 * yLimit) / prop.numRows;
     const latAt = (y) => latFromMercatorY(-(y - (axisRow + 0.5)) * dy);
 
     // Sub-samples per cell. Scales with zoom (≈2 at zoom 1 — unchanged from
@@ -392,11 +408,13 @@ function drawMap(division, yLimit, lineScale, density) {
     const shown = Math.round(D / 2 ** minPri);
     const sizeStr =
         D === division
-            ? `${D}×${D}`
-            : `${D}×${D} (clamped from ${division})`;
+            ? `${D}×${numRows}`
+            : `${D}×${numRows} (D clamped from ${division})`;
+    const vextStr =
+        vext < rawVext ? `vext ${vext} (clamped from ${rawVext})` : `vext ${vext}`;
     const lodStr =
         minPri > 0 ? ` · ${shown}/axis shown — zoom in for more` : "";
-    mapInfo.textContent = `Coylean map · ${sizeStr} · cycle 2^${Math.log2(D)}${lodStr}`;
+    mapInfo.textContent = `Coylean map · ${sizeStr} · ${vextStr} · cycle 2^${Math.log2(D)}${lodStr}`;
 }
 
 function clearAndDrawSphere() {
@@ -433,13 +451,15 @@ function draw() {
     const mode = renderModeSelect.value;
     const lonCap = capValue(lonCapSelect.value);
     const latCap = capValue(latCapSelect.value);
-    const latLimitDeg = Number(latLimitInput.value);
-    const latLimit = (latLimitDeg * Math.PI) / 180;
-    const yLimit = mercatorYFromLat(latLimit);
+    // Vertical extent in circumferences: each unit adds `division` square rows
+    // of latitude (Mercator-y span π per side per unit). The grid uses it
+    // directly; the map clamps it for memory inside drawMap.
+    const vext = Math.max(1, Math.round(Number(vextInput.value) || 1));
+    const yLimit = Math.PI * vext;
+    const latLimit = latFromMercatorY(yLimit);
     const lineScale = Number(lineScaleInput.value);
     const density = Number(densityInput.value);
 
-    latLimitValue.textContent = `${latLimitDeg}°`;
     lineScaleValue.textContent = lineScale.toFixed(1);
     densityValue.textContent = `${density}`;
 
@@ -466,10 +486,13 @@ function draw() {
 
     if (isMap) {
         // The map replaces the ruled grid entirely.
-        drawMap(division, yLimit, lineScale, density);
+        drawMap(division, vext, lineScale, density);
     } else {
-        const stride = Math.max(1, Math.ceil(division / density));
-        const fullRuler = Math.log2(division);
+        // Latitude has `division × vext` square cells over the Mercator band.
+        const latDiv = division * vext;
+        const lonStride = Math.max(1, Math.ceil(division / density));
+        const latStride = Math.max(1, Math.ceil(latDiv / density));
+        const fullRuler = Math.log2(latDiv);
         const maxRuler = Math.max(
             lonCap === Infinity ? fullRuler : lonCap,
             latCap === Infinity ? fullRuler : latCap,
@@ -477,7 +500,7 @@ function draw() {
 
         // Draw thin first, thick last, so important dyadic lines sit on top.
         for (let level = 1; level <= maxRuler + 1; level++) {
-            for (let i = 0; i < division; i += stride) {
+            for (let i = 0; i < division; i += lonStride) {
                 const rv = rulerValue(i, lonCap);
                 if (rv !== level) continue;
                 const lon = (2 * Math.PI * i) / division;
@@ -490,12 +513,12 @@ function draw() {
                 );
             }
 
-            // Latitude parallels: exclude poles. Use equal Mercator-y spacing so cells
-            // approximate squares on the actual sphere.
-            for (let j = 1; j < division; j += stride) {
-                const rv = rulerValue(Math.abs(j - division / 2), latCap);
+            // Latitude parallels: exclude poles. Equal Mercator-y spacing over
+            // latDiv rows keeps cells square on the actual sphere.
+            for (let j = 1; j < latDiv; j += latStride) {
+                const rv = rulerValue(Math.abs(j - latDiv / 2), latCap);
                 if (rv !== level) continue;
-                const lat = squareGridLat(j, division, yLimit);
+                const lat = squareGridLat(j, latDiv, yLimit);
                 const thickness = (0.2 + rv * 0.34) * lineScale;
                 const alpha = Math.min(0.14 + rv * 0.075, 0.76);
                 drawPolyline(
@@ -612,7 +635,7 @@ canvas.addEventListener("pointercancel", releasePointer);
     renderModeSelect,
     lonCapSelect,
     latCapSelect,
-    latLimitInput,
+    vextInput,
     lineScaleInput,
     densityInput,
 ].forEach((el) => {
