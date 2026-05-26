@@ -133,6 +133,12 @@
                 height: 100%;
                 display: block;
                 cursor: grab;
+                /* Take over touch gestures (drag, pinch) instead of letting the
+                   browser scroll/zoom the page; keeps the pointer stream alive. */
+                touch-action: none;
+                -webkit-user-select: none;
+                user-select: none;
+                -webkit-touch-callout: none;
             }
 
             canvas:active {
