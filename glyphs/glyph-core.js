@@ -15,12 +15,17 @@ import {
 
 const NUM_CELLS = 3;
 
-// Dyadic location of the priority lattice. Catalog: pri(i + curHInit),
-// pri(j + curVInit). curHInit = longitude (hInitCol, E–W), curVInit = latitude
-// (vInitRow, N–S). The standard glyph uses 1/1; the sidebar boxes vary these.
-// Maps use the same pair via a westExtent=1/northExtent=1 universe integration
-// (Propagation.fromUniverseBoundary), which bakes in the catalog→map −1 and
-// the proper boundary seed; see priority-offset-plan.md.
+// The 64 V/H glyphs are a FIXED catalog: every glyph is the canonical
+// pri(x+1)/pri(y+1) ("010", middle-of-3 senior) propagation, INDEPENDENT of the
+// dyadic location. computePattern / computeGlyphMatrices always use these, so
+// V14 (etc.) is the same glyph at every location.
+const GLYPH_HINIT = 1;
+const GLYPH_VINIT = 1;
+
+// Dyadic location of the MAP only. curHInit = longitude (hInitCol, E–W),
+// curVInit = latitude (vInitRow, N–S). Drives computeMapModel — i.e. which
+// fixed glyphs land in which map cells — and NEVER the glyph definitions. Clean
+// baseline = 1/1; the sidebar boxes vary these. See priority-offset-plan.md.
 let curHInit = 1;
 let curVInit = 1;
 
@@ -61,8 +66,8 @@ function computePattern(downCode, rightCode, seniority) {
     const { downMatrix, rightMatrix } = new Propagation({
         initDown: bitsToBoundary(downCode, NUM_CELLS),
         initRight: bitsToBoundary(rightCode, NUM_CELLS),
-        hInitCol: curHInit,
-        vInitRow: curVInit,
+        hInitCol: GLYPH_HINIT,
+        vInitRow: GLYPH_VINIT,
         seniority,
     });
     // v[x][y] = vertical at col x+1, row y; h[x][y] = horizontal at row y+1, col x
@@ -82,14 +87,15 @@ function computePattern(downCode, rightCode, seniority) {
 }
 
 // Raw propagation matrices for a single 3-cell glyph (including the exit row /
-// column the renderer needs for output dots). hInitCol/vInitRow default to the
-// current offset (catalog glyphs); the map overlay passes 1/1 (clean glyph).
+// column the renderer needs for output dots). Defaults to the canonical glyph
+// offset so the rendered glyph is the fixed catalog glyph, independent of the
+// map's dyadic location.
 function computeGlyphMatrices(
     downCode,
     rightCode,
     seniority,
-    hInitCol = curHInit,
-    vInitRow = curVInit,
+    hInitCol = GLYPH_HINIT,
+    vInitRow = GLYPH_VINIT,
 ) {
     const { downMatrix, rightMatrix } = new Propagation({
         initDown: bitsToBoundary(downCode, NUM_CELLS),
@@ -434,9 +440,9 @@ function assignLetter(
     }
 }
 
-// Recomputed for the current priority offsets (curHInit/curVInit), since
-// classifyVisualD4 reads them through computePattern. Called at the top of
-// applyAssignments so changing the offsets reshapes the catalog.
+// D4 equivalence classes of the fixed glyph catalog. Constant (computePattern
+// uses the canonical glyph offset), so these don't change with the dyadic
+// location; applyAssignments rebuilds them once and re-letters.
 let V_CLASSES;
 let H_CLASSES;
 
