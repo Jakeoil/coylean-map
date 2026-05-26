@@ -309,9 +309,14 @@ function drawMap(division, yLimit, lineScale, density) {
     const { prop, axisCol, axisRow } = getSphereMap(D);
 
     // Cell-index → sphere coordinate, dyadic axes pinned to lon = lat = 0.
-    const lonAt = (x) => (2 * Math.PI * (x - (axisCol + 0.5))) / D;
+    // Coylean latitude is south-positive (increasing row flows south) and
+    // longitude is east-positive (increasing column flows east). Both are
+    // negated here: spherePoint sweeps the visible face N→S downward already
+    // for lat but W→E *leftward* for lon, so the negations land south at the
+    // bottom and east to the right — the canonical, un-mirrored orientation.
+    const lonAt = (x) => (-2 * Math.PI * (x - (axisCol + 0.5))) / D;
     const dy = (2 * yLimit) / D;
-    const latAt = (y) => latFromMercatorY((y - (axisRow + 0.5)) * dy);
+    const latAt = (y) => latFromMercatorY(-(y - (axisRow + 0.5)) * dy);
 
     const { colPriority, rowPriority, numColumns, numRows } = prop;
     // A column's meridian / a row's parallel is as "important" as its dyadic
@@ -466,16 +471,21 @@ function draw() {
         }
     }
 
-    // Equator and prime meridian get a small warm overlay for orientation —
-    // in map mode these mark the centred dyadic axes (lon = lat = 0).
-    ctx.save();
-    drawPolyline(makeParallel(0, parallelSamples), 1.9 * lineScale, 0.86);
-    drawPolyline(
-        makeMeridian(0, latLimit, meridianSamples),
-        1.9 * lineScale,
-        0.86,
-    );
-    ctx.restore();
+    // Equator + prime-meridian orientation overlay — grid mode only. The
+    // Coylean map already draws its own equator/prime meridian as the
+    // highest-priority row/column (always above the LOD floor), so a solid
+    // overlaid cross there would be a spurious continuous line on top of the
+    // real streamlines.
+    if (!isMap) {
+        ctx.save();
+        drawPolyline(makeParallel(0, parallelSamples), 1.9 * lineScale, 0.86);
+        drawPolyline(
+            makeMeridian(0, latLimit, meridianSamples),
+            1.9 * lineScale,
+            0.86,
+        );
+        ctx.restore();
+    }
 }
 
 function pointerPos(e) {
