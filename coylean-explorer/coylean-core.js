@@ -912,12 +912,19 @@ export class Universe {
     }
 
     /**
-     * Primary factory for a fully assembled Universe.
+     * Factory for a Universe with its four quadrant propagations.
      *
-     * Builds the four quadrant propagations with per-direction extents, then
-     * runs assemble() and attaches the resulting global raster (downMatrix,
-     * rightMatrix, originRow, originCol, colPriority, rowPriority) directly
-     * onto the instance so callers don't need to call assemble() themselves.
+     * ⚠️ Builds the quadrants, then runs the BROKEN assemble() and attaches
+     * its global raster (downMatrix, rightMatrix, originRow, originCol,
+     * colPriority, rowPriority) onto the instance. That attached mosaic is
+     * WRONG — do not consume `universe.downMatrix` / `rightMatrix` (see the
+     * assemble() warning below). The only safe consumer of this object is
+     * `Propagation.fromUniverseBoundary`, which reads just the quadrants and
+     * ignores the mosaic — that path is safe but still pays for the wasted
+     * assemble(). To skip assemble() entirely, build the four quadrant
+     * Propagations directly (NW 1-hInitCol,1-vInitRow · NE hInitCol,1-vInitRow
+     * · SW 1-hInitCol,vInitRow · SE hInitCol,vInitRow) and hand the
+     * { nw, ne, sw, se } bundle straight to fromUniverseBoundary.
      *
      * @param {Object} options
      * @param {number} options.northExtent
