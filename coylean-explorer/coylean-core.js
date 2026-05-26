@@ -230,10 +230,18 @@ export function createRightMatrix(numColumns) {
  * @param {Seniority} [options.seniority]
  *   Tie-breaking rule for priority comparisons. Defaults to vertical.
  * @param {number} [options.maxPri]
- *   Ceiling applied to the priority sequence. The standard map uses the
- *   unclamped 2-adic valuation; lowering this makes priorities periodic
- *   so the propagation pattern repeats at shorter intervals. Defaults
- *   to {@link DEFAULT_MAX_PRI}.
+ *   Default ceiling applied to both priority sequences. The standard map
+ *   uses the unclamped 2-adic valuation; lowering this makes priorities
+ *   periodic so the propagation pattern repeats at shorter intervals.
+ *   Defaults to {@link DEFAULT_MAX_PRI}.
+ * @param {number} [options.maxLatPri]
+ *   Ceiling for the latitude (N–S) priority sequence, pri(j + vInitRow).
+ *   Defaults to maxPri. Leave at the default for a Mercator-style axis
+ *   that never repeats N–S.
+ * @param {number} [options.maxLongPri]
+ *   Ceiling for the longitude (E–W) priority sequence, pri(i + hInitCol).
+ *   Defaults to maxPri. Lower it to make longitude periodic (period
+ *   2^maxLongPri columns) so the map wraps E–W like a globe.
  * @param {boolean[]} [options.initDown]
  *   Top-row down inputs (length = numColumns). Defaults to all-true.
  * @param {boolean[]} [options.initRight]
@@ -246,6 +254,8 @@ export function createRightMatrix(numColumns) {
  * @property {number} vInitRow
  * @property {Seniority} seniority
  * @property {number} maxPri
+ * @property {number} maxLatPri
+ * @property {number} maxLongPri
  * @property {Row[]} downMatrix
  * @property {Col[]} rightMatrix
  * @property {number[]} colPriority  Precomputed pri(i + hInitCol) per column.
@@ -274,6 +284,8 @@ export class Propagation {
         vInitRow,
         seniority = Seniority.vertical(),
         maxPri = DEFAULT_MAX_PRI,
+        maxLatPri = maxPri,
+        maxLongPri = maxPri,
         initDown,
         initRight,
     }) {
@@ -291,11 +303,16 @@ export class Propagation {
         this.vInitRow = vInitRow;
         this.seniority = seniority;
         this.maxPri = maxPri;
+        this.maxLatPri = maxLatPri;
+        this.maxLongPri = maxLongPri;
+        // longitude (E–W) priority varies across columns via hInitCol;
+        // latitude (N–S) priority varies down rows via vInitRow. Each axis
+        // takes its own ceiling so one can cycle while the other runs on.
         this.colPriority = [...Array(numColumns)].map((_, i) =>
-            pri(i + hInitCol, maxPri),
+            pri(i + hInitCol, maxLongPri),
         );
         this.rowPriority = [...Array(numRows)].map((_, j) =>
-            pri(j + vInitRow, maxPri),
+            pri(j + vInitRow, maxLatPri),
         );
 
         const downMatrix = createDownMatrix(numRows);
@@ -383,9 +400,16 @@ export class Propagation {
      *                           with each quadrant either a Propagation
      *                           or null (missing). At least one non-null
      *                           quadrant is required.
+     * @param {Object} [opts]  Per-axis priority-ceiling overrides for the
+     *   rebuilt propagation. Each defaults to the surviving quadrant's
+     *   value, so by default the boundary round-trips faithfully; set
+     *   maxLongPri low to make the integrated map wrap E–W.
+     * @param {number} [opts.maxPri]
+     * @param {number} [opts.maxLatPri]
+     * @param {number} [opts.maxLongPri]
      * @returns {Propagation}
      */
-    static fromUniverseBoundary(universe) {
+    static fromUniverseBoundary(universe, opts = {}) {
         const { nw, ne, sw, se } = universe;
         const anyQuad = nw || ne || sw || se;
         if (!anyQuad) {
@@ -447,7 +471,9 @@ export class Propagation {
             hInitCol,
             vInitRow,
             seniority: anyQuad.seniority,
-            maxPri: anyQuad.maxPri,
+            maxPri: opts.maxPri ?? anyQuad.maxPri,
+            maxLatPri: opts.maxLatPri ?? anyQuad.maxLatPri,
+            maxLongPri: opts.maxLongPri ?? anyQuad.maxLongPri,
             initDown,
             initRight,
         });
@@ -901,6 +927,10 @@ export class Universe {
      * @param {number} options.hInitCol
      * @param {number} options.vInitRow
      * @param {Seniority} [options.seniority]
+     * @param {number} [options.maxPri]      default ceiling for both axes
+     * @param {number} [options.maxLatPri]   N–S ceiling; defaults to maxPri
+     * @param {number} [options.maxLongPri]  E–W ceiling; defaults to maxPri.
+     *   Lower it so the quadrant seeds (and thus the integrated map) wrap E–W.
      * @param {boolean[]} [options.westInitDown]   length westExtent  — shared by NW & SW
      * @param {boolean[]} [options.eastInitDown]   length eastExtent  — shared by NE & SE
      * @param {boolean[]} [options.northInitRight] length northExtent — shared by NW & NE
@@ -916,6 +946,8 @@ export class Universe {
         vInitRow,
         seniority = Seniority.vertical(),
         maxPri = DEFAULT_MAX_PRI,
+        maxLatPri = maxPri,
+        maxLongPri = maxPri,
         westInitDown,
         eastInitDown,
         northInitRight,
@@ -930,6 +962,8 @@ export class Universe {
                 vInitRow: v,
                 seniority,
                 maxPri,
+                maxLatPri,
+                maxLongPri,
                 initDown,
                 initRight,
             });
