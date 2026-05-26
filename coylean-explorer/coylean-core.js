@@ -200,12 +200,34 @@ export function createRightMatrix(numColumns) {
  *   - downMatrix[j][i]  — vertical arrows (flowing downward)
  *   - rightMatrix[i][j] — horizontal arrows (flowing rightward)
  *
- * Priority is evaluated using shifted local coordinates:
- *   pri(i + hInitCol) and pri(j + vInitRow)
+ * Priority is evaluated per axis from shifted local coordinates, and each
+ * axis is controlled independently:
  *
- * The offsets (hInitCol, vInitRow) define the placement of the priority
- * grid relative to the propagation origin. The propagation origin itself
- * is geometric and independent of the priority lattice.
+ *   longitude (E–W):  colPriority[i] = pri(i + hInitCol, maxLongPri)
+ *   latitude  (N–S):  rowPriority[j] = pri(j + vInitRow, maxLatPri)
+ *
+ * Two knobs per axis:
+ *
+ *   - OFFSET — hInitCol (longitude) and vInitRow (latitude) slide the
+ *     priority lattice relative to the geometric propagation origin. The
+ *     origin is fixed; only where the high-priority gridlines fall moves.
+ *     The standard clean map uses hInitCol = vInitRow = 1.
+ *
+ *   - CEILING — maxLongPri (longitude) and maxLatPri (latitude) are
+ *     OPTIONAL per-axis caps on that axis's 2-adic valuation. Each defaults
+ *     to maxPri, so setting only maxPri (default or explicit) leaves both
+ *     axes on the same ceiling and the propagation runs exactly as before.
+ *     Supplying one cap overrides only that axis; the other keeps maxPri
+ *     (whether maxPri is the default or set). Since min(valuation, c) is
+ *     periodic with period 2^c, capping an axis at c makes its priority
+ *     sequence repeat every 2^c cells, so the arrow pattern becomes periodic
+ *     along that axis (period dividing 2^c). This lets one axis run
+ *     Mercator-style (no wrap) while the other wraps like a globe.
+ *
+ * The propagation origin is geometric and independent of the priority
+ * lattice. These per-axis ceilings are a Propagation-level feature: the
+ * standalone reaction() / verticalWinsPriority() helpers evaluate pri() at
+ * the default ceiling and do not take per-axis caps.
  *
  * A Propagation is a local object: it does not know about other quadrants.
  * Multiple Propagations are combined by the Universe assembly process
@@ -230,18 +252,23 @@ export function createRightMatrix(numColumns) {
  * @param {Seniority} [options.seniority]
  *   Tie-breaking rule for priority comparisons. Defaults to vertical.
  * @param {number} [options.maxPri]
- *   Default ceiling applied to both priority sequences. The standard map
- *   uses the unclamped 2-adic valuation; lowering this makes priorities
- *   periodic so the propagation pattern repeats at shorter intervals.
- *   Defaults to {@link DEFAULT_MAX_PRI}.
+ *   Default ceiling for both axes; the per-axis maxLatPri / maxLongPri each
+ *   fall back to this when omitted. The standard map uses the (effectively)
+ *   unclamped 2-adic valuation; lowering it makes both priority sequences
+ *   periodic so the pattern repeats at shorter intervals. Defaults to
+ *   {@link DEFAULT_MAX_PRI}.
  * @param {number} [options.maxLatPri]
- *   Ceiling for the latitude (N–S) priority sequence, pri(j + vInitRow).
- *   Defaults to maxPri. Leave at the default for a Mercator-style axis
- *   that never repeats N–S.
+ *   Optional cap for the latitude (N–S) priority sequence,
+ *   rowPriority[j] = pri(j + vInitRow, maxLatPri). Capping at c makes the
+ *   latitude sequence periodic with period 2^c rows (pattern period divides
+ *   2^c). Omit it and latitude uses maxPri (default or set), unchanged from
+ *   the original behaviour — Mercator-style, never repeating N–S.
  * @param {number} [options.maxLongPri]
- *   Ceiling for the longitude (E–W) priority sequence, pri(i + hInitCol).
- *   Defaults to maxPri. Lower it to make longitude periodic (period
- *   2^maxLongPri columns) so the map wraps E–W like a globe.
+ *   Optional cap for the longitude (E–W) priority sequence,
+ *   colPriority[i] = pri(i + hInitCol, maxLongPri). Capping at c makes the
+ *   longitude sequence periodic with period 2^c columns, so the map wraps
+ *   E–W like a globe. Omit it and longitude uses maxPri (default or set),
+ *   unchanged from the original behaviour — non-repeating longitude.
  * @param {boolean[]} [options.initDown]
  *   Top-row down inputs (length = numColumns). Defaults to all-true.
  * @param {boolean[]} [options.initRight]
