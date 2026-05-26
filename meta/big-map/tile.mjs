@@ -19,6 +19,8 @@ export function tile(scaffold, k1, k2) {
         vInitRow0,
         seniority,
         maxPri,
+        maxLatPri,
+        maxLongPri,
         hSeams,
         vSeams,
     } = scaffold;
@@ -31,6 +33,8 @@ export function tile(scaffold, k1, k2) {
         vInitRow: vInitRow0 + r,
         seniority,
         maxPri,
+        maxLatPri,
+        maxLongPri,
         initDown: hSeams[k1].slice(c, c + K),
         initRight: vSeams[k2].slice(r, r + K),
     });

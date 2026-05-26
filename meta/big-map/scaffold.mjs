@@ -24,6 +24,8 @@ export function createScaffold({
     vInitRow0 = 1,
     seniority = Seniority.vertical(),
     maxPri = DEFAULT_MAX_PRI,
+    maxLatPri = maxPri,
+    maxLongPri = maxPri,
 }) {
     if (!Number.isInteger(K) || K <= 0) {
         throw new Error(`K must be a positive integer (got K=${K})`);
@@ -34,6 +36,8 @@ export function createScaffold({
         vInitRow0,
         seniority,
         maxPri,
+        maxLatPri,
+        maxLongPri,
         nBlocks: 0,
         get L() { return this.nBlocks * this.K; },
         hSeams: [new Row()],
@@ -46,7 +50,10 @@ export function createScaffold({
 }
 
 export function propagateBlock(s, k1, k2) {
-    const { K, hInitCol0, vInitRow0, seniority, maxPri, hSeams, vSeams } = s;
+    const {
+        K, hInitCol0, vInitRow0, seniority, maxPri, maxLatPri, maxLongPri,
+        hSeams, vSeams,
+    } = s;
     const block = new Propagation({
         numRows: K,
         numColumns: K,
@@ -54,6 +61,8 @@ export function propagateBlock(s, k1, k2) {
         vInitRow: vInitRow0 + k1 * K,
         seniority,
         maxPri,
+        maxLatPri,
+        maxLongPri,
         initDown: hSeams[k1].slice(k2 * K, (k2 + 1) * K),
         initRight: vSeams[k2].slice(k1 * K, (k1 + 1) * K),
     });

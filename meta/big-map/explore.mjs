@@ -87,6 +87,13 @@ function readParams() {
     const K = Number($("K").value);
     const mp = $("maxPri").value.trim();
     const maxPri = mp ? Number(mp) : autoMaxPri(L);
+    // Optional per-axis ceilings. Blank = fall back to maxPri (so the map
+    // runs exactly as before); set one to clamp only that axis. latPri =
+    // N–S (vInitRow), longPri = E–W (hInitCol).
+    const latStr = $("maxLatPri").value.trim();
+    const longStr = $("maxLongPri").value.trim();
+    const maxLatPri = latStr ? Number(latStr) : maxPri;
+    const maxLongPri = longStr ? Number(longStr) : maxPri;
     const hInitCol = Number($("hInitCol").value);
     const vInitRow = Number($("vInitRow").value);
     const seniority = $("seniorityH").checked
@@ -97,7 +104,11 @@ function readParams() {
     if (L % K !== 0) throw new Error(`L=${L} must be divisible by K=${K}`);
     if (!Number.isInteger(hInitCol)) throw new Error("hInitCol must be int");
     if (!Number.isInteger(vInitRow)) throw new Error("vInitRow must be int");
-    return { L, K, maxPri, hInitCol, vInitRow, seniority };
+    if (latStr && (!Number.isInteger(maxLatPri) || maxLatPri < 1))
+        throw new Error("latPri must be a positive int");
+    if (longStr && (!Number.isInteger(maxLongPri) || maxLongPri < 1))
+        throw new Error("longPri must be a positive int");
+    return { L, K, maxPri, maxLatPri, maxLongPri, hInitCol, vInitRow, seniority };
 }
 
 // pendingView holds URL-supplied view params, applied once after Phase 1
@@ -123,29 +134,33 @@ function build() {
     // first build state is null and we keep the URL-supplied pendingView.)
     const preserved = captureView();
     if (preserved) pendingView = preserved;
-    const { L, K, maxPri, hInitCol, vInitRow, seniority } = params;
+    const {
+        L, K, maxPri, maxLatPri, maxLongPri, hInitCol, vInitRow, seniority,
+    } = params;
     $("rebuild").disabled = true;
 
     const nBlocksPerQuad = L / K;
 
     // Phase-1 quadrant scaffolds. createUniverseExtents-equivalent
-    // per-quadrant offsets.
+    // per-quadrant offsets. The per-axis ceilings are axis-aligned (cols are
+    // always E–W, rows always N–S), so they pass through the mirrored
+    // quadrants unchanged.
     const quadScaffolds = {
         nw: createScaffold({
             K, hInitCol0: 1 - hInitCol, vInitRow0: 1 - vInitRow,
-            seniority, maxPri,
+            seniority, maxPri, maxLatPri, maxLongPri,
         }),
         ne: createScaffold({
             K, hInitCol0: hInitCol, vInitRow0: 1 - vInitRow,
-            seniority, maxPri,
+            seniority, maxPri, maxLatPri, maxLongPri,
         }),
         sw: createScaffold({
             K, hInitCol0: 1 - hInitCol, vInitRow0: vInitRow,
-            seniority, maxPri,
+            seniority, maxPri, maxLatPri, maxLongPri,
         }),
         se: createScaffold({
             K, hInitCol0: hInitCol, vInitRow0: vInitRow,
-            seniority, maxPri,
+            seniority, maxPri, maxLatPri, maxLongPri,
         }),
     };
     for (const q of Object.values(quadScaffolds)) {
@@ -194,7 +209,7 @@ function build() {
 
 function transitionToIntegrated() {
     const { L, K, maxPri, params, nBlocksPerQuad, quadScaffolds } = state;
-    const { hInitCol, vInitRow, seniority } = params;
+    const { hInitCol, vInitRow, seniority, maxLatPri, maxLongPri } = params;
     state.tBoundaryEnd = performance.now();
 
     // Per fromUniverseBoundary's stitching (with all 4 quadrants present):
@@ -228,6 +243,8 @@ function transitionToIntegrated() {
         vInitRow0: vInitRow - L,
         seniority,
         maxPri,
+        maxLatPri,
+        maxLongPri,
     });
     allocateScaffold(integrated, blockExtent);
 
@@ -612,7 +629,8 @@ $("showLabels").addEventListener("change", requestRender);
 // number inputs, toggle for the checkbox) — no need to hit Rebuild. The
 // preserved view keeps zoom + position, so the change applies in place.
 for (const id of [
-    "L", "K", "maxPri", "hInitCol", "vInitRow", "seniorityH",
+    "L", "K", "maxPri", "maxLatPri", "maxLongPri",
+    "hInitCol", "vInitRow", "seniorityH",
 ]) {
     $(id).addEventListener("change", build);
 }
@@ -627,6 +645,8 @@ function applyQueryParams() {
     setNum("L", "L");
     setNum("K", "K");
     setNum("maxPri", "maxPri");
+    setNum("maxLatPri", "maxLatPri");
+    setNum("maxLongPri", "maxLongPri");
     setNum("hInitCol", "hInitCol");
     setNum("vInitRow", "vInitRow");
     if (q.get("seniority") === "h") $("seniorityH").checked = true;

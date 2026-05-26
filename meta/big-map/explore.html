@@ -65,6 +65,14 @@
   </label>
   <label>K <input id="K" type="number" min="2" step="1" value="256"></label>
   <label>maxPri <input id="maxPri" type="number" placeholder="auto"></label>
+  <label title="latitude (N–S) priority cap; blank = maxPri">
+    latPri <input id="maxLatPri" type="number" min="1" step="1"
+                  placeholder="maxPri">
+  </label>
+  <label title="longitude (E–W) priority cap; blank = maxPri">
+    longPri <input id="maxLongPri" type="number" min="1" step="1"
+                   placeholder="maxPri">
+  </label>
   <label title="h offset in pri(i + hInitCol); 1 = canonical">
     hInitCol <input id="hInitCol" type="number" step="1" value="1">
   </label>

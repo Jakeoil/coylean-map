@@ -58,7 +58,9 @@ controls; view params place the initial viewport.</p>
 <ul>
   <li><code>L</code> int ≥ 2 (def 1024) — per-quadrant extent; total grid (2L-1)²</li>
   <li><code>K</code> int ≥ 1 (def 256) — tile block size</li>
-  <li><code>maxPri</code> int 1–31 (def ⌈log₂ L⌉+1) — priority cap</li>
+  <li><code>maxPri</code> int 1–31 (def ⌈log₂ L⌉+1) — priority cap (both axes)</li>
+  <li><code>maxLatPri</code> int ≥ 1 (def maxPri) — latitude (N–S) cap only</li>
+  <li><code>maxLongPri</code> int ≥ 1 (def maxPri) — longitude (E–W) cap only</li>
   <li><code>hInitCol</code> int (def 1) — h offset in <code>pri(i + hInitCol)</code></li>
   <li><code>vInitRow</code> int (def 1) — v offset in <code>pri(j + vInitRow)</code></li>
   <li><code>seniority</code> <code>v</code>|<code>h</code> (def v) — tie-breaking</li>
