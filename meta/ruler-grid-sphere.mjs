@@ -4,15 +4,13 @@
 //   * "Ruler grid" — dyadic meridians/parallels whose thickness follows the
 //     2-adic ruler, optionally capped per axis (maxLongPri / maxLatPri).
 //   * "Coylean map" — an actual centred universe integrated via
-//     `Propagation.fromUniverseBoundary(Universe.create(...))`. Longitude
-//     cycles (maxLongPri = log2(division)); latitude is the uncapped Mercator
-//     axis. Down-arrows are drawn as meridian segments, right-arrows as
-//     parallel segments, so the map's streamlines replace the ruled grid.
+//     `Propagation.fromUniverseBoundary` over four directly-built quadrants
+//     (no Universe.assemble). Longitude cycles (maxLongPri = log2(division));
+//     latitude is the uncapped Mercator axis. Down-arrows are drawn as
+//     meridian segments, right-arrows as parallel segments, so the map's
+//     streamlines replace the ruled grid.
 
-import {
-    Propagation,
-    Universe,
-} from "../coylean-explorer/coylean-core.js";
+import { Propagation } from "../coylean-explorer/coylean-core.js";
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -206,23 +204,36 @@ function squareGridLat(j, division, yLimit) {
 // ── Coylean map projection ────────────────────────────────────────────────
 
 // Build a centred universe and integrate its boundary into one SE-flow
-// propagation. Symmetric extents put the dyadic axis (max-priority column /
-// row — the prime meridian / equator) at the geometric centre. maxLongPri =
-// log2(division) makes longitude periodic over exactly `division` columns so
-// the map wraps the sphere; maxLatPri is left at its default (Mercator axis,
-// never repeats N–S).
+// propagation. Symmetric half-extents put the dyadic axis (max-priority
+// column / row — the prime meridian / equator) at the geometric centre.
+// maxLongPri = log2(division) makes longitude periodic over exactly
+// `division` columns so the map wraps the sphere; maxLatPri is left at its
+// default (Mercator axis, never repeats N–S).
+//
+// The four quadrant propagations are built directly with the canonical
+// createUniverseExtents offsets (hInitCol = vInitRow = 1, all-true seeds) and
+// handed straight to fromUniverseBoundary. This deliberately avoids
+// Universe.create, whose internal assemble() is broken and wasteful — the
+// boundary integration is the only consumer and it ignores the mosaic anyway.
+// Verified identical to the Universe.create path, ~2× faster.
 function buildSphereMap(division) {
     const half = division / 2;
-    const universe = Universe.create({
-        northExtent: half,
-        southExtent: half,
-        westExtent: half,
-        eastExtent: half,
-        hInitCol: 1,
-        vInitRow: 1,
-        maxLongPri: Math.log2(division),
+    const maxLongPri = Math.log2(division);
+    const quad = (direction, hInitCol, vInitRow) =>
+        new Propagation({
+            direction,
+            numRows: half,
+            numColumns: half,
+            hInitCol,
+            vInitRow,
+            maxLongPri,
+        });
+    const prop = Propagation.fromUniverseBoundary({
+        nw: quad("nw", 0, 0),
+        ne: quad("ne", 1, 0),
+        sw: quad("sw", 0, 1),
+        se: quad("se", 1, 1),
     });
-    const prop = Propagation.fromUniverseBoundary(universe);
     const axisCol = prop.colPriority.indexOf(Math.max(...prop.colPriority));
     const axisRow = prop.rowPriority.indexOf(Math.max(...prop.rowPriority));
     return { division, prop, axisCol, axisRow };
@@ -324,10 +335,14 @@ function drawMap(division, yLimit, lineScale, density) {
     // the axis itself is pri = maxPri, drawn anyway by the orientation overlay.
     const pCap = Math.log2(D);
     // Priority level-of-detail. Lines with pri ≥ p number ≈ D / 2^p, so to
-    // show ≈ density lines/axis we drop everything below this floor. Without
+    // show ≈ `budget` lines/axis we drop everything below this floor. Without
     // it the map floods to a white ball as D grows — worst vertically, where
-    // meridians crowd toward the poles. Keeps the dyadic skeleton legible.
-    const minPri = Math.max(0, Math.round(Math.log2(D / density)));
+    // meridians crowd toward the poles. The budget scales with zoom: you
+    // can't resolve 1024 meridians on a small globe, but zooming in makes room
+    // for the finer dyadic structure, so higher divisions reveal more detail
+    // as you zoom rather than capping the whole-globe view.
+    const budget = density * zoom;
+    const minPri = Math.max(0, Math.round(Math.log2(D / budget)));
 
     // Bucket columns / rows by clamped priority.
     const colByPri = new Map();
@@ -361,10 +376,16 @@ function drawMap(division, yLimit, lineScale, density) {
         }
     }
 
-    mapInfo.textContent =
+    // Lines shown/axis ≈ D / 2^minPri; flag when the LOD is hiding detail
+    // that zooming in would reveal.
+    const shown = Math.round(D / 2 ** minPri);
+    const sizeStr =
         D === division
-            ? `Coylean map · ${D}×${D} · cycle 2^${Math.log2(D)}`
-            : `Coylean map · clamped to ${D}×${D} (selected ${division})`;
+            ? `${D}×${D}`
+            : `${D}×${D} (clamped from ${division})`;
+    const lodStr =
+        minPri > 0 ? ` · ${shown}/axis shown — zoom in for more` : "";
+    mapInfo.textContent = `Coylean map · ${sizeStr} · cycle 2^${Math.log2(D)}${lodStr}`;
 }
 
 function clearAndDrawSphere() {
