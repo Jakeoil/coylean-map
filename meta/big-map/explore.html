@@ -18,6 +18,7 @@
   #hud h2 { font: 600 12px system-ui; margin: 0 0 4px; color: #345; }
   #hud .row { margin: 2px 0; }
   #hud .k { color: #678; }
+  #hud .err { color: #b00020; font-weight: 600; white-space: normal; }
   #controls { position: fixed; bottom: 8px; left: 8px;
               background: rgba(255,255,255,0.92); padding: 8px 10px;
               border: 1px solid #ccd; border-radius: 6px;
@@ -49,6 +50,7 @@
 
 <div id="hud">
   <h2 id="hudTitle">building…</h2>
+  <div class="row err" id="buildErr" style="display:none"></div>
   <div class="row"><span class="k">view:</span> <span id="viewBounds">—</span></div>
   <div class="row"><span class="k">cell px:</span> <span id="cellPx">—</span></div>
   <div class="row"><span class="k">mode:</span> <span id="mode">—</span></div>

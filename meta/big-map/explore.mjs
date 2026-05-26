@@ -64,6 +64,12 @@ const view = {
     cellPx: 4,
 };
 
+// Render only when something changed. Without this the rAF loop redraws
+// the whole canvas ~60×/sec forever, pinning a core while idle. Interaction
+// handlers and drainWork progress flip this on; frame() clears it.
+let needsRender = true;
+function requestRender() { needsRender = true; }
+
 function $(id) { return document.getElementById(id); }
 function ms(t) { return `${t.toFixed(1)} ms`; }
 
@@ -103,9 +109,20 @@ function build() {
     try {
         params = readParams();
     } catch (e) {
-        $("hudTitle").textContent = `ERROR: ${e.message}`;
+        // render() rewrites #hudTitle every frame, so an error there is
+        // erased instantly and the stale map looks "unchanged". Surface it
+        // in a dedicated line render() never touches.
+        const err = $("buildErr");
+        err.textContent = `Rebuild failed: ${e.message}`;
+        err.style.display = "";
         return;
     }
+    $("buildErr").style.display = "none";
+    // Preserve the current zoom + pan across the rebuild. captureView reads
+    // the OLD state, so grab it before we overwrite `state` below. (On the
+    // first build state is null and we keep the URL-supplied pendingView.)
+    const preserved = captureView();
+    if (preserved) pendingView = preserved;
     const { L, K, maxPri, hInitCol, vInitRow, seniority } = params;
     $("rebuild").disabled = true;
 
@@ -172,6 +189,7 @@ function build() {
     tileCache = new Map();
     // Loop is already running (started once at page load).
     $("hudTitle").textContent = `building boundary L=${L}…`;
+    requestRender();
 }
 
 function transitionToIntegrated() {
@@ -250,6 +268,21 @@ function applyView(overrides) {
     }
     view.cellX = state.originCol + cx - w / view.cellPx / 2;
     view.cellY = state.originRow + cy - h / view.cellPx / 2;
+    requestRender();
+}
+
+// Inverse of applyView: snapshot the live view as origin-relative
+// {cx, cy, px} so a rebuild can restore the same zoom + position even if
+// L (hence the origin) changed. Returns null before the first build.
+function captureView() {
+    if (!state || state.phase !== "ready") return null;
+    const w = cv.width / (window.devicePixelRatio || 1);
+    const h = cv.height / (window.devicePixelRatio || 1);
+    return {
+        cx: view.cellX + w / view.cellPx / 2 - state.originCol,
+        cy: view.cellY + h / view.cellPx / 2 - state.originRow,
+        px: view.cellPx,
+    };
 }
 
 function recenter() { applyView(null); }
@@ -273,9 +306,10 @@ function nextReadyAncestor(s, k1, k2) {
 
 // Per frame, drain work up to FRAME_BUDGET_MS. In "boundary" phase: pop
 // from the pre-built quadrant queue. In "ready" phase: walk back from
-// visible-but-unbuilt blocks.
+// visible-but-unbuilt blocks. Returns true while there is still animating
+// work (so the caller keeps rendering); false once idle.
 function drainWork() {
-    if (!state) return;
+    if (!state) return false;
     const deadline = performance.now() + FRAME_BUDGET_MS;
     if (state.phase === "boundary") {
         const q = state.boundaryQueue;
@@ -286,13 +320,14 @@ function drainWork() {
             state.boundaryDone++;
         }
         if (q.length === 0) transitionToIntegrated();
-        return;
+        return true; // boundary is always progressing → keep rendering
     }
     // ready: viewport-driven lazy build
     const visible = visibleBlockRange();
-    if (!visible) return;
+    if (!visible) return false;
     const s = state.integrated;
     const { k1Min, k1Max, k2Min, k2Max } = visible;
+    let built = 0;
     // Diagonal-spiral order from top-left of viewport (closest to origin
     // is built first, which is what's needed anyway for dependency).
     outer:
@@ -305,9 +340,11 @@ function drainWork() {
             const anc = nextReadyAncestor(s, k1, k2);
             if (!anc) continue;
             propagateBlock(s, anc.k1, anc.k2);
+            built++;
             if (performance.now() >= deadline) break outer;
         }
     }
+    return built > 0; // false once all visible blocks are built → idle
 }
 
 function visibleBlockRange() {
@@ -497,8 +534,11 @@ function drawPlaceholder(k1, k2) {
 }
 
 function frame() {
-    drainWork();
-    render();
+    if (drainWork()) needsRender = true;
+    if (needsRender) {
+        render();
+        needsRender = false;
+    }
     requestAnimationFrame(frame);
 }
 
@@ -521,6 +561,7 @@ cv.addEventListener("pointermove", (e) => {
     lastY = e.clientY;
     view.cellX -= dx / view.cellPx;
     view.cellY -= dy / view.cellPx;
+    requestRender();
 });
 cv.addEventListener("pointerup", (e) => {
     dragging = false;
@@ -543,6 +584,7 @@ cv.addEventListener("wheel", (e) => {
     view.cellPx = Math.max(0.1, Math.min(64, view.cellPx * factor));
     view.cellX = wx - mx / view.cellPx;
     view.cellY = wy - my / view.cellPx;
+    requestRender();
 }, { passive: false });
 
 window.addEventListener("keydown", (e) => {
@@ -554,12 +596,26 @@ window.addEventListener("keydown", (e) => {
         view.cellPx = Math.max(0.1, view.cellPx / 1.4);
     } else if (e.key === "g") {
         $("showGrid").checked = !$("showGrid").checked;
+    } else {
+        return;
     }
+    requestRender();
 });
 
-window.addEventListener("resize", resizeCanvas);
+window.addEventListener("resize", () => { resizeCanvas(); requestRender(); });
 $("rebuild").addEventListener("click", build);
 $("recenter").addEventListener("click", recenter);
+$("showGrid").addEventListener("change", requestRender);
+$("showLabels").addEventListener("change", requestRender);
+
+// Auto-rebuild when a construction param is committed (blur/Enter for
+// number inputs, toggle for the checkbox) — no need to hit Rebuild. The
+// preserved view keeps zoom + position, so the change applies in place.
+for (const id of [
+    "L", "K", "maxPri", "hInitCol", "vInitRow", "seniorityH",
+]) {
+    $(id).addEventListener("change", build);
+}
 
 function applyQueryParams() {
     const q = new URLSearchParams(window.location.search);
