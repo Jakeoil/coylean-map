@@ -97,12 +97,43 @@ function buildGrid(tableId, prefix, seniority) {
 
 // (Canvas D4 matrices, glyph/map drawing, Baby Blocks live in glyph-render.js.)
 
-function buildEquivalenceClasses(
-    containerId,
-    prefix,
-    seniority,
-    classes,
-) {
+// One D4 equivalence-class group as an .eq-group element. Each cell carries
+// data-grid/d/r so the assignment editor can select + click it.
+function buildGroupEl(cls, prefix, seniority) {
+    const group = document.createElement("div");
+    group.className = "eq-group " + (cls.colorClass || "both");
+
+    for (let i = 0; i < cls.orbit.length; i++) {
+        const [d, r] = cls.orbit[i];
+        const cell = document.createElement("div");
+        cell.className = "eq-cell";
+        cell.dataset.grid = prefix; // "V" / "H" — for the assignment editor
+        cell.dataset.d = d;
+        cell.dataset.r = r;
+
+        const canvas = document.createElement("canvas");
+        const ft2 = seniority.isVertical
+            ? toFt(GLYPH_LETTERS[d + "," + r], V_COLOR)
+            : toFt(H_GLYPH_LETTERS[d + "," + r], H_COLOR);
+        drawGlyph(canvas, d, r, seniority, ft2);
+        cell.appendChild(canvas);
+
+        const nameLabel = document.createElement("div");
+        nameLabel.className = "sym-name";
+        nameLabel.textContent = glyphName(prefix, d, r);
+        cell.appendChild(nameLabel);
+
+        const transformLabel = document.createElement("div");
+        transformLabel.className = "transform";
+        transformLabel.textContent = D4_NAMES[cls.transforms[i]];
+        cell.appendChild(transformLabel);
+
+        group.appendChild(cell);
+    }
+    return group;
+}
+
+function buildEquivalenceClasses(containerId, prefix, seniority, classes) {
     const container = document.getElementById(containerId);
 
     // Sort by orbit size (1, 2, 4), then by rep
@@ -114,7 +145,6 @@ function buildEquivalenceClasses(
     // Pack multiple groups per line; separate lines when orbit size changes
     let lastSize = 0;
     let line = null;
-
     for (const cls of sorted) {
         if (cls.orbitSize !== lastSize) {
             if (lastSize > 0) {
@@ -125,48 +155,63 @@ function buildEquivalenceClasses(
             lastSize = cls.orbitSize;
             line = null;
         }
-
         if (!line) {
             line = document.createElement("div");
             line.className = "eq-line";
             container.appendChild(line);
         }
+        line.appendChild(buildGroupEl(cls, prefix, seniority));
+    }
+}
 
-        const group = document.createElement("div");
-        group.className = "eq-group " + (cls.colorClass || "both");
+// Canonical key for an orbit (sorted member pairKeys). transpose=true keys the
+// orbit's whole-map backslash dual (swap d↔r), for matching V groups to H.
+function eqOrbitKey(orbit, transpose) {
+    return orbit
+        .map(([d, r]) => (transpose ? pairKey(r, d) : pairKey(d, r)))
+        .sort((a, b) => a - b)
+        .join(",");
+}
 
-        for (let i = 0; i < cls.orbit.length; i++) {
-            const [d, r] = cls.orbit[i];
-            const cell = document.createElement("div");
-            cell.className = "eq-cell";
-            cell.dataset.grid = prefix; // "V" / "H" — for the assignment editor
-            cell.dataset.d = d;
-            cell.dataset.r = r;
+// Dual-aligned view: one row per dual pair — the V group on the left, its
+// whole-map backslash dual (transposed orbit) H group on the right, in fixed
+// half-width columns so the duals line up. Used by the editor (#dual-eq).
+function buildDualEquivalence(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
 
-            const canvas = document.createElement("canvas");
-            let ft2 = null;
-            if (seniority.isVertical) {
-                ft2 = toFt(GLYPH_LETTERS[d + "," + r], V_COLOR);
-            } else {
-                ft2 = toFt(H_GLYPH_LETTERS[d + "," + r], H_COLOR);
-            }
-            drawGlyph(canvas, d, r, seniority, ft2);
-            cell.appendChild(canvas);
+    const hByKey = new Map(
+        H_CLASSES.map((h) => [eqOrbitKey(h.orbit, false), h]),
+    );
+    const vSorted = [...V_CLASSES].sort((a, b) =>
+        a.orbitSize !== b.orbitSize
+            ? a.orbitSize - b.orbitSize
+            : pairKey(a.rep[0], a.rep[1]) - pairKey(b.rep[0], b.rep[1]),
+    );
 
-            const nameLabel = document.createElement("div");
-            nameLabel.className = "sym-name";
-            nameLabel.textContent = glyphName(prefix, d, r);
-            cell.appendChild(nameLabel);
+    for (const vc of vSorted) {
+        const hc = hByKey.get(eqOrbitKey(vc.orbit, true));
 
-            const transformLabel = document.createElement("div");
-            transformLabel.className = "transform";
-            transformLabel.textContent = D4_NAMES[cls.transforms[i]];
-            cell.appendChild(transformLabel);
+        const row = document.createElement("div");
+        row.className = "eq-dual-row";
 
-            group.appendChild(cell);
+        const vCell = document.createElement("div");
+        vCell.className = "eq-dual-cell";
+        vCell.appendChild(buildGroupEl(vc, "V", Seniority.vertical()));
+        row.appendChild(vCell);
+
+        const sep = document.createElement("div");
+        sep.className = "eq-dual-sep";
+        row.appendChild(sep);
+
+        const hCell = document.createElement("div");
+        hCell.className = "eq-dual-cell";
+        if (hc) {
+            hCell.appendChild(buildGroupEl(hc, "H", Seniority.horizontal()));
         }
+        row.appendChild(hCell);
 
-        line.appendChild(group);
+        container.appendChild(row);
     }
 }
 
@@ -411,19 +456,36 @@ function applyAssignmentsAndRender(useNew) {
 
 // ── Build grids ──
 
+// Catalog (index.html) has separate v-/h-eq-classes; the editor (assign.html)
+// has a single dual-aligned #dual-eq. Build whichever containers exist.
 function rebuildGrids() {
-    for (const id of ["v-grid", "h-grid"]) {
+    for (const id of [
+        "v-grid",
+        "h-grid",
+        "v-eq-classes",
+        "h-eq-classes",
+        "dual-eq",
+    ]) {
         const el = document.getElementById(id);
-        el.innerHTML = "";
+        if (el) el.innerHTML = "";
     }
-    for (const id of ["v-eq-classes", "h-eq-classes"]) {
-        const el = document.getElementById(id);
-        el.innerHTML = "";
+    if (document.getElementById("v-grid")) {
+        buildGrid("v-grid", "V", Seniority.vertical());
     }
-    buildGrid("v-grid", "V", Seniority.vertical());
-    buildEquivalenceClasses("v-eq-classes", "V", Seniority.vertical(), V_CLASSES);
-    buildGrid("h-grid", "H", Seniority.horizontal());
-    buildEquivalenceClasses("h-eq-classes", "H", Seniority.horizontal(), H_CLASSES);
+    if (document.getElementById("h-grid")) {
+        buildGrid("h-grid", "H", Seniority.horizontal());
+    }
+    if (document.getElementById("v-eq-classes")) {
+        buildEquivalenceClasses(
+            "v-eq-classes", "V", Seniority.vertical(), V_CLASSES,
+        );
+    }
+    if (document.getElementById("h-eq-classes")) {
+        buildEquivalenceClasses(
+            "h-eq-classes", "H", Seniority.horizontal(), H_CLASSES,
+        );
+    }
+    buildDualEquivalence("dual-eq");
 }
 
 // ── Baby Blocks + Outline (global: all maps and grids) ──

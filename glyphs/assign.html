@@ -154,6 +154,37 @@
                 outline: 3px solid #e53935 !important;
                 outline-offset: -3px;
             }
+            /* Whole D4 group of the selected glyph, in the combined eq map. */
+            .eq-group.coy-group-hl {
+                outline: 2px solid #e53935;
+                box-shadow: 0 0 0 4px rgba(229, 57, 53, 0.18);
+            }
+
+            /* ── Dual-aligned equivalence map (one row = V group | H dual) ── */
+            #dual-eq {
+                margin-top: 12px;
+            }
+            .eq-dual-row {
+                display: flex;
+                align-items: flex-start;
+                padding: 3px 4px;
+                border-radius: 4px;
+            }
+            .eq-dual-cell {
+                flex: 1 1 0;
+                min-width: 0;
+                display: flex;
+            }
+            .eq-dual-sep {
+                flex: 0 0 1px;
+                align-self: stretch;
+                background: #ddd;
+                margin: 0 16px;
+            }
+            /* Selected dual pair: the row, plus the picked group (red outline). */
+            .eq-dual-row.coy-row-hl {
+                background: rgba(229, 57, 53, 0.07);
+            }
 
             /* ── Sidebar layout ── */
             .layout {
@@ -359,16 +390,16 @@
                     <table class="glyph-grid" id="v-grid"></table>
                 </div>
 
-                <h3>V — Equivalence Classes under D4</h3>
-                <div class="eq-classes" id="v-eq-classes"></div>
-
                 <h2>Horizontal-Seniority Grid (horizontal wins ties)</h2>
                 <div class="grid-wrapper">
                     <table class="glyph-grid" id="h-grid"></table>
                 </div>
 
-                <h3>H — Equivalence Classes under D4</h3>
-                <div class="eq-classes" id="h-eq-classes"></div>
+                <h3>
+                    Equivalence Classes under D4 — each V group beside its
+                    backslash dual (V left · H right)
+                </h3>
+                <div class="eq-classes" id="dual-eq"></div>
             </main>
         </div>
 

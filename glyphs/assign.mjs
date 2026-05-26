@@ -75,15 +75,35 @@ function rerender() {
 }
 
 // ── Selection ──
+// Highlight the exact member (grid + eq cells) AND its whole group box in the
+// combined eq map, then bring that group into view — so you can read off the
+// orbit and click the member with the orientation you want, instead of guessing
+// the suffix dropdown.
 function highlight(grid, d, r) {
     document
-        .querySelectorAll(".coy-selected")
-        .forEach((el) => el.classList.remove("coy-selected"));
+        .querySelectorAll(".coy-selected, .coy-group-hl, .coy-row-hl")
+        .forEach((el) =>
+            el.classList.remove("coy-selected", "coy-group-hl", "coy-row-hl"),
+        );
+    const sel = `[data-grid="${grid}"][data-d="${d}"][data-r="${r}"]`;
     document
-        .querySelectorAll(
-            `[data-grid="${grid}"][data-d="${d}"][data-r="${r}"]`,
-        )
+        .querySelectorAll(sel)
         .forEach((el) => el.classList.add("coy-selected"));
+    // In the dual map, highlight the picked group, its whole dual-pair row, and
+    // scroll the pair into view — so the orbit + its dual are visible to pick
+    // the orientation from, rather than guessing the suffix.
+    const eqHit = document.querySelector(`#dual-eq ${sel}`);
+    if (eqHit) {
+        const group = eqHit.closest(".eq-group");
+        if (group) group.classList.add("coy-group-hl");
+        const row = eqHit.closest(".eq-dual-row");
+        if (row) row.classList.add("coy-row-hl");
+        eqHit.scrollIntoView({
+            block: "nearest",
+            inline: "nearest",
+            behavior: "smooth",
+        });
+    }
 }
 
 function selectMember(grid, d, r) {
