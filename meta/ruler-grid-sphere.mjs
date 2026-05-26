@@ -54,11 +54,12 @@ for (const sel of [lonCapSelect, latCapSelect]) {
     }
 }
 
-// Materialising a D×D universe is O(D²) memory, so the map mode clamps the
-// resolution it integrates. The cycle still follows the *selected* division
-// up to this ceiling; above it the map is drawn at MAP_MAX_DIVISION and the
-// badge notes the clamp.
-const MAP_MAX_DIVISION = 1024;
+// Materialising a D×D universe is O(D²) time and memory, so the map mode
+// clamps the resolution it integrates. The cycle still follows the *selected*
+// division up to this ceiling; above it the map is drawn at MAP_MAX_DIVISION
+// and the badge notes the clamp. Rough cost of one (cached) build at the
+// ceiling: 4096 ≈ 1.6 s and ~0.7 GB — a one-off freeze on first selection.
+const MAP_MAX_DIVISION = 4096;
 let mapCache = null;
 
 let width = 0,
