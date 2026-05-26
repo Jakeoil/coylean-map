@@ -27,6 +27,8 @@ const vextValue = document.getElementById("vextValue");
 const lineScaleValue = document.getElementById("lineScaleValue");
 const densityValue = document.getElementById("densityValue");
 const mapInfo = document.getElementById("mapInfo");
+const shareUrl = document.getElementById("shareUrl");
+const copyUrl = document.getElementById("copyUrl");
 
 for (let n = 1; n <= 14; n++) {
     const div = 2 ** n;
@@ -556,6 +558,8 @@ function draw() {
         );
         ctx.restore();
     }
+
+    syncURL();
 }
 
 function pointerPos(e) {
@@ -659,5 +663,71 @@ canvas.addEventListener("pointercancel", releasePointer);
     el.addEventListener("change", draw);
 });
 
+// ── Shareable URL ──────────────────────────────────────────────────────────
+// Query params capture the full configuration: render mode, division, vertical
+// extent, the dyadic caps, line scale / density, and the view (orientation +
+// zoom). Applied on load; the live URL is shown in the sidebar for copying.
+const roundTo = (v, d) => {
+    const m = 10 ** d;
+    return Math.round(v * m) / m;
+};
+
+function applyParams() {
+    const p = new URLSearchParams(location.search);
+    const setVal = (el, key) => {
+        if (p.has(key)) el.value = p.get(key);
+    };
+    setVal(renderModeSelect, "mode");
+    setVal(divisionSelect, "div");
+    setVal(vextInput, "vext");
+    setVal(lonCapSelect, "loncap");
+    setVal(latCapSelect, "latcap");
+    setVal(lineScaleInput, "scale");
+    setVal(densityInput, "density");
+    const num = (key, cur) => {
+        const v = Number(p.get(key));
+        return p.has(key) && Number.isFinite(v) ? v : cur;
+    };
+    rotX = num("rotx", rotX);
+    rotY = num("roty", rotY);
+    zoom = num("zoom", zoom);
+}
+
+function buildQuery() {
+    const p = new URLSearchParams();
+    p.set("mode", renderModeSelect.value);
+    p.set("div", divisionSelect.value);
+    p.set("vext", vextInput.value);
+    p.set("zoom", roundTo(zoom, 3));
+    p.set("rotx", roundTo(rotX, 4));
+    p.set("roty", roundTo(rotY, 4));
+    p.set("loncap", lonCapSelect.value);
+    p.set("latcap", latCapSelect.value);
+    p.set("scale", lineScaleInput.value);
+    p.set("density", densityInput.value);
+    return p.toString();
+}
+
+let urlTimer = null;
+function syncURL() {
+    const rel = `${location.pathname}?${buildQuery()}`;
+    shareUrl.value = location.origin + rel;
+    // Debounce the history write — drag/zoom call draw() per frame, and Safari
+    // rate-limits replaceState (~100 / 30s).
+    clearTimeout(urlTimer);
+    urlTimer = setTimeout(() => history.replaceState(null, "", rel), 300);
+}
+
+copyUrl.addEventListener("click", async () => {
+    try {
+        await navigator.clipboard.writeText(shareUrl.value);
+        copyUrl.textContent = "Copied!";
+        setTimeout(() => (copyUrl.textContent = "Copy link"), 1200);
+    } catch {
+        shareUrl.select(); // clipboard API unavailable — leave it selected
+    }
+});
+
 window.addEventListener("resize", resize);
+applyParams();
 resize();

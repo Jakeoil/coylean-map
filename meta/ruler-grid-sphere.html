@@ -68,18 +68,34 @@
 
             select,
             input[type="range"],
-            input[type="number"] {
+            input[type="text"],
+            button {
                 width: 100%;
             }
 
             select,
-            input[type="number"] {
+            input[type="text"],
+            button {
                 color: var(--ink);
                 background: #0f1320;
                 border: 1px solid rgba(255, 255, 255, 0.16);
                 border-radius: 10px;
                 padding: 10px 12px;
                 font: inherit;
+            }
+
+            button {
+                margin-top: 8px;
+                cursor: pointer;
+            }
+
+            button:hover {
+                background: #161b2c;
+            }
+
+            #shareUrl {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 0.78rem;
             }
 
             .row {
@@ -237,6 +253,10 @@
                 draw very high orders without turning the whole sphere into a
                 white ball.
             </div>
+
+            <label for="shareUrl">Shareable link</label>
+            <input id="shareUrl" type="text" readonly />
+            <button id="copyUrl" type="button">Copy link</button>
         </aside>
 
         <main>
