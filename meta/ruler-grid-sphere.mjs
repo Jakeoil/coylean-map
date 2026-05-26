@@ -23,6 +23,7 @@ const vextInput = document.getElementById("vext");
 const lineScaleInput = document.getElementById("lineScale");
 const densityInput = document.getElementById("density");
 
+const vextValue = document.getElementById("vextValue");
 const lineScaleValue = document.getElementById("lineScaleValue");
 const densityValue = document.getElementById("densityValue");
 const mapInfo = document.getElementById("mapInfo");
@@ -224,9 +225,8 @@ function squareGridLat(j, division, yLimit) {
 // division × vext — so each cell stays square (Mercator-y step = 2π/division =
 // the longitude step) and the map reaches further toward the poles as vext
 // grows, instead of stretching a fixed row count over a wider degree range.
-function buildSphereMap(division, vext) {
+function buildSphereMap(division, halfRow) {
     const halfCol = division / 2;
-    const halfRow = (division * vext) / 2;
     const maxLongPri = Math.log2(division);
     const quad = (direction, hInitCol, vInitRow) =>
         new Propagation({
@@ -245,16 +245,16 @@ function buildSphereMap(division, vext) {
     });
     const axisCol = prop.colPriority.indexOf(Math.max(...prop.colPriority));
     const axisRow = prop.rowPriority.indexOf(Math.max(...prop.rowPriority));
-    return { division, vext, prop, axisCol, axisRow };
+    return { division, halfRow, prop, axisCol, axisRow };
 }
 
-function getSphereMap(division, vext) {
+function getSphereMap(division, halfRow) {
     if (
         !mapCache ||
         mapCache.division !== division ||
-        mapCache.vext !== vext
+        mapCache.halfRow !== halfRow
     ) {
-        mapCache = buildSphereMap(division, vext);
+        mapCache = buildSphereMap(division, halfRow);
     }
     return mapCache;
 }
@@ -328,10 +328,16 @@ function drawMapParallel(j, prop, lonAt, latAt, thickness, alpha, samp) {
 
 function drawMap(division, rawVext, lineScale, density) {
     const D = Math.min(division, MAP_MAX_DIVISION);
-    // Trim vext so D × (D·vext) stays within the cell budget.
-    const vext = Math.max(1, Math.min(rawVext, Math.floor(MAP_MAX_CELLS / (D * D))));
-    const { prop, axisCol, axisRow } = getSphereMap(D, vext);
-    const yLimit = Math.PI * vext;
+    // Integer per-quadrant row count from the requested vext, clamped so
+    // D × (2·halfRow) stays within the cell budget. yLimit derives from the
+    // actual rows so cells stay square (dy = 2π/D) at any vext.
+    const maxHalfRow = Math.max(1, Math.floor(MAP_MAX_CELLS / D / 2));
+    const halfRow = Math.min(
+        maxHalfRow,
+        Math.max(1, Math.round((D * rawVext) / 2)),
+    );
+    const { prop, axisCol, axisRow } = getSphereMap(D, halfRow);
+    const yLimit = (Math.PI * prop.numRows) / D;
 
     // Cell-index → sphere coordinate, dyadic axes pinned to lon = lat = 0.
     // Coylean latitude is south-positive (increasing row flows south) and
@@ -410,8 +416,9 @@ function drawMap(division, rawVext, lineScale, density) {
         D === division
             ? `${D}×${numRows}`
             : `${D}×${numRows} (D clamped from ${division})`;
-    const vextStr =
-        vext < rawVext ? `vext ${vext} (clamped from ${rawVext})` : `vext ${vext}`;
+    const actualVext = numRows / D;
+    const vextClamped = halfRow < Math.round((D * rawVext) / 2);
+    const vextStr = `vext ${+actualVext.toFixed(3)}${vextClamped ? " (clamped)" : ""}`;
     const lodStr =
         minPri > 0 ? ` · ${shown}/axis shown — zoom in for more` : "";
     mapInfo.textContent = `Coylean map · ${sizeStr} · ${vextStr} · cycle 2^${Math.log2(D)}${lodStr}`;
@@ -451,15 +458,19 @@ function draw() {
     const mode = renderModeSelect.value;
     const lonCap = capValue(lonCapSelect.value);
     const latCap = capValue(latCapSelect.value);
-    // Vertical extent in circumferences: each unit adds `division` square rows
-    // of latitude (Mercator-y span π per side per unit). The grid uses it
-    // directly; the map clamps it for memory inside drawMap.
-    const vext = Math.max(1, Math.round(Number(vextInput.value) || 1));
-    const yLimit = Math.PI * vext;
+    // Vertical extent in circumferences (eighths): one unit = `division` square
+    // latitude rows. latDiv is the integer row count; yLimit derives from it so
+    // cells stay square (Mercator-y step = 2π/division). The map re-derives its
+    // own rows (clamped for memory) inside drawMap.
+    const vextRaw = Number(vextInput.value);
+    const vext = Number.isFinite(vextRaw) ? Math.max(0, vextRaw) : 1;
+    const latDiv = Math.max(1, Math.round(division * vext));
+    const yLimit = (Math.PI * latDiv) / division;
     const latLimit = latFromMercatorY(yLimit);
     const lineScale = Number(lineScaleInput.value);
     const density = Number(densityInput.value);
 
+    vextValue.textContent = `${+vext.toFixed(3)}`;
     lineScaleValue.textContent = lineScale.toFixed(1);
     densityValue.textContent = `${density}`;
 
@@ -488,8 +499,8 @@ function draw() {
         // The map replaces the ruled grid entirely.
         drawMap(division, vext, lineScale, density);
     } else {
-        // Latitude has `division × vext` square cells over the Mercator band.
-        const latDiv = division * vext;
+        // Latitude has `latDiv` square cells over the Mercator band (computed
+        // above, integer).
         const lonStride = Math.max(1, Math.ceil(division / density));
         const latStride = Math.max(1, Math.ceil(latDiv / density));
         const fullRuler = Math.log2(latDiv);
@@ -608,7 +619,12 @@ canvas.addEventListener("pointermove", (e) => {
     }
 
     if (!dragging) return;
-    rotY += ((x - lastX) / radius) * 0.9;
+    // Vertical drag pitches (rotX); horizontal drag spins longitude (rotY).
+    // Speed the spin by 1/cos(pitch): near a pole the view's longitude lines
+    // crowd together, so without this a left/right drag barely moves and takes
+    // several swipes. Floor caps the boost at ~10× right at the poles.
+    const lonGain = 0.9 / Math.max(Math.cos(rotX), 0.1);
+    rotY += ((x - lastX) / radius) * lonGain;
     rotX += ((y - lastY) / radius) * 0.9;
     rotX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotX));
     lastX = x;
