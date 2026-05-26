@@ -249,10 +249,9 @@ function getSphereMap(division) {
 
 // Stroke one column's down-arrows as a meridian polyline (constant lon),
 // breaking the path wherever an arrow is absent or rounds to the back side.
-function drawMapMeridian(i, prop, lonAt, latAt, thickness, alpha) {
+function drawMapMeridian(i, prop, lonAt, latAt, thickness, alpha, samp) {
     const { downMatrix, numRows } = prop;
     const lon = lonAt(i + 0.5);
-    const SAMP = 2; // each arrow spans one cell — a couple of points suffice
     ctx.beginPath();
     let started = false;
     for (let j = 0; j <= numRows; j++) {
@@ -260,8 +259,8 @@ function drawMapMeridian(i, prop, lonAt, latAt, thickness, alpha) {
             started = false;
             continue;
         }
-        for (let s = 0; s <= SAMP; s++) {
-            const lat = latAt(j - 0.5 + s / SAMP);
+        for (let s = 0; s <= samp; s++) {
+            const lat = latAt(j - 0.5 + s / samp);
             const [px, py, pz] = spherePoint(lon, lat);
             const [x, y, z] = rotatePoint(px, py, pz);
             const [sx, sy] = project(x, y, z);
@@ -283,10 +282,9 @@ function drawMapMeridian(i, prop, lonAt, latAt, thickness, alpha) {
 }
 
 // Stroke one row's right-arrows as a parallel polyline (constant lat).
-function drawMapParallel(j, prop, lonAt, latAt, thickness, alpha) {
+function drawMapParallel(j, prop, lonAt, latAt, thickness, alpha, samp) {
     const { rightMatrix, numColumns } = prop;
     const lat = latAt(j + 0.5);
-    const SAMP = 2;
     ctx.beginPath();
     let started = false;
     for (let i = 0; i <= numColumns; i++) {
@@ -294,8 +292,8 @@ function drawMapParallel(j, prop, lonAt, latAt, thickness, alpha) {
             started = false;
             continue;
         }
-        for (let s = 0; s <= SAMP; s++) {
-            const lon = lonAt(i - 0.5 + s / SAMP);
+        for (let s = 0; s <= samp; s++) {
+            const lon = lonAt(i - 0.5 + s / samp);
             const [px, py, pz] = spherePoint(lon, lat);
             const [x, y, z] = rotatePoint(px, py, pz);
             const [sx, sy] = project(x, y, z);
@@ -329,6 +327,18 @@ function drawMap(division, yLimit, lineScale, density) {
     const lonAt = (x) => (-2 * Math.PI * (x - (axisCol + 0.5))) / D;
     const dy = (2 * yLimit) / D;
     const latAt = (y) => latFromMercatorY(-(y - (axisRow + 0.5)) * dy);
+
+    // Sub-samples per cell. Scales with zoom (≈2 at zoom 1 — unchanged from
+    // before — rising as you magnify) but never finer than the on-screen cell
+    // size needs (~1 sample / 1.5 device px), so big cells at high zoom stay
+    // smooth while sub-pixel cells at high division stay cheap.
+    const samp = Math.max(
+        2,
+        Math.min(
+            Math.round(2 * zoom),
+            Math.round((2 * Math.PI * radius) / D / 1.5),
+        ),
+    );
 
     const { colPriority, rowPriority, numColumns, numRows } = prop;
     // A column's meridian / a row's parallel is as "important" as its dyadic
@@ -368,12 +378,12 @@ function drawMap(division, yLimit, lineScale, density) {
         const colThick = (0.22 + rv * 0.38) * lineScale;
         const colAlpha = Math.min(0.16 + rv * 0.08, 0.82);
         for (const i of colByPri.get(p) ?? []) {
-            drawMapMeridian(i, prop, lonAt, latAt, colThick, colAlpha);
+            drawMapMeridian(i, prop, lonAt, latAt, colThick, colAlpha, samp);
         }
         const rowThick = (0.2 + rv * 0.34) * lineScale;
         const rowAlpha = Math.min(0.14 + rv * 0.075, 0.76);
         for (const j of rowByPri.get(p) ?? []) {
-            drawMapParallel(j, prop, lonAt, latAt, rowThick, rowAlpha);
+            drawMapParallel(j, prop, lonAt, latAt, rowThick, rowAlpha, samp);
         }
     }
 
@@ -441,13 +451,17 @@ function draw() {
 
     clearAndDrawSphere();
 
-    const meridianSamples = Math.max(
-        80,
-        Math.min(480, Math.floor(density * 0.75)),
+    // Sample counts scale with zoom (the on-screen arc length grows with
+    // radius ∝ zoom) so meridians/parallels stay smooth when magnified rather
+    // than going polygonal. Capped to bound cost at extreme magnification.
+    const detail = Math.max(1, zoom);
+    const meridianSamples = Math.min(
+        6000,
+        Math.round(Math.max(80, Math.min(480, Math.floor(density * 0.75))) * detail),
     );
-    const parallelSamples = Math.max(
-        120,
-        Math.min(720, Math.floor(density * 1.15)),
+    const parallelSamples = Math.min(
+        8000,
+        Math.round(Math.max(120, Math.min(720, Math.floor(density * 1.15))) * detail),
     );
 
     if (isMap) {
@@ -525,7 +539,7 @@ function pinchDistance() {
 }
 
 function setZoom(nextZoom) {
-    zoom = Math.max(0.45, Math.min(8, nextZoom));
+    zoom = Math.max(0.45, Math.min(32, nextZoom));
     radius = Math.min(width, height) * 0.39 * zoom;
     draw();
 }
