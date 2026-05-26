@@ -89,15 +89,18 @@ function highlight(grid, d, r) {
     document
         .querySelectorAll(sel)
         .forEach((el) => el.classList.add("coy-selected"));
-    // In the dual map, highlight the picked group, its whole dual-pair row, and
-    // scroll the pair into view — so the orbit + its dual are visible to pick
-    // the orientation from, rather than guessing the suffix.
+    // In the dual map, red-box BOTH the picked group and its dual (the two
+    // .eq-group in the pair), highlight the row, and scroll the pair into view —
+    // so the orbit and its dual are visible to pick the orientation from.
     const eqHit = document.querySelector(`#dual-eq ${sel}`);
     if (eqHit) {
-        const group = eqHit.closest(".eq-group");
-        if (group) group.classList.add("coy-group-hl");
         const row = eqHit.closest(".eq-dual-row");
-        if (row) row.classList.add("coy-row-hl");
+        if (row) {
+            row.querySelectorAll(".eq-group").forEach((g) =>
+                g.classList.add("coy-group-hl"),
+            );
+            row.classList.add("coy-row-hl");
+        }
         eqHit.scrollIntoView({
             block: "nearest",
             inline: "nearest",
@@ -122,12 +125,15 @@ function selectMember(grid, d, r) {
               (D4_SUFFIX[cur[1]] || "e") +
               ")</span>"
             : ' <span id="sel-current">(unlettered)</span>');
-    // Pre-fill so an unchanged Assign reproduces the current rendering: re-
-    // anchoring at this member with its current orientation is a no-op (D4 is a
-    // group), and editing symbol/orientation makes the real change.
+    // Pre-fill the current letter (typing replaces it) and default orientation
+    // to e — selecting a member from the eq group IS the orientation choice: it
+    // becomes the upright identity. Focus + select so you can just type to
+    // assign (see the input handler in attachListeners).
     symInput.value = cur ? cur[0] : "";
-    orientSelect.value = cur ? String(cur[1]) : "0";
+    orientSelect.value = "0";
     highlight(grid, d, r);
+    symInput.focus();
+    symInput.select();
 }
 
 // All member keys this assignment touches: the orbit in the named grid plus the
@@ -277,6 +283,11 @@ function attachListeners() {
     $("load-file-btn").addEventListener("click", loadFromFile);
     $("clear-all-btn").addEventListener("click", clearAll);
     $("download-btn").addEventListener("click", downloadJSON);
+    // Type a symbol → assign it to the selected glyph right then and there (at
+    // the picked orbit member, upright). Enter also works.
+    symInput.addEventListener("input", () => {
+        if (selected && symInput.value) assignSelected();
+    });
     symInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") assignSelected();
     });

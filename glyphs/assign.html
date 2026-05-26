@@ -160,26 +160,30 @@
                 box-shadow: 0 0 0 4px rgba(229, 57, 53, 0.18);
             }
 
-            /* ── Dual-aligned equivalence map (one row = V group | H dual) ── */
+            /* ── Dual-aligned equivalence map ── */
+            /* Each pair = V group | sep | H dual. Pairs of the same orbit size
+               share a wrapping line, so small ones pack (≈4 singles / 2 doubles
+               / 1 quad per row, as width allows). */
             #dual-eq {
                 margin-top: 12px;
+            }
+            .eq-pair-line {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px 24px;
+                margin-bottom: 10px;
             }
             .eq-dual-row {
                 display: flex;
                 align-items: flex-start;
-                padding: 3px 4px;
+                padding: 2px 4px;
                 border-radius: 4px;
-            }
-            .eq-dual-cell {
-                flex: 1 1 0;
-                min-width: 0;
-                display: flex;
             }
             .eq-dual-sep {
                 flex: 0 0 1px;
                 align-self: stretch;
                 background: #ddd;
-                margin: 0 16px;
+                margin: 0 10px;
             }
             /* Selected dual pair: the row, plus the picked group (red outline). */
             .eq-dual-row.coy-row-hl {

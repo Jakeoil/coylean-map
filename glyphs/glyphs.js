@@ -189,29 +189,29 @@ function buildDualEquivalence(containerId) {
             : pairKey(a.rep[0], a.rep[1]) - pairKey(b.rep[0], b.rep[1]),
     );
 
+    // One flex-wrap line per orbit size so small dual pairs pack together
+    // (≈4 singles / 2 doubles / 1 quad per row, as width allows), while each V
+    // group stays beside its H dual.
+    let lastSize = 0;
+    let line = null;
     for (const vc of vSorted) {
+        if (vc.orbitSize !== lastSize) {
+            lastSize = vc.orbitSize;
+            line = document.createElement("div");
+            line.className = "eq-pair-line";
+            container.appendChild(line);
+        }
         const hc = hByKey.get(eqOrbitKey(vc.orbit, true));
 
-        const row = document.createElement("div");
-        row.className = "eq-dual-row";
-
-        const vCell = document.createElement("div");
-        vCell.className = "eq-dual-cell";
-        vCell.appendChild(buildGroupEl(vc, "V", Seniority.vertical()));
-        row.appendChild(vCell);
-
+        const pair = document.createElement("div");
+        pair.className = "eq-dual-row"; // V group | sep | H dual — a compact unit
+        pair.appendChild(buildGroupEl(vc, "V", Seniority.vertical()));
         const sep = document.createElement("div");
         sep.className = "eq-dual-sep";
-        row.appendChild(sep);
+        pair.appendChild(sep);
+        if (hc) pair.appendChild(buildGroupEl(hc, "H", Seniority.horizontal()));
 
-        const hCell = document.createElement("div");
-        hCell.className = "eq-dual-cell";
-        if (hc) {
-            hCell.appendChild(buildGroupEl(hc, "H", Seniority.horizontal()));
-        }
-        row.appendChild(hCell);
-
-        container.appendChild(row);
+        line.appendChild(pair);
     }
 }
 
