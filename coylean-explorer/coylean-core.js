@@ -200,8 +200,8 @@ export function createRightMatrix(numColumns) {
  *   - downMatrix[j][i]  — vertical arrows (flowing downward)
  *   - rightMatrix[i][j] — horizontal arrows (flowing rightward)
  *
- * Priority is evaluated per axis from shifted local coordinates, and each
- * axis is controlled independently:
+ * Priority is evaluated per axis from shifted local coordinates; each axis
+ * has its own offset and ceiling (the ceilings couple — see below):
  *
  *   longitude (E–W):  colPriority[i] = pri(i + hInitCol, maxLongPri)
  *   latitude  (N–S):  rowPriority[j] = pri(j + vInitRow, maxLatPri)
@@ -218,11 +218,20 @@ export function createRightMatrix(numColumns) {
  *     to maxPri, so setting only maxPri (default or explicit) leaves both
  *     axes on the same ceiling and the propagation runs exactly as before.
  *     Supplying one cap overrides only that axis; the other keeps maxPri
- *     (whether maxPri is the default or set). Since min(valuation, c) is
- *     periodic with period 2^c, capping an axis at c makes its priority
- *     sequence repeat every 2^c cells, so the arrow pattern becomes periodic
- *     along that axis (period dividing 2^c). This lets one axis run
- *     Mercator-style (no wrap) while the other wraps like a globe.
+ *     (whether maxPri is the default or set).
+ *
+ *     A cap c makes that axis's PRIORITY SEQUENCE periodic with period 2^c
+ *     (min(valuation, c) repeats every 2^c). The resulting ARROW MAP tiles
+ *     with a LARGER period, and the two axes are COUPLED: a priority above
+ *     the other axis's ceiling can never win, so the larger ceiling is
+ *     effectively clamped to the smaller and capping one axis tiles the
+ *     whole map. With m = min(maxLatPri, maxLongPri) the binding cap, the
+ *     map period is ~2^(m+2) cells per axis (m ≥ 2; empirical). Seniority
+ *     breaks the symmetry: the tie-WINNING axis's period doubles to 2^(m+3)
+ *     when the strictly smaller cap sits on the tie-LOSING axis (under the
+ *     H↔V backslash dual a 2×1 tile on one becomes 1×2 on the other). The
+ *     uncapped map (maxPri ≈ ∞) is aperiodic. Full table + the runnable
+ *     measurement: meta/big-map/period-analysis.md.
  *
  * The propagation origin is geometric and independent of the priority
  * lattice. These per-axis ceilings are a Propagation-level feature: the
@@ -253,22 +262,23 @@ export function createRightMatrix(numColumns) {
  *   Tie-breaking rule for priority comparisons. Defaults to vertical.
  * @param {number} [options.maxPri]
  *   Default ceiling for both axes; the per-axis maxLatPri / maxLongPri each
- *   fall back to this when omitted. The standard map uses the (effectively)
- *   unclamped 2-adic valuation; lowering it makes both priority sequences
- *   periodic so the pattern repeats at shorter intervals. Defaults to
- *   {@link DEFAULT_MAX_PRI}.
+ *   fall back to this when omitted. maxPri ≈ ∞ (the default) gives the normal
+ *   aperiodic fractal map; lowering it tiles the map — see maxLatPri /
+ *   maxLongPri for the period. Defaults to {@link DEFAULT_MAX_PRI}.
  * @param {number} [options.maxLatPri]
  *   Optional cap for the latitude (N–S) priority sequence,
- *   rowPriority[j] = pri(j + vInitRow, maxLatPri). Capping at c makes the
- *   latitude sequence periodic with period 2^c rows (pattern period divides
- *   2^c). Omit it and latitude uses maxPri (default or set), unchanged from
- *   the original behaviour — Mercator-style, never repeating N–S.
+ *   rowPriority[j] = pri(j + vInitRow, maxLatPri); the sequence then repeats
+ *   every 2^maxLatPri rows. The MAP period is larger and coupled to the other
+ *   axis: ~2^(m+2) cells, m = min(maxLatPri, maxLongPri) (see the CEILING
+ *   note above). Omit it and latitude uses maxPri (default or set), unchanged
+ *   from the original behaviour. See meta/big-map/period-analysis.md.
  * @param {number} [options.maxLongPri]
  *   Optional cap for the longitude (E–W) priority sequence,
- *   colPriority[i] = pri(i + hInitCol, maxLongPri). Capping at c makes the
- *   longitude sequence periodic with period 2^c columns, so the map wraps
- *   E–W like a globe. Omit it and longitude uses maxPri (default or set),
- *   unchanged from the original behaviour — non-repeating longitude.
+ *   colPriority[i] = pri(i + hInitCol, maxLongPri); the sequence then repeats
+ *   every 2^maxLongPri columns. The MAP period is larger and coupled to the
+ *   other axis: ~2^(m+2) cells, m = min(maxLatPri, maxLongPri) (see the
+ *   CEILING note above). Omit it and longitude uses maxPri (default or set),
+ *   unchanged from the original behaviour. See meta/big-map/period-analysis.md.
  * @param {boolean[]} [options.initDown]
  *   Top-row down inputs (length = numColumns). Defaults to all-true.
  * @param {boolean[]} [options.initRight]
