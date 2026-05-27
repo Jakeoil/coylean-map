@@ -18,11 +18,12 @@ functions via a trailing options object, never new positional params.
   (odd `hInitCol` → a sparse blue scatter). The standard seed is all-true;
   `fromUniverseBoundary` derives the correct boundary seed from the four
   quadrants and sets `hInitCol = hInitCol_user − westExtent`.
-- **⚠️ `Universe.assemble()` and the assembled mosaic raster
-  (`universe.downMatrix` / `rightMatrix`) are BROKEN — do not consume them, do
-  not try to "assemble the universes."** `Universe.create` calls `assemble()`
-  internally but `fromUniverseBoundary` ignores its output, so that path is
-  safe.
+- **A `Universe` is just the bundle of four quadrant Propagations
+  (`nw`/`ne`/`sw`/`se`); it has no global raster.** The old broken
+  `Universe.assemble()` / `debugAssemblySummary()` and the stitched
+  `universe.downMatrix` / `rightMatrix` were deleted (2026-05-27). Never
+  re-add a "assemble the universes" mosaic — `fromUniverseBoundary` is the
+  only way to a coherent map.
 - **Validate algorithm changes in Node before editing canvas code**: import
   core, render an ASCII bitmap of the matrices. Catches collapses/off-by-ones
   without a browser round-trip.

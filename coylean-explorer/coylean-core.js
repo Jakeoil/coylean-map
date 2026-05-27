@@ -532,15 +532,11 @@ export class Propagation {
     }
 }
 /**
- * Assembly-level abstraction: a composed Coylean universe assembled from
- * four directional propagations. Where Propagation models a single quadrant,
- * Universe owns the stitching, origin geometry, and global raster output
- * that renderers consume.
+ * A composed Coylean universe built from four directional propagations.
+ * Where Propagation models a single quadrant, Universe bundles the four
+ * quadrants that bound one finite map region.
  *
- * ⚠️ BREADCRUMB (2026-05-24): the assembled mosaic raster — `assemble()` and
- * the resulting `universe.downMatrix` / `rightMatrix` — is BROKEN; do not
- * consume it and do not try to "assemble the universes." The working path to a
- * single coherent map from a Universe is `Propagation.fromUniverseBoundary`,
+ * The single coherent map is produced by `Propagation.fromUniverseBoundary`,
  * which reads only the four quadrants' boundary slices and re-propagates. See
  * glyphs/glyphs.js (drawCoyleanMap) for the canonical usage.
  *
@@ -563,19 +559,6 @@ export class Propagation {
  * The priority grid is independent of this geometric center and is positioned
  * via the offsets:
  *   pri(i + hInitCol), pri(j + vInitRow)
- *
- * Assembly produces a single global raster representation:
- *   - downMatrix[j][i]  — vertical arrows (flowing downward)
- *   - rightMatrix[i][j] — horizontal arrows (flowing rightward)
- *
- * Quadrant stitching rules:
- *   - SE owns both axes (written last)
- *   - NE suppresses vertical arrows at its boundary (j === 0)
- *   - SW suppresses horizontal arrows at its boundary (i === 0)
- *   - NW suppresses both
- *
- * The renderer consumes only the assembled raster and metadata, without needing
- * to know about quadrant decomposition.
  *
  * @class Universe
  *
@@ -620,26 +603,6 @@ export class Propagation {
  * @param {Propagation} options.sw
  * @param {Propagation} options.se
  * @returns {Universe}
- *
- * @method assemble
- * @returns {Object}
- * @returns {Row[]} returns.downMatrix
- * @returns {Col[]} returns.rightMatrix
- * @returns {number} returns.originRow
- * @returns {number} returns.originCol
- * @returns {number} returns.hInitCol
- * @returns {number} returns.vInitRow
- * @returns {number} returns.northExtent
- * @returns {number} returns.southExtent
- * @returns {number} returns.westExtent
- * @returns {number} returns.eastExtent
- *
- * @method debugAssemblySummary
- * @returns {Object}
- * @returns {number} returns.totalRows
- * @returns {number} returns.totalCols
- * @returns {number} returns.originRow
- * @returns {number} returns.originCol
  */
 export class Universe {
     static fromPropagations({
@@ -964,17 +927,11 @@ export class Universe {
     /**
      * Factory for a Universe with its four quadrant propagations.
      *
-     * ⚠️ Builds the quadrants, then runs the BROKEN assemble() and attaches
-     * its global raster (downMatrix, rightMatrix, originRow, originCol,
-     * colPriority, rowPriority) onto the instance. That attached mosaic is
-     * WRONG — do not consume `universe.downMatrix` / `rightMatrix` (see the
-     * assemble() warning below). The only safe consumer of this object is
-     * `Propagation.fromUniverseBoundary`, which reads just the quadrants and
-     * ignores the mosaic — that path is safe but still pays for the wasted
-     * assemble(). To skip assemble() entirely, build the four quadrant
-     * Propagations directly (NW 1-hInitCol,1-vInitRow · NE hInitCol,1-vInitRow
-     * · SW 1-hInitCol,vInitRow · SE hInitCol,vInitRow) and hand the
-     * { nw, ne, sw, se } bundle straight to fromUniverseBoundary.
+     * Builds the four quadrant Propagations (NW 1-hInitCol,1-vInitRow · NE
+     * hInitCol,1-vInitRow · SW 1-hInitCol,vInitRow · SE hInitCol,vInitRow) and
+     * returns the Universe bundling them. The consumer of that bundle is
+     * `Propagation.fromUniverseBoundary`, which reads the four quadrants'
+     * boundary slices and re-propagates into one coherent map.
      *
      * @param {Object} options
      * @param {number} options.northExtent
@@ -1038,13 +995,6 @@ export class Universe {
             quadrant("sw", southExtent, westExtent, 1 - hInitCol, vInitRow,     westInitDown, southInitRight),
             quadrant("se", southExtent, eastExtent, hInitCol,     vInitRow,     eastInitDown, southInitRight),
         );
-        const assembled = universe.assemble();
-        universe.downMatrix = assembled.downMatrix;
-        universe.rightMatrix = assembled.rightMatrix;
-        universe.originRow = assembled.originRow;
-        universe.originCol = assembled.originCol;
-        universe.colPriority = assembled.colPriority;
-        universe.rowPriority = assembled.rowPriority;
         return universe;
     }
 
@@ -1074,116 +1024,5 @@ export class Universe {
         this.ne = ne;
         this.sw = sw;
         this.se = se;
-    }
-
-    // ⚠️ BROKEN — do not use (2026-05-24). The stitched mosaic this produces is
-    // wrong; renderers must not consume universe.downMatrix/rightMatrix. For a
-    // coherent map from a Universe use Propagation.fromUniverseBoundary instead.
-    // Kept only because Universe.create still calls it (its output is ignored on
-    // the fromUniverseBoundary path).
-    assemble() {
-        const {
-            northExtent,
-            southExtent,
-            westExtent,
-            eastExtent,
-            hInitCol,
-            vInitRow,
-            maxPri,
-            nw,
-            ne,
-            sw,
-            se,
-        } = this;
-        const originRow = northExtent - 1;
-        const originCol = westExtent - 1;
-        // Convention: northExtent / southExtent / westExtent / eastExtent
-        // each include the origin row/col, so the assembled grid is
-        // northExtent + southExtent - 1 rows × westExtent + eastExtent - 1 cols.
-        // The JSDoc description of these fields is ambiguous; clarify before
-        // consumers rely on the exclusive-of-origin reading.
-        const numRows = northExtent + southExtent - 1;
-        const numColumns = westExtent + eastExtent - 1;
-
-        // Global index → local coordinate (relative to origin) → priority.
-        const colPriority = [...Array(numColumns)].map((_, i) =>
-            pri(i - originCol + hInitCol, maxPri),
-        );
-        const rowPriority = [...Array(numRows)].map((_, j) =>
-            pri(j - originRow + vInitRow, maxPri),
-        );
-
-        const downMatrix = [...Array(numRows)].map(() => {
-            const row = new Row(numColumns);
-            for (let c = 0; c < numColumns; c++) row[c] = false;
-            return row;
-        });
-        const rightMatrix = [...Array(numColumns)].map(() => {
-            const col = new Col(numRows);
-            for (let r = 0; r < numRows; r++) col[r] = false;
-            return col;
-        });
-
-        // NW: suppress down at j=0, right at i=0
-        for (let j = 0; j < nw.numRows; j++) {
-            for (let i = 0; i < nw.numColumns; i++) {
-                const r = originRow - j;
-                const c = originCol - i;
-                downMatrix[r][c] = j === 0 ? false : nw.downMatrix[j][i];
-                rightMatrix[c][r] = i === 0 ? false : nw.rightMatrix[i][j];
-            }
-        }
-        // NE: suppress down at j=0
-        for (let j = 0; j < ne.numRows; j++) {
-            for (let i = 0; i < ne.numColumns; i++) {
-                const r = originRow - j;
-                const c = originCol + i;
-                downMatrix[r][c] = j === 0 ? false : ne.downMatrix[j][i];
-                rightMatrix[c][r] = ne.rightMatrix[i][j];
-            }
-        }
-        // SW: suppress right at i=0
-        for (let j = 0; j < sw.numRows; j++) {
-            for (let i = 0; i < sw.numColumns; i++) {
-                const r = originRow + j;
-                const c = originCol - i;
-                downMatrix[r][c] = sw.downMatrix[j][i];
-                rightMatrix[c][r] = i === 0 ? false : sw.rightMatrix[i][j];
-            }
-        }
-        // SE owns both axes (written last)
-        for (let j = 0; j < se.numRows; j++) {
-            for (let i = 0; i < se.numColumns; i++) {
-                const r = originRow + j;
-                const c = originCol + i;
-                downMatrix[r][c] = se.downMatrix[j][i];
-                rightMatrix[c][r] = se.rightMatrix[i][j];
-            }
-        }
-
-        return {
-            downMatrix,
-            rightMatrix,
-            originRow,
-            originCol,
-            hInitCol,
-            vInitRow,
-            northExtent,
-            southExtent,
-            westExtent,
-            eastExtent,
-            colPriority,
-            rowPriority,
-        };
-    }
-
-    debugAssemblySummary() {
-        const { originRow, originCol } = this.assemble();
-        return {
-            totalRows: this.northExtent + this.southExtent - 1,
-            totalCols: this.westExtent + this.eastExtent - 1,
-            originRow,
-            originCol,
-        };
     }
 }
