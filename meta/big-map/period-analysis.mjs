@@ -83,3 +83,54 @@ rowFor(
     }),
     "c=3, offset 5/3",
 );
+
+// ---------------------------------------------------------------------------
+// Derivation checks (see the "Derivation" section of period-analysis.md).
+// ---------------------------------------------------------------------------
+
+// (1) The reaction is GF(2)-linear: field(initDown=1, initRight=1) must equal
+//     field(1,0) XOR field(0,1) cell-by-cell.
+function gf2LinearityHolds() {
+    const M = 40;
+    const f = (down, right) => new Propagation({
+        numRows: M, numColumns: M, hInitCol: 1, vInitRow: 1,
+        maxPri: 20, maxLatPri: 3, maxLongPri: 3,
+        initDown: Array(M).fill(down), initRight: Array(M).fill(right),
+    });
+    const ones = f(true, true), a = f(true, false), b = f(false, true);
+    for (let j = 0; j < M; j++) {
+        for (let i = 0; i < M; i++) {
+            const lhs = ones.downMatrix[j][i] ? 1 : 0;
+            const rhs = (a.downMatrix[j][i] ? 1 : 0) ^ (b.downMatrix[j][i] ? 1 : 0);
+            if (lhs !== rhs) return false;
+        }
+    }
+    return true;
+}
+
+// (2) Exact period from effective caps. a = maxLatPri (N–S), b = maxLongPri
+//     (E–W). The tie-WINNING axis gets +1 in its effective cap.
+function predict(a, b, seniority) {
+    const vert = seniority.isVertical;
+    const effLong = vert ? Math.min(b, a) : Math.min(b, a + 1); // E–W
+    const effLat = vert ? Math.min(a, b + 1) : Math.min(a, b);  // N–S
+    return [2 ** (effLong + 2), 2 ** (effLat + 2)];
+}
+
+console.log("\nDerivation checks:");
+console.log("  GF(2) linearity (field(1,1)==field(1,0)^field(0,1)):",
+    gf2LinearityHolds());
+console.log("  predicted vs measured (a=lat, b=long):");
+for (const [a, b, sen, nm] of [
+    [2, 2, V, "V"], [4, 2, V, "V"], [5, 3, V, "V"], [3, 5, V, "V"],
+    [3, 20, V, "V"], [20, 3, V, "V"], [3, 20, H, "H"], [5, 3, H, "H"],
+]) {
+    const p = build({ maxLatPri: a, maxLongPri: b, seniority: sen });
+    const m = [period(p, "ew"), period(p, "ns")];
+    const pr = predict(a, b, sen);
+    const ok = m[0] === pr[0] && m[1] === pr[1] ? "OK" : "MISMATCH";
+    console.log(
+        `    a=${a} b=${b} ${nm}:  measured ${JSON.stringify(m)}`
+        + `  predicted ${JSON.stringify(pr)}  ${ok}`,
+    );
+}

@@ -118,7 +118,71 @@ checked at `c = 2`: clean 0.00 mismatch at period 16, 0.37 at period 4).
    the seniority-dependent ×2 on the tie-winning axis. The big-map `index.html`
    and explorer tooltips make no period claim, so they needed no change.
 
-## Open
+## Derivation of the exponents
 
-The `+2` / `+3` exponents are clean empirically (`c = 2..5`) but not yet
-derived. Likely a short argument from the reaction's 2×2 dependency stencil.
+Everything follows from one fact about `reactionFromPriority`.
+
+### 1. The reaction is GF(2)-linear
+
+Reading the four input cases as algebra over GF(2) (⊕ = XOR), with
+`D[j][i] = [colPriority_i ≥ rowPriority_j]` the only thing the rule depends on:
+
+    D = 1 (down wins ties):  down_out  = down_in
+                             right_out = right_in ⊕ down_in
+    D = 0 (right wins):      right_out = right_in
+                             down_out  = down_in ⊕ right_in
+
+Both are transvections — **no constant term** — so the whole propagation is a
+*linear* function over GF(2) of the boundary seed, parameterised by the boolean
+field `D`. (Verified by superposition: `field(1,1) = field(1,0) ⊕ field(0,1)`.)
+Map periodicity is thus periodicity of a linear image, set by `D` and the seed
+(both doubly periodic — the all-ones seed has period 1).
+
+### 2. Effective caps — the coupling and the asymmetry
+
+`D` compares `c_i = min(v₂(i+1), b)` with `r_j = min(v₂(j+1), a)`
+(`a = maxLatPri`, `b = maxLongPri`). Two priority values that never change any
+comparison are interchangeable, so each axis has an **effective cap**:
+
+- a column value `c_i ≥ a` always satisfies `c_i ≥ r_j` (since `r_j ≤ a`) →
+  all merge → **effLong = min(b, a)**;
+- a row value `r_j > b` can never satisfy `c_i ≥ r_j` (since `c_i ≤ b`) → all
+  `r_j ≥ b+1` merge → **effLat = min(a, b+1)**.
+
+The `b` vs `b+1` gap *is* the tie direction. With `≥`, a column wins at
+equality, so it saturates the moment it reaches `a` (already beats the
+strongest row); a row must *exceed* the strongest column `b` to be sure of the
+win, so it saturates one level later, at `b+1`. **The tie-winning axis
+(latitude, under vertical seniority) gets one extra effective level** — which is
+why capping one axis still tiles both, and why the two axes aren't symmetric.
+Horizontal seniority gives the tie to the column, swapping the roles:
+`effLong = min(b, a+1)`, `effLat = min(a, b)`.
+
+### 3. Period = 2^(effCap + 2)
+
+For a single axis with effective cap `k`, the priority sequence has period
+`2^k` but the map period is `2^(k+2)` (`k ≥ 2`):
+
+- **Doubling.** Odd columns carry a shifted copy of the next cap down: for odd
+  `i = 2i'+1`, `c_i = 1 + min(v₂(i'+1), k−1)`. Comparisons on the odd×odd
+  sublattice shift by +1 on *both* axes, so they reproduce the cap-(k−1)
+  problem; integrating out the priority-0 even cells is a fixed linear step
+  (§1), leaving the cap-(k−1) map at half scale ⇒ `T(k) = 2·T(k−1)`.
+- **Constant.** The recurrence is clean for `k ≥ 2`; the first two levels are a
+  pre-asymptotic boundary layer (`k=0 → 2×1`, `k=1 → 8×4`) and it saturates at
+  `T(2) = 16 = 2⁴`. The map period is always a multiple of the priority period
+  `2^k`; the factor is exactly `4 = 2²` (a 2-cell settling layer per axis — the
+  doubling is the rigorous part, the constant is pinned at the base).
+
+### Result
+
+    E–W period = 2^(effLong + 2)     N–S period = 2^(effLat + 2)
+
+    vertical   seniority: effLong = min(b, a),    effLat = min(a, b+1)
+    horizontal seniority: effLong = min(b, a+1),  effLat = min(a, b)
+
+Matches every measured case, including the predictions `lat=5,long=3 → 32×64`
+and `lat=20,long=3 → 32×64` and both seniority flips (run `period-analysis.mjs`).
+It subsumes the `2^(m+2)` / `2^(m+3)` law: with `m = min(a,b)`, equal-or-latitude-
+binding gives the square `2^(m+2)`; longitude strictly binding doubles latitude
+to `2^(m+3)`.

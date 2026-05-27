@@ -123,6 +123,19 @@ export function verticalWinsPriority(
         : pri(i + hInitCol) > pri(j + vInitRow);
 }
 
+// The reaction is a GF(2) transvection. Once `downWins` is fixed, the table
+// below is exactly (⊕ = XOR, no constant term):
+//
+//   downWins:   down_out = down_in;            right_out = right_in ⊕ down_in
+//   !downWins:  right_out = right_in;          down_out  = down_in ⊕ right_in
+//
+// (Check: it agrees on all four input pairs, including (0,0) → (0,0).) So each
+// cell applies a linear shear to (down, right) over GF(2), and the whole
+// Propagation is a LINEAR function of its boundary seed, parameterised only by
+// the boolean field downWins[j][i] = [colPriority_i ≥ rowPriority_j]. This is
+// what makes the priority-ceiling period law tractable — see
+// meta/big-map/period-analysis.md (the propagation is also bijective because
+// each transvection is its own inverse).
 function reactionFromPriority(
     vertical,
     horizontal,
