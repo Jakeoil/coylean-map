@@ -303,7 +303,8 @@
     <body>
         <div class="breadcrumb">
             <a href="../">Coylean Map</a> /
-            <a href="index.html">Glyphs</a> / Assignment Editor
+            <a href="index.html">Glyphs</a> /
+            <a href="../substitution/">Substitution</a> / Assignment Editor
         </div>
 
         <h1>Coylean Glyphs — Assignment Editor</h1>
@@ -364,7 +365,17 @@
 
                 <div class="side-group">
                     <div class="side-title">Assignments</div>
-                    <button id="load-file-btn">Load from file</button>
+                    <label>
+                        Load
+                        <select id="assignment-select">
+                            <option value="assignments-complete" selected>
+                                Complete
+                            </option>
+                            <option value="assignments">New</option>
+                            <option value="assignments-old">Old</option>
+                        </select>
+                    </label>
+                    <button id="load-file-btn">Reload selected</button>
                     <button id="clear-all-btn">Clear all</button>
                     <button id="download-btn" class="primary">
                         Download JSON

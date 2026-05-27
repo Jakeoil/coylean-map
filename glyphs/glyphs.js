@@ -18,7 +18,6 @@ import {
     orbitMemberKeys,
     getWorkingAssignments,
     setWorkingAssignments,
-    setOldAssignments,
     parseAssignmentValue,
     SUFFIX_TO_D4,
     applyAssignments,
@@ -421,16 +420,30 @@ async function fetchAssignmentDict(path) {
     }
 }
 
-// Load both schemes from their own files. New falls back to the built-in
-// DEFAULT_ASSIGNMENTS; old stays null so applyAssignmentsAndRender falls back to
-// the hard-coded applyOldAssignments baseline.
+// Loadable assignment files for the Letters dropdown (index.html + editor).
+// key (the <select> value) → file path.
+const ASSIGNMENT_FILES = {
+    "assignments-complete": "./assignments-complete.json",
+    assignments: "./assignments.json",
+    "assignments-old": "./assignments-old.json",
+};
+const DEFAULT_ASSIGNMENT_FILE = "assignments-complete";
+
+// Fetch one named file and install it as the working dict. Returns the dict (or
+// null on a failed fetch, leaving the previous dict in place).
+async function loadAssignmentFile(key) {
+    const dict = await fetchAssignmentDict(ASSIGNMENT_FILES[key]);
+    if (dict) setWorkingAssignments(dict);
+    return dict;
+}
+
+// Initial load: whichever file the dropdown has selected (HTML drives the
+// default), falling back to the complete scheme.
 async function loadAssignments() {
-    const [newDict, oldDict] = await Promise.all([
-        fetchAssignmentDict("./assignments.json"),
-        fetchAssignmentDict("./assignments-old.json"),
-    ]);
-    if (newDict) setWorkingAssignments(newDict);
-    if (oldDict) setOldAssignments(oldDict);
+    const sel = document.getElementById("assignment-select");
+    const key =
+        sel && ASSIGNMENT_FILES[sel.value] ? sel.value : DEFAULT_ASSIGNMENT_FILE;
+    await loadAssignmentFile(key);
 }
 
 // Per-map baby blocks state
@@ -539,14 +552,16 @@ if (bbOutline) {
     });
 }
 
-// ── Assignment toggle (chicken switch) ──
-
-const newAssignToggle = document.getElementById("new-assignment-toggle");
-let useNewAssignments = newAssignToggle ? newAssignToggle.checked : true;
-if (newAssignToggle) {
-    newAssignToggle.addEventListener("change", function () {
-        useNewAssignments = this.checked;
-        applyAssignmentsAndRender(useNewAssignments);
+// ── Assignment-file dropdown ──
+// index.html: switch the loaded file and re-render. On the editor (assign.html)
+// the same <select> is wired by assign.mjs (it also persists to localStorage),
+// so skip it here when the editor's Assign button is present.
+const assignmentSelect = document.getElementById("assignment-select");
+if (assignmentSelect && !document.getElementById("assign-btn")) {
+    assignmentSelect.addEventListener("change", function () {
+        loadAssignmentFile(this.value).then(() =>
+            applyAssignmentsAndRender(true),
+        );
     });
 }
 
@@ -578,14 +593,14 @@ function readOffset(el, fallback) {
 if (hInitInput && vInitInput) {
     const onOffsetChange = function () {
         setOffset(readOffset(hInitInput, 1), readOffset(vInitInput, 1));
-        applyAssignmentsAndRender(useNewAssignments);
+        applyAssignmentsAndRender(true);
     };
     hInitInput.addEventListener("change", onOffsetChange);
     vInitInput.addEventListener("change", onOffsetChange);
 }
 
 const whenLoaded = loadAssignments().then(() =>
-    applyAssignmentsAndRender(useNewAssignments),
+    applyAssignmentsAndRender(true),
 );
 
 // ── Editor API ──
@@ -602,4 +617,5 @@ export {
     SUFFIX_TO_D4,
     D4_SUFFIX,
     whenLoaded,
+    ASSIGNMENT_FILES,
 };

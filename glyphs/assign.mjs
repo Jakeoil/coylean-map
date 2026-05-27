@@ -14,6 +14,7 @@ import {
     SUFFIX_TO_D4,
     D4_SUFFIX,
     whenLoaded,
+    ASSIGNMENT_FILES,
 } from "./glyphs.js";
 
 const STORAGE_KEY = "coylean.assignments.v1";
@@ -192,9 +193,14 @@ function clearSelectedGroup() {
     setStatus(removed ? "Cleared group at " + grid + d + r : "Nothing to clear.");
 }
 
-async function loadFromFile() {
+// Load the dropdown-selected file (or `key` if given) into the working dict and
+// persist it — replacing local edits with that file's contents.
+async function loadFromFile(key) {
+    const sel = $("assignment-select");
+    if (!key || typeof key !== "string") key = sel ? sel.value : "assignments";
+    const path = ASSIGNMENT_FILES[key] || "./assignments.json";
     try {
-        const res = await fetch("./assignments.json", { cache: "no-store" });
+        const res = await fetch(path, { cache: "no-store" });
         if (!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
         if (data && typeof data.description === "string")
@@ -204,10 +210,10 @@ async function loadFromFile() {
         saveDict(dict);
         rerender();
         setStatus(
-            "Loaded " + Object.keys(dict).length + " groups from assignments.json",
+            "Loaded " + Object.keys(dict).length + " groups from " + key + ".json",
         );
     } catch (e) {
-        setStatus("Could not load assignments.json: " + e.message);
+        setStatus("Could not load " + key + ": " + e.message);
     }
 }
 
@@ -280,7 +286,13 @@ function attachListeners() {
     }
     $("assign-btn").addEventListener("click", assignSelected);
     $("clear-sel-btn").addEventListener("click", clearSelectedGroup);
-    $("load-file-btn").addEventListener("click", loadFromFile);
+    $("load-file-btn").addEventListener("click", () => loadFromFile());
+    const assignmentSelect = $("assignment-select");
+    if (assignmentSelect) {
+        assignmentSelect.addEventListener("change", () =>
+            loadFromFile(assignmentSelect.value),
+        );
+    }
     $("clear-all-btn").addEventListener("click", clearAll);
     $("download-btn").addEventListener("click", downloadJSON);
     // Type a symbol → assign it to the selected glyph right then and there (at

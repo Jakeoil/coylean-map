@@ -266,12 +266,18 @@
                 <div class="side-group">
                     <div class="side-title">Letters</div>
                     <label>
-                        <input
-                            type="checkbox"
-                            id="new-assignment-toggle"
-                            checked
-                        />
-                        New assignment (V sideways, H upright)
+                        Load
+                        <select id="assignment-select">
+                            <option value="assignments-complete" selected>
+                                Complete
+                            </option>
+                            <option value="assignments">
+                                New (V sideways, H upright)
+                            </option>
+                            <option value="assignments-old">
+                                Old (baseline)
+                            </option>
+                        </select>
                     </label>
                     <label>
                         <input type="checkbox" id="show-indices-toggle" />

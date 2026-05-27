@@ -1,0 +1,29 @@
+{
+  "description": "Coylean glyph -> symbol assignments, edited in assign.html and downloaded. Keys are member indices: grid letter (V or H) + down-code digit + right-code digit (each 0-7). Naming a member makes it the identity (state e) of its D4 group; the orbit (both grids, via the backslash dual) follows. A trailing suffix relocates the identity: e=identity 1,2,3=rotations -=flip(horiz mirror) |=flip(vert mirror) \\=backslash / =slash.",
+  "assignments": {
+    "V77": "F\\",
+    "V17": "P/",
+    "V66": "J\\",
+    "V56": "B/",
+    "V00": "O\\",
+    "V25": "Q\\",
+    "V07": "E\\",
+    "V15": "V/",
+    "V51": "C/",
+    "V61": "R\\",
+    "V16": "N/",
+    "H14": "L",
+    "H10": "(",
+    "H64": "/",
+    "H01": "p",
+    "H23": "4",
+    "V55": "H",
+    "H50": "|",
+    "H36": "&",
+    "H02": "m",
+    "V50": "X",
+    "H20": "t",
+    "H17": "e",
+    "H35": ">"
+  }
+}
