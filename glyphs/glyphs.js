@@ -40,21 +40,33 @@ import {
 
 // ── Build 8×8 Grid ──
 
+// Header label: decimal code n plus its 3 bits reversed abc → cba, so they read
+// LSB-first — the same order as the edge dots (left→right / top→bottom).
+function codeLabel(n) {
+    const b = n.toString(2).padStart(3, "0"); // "abc", MSB..LSB
+    return n + " = " + b[2] + b[1] + b[0]; // "cba" (LSB-first, dot order)
+}
+
 function buildGrid(tableId, prefix, seniority) {
     const table = document.getElementById(tableId);
+
+    // Diagonal-reflected placement (V and H grids alike): display cell
+    // (row, col) shows glyph (down=col, right=row), so X_{x,y} and X_{y,x} swap
+    // cells and the diagonal X_{x,x} stays put. Placement only — the glyphs
+    // themselves are unchanged.
 
     // Header row
     const thead = document.createElement("thead");
     const headerRow = document.createElement("tr");
     const corner = document.createElement("th");
     corner.className = "corner-label";
-    corner.textContent = "right \\ down";
+    corner.textContent = "rights \\ downs";
     headerRow.appendChild(corner);
 
     for (let r = 0; r < 8; r++) {
         const th = document.createElement("th");
         th.className = "col-header";
-        th.textContent = r + " = " + r.toString(2).padStart(3, "0");
+        th.textContent = codeLabel(r);
         headerRow.appendChild(th);
     }
     thead.appendChild(headerRow);
@@ -67,26 +79,30 @@ function buildGrid(tableId, prefix, seniority) {
 
         const rowHeader = document.createElement("th");
         rowHeader.className = "row-header";
-        rowHeader.textContent = d + " = " + d.toString(2).padStart(3, "0");
+        rowHeader.textContent = codeLabel(d);
         row.appendChild(rowHeader);
 
         for (let r = 0; r < 8; r++) {
+            // gd/gr = the glyph's true (down, right) code; the display row/col
+            // indices are swapped so the table is reflected across its diagonal.
+            const gd = r;
+            const gr = d;
             const td = document.createElement("td");
             td.dataset.grid = prefix; // "V" / "H" — for the assignment editor
-            td.dataset.d = d;
-            td.dataset.r = r;
+            td.dataset.d = gd;
+            td.dataset.r = gr;
             const canvas = document.createElement("canvas");
             let ft = null;
             if (seniority.isVertical) {
-                ft = toFt(GLYPH_LETTERS[d + "," + r], V_COLOR);
+                ft = toFt(GLYPH_LETTERS[gd + "," + gr], V_COLOR);
             } else {
-                ft = toFt(H_GLYPH_LETTERS[d + "," + r], H_COLOR);
+                ft = toFt(H_GLYPH_LETTERS[gd + "," + gr], H_COLOR);
             }
-            drawGlyph(canvas, d, r, seniority, ft);
+            drawGlyph(canvas, gd, gr, seniority, ft);
             td.appendChild(canvas);
             const label = document.createElement("div");
             label.className = "glyph-label";
-            label.textContent = glyphName(prefix, d, r);
+            label.textContent = glyphName(prefix, gd, gr);
             td.appendChild(label);
             row.appendChild(td);
         }
