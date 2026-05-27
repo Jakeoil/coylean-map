@@ -530,6 +530,170 @@ export class Propagation {
         propagation.metadata = { source: "universe-boundary" };
         return propagation;
     }
+
+    /**
+     * Optimized integrated factory: build the single coherent map straight
+     * from the `Universe.create` / `createUniverseExtents` signature, without
+     * ever materialising the four quadrants in full.
+     *
+     * The result is cell-for-cell identical to the eager two-call path
+     *   Propagation.fromUniverseBoundary(Universe.create(opts))
+     * but cheaper. The integrated SE pass only needs each quadrant's FAR
+     * edge — NW/NE's far-N row and NW/SW's far-W column — to seed itself.
+     * Those edges are STREAMED row by row in O(side) memory (a running
+     * down-row plus one right value) instead of holding a full quadrant
+     * matrix, and the SE quadrant — which never touches the far-N row or
+     * far-W column — is skipped entirely. Peak memory is the one integrated
+     * propagation, not four quadrants alongside it.
+     *
+     * @param {Object} opts  same shape as {@link Universe.create}:
+     *   { northExtent, southExtent, westExtent, eastExtent, hInitCol,
+     *     vInitRow, seniority, maxPri, maxLatPri, maxLongPri, westInitDown,
+     *     eastInitDown, northInitRight, southInitRight }
+     * @returns {Propagation}  integrated map; metadata.source =
+     *   "universe-extents".
+     */
+    static fromUniverseExtents(opts) {
+        const seed = Propagation.universeBoundarySeed(opts);
+        const propagation = new Propagation(seed);
+        propagation.metadata = { source: "universe-extents" };
+        return propagation;
+    }
+
+    /**
+     * The boundary seed of the integrated map — its far-N row (`initDown`,
+     * W→E), far-W column (`initRight`, N→S) and lattice offsets — computed
+     * from the `Universe.create` signature WITHOUT building the integrated
+     * propagation. This is the seam shared by the eager core path and the
+     * lazy big-map scaffold: pass the result to `new Propagation(seed)` for
+     * the whole map (what {@link Propagation.fromUniverseExtents} does), or
+     * feed `initDown`/`initRight`/`hInitCol`/`vInitRow` to a seam scaffold
+     * for lazy tiling.
+     *
+     * Only quadrant FAR edges are needed, so each contributing quadrant is
+     * streamed in O(side) memory; the SE quadrant is never propagated.
+     * Sparse universes (a zero extent suppresses the quadrants on that side)
+     * follow the same fallbacks as {@link Propagation.fromUniverseBoundary}.
+     *
+     * @param {Object} opts  see {@link Propagation.fromUniverseExtents}
+     * @returns {{ initDown: Row, initRight: Col, hInitCol: number,
+     *   vInitRow: number, seniority: Seniority, maxPri: number,
+     *   maxLatPri: number, maxLongPri: number }}
+     */
+    static universeBoundarySeed({
+        northExtent,
+        southExtent,
+        westExtent,
+        eastExtent,
+        hInitCol = 1,
+        vInitRow = 1,
+        seniority = Seniority.vertical(),
+        maxPri = DEFAULT_MAX_PRI,
+        maxLatPri = maxPri,
+        maxLongPri = maxPri,
+        westInitDown,
+        eastInitDown,
+        northInitRight,
+        southInitRight,
+    }) {
+        if (northExtent < 0 || southExtent < 0
+            || westExtent < 0 || eastExtent < 0) {
+            throw new Error("Universe extents must be non-negative");
+        }
+        if (northExtent + southExtent === 0 || westExtent + eastExtent === 0) {
+            throw new Error("Universe must contain at least one quadrant");
+        }
+
+        // A quadrant exists iff both its bounding extents are non-zero —
+        // identical to createUniverseExtents' null-suppression.
+        const hasNW = northExtent > 0 && westExtent > 0;
+        const hasNE = northExtent > 0 && eastExtent > 0;
+        const hasSW = southExtent > 0 && westExtent > 0;
+        const hasSE = southExtent > 0 && eastExtent > 0;
+
+        const trues = (n) => {
+            const a = [];
+            for (let k = 0; k < n; k++) a.push(true);
+            return a;
+        };
+        // Shared central-axis seeds (all-true unless the caller overrides),
+        // shared by reference between the two quadrants on each side just as
+        // createUniverseExtents does.
+        const wDown = westInitDown ?? trues(westExtent);    // NW/SW top row
+        const eDown = eastInitDown ?? trues(eastExtent);    // NE/SE top row
+        const nRight = northInitRight ?? trues(northExtent); // NW/NE left col
+        const sRight = southInitRight ?? trues(southExtent); // SW/SE left col
+
+        // Stream one quadrant SE, keeping only its far edges:
+        //   resultDown  = bottom row of downMatrix  (length numColumns)
+        //   resultRight = right output per row       (length numRows)
+        // Row-major with O(numColumns) live state — the exact arithmetic of
+        // the Propagation constructor, just without storing the interior.
+        const edges = (numRows, numColumns, hq, vq, topDown, leftRight) => {
+            const colPri = [];
+            for (let i = 0; i < numColumns; i++) {
+                colPri.push(pri(i + hq, maxLongPri));
+            }
+            const down = topDown.slice(0, numColumns);
+            const resultRight = [];
+            for (let j = 0; j < numRows; j++) {
+                const rPri = pri(j + vq, maxLatPri);
+                let right = leftRight[j];
+                for (let i = 0; i < numColumns; i++) {
+                    const [d, r] = reactionFromPriority(
+                        down[i], right, colPri[i], rPri, seniority,
+                    );
+                    down[i] = d;
+                    right = r;
+                }
+                resultRight.push(right);
+            }
+            return { resultDown: down, resultRight };
+        };
+
+        // Memoise the (at most three) quadrants whose far edge is consumed.
+        // SE is never computed: it touches neither the far-N row nor far-W
+        // column. Per-quadrant offsets mirror createUniverseExtents.
+        let nw, ne, sw;
+        const NW = () => (nw ??= edges(
+            northExtent, westExtent, 1 - hInitCol, 1 - vInitRow, wDown, nRight));
+        const NE = () => (ne ??= edges(
+            northExtent, eastExtent, hInitCol, 1 - vInitRow, eDown, nRight));
+        const SW = () => (sw ??= edges(
+            southExtent, westExtent, 1 - hInitCol, vInitRow, wDown, sRight));
+        const rev = (a) => [...a].reverse();
+
+        // Far-N row, W→E. Prefer the north quadrants' far edge; when north is
+        // empty the origin row plays that role and lives on the south
+        // quadrants' top seed. Mirrors fromUniverseBoundary's branch order.
+        let initDown;
+        if (hasNW && hasNE) initDown = [...rev(NW().resultDown), ...NE().resultDown];
+        else if (hasNW) initDown = rev(NW().resultDown);
+        else if (hasNE) initDown = [...NE().resultDown];
+        else if (hasSW && hasSE) initDown = [...rev(wDown), ...eDown];
+        else if (hasSW) initDown = rev(wDown);
+        else initDown = [...eDown];
+
+        // Far-W column, N→S. Symmetric.
+        let initRight;
+        if (hasNW && hasSW) initRight = [...rev(NW().resultRight), ...SW().resultRight];
+        else if (hasNW) initRight = rev(NW().resultRight);
+        else if (hasSW) initRight = [...SW().resultRight];
+        else if (hasNE && hasSE) initRight = [...rev(nRight), ...sRight];
+        else if (hasNE) initRight = rev(nRight);
+        else initRight = [...sRight];
+
+        return {
+            initDown: Row.from(initDown),
+            initRight: Col.from(initRight),
+            hInitCol: hInitCol - westExtent,
+            vInitRow: vInitRow - northExtent,
+            seniority,
+            maxPri,
+            maxLatPri,
+            maxLongPri,
+        };
+    }
 }
 /**
  * A composed Coylean universe built from four directional propagations.
