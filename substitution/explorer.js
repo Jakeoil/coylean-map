@@ -659,6 +659,9 @@ let zoomStack = []; // for zoom out
 let hoverR = -1, hoverC = -1;
 let showDots = true;
 let showLetters = true;
+// Top-left cell of the 2×2 children produced by the last zoom-in click,
+// in current (cropped) grid coords. -1 = nothing to highlight.
+let childHiR = -1, childHiC = -1;
 
 function initRootGrid() {
     gridSize = o5.NS; // 8
@@ -666,6 +669,7 @@ function initRootGrid() {
     currentVBound = o5.vBound.map(row => [...row]);
     currentHBound = o5.hBound.map(row => [...row]);
     zoomStack = [];
+    childHiR = -1; childHiC = -1;
     updateUI();
     render();
 }
@@ -748,6 +752,11 @@ function zoomIn(row, col) {
     const viewRows = Math.min(gridSize, ns2);
     const viewCols = Math.min(gridSize, ns2);
 
+    // The clicked tile's 4 children sit at (centerR, centerC) in the expanded
+    // grid; after cropping by startR/startC they live here. Highlight them.
+    childHiR = centerR - startR;
+    childHiC = centerC - startC;
+
     const newGrid = Array.from({ length: viewRows }, (_, r) =>
         Array.from({ length: viewCols }, (_, c) =>
             [...expanded.grid[startR + r][startC + c]],
@@ -782,6 +791,7 @@ function zoomOut() {
     currentVBound = prev.vBound;
     currentHBound = prev.hBound;
     gridSize = prev.ns;
+    childHiR = -1; childHiC = -1;
     updateUI();
     render();
 }
@@ -822,7 +832,7 @@ function drawDot(c, x, y, filled, r) {
     }
 }
 
-function renderOnCanvas(canvasEl, c, grid, vBound, hBound, hR, hC, dots, letters) {
+function renderOnCanvas(canvasEl, c, grid, vBound, hBound, hR, hC, dots, letters, hiR0 = -1, hiC0 = -1) {
     const rows = grid.length;
     const cols = grid[0].length;
     const SEC = 4;
@@ -842,6 +852,20 @@ function renderOnCanvas(canvasEl, c, grid, vBound, hBound, hR, hC, dots, letters
 
     const lw = Math.max(0.5, cellSize * 0.08);
     const dotR = Math.max(1, cellSize * 0.15);
+
+    // 2×2 children of the last clicked tile: amber block behind the glyphs,
+    // bold outline drawn last (below) so it sits on top of everything.
+    let hiRect = null;
+    if (hiR0 >= 0 && hiC0 >= 0) {
+        hiRect = {
+            x: gap + hiC0 * (secPx + gap),
+            y: gap + hiR0 * (secPx + gap),
+            w: 2 * secPx + gap,
+            h: 2 * secPx + gap,
+        };
+        c.fillStyle = "rgba(255, 159, 10, 0.18)";
+        c.fillRect(hiRect.x, hiRect.y, hiRect.w, hiRect.h);
+    }
 
     for (let sr = 0; sr < rows; sr++) {
         for (let sc = 0; sc < cols; sc++) {
@@ -985,10 +1009,16 @@ function renderOnCanvas(canvasEl, c, grid, vBound, hBound, hR, hC, dots, letters
             }
         }
     }
+
+    if (hiRect) {
+        c.strokeStyle = "#ff9f0a";
+        c.lineWidth = Math.max(1.5, cellSize * 0.2);
+        c.strokeRect(hiRect.x, hiRect.y, hiRect.w, hiRect.h);
+    }
 }
 
 function render() {
-    renderOnCanvas(canvas, ctx, currentGrid, currentVBound, currentHBound, hoverR, hoverC, showDots, showLetters);
+    renderOnCanvas(canvas, ctx, currentGrid, currentVBound, currentHBound, hoverR, hoverC, showDots, showLetters, childHiR, childHiC);
 }
 
 // ── Interaction ──
@@ -1065,6 +1095,7 @@ let uniZoomStack = [];
 let uniHoverR = -1, uniHoverC = -1;
 let uniShowDots = true;
 let uniShowLetters = true;
+let uniChildHiR = -1, uniChildHiC = -1;
 
 function buildUniverseSeed() {
     // 2×2 seed: J(V66) | M(V56) / J×s_h(V73) | F(V77)
@@ -1089,6 +1120,7 @@ function initUniverse() {
     uniVBound = seed.vBound;
     uniHBound = seed.hBound;
     uniZoomStack = [];
+    uniChildHiR = -1; uniChildHiC = -1;
     updateUniUI();
     renderUniverse();
 }
@@ -1107,6 +1139,9 @@ function uniZoomIn(row, col) {
     if (startC + uniGridSize > ns2) startC = Math.max(0, ns2 - uniGridSize);
     const viewRows = Math.min(uniGridSize, ns2);
     const viewCols = Math.min(uniGridSize, ns2);
+
+    uniChildHiR = centerR - startR;
+    uniChildHiC = centerC - startC;
 
     uniGrid = Array.from({ length: viewRows }, (_, r) =>
         Array.from({ length: viewCols }, (_, c) =>
@@ -1136,6 +1171,7 @@ function uniZoomOut() {
     uniVBound = prev.vBound;
     uniHBound = prev.hBound;
     uniGridSize = prev.ns;
+    uniChildHiR = -1; uniChildHiC = -1;
     updateUniUI();
     renderUniverse();
 }
@@ -1159,7 +1195,8 @@ function updateUniUI() {
 function renderUniverse() {
     if (!uniCtx) return;
     renderOnCanvas(uniCanvas, uniCtx, uniGrid, uniVBound, uniHBound,
-        uniHoverR, uniHoverC, uniShowDots, uniShowLetters);
+        uniHoverR, uniHoverC, uniShowDots, uniShowLetters,
+        uniChildHiR, uniChildHiC);
 }
 
 function getUniSection(e) {
