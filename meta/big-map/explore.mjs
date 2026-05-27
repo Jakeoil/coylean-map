@@ -1,8 +1,6 @@
+import { Seniority } from "../../coylean-explorer/coylean-core.js";
 import {
-    Seniority, Row, Col,
-} from "../../coylean-explorer/coylean-core.js";
-import {
-    createScaffold, allocateScaffold, propagateBlock, isBlockBuilt,
+    buildIntegratedScaffold, propagateBlock, isBlockBuilt, nextReadyAncestor,
 } from "./scaffold.mjs";
 import { tile } from "./tile.mjs";
 import {
@@ -13,23 +11,13 @@ import {
 const cv = document.getElementById("cv");
 const ctx = cv.getContext("2d", { alpha: false });
 
-// Lazy-scaffold rendering, two-phase:
-//
-//   Phase 1 ("boundary"): build four quadrant scaffolds in rAF chunks.
-//     Each is an SE-flow scaffold with quadrant-specific hInitCol0 /
-//     vInitRow0 (mirroring Universe.createUniverseExtents). We only need
-//     their far-from-origin seams (hSeams[L/K], vSeams[L/K]) — these
-//     stitch into the universe boundary seed.
-//
-//   Phase 2 ("ready"): create the INTEGRATED scaffold seeded from the
-//     stitched boundary (per Propagation.fromUniverseBoundary). Discard
-//     the four quadrant scaffolds. Build integrated blocks lazily,
-//     viewport-prioritized.
-//
-// The integrated scaffold gives the same mathematically consistent
-// representation as the eager fromUniverseBoundary path used previously,
-// but holds only seam data (~K× memory reduction) and only builds blocks
-// the viewport actually visits.
+// Lazy-scaffold rendering. The integrated seam scaffold is built up front
+// from the universe boundary by buildIntegratedScaffold (which calls
+// Propagation.universeBoundarySeed — streams each quadrant's far edge in
+// O(side) memory, skips the SE quadrant, no four-quadrant materialisation).
+// That scaffold holds only seam data (~K× memory reduction vs a full
+// integrated propagation); its blocks propagate lazily, viewport-prioritised,
+// only where the view actually visits — see drainWork().
 //
 // ----------------------------------------------------------------------
 // URL query parameters
@@ -111,8 +99,8 @@ function readParams() {
     return { L, K, maxPri, maxLatPri, maxLongPri, hInitCol, vInitRow, seniority };
 }
 
-// pendingView holds URL-supplied view params, applied once after Phase 1
-// completes (when we know the integrated dimensions).
+// pendingView holds URL-supplied view params, applied by build() once the
+// integrated dimensions are known.
 let pendingView = null;
 
 function build() {
@@ -139,140 +127,39 @@ function build() {
     } = params;
     $("rebuild").disabled = true;
 
-    const nBlocksPerQuad = L / K;
-
-    // Phase-1 quadrant scaffolds. createUniverseExtents-equivalent
-    // per-quadrant offsets. The per-axis ceilings are axis-aligned (cols are
-    // always E–W, rows always N–S), so they pass through the mirrored
-    // quadrants unchanged.
-    const quadScaffolds = {
-        nw: createScaffold({
-            K, hInitCol0: 1 - hInitCol, vInitRow0: 1 - vInitRow,
-            seniority, maxPri, maxLatPri, maxLongPri,
-        }),
-        ne: createScaffold({
-            K, hInitCol0: hInitCol, vInitRow0: 1 - vInitRow,
-            seniority, maxPri, maxLatPri, maxLongPri,
-        }),
-        sw: createScaffold({
-            K, hInitCol0: 1 - hInitCol, vInitRow0: vInitRow,
-            seniority, maxPri, maxLatPri, maxLongPri,
-        }),
-        se: createScaffold({
-            K, hInitCol0: hInitCol, vInitRow0: vInitRow,
-            seniority, maxPri, maxLatPri, maxLongPri,
-        }),
-    };
-    for (const q of Object.values(quadScaffolds)) {
-        allocateScaffold(q, nBlocksPerQuad);
-    }
-
-    // SE-march order, interleaved across the 4 quadrants so they make
-    // progress in parallel (visually all four corners fill at once if we
-    // ever start rendering Phase-1 progress).
-    const boundaryQueue = [];
-    for (let d = 0; d < nBlocksPerQuad * 2 - 1; d++) {
-        for (let k1 = Math.max(0, d - nBlocksPerQuad + 1);
-                 k1 <= Math.min(d, nBlocksPerQuad - 1); k1++) {
-            const k2 = d - k1;
-            for (const quad of ["nw", "ne", "sw", "se"]) {
-                boundaryQueue.push({ quad, k1, k2 });
-            }
-        }
-    }
+    // Integrated seam scaffold straight from the universe boundary. The math
+    // (per-quadrant offsets, far-edge streaming, boundary stitch, integrated
+    // offsets) lives in buildIntegratedScaffold / Propagation.universeBoundary-
+    // Seed — none of it here. The scaffold is allocated but unbuilt; blocks
+    // propagate lazily in drainWork() as the viewport visits them.
+    const { scaffold } = buildIntegratedScaffold({
+        K,
+        northExtent: L, southExtent: L, westExtent: L, eastExtent: L,
+        hInitCol, vInitRow, seniority, maxPri, maxLatPri, maxLongPri,
+    });
 
     state = {
-        phase: "boundary",
         params,
         L, K, maxPri,
-        nBlocksPerQuad,
-        quadScaffolds,
-        boundaryQueue,
-        boundaryDone: 0,
-        boundaryTotal: boundaryQueue.length,
-        // Phase-2 fields, populated at transition.
-        integrated: null,
-        integratedNBlocks: 0,
-        integratedCells: 0,    // cell extent of valid universe region
+        integrated: scaffold,
+        integratedNBlocks: scaffold.nBlocks,
+        // Valid universe region is (2L-1)²; the scaffold may round one block
+        // past it, but the viewport clips at the universe edge.
+        integratedCells: 2 * L - 1,
         originRow: L - 1,
         originCol: L - 1,
         tBuildStart: performance.now(),
-        tBoundaryEnd: 0,
-        tReadyStart: 0,
     };
     propCache = new Map();
     tileCache = new Map();
-    // Loop is already running (started once at page load).
-    $("hudTitle").textContent = `building boundary L=${L}…`;
-    requestRender();
-}
-
-function transitionToIntegrated() {
-    const { L, K, maxPri, params, nBlocksPerQuad, quadScaffolds } = state;
-    const { hInitCol, vInitRow, seniority, maxLatPri, maxLongPri } = params;
-    state.tBoundaryEnd = performance.now();
-
-    // Per fromUniverseBoundary's stitching (with all 4 quadrants present):
-    //   initDown  = NW.resultDown reversed ++ NE.resultDown      (length 2L)
-    //   initRight = NW.resultRight reversed ++ SW.resultRight     (length 2L)
-    // resultDown of a quadrant scaffold = hSeams[nBlocks]
-    // resultRight                     = vSeams[nBlocks]
-    const N = nBlocksPerQuad;
-    const nwResultDown  = quadScaffolds.nw.hSeams[N];
-    const neResultDown  = quadScaffolds.ne.hSeams[N];
-    const nwResultRight = quadScaffolds.nw.vSeams[N];
-    const swResultRight = quadScaffolds.sw.vSeams[N];
-
-    const initDown = new Row(2 * L);
-    for (let i = 0; i < L; i++) initDown[i] = nwResultDown[L - 1 - i];
-    for (let i = 0; i < L; i++) initDown[L + i] = neResultDown[i];
-    const initRight = new Col(2 * L);
-    for (let j = 0; j < L; j++) initRight[j] = nwResultRight[L - 1 - j];
-    for (let j = 0; j < L; j++) initRight[L + j] = swResultRight[j];
-
-    // Integrated scaffold: round extent up to next K-multiple ≥ (2L - 1).
-    // For typical L_q divisible by K, 2L is already a multiple of K, so
-    // the integrated covers (2L) cells per axis (1 cell beyond the
-    // universe's SE edge; that cell exists in the scaffold but never
-    // renders inside the universe).
-    const cellExtent = 2 * L - 1;
-    const blockExtent = Math.ceil(cellExtent / K);
-    const integrated = createScaffold({
-        K,
-        hInitCol0: hInitCol - L,
-        vInitRow0: vInitRow - L,
-        seniority,
-        maxPri,
-        maxLatPri,
-        maxLongPri,
-    });
-    allocateScaffold(integrated, blockExtent);
-
-    // Overwrite the all-true seeds with the universe boundary.
-    for (let i = 0; i < initDown.length; i++) {
-        integrated.hSeams[0][i] = initDown[i];
-    }
-    for (let j = 0; j < initRight.length; j++) {
-        integrated.vSeams[0][j] = initRight[j];
-    }
-
-    state.integrated = integrated;
-    state.integratedNBlocks = blockExtent;
-    state.integratedCells = cellExtent;
-    state.quadScaffolds = null;          // GC the 4 quadrants
-    state.boundaryQueue = null;
-    state.phase = "ready";
-    state.tReadyStart = performance.now();
-    propCache = new Map();
-    tileCache = new Map();
-
     applyView(pendingView);
     pendingView = null;
     $("rebuild").disabled = false;
+    requestRender();
 }
 
 function applyView(overrides) {
-    if (!state || state.phase !== "ready") return;
+    if (!state) return;
     const w = cv.width / (window.devicePixelRatio || 1);
     const h = cv.height / (window.devicePixelRatio || 1);
     const cx = overrides?.cx ?? 0;
@@ -292,7 +179,7 @@ function applyView(overrides) {
 // {cx, cy, px} so a rebuild can restore the same zoom + position even if
 // L (hence the origin) changed. Returns null before the first build.
 function captureView() {
-    if (!state || state.phase !== "ready") return null;
+    if (!state) return null;
     const w = cv.width / (window.devicePixelRatio || 1);
     const h = cv.height / (window.devicePixelRatio || 1);
     return {
@@ -304,42 +191,14 @@ function captureView() {
 
 function recenter() { applyView(null); }
 
-// Walk back from (k1, k2) along its SE-march dependency chain to the
-// closest unbuilt block that IS ready (both upstream seams populated).
-// Returns null if nothing left to do; otherwise {k1, k2}.
-function nextReadyAncestor(s, k1, k2) {
-    while (k1 >= 0 && k2 >= 0) {
-        if (isBlockBuilt(s, k1, k2)) return null;
-        const needUp = k1 > 0 && !isBlockBuilt(s, k1 - 1, k2);
-        const needLeft = k2 > 0 && !isBlockBuilt(s, k1, k2 - 1);
-        if (!needUp && !needLeft) return { k1, k2 };
-        // Walk toward origin along whichever axis still needs work.
-        // Prefer the larger remaining distance to bias toward diagonal march.
-        if (needUp && (!needLeft || k1 >= k2)) { k1--; }
-        else { k2--; }
-    }
-    return null;
-}
-
-// Per frame, drain work up to FRAME_BUDGET_MS. In "boundary" phase: pop
-// from the pre-built quadrant queue. In "ready" phase: walk back from
-// visible-but-unbuilt blocks. Returns true while there is still animating
-// work (so the caller keeps rendering); false once idle.
+// Per frame, drain viewport-driven lazy work up to FRAME_BUDGET_MS: walk back
+// from visible-but-unbuilt blocks to the nearest ready ancestor (seams
+// populated) and propagate it. Returns true while there is still animating
+// work (so the caller keeps rendering); false once every visible block is
+// built.
 function drainWork() {
     if (!state) return false;
     const deadline = performance.now() + FRAME_BUDGET_MS;
-    if (state.phase === "boundary") {
-        const q = state.boundaryQueue;
-        const scaffolds = state.quadScaffolds;
-        while (performance.now() < deadline && q.length > 0) {
-            const job = q.shift();
-            propagateBlock(scaffolds[job.quad], job.k1, job.k2);
-            state.boundaryDone++;
-        }
-        if (q.length === 0) transitionToIntegrated();
-        return true; // boundary is always progressing → keep rendering
-    }
-    // ready: viewport-driven lazy build
     const visible = visibleBlockRange();
     if (!visible) return false;
     const s = state.integrated;
@@ -365,7 +224,7 @@ function drainWork() {
 }
 
 function visibleBlockRange() {
-    if (!state || state.phase !== "ready") return null;
+    if (!state) return null;
     const W = cv.width / (window.devicePixelRatio || 1);
     const H = cv.height / (window.devicePixelRatio || 1);
     const { K, integratedNBlocks } = state;
@@ -440,22 +299,6 @@ function render() {
 
     if (!state) return;
 
-    if (state.phase === "boundary") {
-        const pct = (state.boundaryDone / state.boundaryTotal) * 100;
-        $("hudTitle").textContent =
-            `building boundary ${state.boundaryDone.toLocaleString()}`
-            + ` / ${state.boundaryTotal.toLocaleString()} blocks`
-            + ` (${pct.toFixed(1)}%)`;
-        $("viewBounds").textContent = "—";
-        $("cellPx").textContent = "—";
-        $("mode").textContent = "boundary";
-        $("cacheSize").textContent = "0";
-        $("extent").textContent = `4 × ${state.nBlocksPerQuad}² quadrant blocks`;
-        $("frameTime").textContent = ms(performance.now() - t0);
-        return;
-    }
-
-    // Phase: ready
     const visible = visibleBlockRange();
     const { K, integratedCells, originRow, originCol, maxPri } = state;
     const { cellX, cellY, cellPx } = view;

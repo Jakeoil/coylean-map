@@ -88,6 +88,24 @@ export function isBlockReady(s, k1, k2) {
     return upOK && leftOK;
 }
 
+// Walk back from (k1, k2) along its SE-march dependency chain to the closest
+// unbuilt block that IS ready (both upstream seams populated). Returns null if
+// nothing left to do; otherwise {k1, k2}. Used by viewport-driven lazy builds
+// to find the nearest block that can be propagated right now.
+export function nextReadyAncestor(s, k1, k2) {
+    while (k1 >= 0 && k2 >= 0) {
+        if (isBlockBuilt(s, k1, k2)) return null;
+        const needUp = k1 > 0 && !isBlockBuilt(s, k1 - 1, k2);
+        const needLeft = k2 > 0 && !isBlockBuilt(s, k1, k2 - 1);
+        if (!needUp && !needLeft) return { k1, k2 };
+        // Walk toward origin along whichever axis still needs work.
+        // Prefer the larger remaining distance to bias toward diagonal march.
+        if (needUp && (!needLeft || k1 >= k2)) { k1--; }
+        else { k2--; }
+    }
+    return null;
+}
+
 // Pre-allocate seam arrays and boundary seeds out to newN blocks WITHOUT
 // running any block propagation. Use this with propagateBlock() for
 // lazy / on-demand block building (rAF priority queue, etc.).
@@ -162,4 +180,64 @@ export function buildScaffold({
     });
     extendScaffold(s, L / K);
     return s;
+}
+
+// Seed a seam scaffold from a universe boundary, so its tiles reconstruct the
+// integrated map (Propagation.fromUniverseExtents) on demand — without ever
+// materialising the whole propagation. The boundary is computed once by
+// Propagation.universeBoundarySeed (O(side) memory, SE quadrant skipped); the
+// scaffold then tiles lazily via tile()/extendScaffold. This is the seam
+// between the eager core factory and the explorer's lazy renderer: the math
+// of "where does the integrated map come from" lives here and in core, not in
+// the page controller.
+//
+// Takes the same options as Propagation.universeBoundarySeed plus the block
+// size K. Returns { scaffold, seed, cellRows, cellCols } where cellRows ×
+// cellCols is the dense universe extent and seed is the boundary descriptor.
+export function buildIntegratedScaffold({
+    K,
+    northExtent,
+    southExtent,
+    westExtent,
+    eastExtent,
+    hInitCol = 1,
+    vInitRow = 1,
+    seniority = Seniority.vertical(),
+    maxPri = DEFAULT_MAX_PRI,
+    maxLatPri = maxPri,
+    maxLongPri = maxPri,
+    westInitDown,
+    eastInitDown,
+    northInitRight,
+    southInitRight,
+}) {
+    const seed = Propagation.universeBoundarySeed({
+        northExtent, southExtent, westExtent, eastExtent,
+        hInitCol, vInitRow, seniority,
+        maxPri, maxLatPri, maxLongPri,
+        westInitDown, eastInitDown, northInitRight, southInitRight,
+    });
+    const cellRows = seed.initRight.length;
+    const cellCols = seed.initDown.length;
+    const s = createScaffold({
+        K,
+        hInitCol0: seed.hInitCol,
+        vInitRow0: seed.vInitRow,
+        seniority,
+        maxPri,
+        maxLatPri,
+        maxLongPri,
+    });
+    const blockExtent = Math.ceil(Math.max(cellRows, cellCols) / K);
+    allocateScaffold(s, blockExtent);
+    // allocateScaffold seeds hSeams[0]/vSeams[0] all-true out to blockExtent*K;
+    // overwrite the universe span with the stitched boundary (any rounding
+    // overshoot past cellCols/cellRows stays all-true and never renders).
+    for (let i = 0; i < seed.initDown.length; i++) {
+        s.hSeams[0][i] = seed.initDown[i];
+    }
+    for (let j = 0; j < seed.initRight.length; j++) {
+        s.vSeams[0][j] = seed.initRight[j];
+    }
+    return { scaffold: s, seed, cellRows, cellCols };
 }
