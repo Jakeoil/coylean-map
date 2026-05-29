@@ -28,6 +28,10 @@ import {
     setOffset,
     computeMapModel,
     computeGlyphMatrices,
+    computePattern,
+    transformedPatternKey,
+    classifyVisualD4,
+    d4Compose,
 } from "./glyph-core.js";
 import {
     drawSection,
@@ -58,8 +62,14 @@ let currentSeniority = Seniority.vertical();
 // section data at orders 5 → 6 and 6 → 7 (deeper catches codes the order-5
 // scan didn't hit). One table per seniority — H propagation is a different
 // dynamics, so its substitution table differs.
-const SUB_TABLE_V = buildSubTable(Seniority.vertical());
-const SUB_TABLE_H = buildSubTable(Seniority.horizontal());
+//
+// Direct propagation only reaches ~34 of the 64 codes; the rest are completed
+// by D4 extrapolation: if a code's orbit contains a member that DOES have a
+// rule, transform that rule under the D4 element relating the two members.
+const SUB_TABLE_V = extrapolateSubTable(
+    buildSubTable(Seniority.vertical()), Seniority.vertical());
+const SUB_TABLE_H = extrapolateSubTable(
+    buildSubTable(Seniority.horizontal()), Seniority.horizontal());
 function currentSubTable() {
     return currentSeniority.isVertical ? SUB_TABLE_V : SUB_TABLE_H;
 }
@@ -94,6 +104,126 @@ function buildSubTable(sen) {
     ingest(o5, o6);
     ingest(o6, o7);
     return t;
+}
+
+// ── D4 extrapolation of the substitution table ──
+// Canonical propagation reaches ~34 codes out of 64. The remaining codes are
+// reachable from a known one by a D4 transform of the section pattern. For
+// each missing code we find an orbit-sibling with a rule, then map the rule
+// across by:
+//   * permuting the 2×2 children's POSITIONS via D4_POS (where each cell
+//     lands under the transform);
+//   * transforming each child's CODE via codeUnderD4 (a 64×8 lookup of where
+//     each (d, r) lands under each D4 element, using computePattern); and
+//   * permuting the 4 internal-boundary flags via D4_BND (the boundary
+//     between two cells maps to the boundary between their new positions).
+
+// D4_POS[g][p] = new position of cell p under D4 element g, with cells
+// numbered 0=NW (0,0), 1=NE (0,1), 2=SW (1,0), 3=SE (1,1).
+const D4_POS = [
+    [0, 1, 2, 3], // 0 e        identity
+    [1, 3, 0, 2], // 1 r        90° CW (NW→NE, NE→SE, SW→NW, SE→SW)
+    [3, 2, 1, 0], // 2 r²       180°
+    [2, 0, 3, 1], // 3 r³       270° CW
+    [2, 3, 0, 1], // 4 s_h      flip top-bottom (NW↔SW, NE↔SE)
+    [1, 0, 3, 2], // 5 s_v      flip left-right (NW↔NE, SW↔SE)
+    [0, 2, 1, 3], // 6 s_d1     transpose along main diag (NE↔SW)
+    [3, 1, 2, 0], // 7 s_d2     anti-diagonal (NW↔SE)
+];
+
+// D4_BND[g][b] = boundary index that boundary b maps to under D4 element g,
+// where boundaries are 0=vBoundTop (NW/NE), 1=vBoundBot (SW/SE),
+// 2=hBoundLeft (NW/SW), 3=hBoundRight (NE/SE). Derived from D4_POS by
+// mapping each boundary's two endpoint cells through the position permutation.
+const D4_BND = [
+    [0, 1, 2, 3], // 0 e
+    [3, 2, 0, 1], // 1 r
+    [1, 0, 3, 2], // 2 r²
+    [2, 3, 1, 0], // 3 r³
+    [1, 0, 2, 3], // 4 s_h
+    [0, 1, 3, 2], // 5 s_v
+    [2, 3, 0, 1], // 6 s_d1
+    [3, 2, 1, 0], // 7 s_d2
+];
+
+// D4_INV[g] = inverse of D4 element g (in the d4Compose algebra).
+const D4_INV = (() => {
+    const inv = new Array(8);
+    for (let g = 0; g < 8; g++)
+        for (let k = 0; k < 8; k++)
+            if (d4Compose(g, k) === 0) { inv[g] = k; break; }
+    return inv;
+})();
+
+// codeUnderD4(d, r, sen, ti) → [d', r'] such that the section pattern of
+// (d', r') equals VISUAL_D4[ti] applied to the pattern of (d, r). Computed
+// once per seniority by inverting the pattern → code map.
+function buildCodeUnderD4(seniority) {
+    const keyToCode = new Map();
+    for (let d = 0; d < 8; d++) {
+        for (let r = 0; r < 8; r++) {
+            const { v, h } = computePattern(d, r, seniority);
+            keyToCode.set(transformedPatternKey(v, h, 0), [d, r]);
+        }
+    }
+    const table = {};
+    for (let d = 0; d < 8; d++) {
+        for (let r = 0; r < 8; r++) {
+            const { v, h } = computePattern(d, r, seniority);
+            const lookup = new Array(8);
+            for (let ti = 0; ti < 8; ti++) {
+                lookup[ti] = keyToCode.get(transformedPatternKey(v, h, ti));
+            }
+            table[d + "," + r] = lookup;
+        }
+    }
+    return table;
+}
+const CODE_UNDER_D4_V = buildCodeUnderD4(Seniority.vertical());
+const CODE_UNDER_D4_H = buildCodeUnderD4(Seniority.horizontal());
+
+function applyD4ToRule(rule, ti, codeTable) {
+    const newChildren = new Array(4);
+    for (let i = 0; i < 4; i++) {
+        const [d, r] = rule.children[i];
+        newChildren[D4_POS[ti][i]] = [...codeTable[d + "," + r][ti]];
+    }
+    const oldB = [
+        rule.vBoundTop, rule.vBoundBot, rule.hBoundLeft, rule.hBoundRight,
+    ];
+    const newB = [false, false, false, false];
+    for (let i = 0; i < 4; i++) newB[D4_BND[ti][i]] = oldB[i];
+    return {
+        children: newChildren,
+        vBoundTop: newB[0], vBoundBot: newB[1],
+        hBoundLeft: newB[2], hBoundRight: newB[3],
+    };
+}
+
+// Fill in missing codes by transforming a known orbit-sibling's rule.
+function extrapolateSubTable(baseTable, seniority) {
+    const out = { ...baseTable };
+    const classes = classifyVisualD4(seniority);
+    const codeTable = seniority.isVertical
+        ? CODE_UNDER_D4_V : CODE_UNDER_D4_H;
+    for (const cls of classes) {
+        let canonI = -1;
+        for (let i = 0; i < cls.orbit.length; i++) {
+            const [d, r] = cls.orbit[i];
+            if (baseTable[d + "," + r]) { canonI = i; break; }
+        }
+        if (canonI < 0) continue; // entire orbit missing — nothing to extrapolate
+        const [cd, cr] = cls.orbit[canonI];
+        const baseRule = baseTable[cd + "," + cr];
+        const tCanonInv = D4_INV[cls.transforms[canonI]];
+        for (let i = 0; i < cls.orbit.length; i++) {
+            const [d, r] = cls.orbit[i];
+            if (out[d + "," + r]) continue;
+            const ti = d4Compose(cls.transforms[i], tCanonInv);
+            out[d + "," + r] = applyD4ToRule(baseRule, ti, codeTable);
+        }
+    }
+    return out;
 }
 
 // ── Grid expansion via SUB_TABLE ──
