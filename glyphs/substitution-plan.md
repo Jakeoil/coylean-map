@@ -1,10 +1,27 @@
 # Plan — bring the substitution explorer into `glyphs/substitution.html`
 
-**Status: DEFERRED (back burner) — not started.** Parked 2026-05-24.
-Baseline commit: `0de16e1`. Source to port: `substitution/explorer.js`
-(1260 lines, plain script). Target reuses post-rewrite `glyphs/glyphs.js`
-(calibrated `D4_MATRIX` scheme) + `coylean-explorer/coylean-core.js`.
-**Resume at Phase 1** (extract `glyph-lib.mjs`) — see Steps.
+**Status: DONE 2026-05-29** (commit `66e68ce`). Built scope per the
+"Just explorer + universe" option:
+- `glyphs/substitution.mjs` + `glyphs/substitution.html` — interactive
+  zoom explorer (clean order-5 seed) + universe view (J|M / J·sₕ|F seed
+  expanded twice) on the calibrated `D4_MATRIX` scheme.
+- `glyph-render.js` gained a shared `drawSection(ctx, opts)` used by the
+  new page; `drawCoyleanMap` left unchanged (catalog byte-identical).
+- Substitution / translation tables and reachable-codes lists were
+  **not** re-ported — they live on the catalog (`glyphs/index.html`)
+  via `buildSubstitutionRules` / `buildTranslationTable`. Catalog-only
+  was the chosen home.
+- `substitution/explorer.js` + `substitution/index.html` deleted;
+  catalog and assign-editor breadcrumbs relinked to
+  `glyphs/substitution.html`.
+- The shared-lib extraction the plan called for (Phase 1) had already
+  happened en route — `glyph-core.js` is that layer, so Phase 1 was a
+  no-op when the work resumed.
+
+The rest of this file is the original 2026-05-24 plan, kept as the
+historical record of how the work was scoped before it landed.
+
+---
 
 Goal: recreate the *unique* functionality of `substitution/explorer.js` as a new
 page **`glyphs/substitution.html`** that runs on the **existing glyphs logic**
