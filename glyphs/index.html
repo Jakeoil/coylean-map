@@ -140,6 +140,18 @@
                 display: block;
             }
 
+            /* ── Anchor note (substitution rules only apply at 1/1) ── */
+            .anchor-note {
+                background: #fff8e1;
+                border-left: 3px solid #f0c040;
+                padding: 8px 12px;
+                margin: 8px 0 16px;
+                max-width: 720px;
+                font-size: 0.85rem;
+                color: #555;
+                line-height: 1.5;
+            }
+
             /* ── Translation Table ── */
             .trans-grid {
                 display: flex;
@@ -332,6 +344,14 @@
                 <div class="figure">
                     <canvas id="coylean-map-6"></canvas>
                 </div>
+
+        <p class="anchor-note">
+            <strong>Note:</strong> the substitution and translation rules below
+            describe the canonical clean-baseline map and apply visually only
+            at lat/long&nbsp;=&nbsp;1/1. At other dyadic locations, the maps
+            above still render correctly, but their cells no longer obey the
+            2&times;2 expansion shown in these tables.
+        </p>
 
         <h2>Substitution Rule — V → H (1×2 horizontal)</h2>
         <p class="subtitle">
