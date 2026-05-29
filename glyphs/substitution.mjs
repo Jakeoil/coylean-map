@@ -56,65 +56,15 @@ const BASE_NS = 8;
 let currentH = 1, currentV = 1;
 let currentSeniority = Seniority.vertical();
 
-// ── Substitution Tables (per seniority) ──
-// Per-code rule: parent (dc, rc) → 4 child codes + 4 internal-boundary flags
-// (the segments dividing the 2×2 child block). Built from canonical clean-map
-// section data at orders 5 → 6 and 6 → 7 (deeper catches codes the order-5
-// scan didn't hit). One table per seniority — H propagation is a different
-// dynamics, so its substitution table differs.
-//
-// Direct propagation only reaches ~34 of the 64 codes; the rest are completed
-// by D4 extrapolation: if a code's orbit contains a member that DOES have a
-// rule, transform that rule under the D4 element relating the two members.
-const SUB_TABLE_V = extrapolateSubTable(
-    buildSubTable(Seniority.vertical()), Seniority.vertical());
-const SUB_TABLE_H = extrapolateSubTable(
-    buildSubTable(Seniority.horizontal()), Seniority.horizontal());
-function currentSubTable() {
-    return currentSeniority.isVertical ? SUB_TABLE_V : SUB_TABLE_H;
-}
-
-function buildSubTable(sen) {
-    const o5 = getSectionData(32, 32, sen);
-    const o6 = getSectionData(64, 64, sen);
-    const o7 = getSectionData(128, 128, sen);
-    const t = {};
-    function ingest(parent, child) {
-        for (let sr = 0; sr < parent.NSr; sr++) {
-            for (let sc = 0; sc < parent.NSc; sc++) {
-                const [dc, rc] = parent.codes[sr][sc];
-                const k = dc + "," + rc;
-                if (t[k]) continue;
-                const sr2 = sr * 2, sc2 = sc * 2;
-                t[k] = {
-                    children: [
-                        [...child.codes[sr2][sc2]],
-                        [...child.codes[sr2][sc2 + 1]],
-                        [...child.codes[sr2 + 1][sc2]],
-                        [...child.codes[sr2 + 1][sc2 + 1]],
-                    ],
-                    vBoundTop: child.vBound[sr2][sc2],
-                    vBoundBot: child.vBound[sr2 + 1][sc2],
-                    hBoundLeft: child.hBound[sr2][sc2],
-                    hBoundRight: child.hBound[sr2][sc2 + 1],
-                };
-            }
-        }
-    }
-    ingest(o5, o6);
-    ingest(o6, o7);
-    return t;
-}
-
-// ── D4 extrapolation of the substitution table ──
+// ── D4 extrapolation helpers (must precede SUB_TABLE_V/H init below) ──
 // Canonical propagation reaches ~34 codes out of 64. The remaining codes are
 // reachable from a known one by a D4 transform of the section pattern. For
 // each missing code we find an orbit-sibling with a rule, then map the rule
 // across by:
 //   * permuting the 2×2 children's POSITIONS via D4_POS (where each cell
 //     lands under the transform);
-//   * transforming each child's CODE via codeUnderD4 (a 64×8 lookup of where
-//     each (d, r) lands under each D4 element, using computePattern); and
+//   * transforming each child's CODE via CODE_UNDER_D4_{V,H} (a 64×8 lookup
+//     of where each (d, r) lands under each D4 element); and
 //   * permuting the 4 internal-boundary flags via D4_BND (the boundary
 //     between two cells maps to the boundary between their new positions).
 
@@ -133,8 +83,7 @@ const D4_POS = [
 
 // D4_BND[g][b] = boundary index that boundary b maps to under D4 element g,
 // where boundaries are 0=vBoundTop (NW/NE), 1=vBoundBot (SW/SE),
-// 2=hBoundLeft (NW/SW), 3=hBoundRight (NE/SE). Derived from D4_POS by
-// mapping each boundary's two endpoint cells through the position permutation.
+// 2=hBoundLeft (NW/SW), 3=hBoundRight (NE/SE).
 const D4_BND = [
     [0, 1, 2, 3], // 0 e
     [3, 2, 0, 1], // 1 r
@@ -146,7 +95,6 @@ const D4_BND = [
     [3, 2, 1, 0], // 7 s_d2
 ];
 
-// D4_INV[g] = inverse of D4 element g (in the d4Compose algebra).
 const D4_INV = (() => {
     const inv = new Array(8);
     for (let g = 0; g < 8; g++)
@@ -155,9 +103,6 @@ const D4_INV = (() => {
     return inv;
 })();
 
-// codeUnderD4(d, r, sen, ti) → [d', r'] such that the section pattern of
-// (d', r') equals VISUAL_D4[ti] applied to the pattern of (d, r). Computed
-// once per seniority by inverting the pattern → code map.
 function buildCodeUnderD4(seniority) {
     const keyToCode = new Map();
     for (let d = 0; d < 8; d++) {
@@ -200,7 +145,6 @@ function applyD4ToRule(rule, ti, codeTable) {
     };
 }
 
-// Fill in missing codes by transforming a known orbit-sibling's rule.
 function extrapolateSubTable(baseTable, seniority) {
     const out = { ...baseTable };
     const classes = classifyVisualD4(seniority);
@@ -224,6 +168,52 @@ function extrapolateSubTable(baseTable, seniority) {
         }
     }
     return out;
+}
+
+// ── Substitution Tables (per seniority) ──
+// Per-code rule: parent (dc, rc) → 4 child codes + 4 internal-boundary flags
+// (the segments dividing the 2×2 child block). Built from canonical clean-map
+// section data at orders 5 → 6 and 6 → 7 (deeper catches codes the order-5
+// scan didn't hit), then completed within each touched orbit by D4
+// extrapolation. One table per seniority — H propagation is a different
+// dynamics, so its substitution table differs.
+function buildSubTable(sen) {
+    const o5 = getSectionData(32, 32, sen);
+    const o6 = getSectionData(64, 64, sen);
+    const o7 = getSectionData(128, 128, sen);
+    const t = {};
+    function ingest(parent, child) {
+        for (let sr = 0; sr < parent.NSr; sr++) {
+            for (let sc = 0; sc < parent.NSc; sc++) {
+                const [dc, rc] = parent.codes[sr][sc];
+                const k = dc + "," + rc;
+                if (t[k]) continue;
+                const sr2 = sr * 2, sc2 = sc * 2;
+                t[k] = {
+                    children: [
+                        [...child.codes[sr2][sc2]],
+                        [...child.codes[sr2][sc2 + 1]],
+                        [...child.codes[sr2 + 1][sc2]],
+                        [...child.codes[sr2 + 1][sc2 + 1]],
+                    ],
+                    vBoundTop: child.vBound[sr2][sc2],
+                    vBoundBot: child.vBound[sr2 + 1][sc2],
+                    hBoundLeft: child.hBound[sr2][sc2],
+                    hBoundRight: child.hBound[sr2][sc2 + 1],
+                };
+            }
+        }
+    }
+    ingest(o5, o6);
+    ingest(o6, o7);
+    return t;
+}
+const SUB_TABLE_V = extrapolateSubTable(
+    buildSubTable(Seniority.vertical()), Seniority.vertical());
+const SUB_TABLE_H = extrapolateSubTable(
+    buildSubTable(Seniority.horizontal()), Seniority.horizontal());
+function currentSubTable() {
+    return currentSeniority.isVertical ? SUB_TABLE_V : SUB_TABLE_H;
 }
 
 // ── Grid expansion via SUB_TABLE ──
