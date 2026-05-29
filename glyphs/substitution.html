@@ -100,6 +100,36 @@
             .sidebar label:last-child {
                 margin-bottom: 0;
             }
+            .sidebar input[type="number"] {
+                width: 3.4em;
+                margin-left: 6px;
+                font-family: inherit;
+                font-size: 0.85rem;
+            }
+            .legend {
+                font-size: 0.72rem;
+                color: #888;
+                line-height: 1.5;
+                margin-top: 8px;
+            }
+            .legend .swatch {
+                display: inline-block;
+                width: 10px;
+                height: 10px;
+                vertical-align: middle;
+                margin-right: 4px;
+            }
+            .legend .swatch.divergent {
+                background: rgba(220, 50, 50, 0.45);
+                border: 1px solid #c83232;
+            }
+            .legend .swatch.unknown {
+                background: rgba(245, 158, 11, 0.45);
+                border: 1px solid #d97706;
+            }
+            .legend p {
+                margin: 4px 0;
+            }
 
             /* ── Per-view control row ── */
             .view-controls {
@@ -185,6 +215,39 @@
                         <input type="checkbox" id="bb-outline" checked />
                         Outline
                     </label>
+                </div>
+                <div class="side-group">
+                    <div class="side-title">Dyadic location</div>
+                    <label>
+                        latitude
+                        <input
+                            type="number"
+                            id="vinit-input"
+                            value="1"
+                            step="1"
+                        />
+                    </label>
+                    <label>
+                        longitude
+                        <input
+                            type="number"
+                            id="hinit-input"
+                            value="1"
+                            step="1"
+                        />
+                    </label>
+                    <div class="legend">
+                        <p>
+                            <span class="swatch divergent"></span>
+                            substitution-driven code diverges from the
+                            propagation truth at this lat/long &amp; order.
+                        </p>
+                        <p>
+                            <span class="swatch unknown"></span>
+                            code not in the canonical substitution table —
+                            zooming in produces V₀₀ children.
+                        </p>
+                    </div>
                 </div>
             </aside>
             <main class="content">

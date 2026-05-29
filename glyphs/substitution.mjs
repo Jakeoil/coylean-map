@@ -3,12 +3,18 @@
 // ═══════════════════════════════════════════════════
 //
 // Two interactive views built on the canonical V substitution table:
-//   * Explorer — starts at the single-arrow seed (order 5); click a section
-//     to substitute one level deeper (order 5 → 6 → 7 …), zoom-out stack.
+//   * Explorer — seeded from computeMapModel(32,32) at the current dyadic
+//     offset (so at 1/1 it's the clean single-arrow map; at other offsets
+//     it's that offset's actual order-5 map). Click a section to substitute
+//     one level deeper (order 5 → 6 → 7 …), zoom-out stack.
 //   * Universe — starts at the J|M / J·sₕ|F universe seed, expanded twice to
-//     order 5; same zoom mechanics.
-// Both are canonical by construction (the dyadic-location sidebar that the
-// catalog has wouldn't make sense here), so no offset controls.
+//     order 5. The displayed grid is offset-independent; only the divergence
+//     overlay reacts to lat/long.
+// Each render compares the substitution-driven grid to truth = computeMapModel
+// at the current offset and order; cells that disagree are tinted red. At 1/1
+// substitution is a fixed point, so divergence is empty everywhere. At other
+// dyadic offsets, divergence reveals where and at what order the substitution
+// rule starts mispredicting the true propagation.
 
 import { Seniority } from "../coylean-explorer/coylean-core.js";
 import {
@@ -17,6 +23,8 @@ import {
     setWorkingAssignments,
     setOldAssignments,
     applyAssignments,
+    setOffset,
+    computeMapModel,
 } from "./glyph-core.js";
 import {
     drawSection,
@@ -26,6 +34,15 @@ import {
     ensureBabyBlocksLoaded,
     babyBlocksReady,
 } from "./glyph-render.js";
+
+// Cells per section side (Coylean structural constant).
+const SEC = 4;
+// Base order: both views' seed grids are 8 sections × 8 sections (order 5).
+const BASE_NS = 8;
+
+// Current dyadic offset; mirrored from the sidebar inputs. Used to (re)seed
+// the explorer and to compute the truth map for divergence marking.
+let currentH = 1, currentV = 1;
 
 // ── V Substitution Table ──
 // Per-code rule: parent (dc, rc) → 4 child codes + 4 internal-boundary flags
@@ -112,15 +129,50 @@ function expandGrid(grid, vBound, hBound, ns) {
 }
 
 // ── Seeds ──
-// Explorer root: order-5 clean-baseline single-arrow propagation, sectioned.
+// Explorer root: the actual order-5 map at the current dyadic offset (via
+// computeMapModel / universe integration). At 1/1 this matches the clean
+// single-arrow seed exactly; at other offsets it's the offset's true map,
+// so the user can watch how substitution-driven expansion diverges from
+// further propagation. Boundary flags reconstructed from the same matrices.
 function explorerSeed() {
-    const o5 = getSectionData(32, 32, Seniority.vertical());
+    const model = computeMapModel(32, 32, { seniority: Seniority.vertical() });
+    const ns = Math.min(model.NSr, model.NSc, 8);
+    const { vBound, hBound } = boundsFromModel(model, ns);
     return {
-        grid:   o5.codes.map(row => row.map(c => [...c])),
-        vBound: o5.vBound.map(row => [...row]),
-        hBound: o5.hBound.map(row => [...row]),
-        ns:     o5.NSr,    // 8
+        grid:   model.secCodes.slice(0, ns).map(r => r.slice(0, ns).map(c => [...c])),
+        vBound,
+        hBound,
+        ns,
     };
+}
+// vBound[sr][sc] / hBound[sr][sc]: any active segment along the section's
+// exit column / row. Mirrors getSectionData's boundary logic, but reads
+// computeMapModel's matrices (which honour the dyadic offset).
+function boundsFromModel(model, ns) {
+    const { firstDarkRow, firstDarkCol, downMatrix, rightMatrix } = model;
+    const vB = Array.from({ length: ns }, () => Array(ns).fill(false));
+    const hB = Array.from({ length: ns }, () => Array(ns).fill(false));
+    for (let sr = 0; sr < ns; sr++) {
+        for (let sc = 0; sc < ns; sc++) {
+            const y0 = firstDarkRow + sr * SEC + 1;
+            const x0 = firstDarkCol + sc * SEC + 1;
+            if (sc < ns - 1) {
+                const xExit = firstDarkCol + (sc + 1) * SEC;
+                for (let i = 0; i < SEC; i++) {
+                    const row = downMatrix[y0 + i];
+                    if (row && row[xExit]) { vB[sr][sc] = true; break; }
+                }
+            }
+            if (sr < ns - 1) {
+                const yExit = firstDarkRow + (sr + 1) * SEC;
+                for (let i = 0; i < SEC; i++) {
+                    const col = rightMatrix[x0 + i];
+                    if (col && col[yExit]) { hB[sr][sc] = true; break; }
+                }
+            }
+        }
+    }
+    return { vBound: vB, hBound: hB };
 }
 // Universe seed: 2×2 J|M / J·sₕ|F, expanded twice to reach order 5.
 function universeSeed() {
@@ -137,13 +189,52 @@ function universeSeed() {
 }
 
 // ── Layout / rendering ──
-const SEC = 4;
 function computeLayout(cols) {
     const maxPx = Math.min(800, window.innerWidth - 60);
     const cellSize = Math.max(4, Math.floor(maxPx / (cols * SEC + cols)));
     const gap = Math.max(1, Math.floor(cellSize * 0.15));
     const secPx = SEC * cellSize;
     return { cellSize, gap, secPx, stride: secPx + gap };
+}
+
+// Truth = computeMapModel at the current dyadic offset and order; one cache
+// entry per (offset, order). Lets the divergence overlay re-render cheaply
+// when the user just hovers or zooms a bit; recomputed when offset changes.
+let truthCache = { key: null, model: null };
+function truthAtLevel(level) {
+    const N = BASE_NS * SEC * Math.pow(2, level); // 32 → 64 → 128 …
+    if (N > 1024) return null; // too slow; suppress divergence at deep zoom
+    const key = `${currentH}/${currentV}@${N}`;
+    if (truthCache.key === key) return truthCache.model;
+    setOffset(currentH, currentV);
+    const model = computeMapModel(N, N, { seniority: Seniority.vertical() });
+    truthCache = { key, model };
+    return model;
+}
+function invalidateTruth() { truthCache = { key: null, model: null }; }
+
+function computeDivergence(state) {
+    const level = state.zoomStack.length;
+    const truth = truthAtLevel(level);
+    const rows = state.grid.length;
+    const cols = state.grid[0].length;
+    const div = Array.from({ length: rows }, () => Array(cols).fill(false));
+    // Mark cells whose code isn't in SUB_TABLE — they would expand to all
+    // zeros if substituted. Independent of truth (no cap on level).
+    const unknown = Array.from({ length: rows }, () => Array(cols).fill(false));
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const [d, rr] = state.grid[r][c];
+            if (!SUB_TABLE[d + "," + rr]) unknown[r][c] = true;
+            if (!truth) continue;
+            const ar = state.absR0 + r, ac = state.absC0 + c;
+            if (ar < 0 || ar >= truth.NSr || ac < 0 || ac >= truth.NSc) continue;
+            const t = truth.secCodes[ar][ac];
+            if (state.grid[r][c][0] !== t[0] ||
+                state.grid[r][c][1] !== t[1]) div[r][c] = true;
+        }
+    }
+    return { div, unknown };
 }
 
 function renderView(canvas, state) {
@@ -157,6 +248,23 @@ function renderView(canvas, state) {
     canvas.height = totalH;
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, totalW, totalH);
+
+    const flags = computeDivergence(state);
+    if (flags) {
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const x = gap + c * (secPx + gap);
+                const y = gap + r * (secPx + gap);
+                if (flags.div[r][c]) {
+                    ctx.fillStyle = "rgba(220, 50, 50, 0.22)";
+                    ctx.fillRect(x, y, secPx, secPx);
+                } else if (flags.unknown[r][c]) {
+                    ctx.fillStyle = "rgba(245, 158, 11, 0.22)";
+                    ctx.fillRect(x, y, secPx, secPx);
+                }
+            }
+        }
+    }
 
     // Amber background for the 2×2 children of the last zoom click.
     let hiRect = null;
@@ -248,6 +356,10 @@ function makeZoomView(canvas, initFn, ui) {
         showDots: true,
         showLetters: true,
         baseOrder: 5,
+        // Viewport's top-left section index in absolute order-(baseOrder+level)
+        // section coords. Used to align the windowed view with truth =
+        // computeMapModel at this offset+level, for divergence marking.
+        absR0: 0, absC0: 0,
     };
 
     function reset() {
@@ -259,6 +371,8 @@ function makeZoomView(canvas, initFn, ui) {
         state.zoomStack = [];
         state.childHiR = -1;
         state.childHiC = -1;
+        state.absR0 = 0;
+        state.absC0 = 0;
         refresh();
     }
 
@@ -266,6 +380,7 @@ function makeZoomView(canvas, initFn, ui) {
         state.zoomStack.push({
             grid: state.grid, vBound: state.vBound,
             hBound: state.hBound, ns: state.ns,
+            absR0: state.absR0, absC0: state.absC0,
         });
         const exp = expandGrid(state.grid, state.vBound, state.hBound, state.ns);
         const ns2 = exp.ns;
@@ -278,6 +393,11 @@ function makeZoomView(canvas, initFn, ui) {
         const view = Math.min(state.ns, ns2);
         state.childHiR = centerR - startR;
         state.childHiC = centerC - startC;
+        // The doubled grid sits at absolute section coords starting at
+        // (2·absR0, 2·absC0) in the order-(level+1) section grid; the
+        // window then shifts by (startR, startC).
+        state.absR0 = state.absR0 * 2 + startR;
+        state.absC0 = state.absC0 * 2 + startC;
         state.grid = Array.from({ length: view }, (_, r) =>
             Array.from({ length: view }, (_, c) =>
                 [...exp.grid[startR + r][startC + c]]));
@@ -301,6 +421,8 @@ function makeZoomView(canvas, initFn, ui) {
         state.vBound = prev.vBound;
         state.hBound = prev.hBound;
         state.ns = prev.ns;
+        state.absR0 = prev.absR0;
+        state.absC0 = prev.absC0;
         state.childHiR = -1;
         state.childHiC = -1;
         refresh();
@@ -457,6 +579,25 @@ function wireControls() {
             document.getElementById("universe-out").click();
         }
     });
+
+    // Dyadic location: explorer seed depends on the offset (so reset it),
+    // universe seed is canonical (so just rerender to refresh divergence).
+    const hIn = document.getElementById("hinit-input");
+    const vIn = document.getElementById("vinit-input");
+    function readN(el, fallback) {
+        const n = parseInt(el.value, 10);
+        return Number.isFinite(n) ? n : fallback;
+    }
+    function onOffsetChange() {
+        currentH = readN(hIn, 1);
+        currentV = readN(vIn, 1);
+        setOffset(currentH, currentV);
+        invalidateTruth();
+        explorer.reset();
+        universe.refresh();
+    }
+    if (hIn) hIn.addEventListener("change", onOffsetChange);
+    if (vIn) vIn.addEventListener("change", onOffsetChange);
 }
 
 (async function init() {
@@ -466,6 +607,15 @@ function wireControls() {
     await loadAssignmentFile(key);
     await loadOldAssignments();
     applyAssignments(true);
+    // Read whatever the HTML defaulted the lat/long boxes to (1/1) before
+    // the first seed so explorerSeed sees the right offset.
+    const hIn = document.getElementById("hinit-input");
+    const vIn = document.getElementById("vinit-input");
+    if (hIn && vIn) {
+        currentH = parseInt(hIn.value, 10) || 1;
+        currentV = parseInt(vIn.value, 10) || 1;
+        setOffset(currentH, currentV);
+    }
     explorer.reset();
     universe.reset();
     wireControls();
