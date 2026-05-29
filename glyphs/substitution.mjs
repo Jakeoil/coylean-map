@@ -7,16 +7,17 @@
 //     offset (so at 1/1 it's the clean single-arrow map; at other offsets
 //     it's that offset's actual order-5 map). Click a section to substitute
 //     one level deeper (order 5 → 6 → 7 …), zoom-out stack.
-//   * Universe — starts at the J|M / J·sₕ|F universe seed, expanded twice to
-//     order 5. The displayed grid is offset-independent; only the divergence
-//     overlay reacts to lat/long.
+//   * Universe — the FULL symmetric universe at order 5, propagated from
+//     extent 32 in each of N, S, W, E (Propagation.fromUniverseExtents),
+//     sectioned into 16×16. The centre is the universe origin; reseeds
+//     when lat/long changes (the offset is baked into the boundary).
 // Each render compares the substitution-driven grid to truth = computeMapModel
 // at the current offset and order; cells that disagree are tinted red. At 1/1
 // substitution is a fixed point, so divergence is empty everywhere. At other
 // dyadic offsets, divergence reveals where and at what order the substitution
 // rule starts mispredicting the true propagation.
 
-import { Seniority } from "../coylean-explorer/coylean-core.js";
+import { Seniority, Propagation } from "../coylean-explorer/coylean-core.js";
 import {
     getSectionData,
     GLYPH_LETTERS,
@@ -135,6 +136,7 @@ function expandGrid(grid, vBound, hBound, ns) {
 // so the user can watch how substitution-driven expansion diverges from
 // further propagation. Boundary flags reconstructed from the same matrices.
 function explorerSeed() {
+    setOffset(currentH, currentV);
     const model = computeMapModel(32, 32, { seniority: Seniority.vertical() });
     const ns = Math.min(model.NSr, model.NSc, 8);
     const { vBound, hBound } = boundsFromModel(model, ns);
@@ -149,43 +151,94 @@ function explorerSeed() {
 // exit column / row. Mirrors getSectionData's boundary logic, but reads
 // computeMapModel's matrices (which honour the dyadic offset).
 function boundsFromModel(model, ns) {
-    const { firstDarkRow, firstDarkCol, downMatrix, rightMatrix } = model;
-    const vB = Array.from({ length: ns }, () => Array(ns).fill(false));
-    const hB = Array.from({ length: ns }, () => Array(ns).fill(false));
+    const { vBound, hBound } = sectionsFromPropagation(
+        model, model.firstDarkRow + 1, model.firstDarkCol + 1, ns);
+    return { vBound, hBound };
+}
+
+// Partition a Propagation (downMatrix/rightMatrix) into ns × ns sections of
+// SEC × SEC cells, starting at matrix (originRow, originCol). For each
+// section, compute the 3-bit downCode / rightCode (which interior input
+// segments are present) and whether the exit column / row has any segment.
+// Two conventions in play:
+//   * SE patch (computeMapModel)   — originRow=firstDarkRow+1, originCol=firstDarkCol+1, ns=8.
+//   * Symmetric universe (fromUniverseExtents) — originRow=originCol=0, ns=numRows/SEC.
+function sectionsFromPropagation(prop, originRow, originCol, ns) {
+    const { downMatrix, rightMatrix } = prop;
+    const grid = Array.from({ length: ns }, () =>
+        Array.from({ length: ns }, () => [0, 0]));
+    const vBound = Array.from({ length: ns }, () => Array(ns).fill(false));
+    const hBound = Array.from({ length: ns }, () => Array(ns).fill(false));
     for (let sr = 0; sr < ns; sr++) {
         for (let sc = 0; sc < ns; sc++) {
-            const y0 = firstDarkRow + sr * SEC + 1;
-            const x0 = firstDarkCol + sc * SEC + 1;
+            const y0 = originRow + sr * SEC;
+            const x0 = originCol + sc * SEC;
+            for (let i = 0; i < 3; i++) {
+                const dRow = downMatrix[y0];
+                if (dRow && dRow[x0 + i]) grid[sr][sc][0] |= 1 << i;
+                const rCol = rightMatrix[x0];
+                if (rCol && rCol[y0 + i]) grid[sr][sc][1] |= 1 << i;
+            }
             if (sc < ns - 1) {
-                const xExit = firstDarkCol + (sc + 1) * SEC;
+                const xExit = x0 + SEC - 1;
                 for (let i = 0; i < SEC; i++) {
                     const row = downMatrix[y0 + i];
-                    if (row && row[xExit]) { vB[sr][sc] = true; break; }
+                    if (row && row[xExit]) { vBound[sr][sc] = true; break; }
                 }
             }
             if (sr < ns - 1) {
-                const yExit = firstDarkRow + (sr + 1) * SEC;
+                const yExit = y0 + SEC - 1;
                 for (let i = 0; i < SEC; i++) {
                     const col = rightMatrix[x0 + i];
-                    if (col && col[yExit]) { hB[sr][sc] = true; break; }
+                    if (col && col[yExit]) { hBound[sr][sc] = true; break; }
                 }
             }
         }
     }
-    return { vBound: vB, hBound: hB };
+    return { grid, vBound, hBound };
 }
-// Universe seed: 2×2 J|M / J·sₕ|F, expanded twice to reach order 5.
+// Universe seed: the FULL symmetric universe at order 5 — propagation from
+// extent 32 on all four sides (N, S, W, E) via Propagation.fromUniverseExtents.
+// At the canonical 1/1 anchor this gives a 64×64-cell matrix = 16×16 sections,
+// with the universe origin at the centre. Reseeds when the dyadic offset
+// changes, since fromUniverseExtents bakes the offset into its boundary.
+//
+// (The previous hardcoded seed [[J,M],[J·sₕ,F]] expanded twice — and even
+// the corrected computeMapModel(8,8)-derived seed — only showed the SE patch
+// = SE quadrant of the symmetric universe. Jake asked for the full symmetric
+// view; see 2026-05-29.)
+const UNIVERSE_EXTENT = 32;
+
+// In a fromUniverseExtents(N=S=W=E=ext) matrix, the cage 010-alignment doesn't
+// start at matrix col 0 in general — it shifts with the dyadic offset. With
+// the engine's stored hInit_eff = curH − westExtent, the first matrix column
+// where pri = 1 (cage middle) sits at matrix col K+1 such that K+1+hInit_eff
+// is even and not a multiple of 4. Solving:
+//   originCol = ((westExtent + 1 − curH) mod SEC + SEC) mod SEC
+//   originRow = ((northExtent + 1 − curV) mod SEC + SEC) mod SEC
+// Verified: long=1 → 0, long=0 → 1, long=2 → 3. ns shrinks to 15 when the
+// origin is non-zero; the extra matrix cells at the NW edge are an incomplete
+// cage outside the section grid.
+function cageOrigin(curH, curV, westExtent, northExtent) {
+    const originCol = ((westExtent + 1 - curH) % SEC + SEC) % SEC;
+    const originRow = ((northExtent + 1 - curV) % SEC + SEC) % SEC;
+    return { originRow, originCol };
+}
+
 function universeSeed() {
-    let grid = [
-        [[6, 6], [5, 6]],   // J  M
-        [[7, 3], [7, 7]],   // J·sₕ  F
-    ];
-    let vb = [[true, false], [true, false]];
-    let hb = [[false, true], [false, false]];
-    let ns = 2;
-    let exp = expandGrid(grid, vb, hb, ns);
-    exp = expandGrid(exp.grid, exp.vBound, exp.hBound, exp.ns);
-    return exp;
+    const prop = Propagation.fromUniverseExtents({
+        northExtent: UNIVERSE_EXTENT, southExtent: UNIVERSE_EXTENT,
+        westExtent: UNIVERSE_EXTENT, eastExtent: UNIVERSE_EXTENT,
+        hInitCol: currentH, vInitRow: currentV,
+        seniority: Seniority.vertical(),
+    });
+    const { originRow, originCol } = cageOrigin(
+        currentH, currentV, UNIVERSE_EXTENT, UNIVERSE_EXTENT);
+    const ns = Math.floor(Math.min(
+        prop.numRows - originRow, prop.numColumns - originCol) / SEC);
+    const { grid, vBound, hBound } =
+        sectionsFromPropagation(prop, originRow, originCol, ns);
+    return { grid, vBound, hBound, ns };
 }
 
 // ── Layout / rendering ──
@@ -197,25 +250,53 @@ function computeLayout(cols) {
     return { cellSize, gap, secPx, stride: secPx + gap };
 }
 
-// Truth = computeMapModel at the current dyadic offset and order; one cache
-// entry per (offset, order). Lets the divergence overlay re-render cheaply
-// when the user just hovers or zooms a bit; recomputed when offset changes.
-let truthCache = { key: null, model: null };
-function truthAtLevel(level) {
+// Truth caches — one per (view, offset, level) tuple. Both views compute truth
+// from a Propagation, so we store `{ NSr, NSc, secCodes }` either way.
+const truthCache = new Map();
+function invalidateTruth() { truthCache.clear(); }
+
+// Truth for the explorer: computeMapModel (SE patch, 1-cell N/W boundary) at
+// the current offset and order. The seed of the explorer view IS this map at
+// level 0, so divergence appears only at level ≥ 1 (where substitution may
+// or may not preserve the true propagation).
+function getTruthExplorer(level) {
     const N = BASE_NS * SEC * Math.pow(2, level); // 32 → 64 → 128 …
-    if (N > 1024) return null; // too slow; suppress divergence at deep zoom
-    const key = `${currentH}/${currentV}@${N}`;
-    if (truthCache.key === key) return truthCache.model;
+    if (N > 1024) return null;
+    const key = `expl:${currentH}/${currentV}@${N}`;
+    const hit = truthCache.get(key); if (hit) return hit;
     setOffset(currentH, currentV);
     const model = computeMapModel(N, N, { seniority: Seniority.vertical() });
-    truthCache = { key, model };
+    truthCache.set(key, model);
     return model;
 }
-function invalidateTruth() { truthCache = { key: null, model: null }; }
+
+// Truth for the universe view: fromUniverseExtents (symmetric, all four
+// directions at the same extent) at the current offset and order. At level 0
+// the universe seed IS this truth (so divergence is empty at level 0);
+// substitution-driven zoom-ins are compared against fromUniverseExtents at
+// extent 32·2^level.
+function getTruthUniverse(level) {
+    const ext = UNIVERSE_EXTENT * Math.pow(2, level); // 32 → 64 → 128 …
+    if (ext > 512) return null; // 1024-cell-side cap
+    const key = `univ:${currentH}/${currentV}@${ext}`;
+    const hit = truthCache.get(key); if (hit) return hit;
+    const prop = Propagation.fromUniverseExtents({
+        northExtent: ext, southExtent: ext, westExtent: ext, eastExtent: ext,
+        hInitCol: currentH, vInitRow: currentV,
+        seniority: Seniority.vertical(),
+    });
+    const { originRow, originCol } = cageOrigin(currentH, currentV, ext, ext);
+    const ns = Math.floor(Math.min(
+        prop.numRows - originRow, prop.numColumns - originCol) / SEC);
+    const { grid } = sectionsFromPropagation(prop, originRow, originCol, ns);
+    const model = { secCodes: grid, NSr: ns, NSc: ns };
+    truthCache.set(key, model);
+    return model;
+}
 
 function computeDivergence(state) {
     const level = state.zoomStack.length;
-    const truth = truthAtLevel(level);
+    const truth = state.getTruth ? state.getTruth(level) : null;
     const rows = state.grid.length;
     const cols = state.grid[0].length;
     const div = Array.from({ length: rows }, () => Array(cols).fill(false));
@@ -347,7 +428,7 @@ function renderView(canvas, state) {
 // ── Zoom view factory ──
 // Wraps state + zoom logic + event handlers for one canvas. `initFn` returns
 // the seed (level-0) grid bundle; the view resets back to that on Reset.
-function makeZoomView(canvas, initFn, ui) {
+function makeZoomView(canvas, initFn, getTruth, ui) {
     const state = {
         grid: null, vBound: null, hBound: null, ns: 0,
         zoomStack: [],
@@ -357,9 +438,12 @@ function makeZoomView(canvas, initFn, ui) {
         showLetters: true,
         baseOrder: 5,
         // Viewport's top-left section index in absolute order-(baseOrder+level)
-        // section coords. Used to align the windowed view with truth =
-        // computeMapModel at this offset+level, for divergence marking.
+        // section coords. Used to align the windowed view with truth at this
+        // offset+level, for divergence marking.
         absR0: 0, absC0: 0,
+        // Per-view truth source (computeMapModel for explorer, fromUniverse-
+        // Extents for the symmetric universe). computeDivergence reads this.
+        getTruth,
     };
 
     function reset() {
@@ -519,13 +603,13 @@ async function loadOldAssignments() {
 const explorerCanvas = document.getElementById("explorer-canvas");
 const universeCanvas = document.getElementById("universe-canvas");
 
-const explorer = makeZoomView(explorerCanvas, explorerSeed, {
+const explorer = makeZoomView(explorerCanvas, explorerSeed, getTruthExplorer, {
     info:     document.getElementById("explorer-info"),
     btnOut:   document.getElementById("explorer-out"),
     btnReset: document.getElementById("explorer-reset"),
     btnDots:  document.getElementById("explorer-dots"),
 });
-const universe = makeZoomView(universeCanvas, universeSeed, {
+const universe = makeZoomView(universeCanvas, universeSeed, getTruthUniverse, {
     info:     document.getElementById("universe-info"),
     btnOut:   document.getElementById("universe-out"),
     btnReset: document.getElementById("universe-reset"),
@@ -593,8 +677,10 @@ function wireControls() {
         currentV = readN(vIn, 1);
         setOffset(currentH, currentV);
         invalidateTruth();
+        // Both seeds depend on the offset (explorer via computeMapModel,
+        // universe via fromUniverseExtents), so reset both.
         explorer.reset();
-        universe.refresh();
+        universe.reset();
     }
     if (hIn) hIn.addEventListener("change", onOffsetChange);
     if (vIn) vIn.addEventListener("change", onOffsetChange);
