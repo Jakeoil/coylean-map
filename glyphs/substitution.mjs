@@ -36,6 +36,8 @@ import {
     H_COLOR,
     CELL_PX,
     toFt,
+    glyphLabel,
+    hGlyphLabel,
     ensureBabyBlocksLoaded,
     babyBlocksReady,
 } from "./glyph-render.js";
@@ -342,6 +344,55 @@ function computeDivergence(state) {
 // in pink that drawSection didn't draw.
 const DIFF_PRED_ONLY = "#d32f2f";
 const DIFF_TRUTH_ONLY = "#f48fb1";
+// ── Hover-driven substitution-rule preview (sidebar) ──
+// Mirrors the catalog's V→V translation table, but for a single hovered code:
+// shows the parent's glyph label + the 4 child labels in a 2×2 with the
+// internal boundary segments drawn between them. If the code isn't in the
+// current seniority's SUB_TABLE, says so explicitly.
+function labelFor(dc, rc) {
+    return currentSeniority.isVertical
+        ? glyphLabel(dc, rc)
+        : hGlyphLabel(dc, rc);
+}
+function escapeText(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function showHoverTranslation(dc, rc) {
+    const el = document.getElementById("hover-translation");
+    if (!el) return;
+    const parent = labelFor(dc, rc);
+    const rule = currentSubTable()[dc + "," + rc];
+    if (!rule) {
+        el.innerHTML =
+            `<div class="ht-parent">${escapeText(parent)}</div>` +
+            `<p class="ht-unreachable">Not in canonical SUB_TABLE — ` +
+            `code never appears in clean-baseline propagation, so ` +
+            `there is no 2×2 expansion rule.</p>`;
+        return;
+    }
+    const ch = rule.children.map(([d, r]) => escapeText(labelFor(d, r)));
+    // Internal boundary classes per cell (matches the catalog's translation
+    // table layout in glyphs.js:283).
+    const cls = [
+        [rule.hBoundLeft ? "border-bottom" : "",
+         rule.vBoundTop  ? "border-right"  : ""],
+        [rule.hBoundRight ? "border-bottom" : "", ""],
+        ["", rule.vBoundBot ? "border-right" : ""],
+        ["", ""],
+    ];
+    const cell = (i) =>
+        `<div class="ht-child ${cls[i].filter(Boolean).join(" ")}">${ch[i]}</div>`;
+    el.innerHTML =
+        `<div class="ht-parent">${escapeText(parent)}</div>` +
+        `<div class="ht-arrow">→ 2×2 children</div>` +
+        `<div class="ht-children">${cell(0)}${cell(1)}${cell(2)}${cell(3)}</div>`;
+}
+function clearHoverTranslation() {
+    const el = document.getElementById("hover-translation");
+    if (el) el.innerHTML =
+        `<p class="ht-empty">Hover over a section to see its 2×2 expansion.</p>`;
+}
+
 function overlayDiff(ctx, dc, rc, dcT, rcT, seniority, sx, sy, cell) {
     const pred = computeGlyphMatrices(dc, rc, seniority, 1, 1);
     const truth = computeGlyphMatrices(dcT, rcT, seniority, 1, 1);
@@ -614,10 +665,19 @@ function makeZoomView(canvas, initFn, getTruth, ui) {
         const oldR = state.hoverR, oldC = state.hoverC;
         if (sec) { state.hoverR = sec[0]; state.hoverC = sec[1]; }
         else     { state.hoverR = -1;     state.hoverC = -1; }
-        if (state.hoverR !== oldR || state.hoverC !== oldC) render();
+        if (state.hoverR !== oldR || state.hoverC !== oldC) {
+            if (state.hoverR >= 0 && state.hoverC >= 0) {
+                const [dc, rc] = state.grid[state.hoverR][state.hoverC];
+                showHoverTranslation(dc, rc);
+            } else {
+                clearHoverTranslation();
+            }
+            render();
+        }
     });
     canvas.addEventListener("mouseleave", () => {
         state.hoverR = -1; state.hoverC = -1;
+        clearHoverTranslation();
         render();
     });
 
