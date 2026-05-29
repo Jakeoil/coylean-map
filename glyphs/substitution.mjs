@@ -21,16 +21,20 @@ import { Seniority, Propagation } from "../coylean-explorer/coylean-core.js";
 import {
     getSectionData,
     GLYPH_LETTERS,
+    H_GLYPH_LETTERS,
     setWorkingAssignments,
     setOldAssignments,
     applyAssignments,
     setOffset,
     computeMapModel,
+    computeGlyphMatrices,
 } from "./glyph-core.js";
 import {
     drawSection,
     renderState,
     V_COLOR,
+    H_COLOR,
+    CELL_PX,
     toFt,
     ensureBabyBlocksLoaded,
     babyBlocksReady,
@@ -44,16 +48,21 @@ const BASE_NS = 8;
 // Current dyadic offset; mirrored from the sidebar inputs. Used to (re)seed
 // the explorer and to compute the truth map for divergence marking.
 let currentH = 1, currentV = 1;
+let currentSeniority = Seniority.vertical();
 
-// ── V Substitution Table ──
+// ── Substitution Tables (per seniority) ──
 // Per-code rule: parent (dc, rc) → 4 child codes + 4 internal-boundary flags
 // (the segments dividing the 2×2 child block). Built from canonical clean-map
 // section data at orders 5 → 6 and 6 → 7 (deeper catches codes the order-5
-// scan didn't hit).
-const SUB_TABLE = buildSubTable();
+// scan didn't hit). One table per seniority — H propagation is a different
+// dynamics, so its substitution table differs.
+const SUB_TABLE_V = buildSubTable(Seniority.vertical());
+const SUB_TABLE_H = buildSubTable(Seniority.horizontal());
+function currentSubTable() {
+    return currentSeniority.isVertical ? SUB_TABLE_V : SUB_TABLE_H;
+}
 
-function buildSubTable() {
-    const sen = Seniority.vertical();
+function buildSubTable(sen) {
     const o5 = getSectionData(32, 32, sen);
     const o6 = getSectionData(64, 64, sen);
     const o7 = getSectionData(128, 128, sen);
@@ -87,19 +96,21 @@ function buildSubTable() {
 
 // ── Grid expansion via SUB_TABLE ──
 // (grid, vBound, hBound, ns) → one level deeper (ns2 = 2·ns). For each parent
-// cell, look up its rule and stamp 4 children + internal boundary segments.
-// Then propagate inter-parent boundaries to the doubled grid.
+// cell, look up its rule (in the current seniority's table) and stamp 4
+// children + internal boundary segments. Then propagate inter-parent
+// boundaries to the doubled grid.
 function expandGrid(grid, vBound, hBound, ns) {
     const ns2 = ns * 2;
     const newGrid = Array.from({ length: ns2 }, () =>
         Array.from({ length: ns2 }, () => [0, 0]));
     const newVB = Array.from({ length: ns2 }, () => Array(ns2).fill(false));
     const newHB = Array.from({ length: ns2 }, () => Array(ns2).fill(false));
+    const subTable = currentSubTable();
 
     for (let sr = 0; sr < ns; sr++) {
         for (let sc = 0; sc < ns; sc++) {
             const [dc, rc] = grid[sr][sc];
-            const rule = SUB_TABLE[dc + "," + rc];
+            const rule = subTable[dc + "," + rc];
             if (!rule) continue;
             const r2 = sr * 2, c2 = sc * 2;
             newGrid[r2][c2]         = [...rule.children[0]];
@@ -137,7 +148,7 @@ function expandGrid(grid, vBound, hBound, ns) {
 // further propagation. Boundary flags reconstructed from the same matrices.
 function explorerSeed() {
     setOffset(currentH, currentV);
-    const model = computeMapModel(32, 32, { seniority: Seniority.vertical() });
+    const model = computeMapModel(32, 32, { seniority: currentSeniority });
     const ns = Math.min(model.NSr, model.NSc, 8);
     const { vBound, hBound } = boundsFromModel(model, ns);
     return {
@@ -230,7 +241,7 @@ function universeSeed() {
         northExtent: UNIVERSE_EXTENT, southExtent: UNIVERSE_EXTENT,
         westExtent: UNIVERSE_EXTENT, eastExtent: UNIVERSE_EXTENT,
         hInitCol: currentH, vInitRow: currentV,
-        seniority: Seniority.vertical(),
+        seniority: currentSeniority,
     });
     const { originRow, originCol } = cageOrigin(
         currentH, currentV, UNIVERSE_EXTENT, UNIVERSE_EXTENT);
@@ -262,10 +273,11 @@ function invalidateTruth() { truthCache.clear(); }
 function getTruthExplorer(level) {
     const N = BASE_NS * SEC * Math.pow(2, level); // 32 → 64 → 128 …
     if (N > 1024) return null;
-    const key = `expl:${currentH}/${currentV}@${N}`;
+    const sen = currentSeniority.isVertical ? "v" : "h";
+    const key = `expl:${sen}:${currentH}/${currentV}@${N}`;
     const hit = truthCache.get(key); if (hit) return hit;
     setOffset(currentH, currentV);
-    const model = computeMapModel(N, N, { seniority: Seniority.vertical() });
+    const model = computeMapModel(N, N, { seniority: currentSeniority });
     truthCache.set(key, model);
     return model;
 }
@@ -278,12 +290,13 @@ function getTruthExplorer(level) {
 function getTruthUniverse(level) {
     const ext = UNIVERSE_EXTENT * Math.pow(2, level); // 32 → 64 → 128 …
     if (ext > 512) return null; // 1024-cell-side cap
-    const key = `univ:${currentH}/${currentV}@${ext}`;
+    const sen = currentSeniority.isVertical ? "v" : "h";
+    const key = `univ:${sen}:${currentH}/${currentV}@${ext}`;
     const hit = truthCache.get(key); if (hit) return hit;
     const prop = Propagation.fromUniverseExtents({
         northExtent: ext, southExtent: ext, westExtent: ext, eastExtent: ext,
         hInitCol: currentH, vInitRow: currentV,
-        seniority: Seniority.vertical(),
+        seniority: currentSeniority,
     });
     const { originRow, originCol } = cageOrigin(currentH, currentV, ext, ext);
     const ns = Math.floor(Math.min(
@@ -299,23 +312,67 @@ function computeDivergence(state) {
     const truth = state.getTruth ? state.getTruth(level) : null;
     const rows = state.grid.length;
     const cols = state.grid[0].length;
-    const div = Array.from({ length: rows }, () => Array(cols).fill(false));
-    // Mark cells whose code isn't in SUB_TABLE — they would expand to all
-    // zeros if substituted. Independent of truth (no cap on level).
+    // div[r][c] holds the truth code [dT, rT] if the cell diverges, else null.
+    // (renderView consumes the truth code to draw the segment-level diff
+    // overlay — red for pred-only segments, pink for truth-only.)
+    const div = Array.from({ length: rows }, () => Array(cols).fill(null));
     const unknown = Array.from({ length: rows }, () => Array(cols).fill(false));
+    const subTable = currentSubTable();
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             const [d, rr] = state.grid[r][c];
-            if (!SUB_TABLE[d + "," + rr]) unknown[r][c] = true;
+            if (!subTable[d + "," + rr]) unknown[r][c] = true;
             if (!truth) continue;
             const ar = state.absR0 + r, ac = state.absC0 + c;
             if (ar < 0 || ar >= truth.NSr || ac < 0 || ac >= truth.NSc) continue;
             const t = truth.secCodes[ar][ac];
-            if (state.grid[r][c][0] !== t[0] ||
-                state.grid[r][c][1] !== t[1]) div[r][c] = true;
+            if (d !== t[0] || rr !== t[1]) div[r][c] = [t[0], t[1]];
         }
     }
     return { div, unknown };
+}
+
+// ── Segment-level diff overlay ──
+// At divergent cells, paint the *segments* that disagree between the
+// substitution-predicted glyph and the propagation-truth glyph:
+//   red  — segment present in predicted but absent in truth (false positive)
+//   pink — segment present in truth but absent in predicted (false negative)
+// Pred-side segments are already drawn (in light blue) by drawSection; this
+// just repaints the disagreeing ones, and adds the missing truth segments
+// in pink that drawSection didn't draw.
+const DIFF_PRED_ONLY = "#d32f2f";
+const DIFF_TRUTH_ONLY = "#f48fb1";
+function overlayDiff(ctx, dc, rc, dcT, rcT, seniority, sx, sy, cell) {
+    const pred = computeGlyphMatrices(dc, rc, seniority, 1, 1);
+    const truth = computeGlyphMatrices(dcT, rcT, seniority, 1, 1);
+    const lw = (cell * 1.6) / CELL_PX;
+    ctx.lineWidth = lw;
+    // Vertical segments at col gx+1, between rows gy and gy+1.
+    for (let gy = 0; gy <= 3; gy++) {
+        for (let gx = 0; gx < 3; gx++) {
+            const p = !!pred.downMatrix[gy][gx];
+            const t = !!truth.downMatrix[gy][gx];
+            if (p === t) continue;
+            ctx.strokeStyle = p ? DIFF_PRED_ONLY : DIFF_TRUTH_ONLY;
+            ctx.beginPath();
+            ctx.moveTo(sx + (gx + 1) * cell, sy + gy * cell);
+            ctx.lineTo(sx + (gx + 1) * cell, sy + (gy + 1) * cell);
+            ctx.stroke();
+        }
+    }
+    // Horizontal segments at row gy+1, between cols gx and gx+1.
+    for (let gx = 0; gx <= 3; gx++) {
+        for (let gy = 0; gy < 3; gy++) {
+            const p = !!pred.rightMatrix[gx][gy];
+            const t = !!truth.rightMatrix[gx][gy];
+            if (p === t) continue;
+            ctx.strokeStyle = p ? DIFF_PRED_ONLY : DIFF_TRUTH_ONLY;
+            ctx.beginPath();
+            ctx.moveTo(sx + gx * cell, sy + (gy + 1) * cell);
+            ctx.lineTo(sx + (gx + 1) * cell, sy + (gy + 1) * cell);
+            ctx.stroke();
+        }
+    }
 }
 
 function renderView(canvas, state) {
@@ -332,17 +389,16 @@ function renderView(canvas, state) {
 
     const flags = computeDivergence(state);
     if (flags) {
+        // Orange tint only for cells whose code isn't in SUB_TABLE — they'd
+        // expand to V₀₀ children. Divergent cells are no longer block-tinted;
+        // they get a per-segment overlay below, after drawSection.
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
+                if (!flags.unknown[r][c]) continue;
                 const x = gap + c * (secPx + gap);
                 const y = gap + r * (secPx + gap);
-                if (flags.div[r][c]) {
-                    ctx.fillStyle = "rgba(220, 50, 50, 0.22)";
-                    ctx.fillRect(x, y, secPx, secPx);
-                } else if (flags.unknown[r][c]) {
-                    ctx.fillStyle = "rgba(245, 158, 11, 0.22)";
-                    ctx.fillRect(x, y, secPx, secPx);
-                }
+                ctx.fillStyle = "rgba(245, 158, 11, 0.22)";
+                ctx.fillRect(x, y, secPx, secPx);
             }
         }
     }
@@ -360,7 +416,10 @@ function renderView(canvas, state) {
         ctx.fillRect(hiRect.x, hiRect.y, hiRect.w, hiRect.h);
     }
 
-    const sen = Seniority.vertical();
+    const isVertical = currentSeniority.isVertical;
+    const letterLookup = isVertical ? GLYPH_LETTERS : H_GLYPH_LETTERS;
+    const letterColor = isVertical ? V_COLOR : H_COLOR;
+    const prefix = isVertical ? "V" : "H";
     for (let sr = 0; sr < rows; sr++) {
         for (let sc = 0; sc < cols; sc++) {
             const [dc, rc] = state.grid[sr][sc];
@@ -374,18 +433,27 @@ function renderView(canvas, state) {
 
             const ft = renderState.showIndices
                 ? null
-                : toFt(GLYPH_LETTERS[dc + "," + rc], V_COLOR);
+                : toFt(letterLookup[dc + "," + rc], letterColor);
             drawSection(ctx, {
                 dc, rc,
-                seniority: sen,
+                seniority: currentSeniority,
                 sx, sy, cell: cellSize,
                 ft,
-                prefix: "V",
+                prefix,
                 showDots: state.showDots,
                 showLetters: state.showLetters,
                 babyBlocks: renderState.useBabyBlocks && babyBlocksReady(),
                 outline: renderState.babyBlocksOutline,
             });
+
+            // Per-segment diff overlay for divergent cells (red = pred only,
+            // pink = truth only). Drawn AFTER drawSection so the disagreement
+            // colours overwrite the light-blue predicted segments.
+            if (flags && flags.div[sr][sc]) {
+                const [tDC, tRC] = flags.div[sr][sc];
+                overlayDiff(ctx, dc, rc, tDC, tRC,
+                    currentSeniority, sx, sy, cellSize);
+            }
         }
     }
 
@@ -684,6 +752,21 @@ function wireControls() {
     }
     if (hIn) hIn.addEventListener("change", onOffsetChange);
     if (vIn) vIn.addEventListener("change", onOffsetChange);
+
+    // Seniority radios — switching seniority changes both the substitution
+    // table and the underlying propagation, so reseed both views.
+    const senRadios = document.querySelectorAll('input[name="seniority"]');
+    function onSeniorityChange() {
+        const sel = document.querySelector('input[name="seniority"]:checked');
+        if (!sel) return;
+        currentSeniority = sel.value === "h"
+            ? Seniority.horizontal()
+            : Seniority.vertical();
+        invalidateTruth();
+        explorer.reset();
+        universe.reset();
+    }
+    senRadios.forEach(r => r.addEventListener("change", onSeniorityChange));
 }
 
 (async function init() {
@@ -701,6 +784,10 @@ function wireControls() {
         currentH = parseInt(hIn.value, 10) || 1;
         currentV = parseInt(vIn.value, 10) || 1;
         setOffset(currentH, currentV);
+    }
+    const senSel = document.querySelector('input[name="seniority"]:checked');
+    if (senSel && senSel.value === "h") {
+        currentSeniority = Seniority.horizontal();
     }
     explorer.reset();
     universe.reset();

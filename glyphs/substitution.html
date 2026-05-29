@@ -119,13 +119,22 @@
                 vertical-align: middle;
                 margin-right: 4px;
             }
-            .legend .swatch.divergent {
-                background: rgba(220, 50, 50, 0.45);
-                border: 1px solid #c83232;
-            }
             .legend .swatch.unknown {
                 background: rgba(245, 158, 11, 0.45);
                 border: 1px solid #d97706;
+            }
+            .legend .seg-swatch {
+                display: inline-block;
+                width: 14px;
+                height: 3px;
+                vertical-align: middle;
+                margin-right: 4px;
+            }
+            .legend .seg-swatch.pred-only {
+                background: #d32f2f;
+            }
+            .legend .seg-swatch.truth-only {
+                background: #f48fb1;
             }
             .legend p {
                 margin: 4px 0;
@@ -238,9 +247,14 @@
                     </label>
                     <div class="legend">
                         <p>
-                            <span class="swatch divergent"></span>
-                            substitution-driven code diverges from the
-                            propagation truth at this lat/long &amp; order.
+                            <span class="seg-swatch pred-only"></span>
+                            segment drawn by substitution but absent in
+                            the propagation truth (false positive).
+                        </p>
+                        <p>
+                            <span class="seg-swatch truth-only"></span>
+                            segment present in truth but missing from
+                            substitution (false negative).
                         </p>
                         <p>
                             <span class="swatch unknown"></span>
@@ -248,6 +262,18 @@
                             zooming in produces V₀₀ children.
                         </p>
                     </div>
+                </div>
+                <div class="side-group">
+                    <div class="side-title">Seniority</div>
+                    <label>
+                        <input type="radio" name="seniority" value="v"
+                            checked />
+                        Vertical
+                    </label>
+                    <label>
+                        <input type="radio" name="seniority" value="h" />
+                        Horizontal
+                    </label>
                 </div>
             </aside>
             <main class="content">
