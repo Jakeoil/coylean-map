@@ -235,6 +235,95 @@ function drawGlyph(canvas, downCode, rightCode, seniority, fTransform) {
     }
 }
 
+// Draw one 4×4 section at (sx, sy) at the given cell size: the section's
+// canonical glyph propagation (V_COLOR / H_COLOR), input/output dots, and the
+// letter overlay (D4_MATRIX or Baby Blocks) or a V##/H## placeholder. Used by
+// the substitution explorer; matches the section-overlay block of drawCoyleanMap.
+function drawSection(ctx, opts) {
+    const {
+        dc, rc, seniority,
+        sx, sy, cell,
+        ft,                // [letter, color, d4Index] or null
+        prefix,            // "V" or "H" — for the placeholder
+        showDots = true,
+        showLetters = true,
+        babyBlocks: bbEnable = false,
+        outline = true,
+    } = opts;
+
+    const lw = (cell * 1.2) / CELL_PX;
+    const { downMatrix: secDown, rightMatrix: secRight } =
+        computeGlyphMatrices(dc, rc, seniority, 1, 1);
+
+    ctx.strokeStyle = "#90caf9";
+    ctx.lineWidth = lw;
+    for (let gy = 0; gy <= 3; gy++) {
+        for (let gx = 0; gx < 3; gx++) {
+            if (secDown[gy][gx]) {
+                ctx.beginPath();
+                ctx.moveTo(sx + (gx + 1) * cell, sy + gy * cell);
+                ctx.lineTo(sx + (gx + 1) * cell, sy + (gy + 1) * cell);
+                ctx.stroke();
+            }
+        }
+    }
+    for (let gx = 0; gx <= 3; gx++) {
+        for (let gy = 0; gy < 3; gy++) {
+            if (secRight[gx][gy]) {
+                ctx.beginPath();
+                ctx.moveTo(sx + gx * cell, sy + (gy + 1) * cell);
+                ctx.lineTo(sx + (gx + 1) * cell, sy + (gy + 1) * cell);
+                ctx.stroke();
+            }
+        }
+    }
+
+    if (showDots) {
+        const dr = (cell * DOT_R) / CELL_PX;
+        for (let i = 0; i < 3; i++) {
+            drawDot(ctx, sx + (i + 1) * cell, sy, !!(dc & (1 << i)), dr);
+            drawDot(ctx, sx, sy + (i + 1) * cell, !!(rc & (1 << i)), dr);
+            drawDot(ctx, sx + (i + 1) * cell, sy + 4 * cell, secDown[3][i], dr);
+            drawDot(ctx, sx + 4 * cell, sy + (i + 1) * cell, secRight[3][i], dr);
+        }
+    }
+
+    if (!showLetters) return;
+
+    const cx = sx + 2 * cell;
+    const cy = sy + 2 * cell;
+    if (ft) {
+        if (bbEnable && babyBlocks) {
+            const d4 = ftToD4Glyph(ft);
+            const blockSize = 4 * cell;
+            ctx.save();
+            ctx.globalAlpha = 0.45;
+            babyBlocks.drawDirect(ctx, ft[0], cx, cy, blockSize, {
+                transform: d4, outline,
+            });
+            ctx.restore();
+        } else {
+            const fontSize = 3 * cell;
+            const m = D4_MATRIX[ft[2]] || D4_MATRIX[0];
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.transform(m[0], m[1], m[2], m[3], 0, 0);
+            ctx.fillStyle = ft[1] || "rgba(0, 0, 100, 0.4)";
+            ctx.font = "bold " + fontSize + "px Monaco, Menlo, monospace";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(ft[0], 0, 0);
+            ctx.restore();
+        }
+    } else if (prefix) {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+        ctx.font = cell * 0.7 + "px Monaco, Menlo, monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(prefix + SUB_DIGITS[dc] + SUB_DIGITS[rc], cx, cy);
+    }
+}
+
 // Draw a map from glyph-core's computeMapModel output. opts: { cell, babyBlocks
 // (per-map enable), outline }. Stashes section geometry on the canvas for the
 // assignment editor's click hit-testing.
@@ -460,6 +549,7 @@ export {
     glyphLabel,
     hGlyphLabel,
     drawGlyph,
+    drawSection,
     drawCoyleanMap,
     renderState,
     ensureBabyBlocksLoaded,
