@@ -216,6 +216,76 @@ function currentSubTable() {
     return currentSeniority.isVertical ? SUB_TABLE_V : SUB_TABLE_H;
 }
 
+// ── Off-anchor tromino expansion ──
+// Off the anchor family lat/long ∈ {0,1}², the 6-bit-code substitution is NOT a
+// fixed point, but the rule IS a stable function of the (self, North, West) cage
+// triple — the SE-upstream L-tromino (propagation flows SE, so a cage's
+// refinement is fed by what's above and to its left). When enabled, expandGrid
+// keys on that triple, using a table built from the CURRENT offset's own map
+// (orders 6→7). The table is offset-specific. Cells with no N/W context (top
+// row / left column of the window) fall back to the 6-bit table. Verified at
+// lat/long 1/2: every tromino-covered cell matches truth (test-tromino-12.mjs,
+// substitution-offset-regimes-plan.md).
+let useTromino = false;
+const trominoCache = new Map(); // "sen;h;v" → Map(key → rule)
+
+// Build the (self;N;W) → {children, bounds} table from the offset's map at
+// orders 6→7. Keys use "x" for an absent (out-of-grid) neighbour.
+function buildTrominoTable(seniority, h, v) {
+    setOffset(h, v);
+    const pM = computeMapModel(64, 64, { seniority });
+    const cM = computeMapModel(128, 128, { seniority });
+    setOffset(currentH, currentV); // restore the live offset
+    const pns = Math.min(pM.NSr, pM.NSc);
+    const cns = Math.min(cM.NSr, cM.NSc);
+    const p = sectionsFromPropagation(
+        pM, pM.firstDarkRow + 1, pM.firstDarkCol + 1, pns);
+    const c = sectionsFromPropagation(
+        cM, cM.firstDarkRow + 1, cM.firstDarkCol + 1, cns);
+    const lim = Math.min(pns, Math.floor(cns / 2));
+    const table = new Map();
+    const ck = (sr, sc) =>
+        sr < 0 || sc < 0 || sr >= pns || sc >= pns
+            ? "x" : p.grid[sr][sc].join(",");
+    for (let sr = 1; sr < lim - 1; sr++)
+        for (let sc = 1; sc < lim - 1; sc++) {
+            const key = ck(sr, sc) + ";" + ck(sr - 1, sc) + ";" + ck(sr, sc - 1);
+            if (table.has(key)) continue;
+            const a = sr * 2, b = sc * 2;
+            table.set(key, {
+                children: [
+                    [...c.grid[a][b]], [...c.grid[a][b + 1]],
+                    [...c.grid[a + 1][b]], [...c.grid[a + 1][b + 1]],
+                ],
+                vBoundTop: c.vBound[a][b], vBoundBot: c.vBound[a + 1][b],
+                hBoundLeft: c.hBound[a][b], hBoundRight: c.hBound[a][b + 1],
+            });
+        }
+    return table;
+}
+function currentTrominoTable() {
+    const key =
+        (currentSeniority.isVertical ? "v" : "h") + ";" + currentH + ";" +
+        currentV;
+    if (!trominoCache.has(key))
+        trominoCache.set(
+            key, buildTrominoTable(currentSeniority, currentH, currentV));
+    return trominoCache.get(key);
+}
+// Resolve a cell's expansion rule: tromino (self;N;W) when enabled, else the
+// 6-bit code table; tromino misses (edges) fall back to the code table.
+function ruleFor(grid, ns, sr, sc, subTable, trom) {
+    if (trom) {
+        const ck = (r, c) =>
+            r < 0 || c < 0 || r >= ns || c >= ns ? "x" : grid[r][c].join(",");
+        const rule =
+            trom.get(ck(sr, sc) + ";" + ck(sr - 1, sc) + ";" + ck(sr, sc - 1));
+        if (rule) return rule;
+    }
+    const [dc, rc] = grid[sr][sc];
+    return subTable[dc + "," + rc] || null;
+}
+
 // ── Grid expansion via SUB_TABLE ──
 // (grid, vBound, hBound, ns) → one level deeper (ns2 = 2·ns). For each parent
 // cell, look up its rule (in the current seniority's table) and stamp 4
@@ -228,11 +298,11 @@ function expandGrid(grid, vBound, hBound, ns) {
     const newVB = Array.from({ length: ns2 }, () => Array(ns2).fill(false));
     const newHB = Array.from({ length: ns2 }, () => Array(ns2).fill(false));
     const subTable = currentSubTable();
+    const trom = useTromino ? currentTrominoTable() : null;
 
     for (let sr = 0; sr < ns; sr++) {
         for (let sc = 0; sc < ns; sc++) {
-            const [dc, rc] = grid[sr][sc];
-            const rule = subTable[dc + "," + rc];
+            const rule = ruleFor(grid, ns, sr, sc, subTable, trom);
             if (!rule) continue;
             const r2 = sr * 2, c2 = sc * 2;
             newGrid[r2][c2]         = [...rule.children[0]];
@@ -440,10 +510,15 @@ function computeDivergence(state) {
     const div = Array.from({ length: rows }, () => Array(cols).fill(null));
     const unknown = Array.from({ length: rows }, () => Array(cols).fill(false));
     const subTable = currentSubTable();
+    const trom = useTromino ? currentTrominoTable() : null;
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             const [d, rr] = state.grid[r][c];
-            if (!subTable[d + "," + rr]) unknown[r][c] = true;
+            // "Unknown" = the next expansion has no rule. With the tromino on,
+            // a cell is covered if its (self;N;W) key is in the tromino table;
+            // otherwise it falls back to the 6-bit code table.
+            if (!ruleFor(state.grid, cols, r, c, subTable, trom))
+                unknown[r][c] = true;
             if (!truth) continue;
             const ar = state.absR0 + r, ac = state.absC0 + c;
             if (ar < 0 || ar >= truth.NSr || ac < 0 || ac >= truth.NSc) continue;
@@ -546,6 +621,60 @@ function overlayDiff(ctx, dc, rc, dcT, rcT, seniority, sx, sy, cell) {
     }
 }
 
+// ── Self-similar shading (hover) ──
+// On the anchor family the explorer map is an exact substitution tiling, so a
+// glyph's motif recurs at every power-of-2 scale. On hover we shade, with ONE
+// translucent fill, the hovered glyph's D4-orbit matches at scale 1×1, then the
+// 2×2 / 4×4 / 8×8 … blocks whose coarse-map super-glyph is in that same orbit.
+// The fills are translucent and overlap, so they compound — points that are
+// self-similar at many scales come out darkest. Explorer only: it's the SE
+// patch (NW origin, clean ×2 dilation); the universe view aligns differently.
+let selfSimShade = false;
+const orbitIdCache = new Map();
+function orbitIdMap(seniority) {
+    const key = seniority.isVertical ? "v" : "h";
+    if (orbitIdCache.has(key)) return orbitIdCache.get(key);
+    const m = new Map();
+    classifyVisualD4(seniority).forEach((cls, ci) =>
+        cls.orbit.forEach(([d, r]) => m.set(d + "," + r, ci)));
+    orbitIdCache.set(key, m);
+    return m;
+}
+// Window-local section rectangles {r, c, h, w} to shade for the current hover.
+function selfSimShadeRects(state) {
+    if (!state.selfSim || state.hoverR < 0 || state.hoverC < 0) return [];
+    const orbitMap = orbitIdMap(currentSeniority);
+    const hc = state.grid[state.hoverR][state.hoverC];
+    const orbit = orbitMap.get(hc[0] + "," + hc[1]);
+    if (orbit === undefined) return [];
+    const level = state.zoomStack.length;
+    const ns = state.ns;
+    const rects = [];
+    for (let L = 0; level - L >= -3; L++) {
+        const coarse = state.getTruth(level - L); // order (baseOrder+level−L)
+        if (!coarse || coarse.NSr < 1 || coarse.NSc < 1) break;
+        const blk = 1 << L; // block side, measured in displayed-order sections
+        const I0 = Math.floor(state.absR0 / blk);
+        const I1 = Math.floor((state.absR0 + ns - 1) / blk);
+        const J0 = Math.floor(state.absC0 / blk);
+        const J1 = Math.floor((state.absC0 + ns - 1) / blk);
+        for (let I = I0; I <= I1; I++)
+            for (let J = J0; J <= J1; J++) {
+                if (I < 0 || J < 0 || I >= coarse.NSr || J >= coarse.NSc)
+                    continue;
+                const cc = coarse.secCodes[I][J];
+                if (orbitMap.get(cc[0] + "," + cc[1]) !== orbit) continue;
+                const r0 = Math.max(0, I * blk - state.absR0);
+                const c0 = Math.max(0, J * blk - state.absC0);
+                const r1 = Math.min(ns, I * blk - state.absR0 + blk);
+                const c1 = Math.min(ns, J * blk - state.absC0 + blk);
+                if (r1 > r0 && c1 > c0)
+                    rects.push({ r: r0, c: c0, h: r1 - r0, w: c1 - c0 });
+            }
+    }
+    return rects;
+}
+
 function renderView(canvas, state) {
     const ctx = canvas.getContext("2d");
     const rows = state.grid.length;
@@ -557,6 +686,18 @@ function renderView(canvas, state) {
     canvas.height = totalH;
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, totalW, totalH);
+
+    // Self-similar shading sits under everything; overlapping fills compound.
+    if (selfSimShade) {
+        ctx.fillStyle = "rgba(40, 90, 200, 0.12)";
+        for (const rk of selfSimShadeRects(state)) {
+            const x = gap + rk.c * (secPx + gap);
+            const y = gap + rk.r * (secPx + gap);
+            const w = rk.w * secPx + (rk.w - 1) * gap;
+            const h = rk.h * secPx + (rk.h - 1) * gap;
+            ctx.fillRect(x, y, w, h);
+        }
+    }
 
     const flags = computeDivergence(state);
     if (flags) {
@@ -857,6 +998,9 @@ const explorer = makeZoomView(explorerCanvas, explorerSeed, getTruthExplorer, {
     btnReset: document.getElementById("explorer-reset"),
     btnDots:  document.getElementById("explorer-dots"),
 });
+// Self-similar shading is meaningful only on the explorer's SE patch (clean ×2
+// dilation from the NW origin); the universe view aligns differently.
+explorer.state.selfSim = true;
 const universe = makeZoomView(universeCanvas, universeSeed, getTruthUniverse, {
     info:     document.getElementById("universe-info"),
     btnOut:   document.getElementById("universe-out"),
@@ -899,6 +1043,22 @@ function wireControls() {
         outline.addEventListener("change", () => {
             renderState.babyBlocksOutline = outline.checked;
             if (renderState.useBabyBlocks) rerenderAll();
+        });
+    }
+    const tromino = document.getElementById("tromino-toggle");
+    if (tromino) {
+        tromino.addEventListener("change", () => {
+            useTromino = tromino.checked;
+            // Expansion rule changed — re-expand both views from their seeds.
+            explorer.reset();
+            universe.reset();
+        });
+    }
+    const selfSim = document.getElementById("selfsim-toggle");
+    if (selfSim) {
+        selfSim.addEventListener("change", () => {
+            selfSimShade = selfSim.checked;
+            explorer.render();
         });
     }
     document.addEventListener("keydown", e => {

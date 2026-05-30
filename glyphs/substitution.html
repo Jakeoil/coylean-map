@@ -112,6 +112,11 @@
                 line-height: 1.5;
                 margin-top: 8px;
             }
+            .intro-legend {
+                max-width: 720px;
+                font-size: 0.8rem;
+                margin: 0 0 24px;
+            }
             .legend .swatch {
                 display: inline-block;
                 width: 10px;
@@ -227,13 +232,43 @@
 
         <h1>Coylean Glyphs — Substitution Explorer</h1>
         <p class="subtitle">
-            Each Coylean V-section substitutes into a fixed 2×2 block of
-            sections at the next order. Click any section to descend one
-            level; click <em>Zoom Out</em> (or press <kbd>Esc</kbd>) to
-            return. Both views are canonical by construction, so there is
-            no dyadic-location control — see the
-            <a href="index.html">catalog</a> for that.
+            Each Coylean section substitutes into a 2×2 block of sections at
+            the next order. Click any section to descend one level; click
+            <em>Zoom Out</em> (or press <kbd>Esc</kbd>) to return. Set the
+            dyadic location and toggle expansion modes in the sidebar.
         </p>
+        <div class="legend intro-legend">
+            <p>
+                The 6-bit substitution is exact only on the anchor offsets
+                lat/long&nbsp;&isin;&nbsp;{0,&nbsp;1}. Off-anchor (e.g. 1/2),
+                enable <strong>Tromino expansion</strong> in the sidebar: each
+                cage expands by its (self,&nbsp;north,&nbsp;west) triple, read
+                from this offset's own map. Interior divergence then drops to
+                zero; the top row / left column lack N/W context and fall back
+                (may stay orange/red).
+            </p>
+            <p>
+                <span class="seg-swatch pred-only"></span>
+                segment drawn by substitution but absent in the propagation
+                truth (false positive).
+                &nbsp;&nbsp;
+                <span class="seg-swatch truth-only"></span>
+                segment present in truth but missing from substitution (false
+                negative).
+                &nbsp;&nbsp;
+                <span class="swatch unknown"></span>
+                code not in the canonical substitution table — zooming in
+                produces V₀₀ children.
+            </p>
+            <p>
+                <strong>Self-similar shading</strong> (sidebar): hover a glyph in
+                the Explorer to translucently shade its matches (any orientation)
+                at every scale — single sections, then 2×2, 4×4, 8×8 … super-glyph
+                blocks. Overlaps compound, so deeply self-similar points darken.
+                Cleanest on the anchor family, where the map is an exact
+                substitution tiling.
+            </p>
+        </div>
 
         <div class="layout">
             <aside class="sidebar">
@@ -268,6 +303,10 @@
                         <input type="checkbox" id="bb-outline" checked />
                         Outline
                     </label>
+                    <label>
+                        <input type="checkbox" id="selfsim-toggle" />
+                        Self-similar shading (Explorer)
+                    </label>
                 </div>
                 <div class="side-group">
                     <div class="side-title">Dyadic location</div>
@@ -289,23 +328,10 @@
                             step="1"
                         />
                     </label>
-                    <div class="legend">
-                        <p>
-                            <span class="seg-swatch pred-only"></span>
-                            segment drawn by substitution but absent in
-                            the propagation truth (false positive).
-                        </p>
-                        <p>
-                            <span class="seg-swatch truth-only"></span>
-                            segment present in truth but missing from
-                            substitution (false negative).
-                        </p>
-                        <p>
-                            <span class="swatch unknown"></span>
-                            code not in the canonical substitution table —
-                            zooming in produces V₀₀ children.
-                        </p>
-                    </div>
+                    <label>
+                        <input type="checkbox" id="tromino-toggle" />
+                        Tromino expansion (self + N + W)
+                    </label>
                 </div>
                 <div class="side-group">
                     <div class="side-title">Seniority</div>
