@@ -622,13 +622,15 @@ function overlayDiff(ctx, dc, rc, dcT, rcT, seniority, sx, sy, cell) {
 }
 
 // ── Self-similar shading (hover) ──
-// On the anchor family the explorer map is an exact substitution tiling, so a
-// glyph's motif recurs at every power-of-2 scale. On hover we shade, with ONE
-// translucent fill, the hovered glyph's D4-orbit matches at scale 1×1, then the
-// 2×2 / 4×4 / 8×8 … blocks whose coarse-map super-glyph is in that same orbit.
-// The fills are translucent and overlap, so they compound — points that are
-// self-similar at many scales come out darkest. Explorer only: it's the SE
-// patch (NW origin, clean ×2 dilation); the universe view aligns differently.
+// On the anchor family the map is an exact substitution tiling, so a glyph's
+// motif recurs at every FINER scale: descend each on-screen section through the
+// translation table (parent → 2×2 children), and wherever a (sub-)glyph is in
+// the hovered glyph's D4 orbit, fill that quarter. One translucent fill, drawn
+// at every depth — full sections (matching glyphs), then 2×2-cell quarters,
+// then 1×1-cell sub-quarters … — so overlaps compound and the deeply
+// self-similar points come out darkest. This is Jake's "find the target glyph
+// in each letter's translation, then fill the appropriate quarter" method.
+// Explorer only (the universe view aligns its sections differently).
 let selfSimShade = false;
 const orbitIdCache = new Map();
 function orbitIdMap(seniority) {
@@ -640,39 +642,38 @@ function orbitIdMap(seniority) {
     orbitIdCache.set(key, m);
     return m;
 }
-// Window-local section rectangles {r, c, h, w} to shade for the current hover.
-function selfSimShadeRects(state) {
-    if (!state.selfSim || state.hoverR < 0 || state.hoverC < 0) return [];
+// Smallest sub-glyph (px) we still subdivide — caps the recursion depth.
+const SELFSIM_MIN_PX = 3;
+function drawSelfSimShading(ctx, state, gap, secPx) {
+    if (!state.selfSim || state.hoverR < 0 || state.hoverC < 0) return;
     const orbitMap = orbitIdMap(currentSeniority);
     const hc = state.grid[state.hoverR][state.hoverC];
-    const orbit = orbitMap.get(hc[0] + "," + hc[1]);
-    if (orbit === undefined) return [];
-    const level = state.zoomStack.length;
-    const ns = state.ns;
-    const rects = [];
-    for (let L = 0; level - L >= -3; L++) {
-        const coarse = state.getTruth(level - L); // order (baseOrder+level−L)
-        if (!coarse || coarse.NSr < 1 || coarse.NSc < 1) break;
-        const blk = 1 << L; // block side, measured in displayed-order sections
-        const I0 = Math.floor(state.absR0 / blk);
-        const I1 = Math.floor((state.absR0 + ns - 1) / blk);
-        const J0 = Math.floor(state.absC0 / blk);
-        const J1 = Math.floor((state.absC0 + ns - 1) / blk);
-        for (let I = I0; I <= I1; I++)
-            for (let J = J0; J <= J1; J++) {
-                if (I < 0 || J < 0 || I >= coarse.NSr || J >= coarse.NSc)
-                    continue;
-                const cc = coarse.secCodes[I][J];
-                if (orbitMap.get(cc[0] + "," + cc[1]) !== orbit) continue;
-                const r0 = Math.max(0, I * blk - state.absR0);
-                const c0 = Math.max(0, J * blk - state.absC0);
-                const r1 = Math.min(ns, I * blk - state.absR0 + blk);
-                const c1 = Math.min(ns, J * blk - state.absC0 + blk);
-                if (r1 > r0 && c1 > c0)
-                    rects.push({ r: r0, c: c0, h: r1 - r0, w: c1 - c0 });
-            }
+    const target = orbitMap.get(hc[0] + "," + hc[1]);
+    if (target === undefined) return;
+    const sub = currentSubTable();
+    ctx.fillStyle = "rgba(40, 90, 200, 0.13)";
+    // Descend one section: fill it if its glyph matches, then recurse into the
+    // four translation children (NW, NE, SW, SE) over the same pixel box.
+    function descend(code, x, y, size) {
+        if (orbitMap.get(code[0] + "," + code[1]) === target)
+            ctx.fillRect(x, y, size, size);
+        const half = size / 2;
+        if (half < SELFSIM_MIN_PX) return;
+        const rule = sub[code[0] + "," + code[1]];
+        if (!rule) return;
+        descend(rule.children[0], x, y, half);
+        descend(rule.children[1], x + half, y, half);
+        descend(rule.children[2], x, y + half, half);
+        descend(rule.children[3], x + half, y + half, half);
     }
-    return rects;
+    const rows = state.grid.length, cols = state.grid[0].length;
+    for (let sr = 0; sr < rows; sr++)
+        for (let sc = 0; sc < cols; sc++)
+            descend(
+                state.grid[sr][sc],
+                gap + sc * (secPx + gap),
+                gap + sr * (secPx + gap),
+                secPx);
 }
 
 function renderView(canvas, state) {
@@ -688,16 +689,7 @@ function renderView(canvas, state) {
     ctx.fillRect(0, 0, totalW, totalH);
 
     // Self-similar shading sits under everything; overlapping fills compound.
-    if (selfSimShade) {
-        ctx.fillStyle = "rgba(40, 90, 200, 0.12)";
-        for (const rk of selfSimShadeRects(state)) {
-            const x = gap + rk.c * (secPx + gap);
-            const y = gap + rk.r * (secPx + gap);
-            const w = rk.w * secPx + (rk.w - 1) * gap;
-            const h = rk.h * secPx + (rk.h - 1) * gap;
-            ctx.fillRect(x, y, w, h);
-        }
-    }
+    if (selfSimShade) drawSelfSimShading(ctx, state, gap, secPx);
 
     const flags = computeDivergence(state);
     if (flags) {
