@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Coylean Glyphs — Stained Glass</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family: Menlo, Monaco, "Courier New", monospace;
+                background: #0b0c10;
+                color: #c9ccd3;
+                padding: 20px;
+            }
+            .breadcrumb {
+                font-size: 0.8rem;
+                color: #6b7280;
+                margin-bottom: 12px;
+            }
+            .breadcrumb a {
+                color: #8b93a3;
+                text-decoration: none;
+            }
+            h1 {
+                font-size: 1.5rem;
+                margin-bottom: 6px;
+                color: #e6e8ee;
+            }
+            .subtitle {
+                color: #8b93a3;
+                font-size: 0.85rem;
+                margin-bottom: 18px;
+                max-width: 760px;
+                line-height: 1.5;
+            }
+            .layout {
+                display: flex;
+                gap: 20px;
+                align-items: flex-start;
+            }
+            .stage {
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+            canvas {
+                display: block;
+                border-radius: 4px;
+                box-shadow: 0 6px 30px rgba(0, 0, 0, 0.5);
+            }
+            .info {
+                margin-top: 8px;
+                font-size: 0.72rem;
+                color: #6b7280;
+            }
+            .panel {
+                flex: 0 0 300px;
+                background: #14161c;
+                border: 1px solid #23262f;
+                border-radius: 8px;
+                padding: 14px 16px;
+                font-size: 0.8rem;
+            }
+            .group {
+                margin-bottom: 16px;
+            }
+            .group:last-child {
+                margin-bottom: 0;
+            }
+            .group-title {
+                font-size: 0.62rem;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                color: #6b7280;
+                margin-bottom: 8px;
+                font-weight: bold;
+            }
+            .ctl {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 8px;
+            }
+            .ctl label {
+                flex: 0 0 84px;
+                color: #9aa1b0;
+            }
+            .ctl input[type="range"] {
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+            .ctl .val {
+                flex: 0 0 34px;
+                text-align: right;
+                color: #c9ccd3;
+            }
+            .ctl select,
+            .ctl input[type="number"] {
+                background: #0e0f13;
+                color: #c9ccd3;
+                border: 1px solid #2a2e39;
+                border-radius: 3px;
+                font-family: inherit;
+                font-size: 0.8rem;
+                padding: 2px 4px;
+            }
+            .ctl input[type="number"] {
+                width: 3.4em;
+            }
+            .radios label {
+                flex: none;
+                color: #c9ccd3;
+                margin-right: 12px;
+                cursor: pointer;
+            }
+            /* Glyph color map */
+            .palette {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 4px 12px;
+                max-height: 360px;
+                overflow-y: auto;
+            }
+            .pal-row {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+            }
+            .pal-row input[type="color"] {
+                width: 22px;
+                height: 18px;
+                border: none;
+                background: none;
+                padding: 0;
+                cursor: pointer;
+            }
+            .pal-name {
+                color: #9aa1b0;
+                font-size: 0.72rem;
+            }
+            button {
+                background: #1d2230;
+                color: #c9ccd3;
+                border: 1px solid #2a2e39;
+                border-radius: 4px;
+                font-family: inherit;
+                font-size: 0.75rem;
+                padding: 4px 10px;
+                cursor: pointer;
+            }
+            button:hover {
+                background: #252b3b;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="breadcrumb">
+            <a href="../../">Coylean Map</a> /
+            <a href="../index.html">Meta</a> / Stained Glass
+        </div>
+        <h1>Coylean Glyphs — Stained Glass</h1>
+        <p class="subtitle">
+            Every Coylean map is a substitution tiling: each glyph expands into a
+            2×2 of glyphs, forever. Here each glyph orbit gets an OKLCH hue, and
+            the map is colored by compositing those hues all the way down the
+            substitution — alpha falls off with depth, so the coarse glyph sets
+            the base color and finer scales add texture. On the anchor family the
+            result is exactly self-similar. Built on the renderer-agnostic
+            <code>orbit-color.js</code> engine.
+        </p>
+        <div class="layout">
+            <div class="stage">
+                <canvas id="glass-canvas"></canvas>
+                <div class="info" id="info"></div>
+            </div>
+            <aside class="panel">
+                <div class="group">
+                    <div class="group-title">Map</div>
+                    <div class="ctl radios">
+                        <label
+                            ><input type="radio" name="seniority" value="v"
+                                checked />
+                            V</label
+                        >
+                        <label
+                            ><input type="radio" name="seniority" value="h" />
+                            H</label
+                        >
+                    </div>
+                    <div class="ctl">
+                        <label>order</label>
+                        <select id="order">
+                            <option value="32">32 (8×8)</option>
+                            <option value="64" selected>64 (16×16)</option>
+                            <option value="128">128 (32×32)</option>
+                        </select>
+                    </div>
+                    <div class="ctl">
+                        <label>latitude</label>
+                        <input type="number" id="v-input" value="1" step="1" />
+                        <label style="flex: 0 0 auto">long</label>
+                        <input type="number" id="h-input" value="1" step="1" />
+                    </div>
+                </div>
+                <div class="group">
+                    <div class="group-title">Composite dials</div>
+                    <div class="ctl">
+                        <label>base α</label>
+                        <input type="range" id="base-alpha" min="0.15"
+                            max="1" step="0.05" value="0.55" />
+                        <span class="val" id="base-alpha-out"></span>
+                    </div>
+                    <div class="ctl">
+                        <label>falloff</label>
+                        <input type="range" id="falloff" min="0.2" max="0.7"
+                            step="0.02" value="0.42" />
+                        <span class="val" id="falloff-out"></span>
+                    </div>
+                    <div class="ctl">
+                        <label>depth (min px)</label>
+                        <input type="range" id="minpx" min="1" max="14"
+                            step="1" value="4" />
+                        <span class="val" id="minpx-out"></span>
+                    </div>
+                </div>
+                <div class="group">
+                    <div class="group-title">Color &amp; leading</div>
+                    <div class="ctl">
+                        <label>OKLCH L</label>
+                        <input type="range" id="lightness" min="0.4"
+                            max="0.85" step="0.01" value="0.63" />
+                        <span class="val" id="lightness-out"></span>
+                    </div>
+                    <div class="ctl">
+                        <label>OKLCH C</label>
+                        <input type="range" id="chroma" min="0.03" max="0.3"
+                            step="0.01" value="0.17" />
+                        <span class="val" id="chroma-out"></span>
+                    </div>
+                    <div class="ctl">
+                        <label>leading</label>
+                        <input type="range" id="gap" min="0" max="8"
+                            step="1" value="3" />
+                        <span class="val" id="gap-out"></span>
+                    </div>
+                    <div class="ctl">
+                        <label>background</label>
+                        <select id="bg">
+                            <option value="glass" selected>Stained glass</option>
+                            <option value="dark">Dark</option>
+                            <option value="light">Light</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="group">
+                    <div class="group-title">
+                        Glyph color map
+                        <button id="reset-palette" style="float: right">
+                            reset
+                        </button>
+                    </div>
+                    <div class="palette" id="palette"></div>
+                </div>
+            </aside>
+        </div>
+        <script type="module" src="./stained-glass.mjs"></script>
+    </body>
+</html>
