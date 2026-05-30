@@ -1,7 +1,25 @@
-# Plan — find substitution rules for the 29 unused V codes
+# Plan — substitution rules for the 29 unused V codes
 
-**Status: OPEN as of 2026-05-29.** Same content as the auto-memory entry
-`project_substitution_unused_codes`; kept here for in-repo discoverability.
+**Status: SUPERSEDED, 2026-05-29.** The "fill the 29 codes into the V table"
+framing was the wrong model and has been retired. See
+`glyphs/substitution-offset-regimes-plan.md` for the current understanding.
+
+What happened: I first added `EXTRA_SUB_V` — 12 offset-read representatives
+merged into the V table to give all 64 codes a single-code rule. But experiments
+then showed those 29 codes are genuinely **multi-valued** (context-dependent)
+and that `EXTRA_SUB_V` does **not** make any off-anchor offset a substitution
+fixed point (longitude 2 still diverged 182/256). So `EXTRA_SUB_V` was reverted.
+
+The correct picture: the 6-bit-code substitution is an exact fixed point **only**
+on the anchor family lat/long ∈ {0,1} (four offsets), where exactly 35 codes / 12
+D4 orbits appear — that is the whole V (and H) table, now shown member-only on
+the catalog. The 29 "missing" codes only appear at non-anchor offsets, where the
+rule must be keyed on the (self, North, West) cage tromino, not the bare code.
+That is the off-anchor regime work tracked in the offset-regimes plan.
+
+The original OPEN plan follows for the historical record.
+
+---
 
 ## Where we are
 
