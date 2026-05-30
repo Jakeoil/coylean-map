@@ -347,10 +347,15 @@
 
         <p class="anchor-note">
             <strong>Note:</strong> the substitution and translation rules below
-            describe the canonical clean-baseline map and apply visually only
-            at lat/long&nbsp;=&nbsp;1/1. At other dyadic locations, the maps
-            above still render correctly, but their cells no longer obey the
-            2&times;2 expansion shown in these tables.
+            describe the canonical clean-baseline map. They are an exact
+            substitution fixed point on the four <em>anchor</em> dyadic offsets
+            lat/long&nbsp;&isin;&nbsp;{0,&nbsp;1} (i.e. 0/0, 0/1, 1/0, 1/1) — for
+            both V and H seniority. Once either coordinate reaches&nbsp;2 (e.g.
+            1/2) the cells no longer obey this 2&times;2 expansion: that regime
+            needs a richer rule keyed on each cage plus its north/west
+            neighbours (see
+            <code>glyphs/substitution-offset-regimes-plan.md</code>). The maps
+            above still render correctly at every offset.
         </p>
 
         <h2>Substitution Rule — V → H (1×2 horizontal)</h2>
@@ -368,13 +373,23 @@
         </p>
         <div class="grid-wrapper" id="hv-sub-table"></div>
 
-        <h2>Translation Table — Order 5 → 6</h2>
+        <h2>Translation Table (V) — Order n → n+1</h2>
         <p class="subtitle">
-            Each lettered section on the order-5 map expands to a 2×2 block on
-            the order-6 map. Interior borders show where Coylean segments exist
-            at the boundary.
+            Each V-section expands to a 2×2 block of V-sections at the next
+            order. Shown <strong>member-only</strong>: one D4 representative per
+            reachable orbit (12 of the 24 orbits); every other member is a D4
+            transform of its representative. Interior borders show where Coylean
+            segments exist at the boundary. Valid on the anchor offsets above.
         </p>
-        <div class="grid-wrapper" id="translation-table"></div>
+        <div class="grid-wrapper" id="translation-table-v"></div>
+
+        <h2>Translation Table (H) — Order n → n+1</h2>
+        <p class="subtitle">
+            The horizontal-seniority dual: each H-section expands to a 2×2 block
+            of H-sections. Again member-only — one D4 representative per reachable
+            orbit (12); the rest follow by D4.
+        </p>
+        <div class="grid-wrapper" id="translation-table-h"></div>
 
         <h2>Vertical-Seniority Grid (vertical wins ties)</h2>
         <div class="grid-wrapper">

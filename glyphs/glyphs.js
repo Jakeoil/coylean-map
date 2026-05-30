@@ -232,26 +232,40 @@ function buildDualEquivalence(containerId) {
 
 // ── Translation Table ──
 
-function buildTranslationTable(containerId) {
+// Order n → n+1 self-substitution (1 glyph → 2×2). Shown member-only: one D4
+// representative per reachable orbit (12 of the 24 orbits are reached by clean
+// propagation); every other member is a D4 transform of its representative, so
+// it is omitted. Parametrized by seniority so the same builder makes the V and
+// the H table. Exact fixed point only on the anchor family lat/long ∈ {0,1}
+// (see the note above the tables).
+function buildTranslationTable(
+    containerId, seniority, orbitClasses, lettersMap, labelFn,
+) {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = "";
 
-    const o5 = getSectionData(32, 32, Seniority.vertical());
-    const o6 = getSectionData(64, 64, Seniority.vertical());
+    const o5 = getSectionData(32, 32, seniority);
+    const o6 = getSectionData(64, 64, seniority);
+
+    // code "d,r" → orbit index, so we keep one card per D4 orbit.
+    const codeToOrbit = new Map();
+    orbitClasses.forEach((cls, ci) =>
+        cls.orbit.forEach(([d, r]) => codeToOrbit.set(d + "," + r, ci)),
+    );
 
     const grid = document.createElement("div");
     grid.className = "trans-grid";
 
-    const seen = new Set();
+    const seenOrbit = new Set();
     for (let sr5 = 0; sr5 < 8; sr5++) {
         for (let sc5 = 0; sc5 < 8; sc5++) {
             const [dc5, rc5] = o5.codes[sr5][sc5];
-            const ft5 = GLYPH_LETTERS[dc5 + "," + rc5];
-            if (!ft5) continue;
-            const parent = glyphLabel(dc5, rc5);
-            if (seen.has(parent)) continue;
-            seen.add(parent);
+            if (!lettersMap[dc5 + "," + rc5]) continue; // reachable ⇔ lettered
+            const orbit = codeToOrbit.get(dc5 + "," + rc5);
+            if (seenOrbit.has(orbit)) continue;
+            seenOrbit.add(orbit);
+            const parent = labelFn(dc5, rc5);
 
             const sr6 = sr5 * 2,
                 sc6 = sc5 * 2;
@@ -262,7 +276,7 @@ function buildTranslationTable(containerId) {
                 [sr6 + 1, sc6 + 1],
             ];
             const labels = children.map(([r, c]) =>
-                glyphLabel(o6.codes[r][c][0], o6.codes[r][c][1]),
+                labelFn(o6.codes[r][c][0], o6.codes[r][c][1]),
             );
 
             // Boundary segments between the 2×2 children
@@ -478,7 +492,12 @@ function applyAssignmentsAndRender(useNew) {
     for (const id of Object.keys(mapConfigs)) {
         if (document.getElementById(id)) redrawMap(id);
     }
-    buildTranslationTable("translation-table");
+    buildTranslationTable(
+        "translation-table-v", Seniority.vertical(),
+        V_CLASSES, GLYPH_LETTERS, glyphLabel);
+    buildTranslationTable(
+        "translation-table-h", Seniority.horizontal(),
+        H_CLASSES, H_GLYPH_LETTERS, hGlyphLabel);
     buildSubstitutionRules("vh-sub-table", "hv-sub-table");
     rebuildGrids();
 }
