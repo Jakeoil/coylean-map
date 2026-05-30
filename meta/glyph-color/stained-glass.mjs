@@ -1,12 +1,16 @@
-// Stained-glass: color a Coylean map by glyph orbit, composited down the
-// substitution, on the renderer-agnostic orbit-color engine. Canvas renderer +
-// dials + an editable glyph color map (per-orbit hue, on/off).
+// Stained-glass: a Coylean map colored by glyph orbit (composited down the
+// substitution) with the whole-map Coylean line pattern overlaid, in a
+// pannable / zoomable viewport. Built on the renderer-agnostic orbit-color
+// engine. The map is rendered once to an offscreen layer; the viewport blits a
+// panned/zoomed region (cheap), re-rendering the layer only when content or a
+// dial changes.
 
 import {
     buildEngine,
     defaultPalette,
     rgbAt,
-    mapCodes,
+    mapModel,
+    mapSegments,
     compositeRects,
     Seniority,
 } from "./orbit-color.js";
@@ -14,27 +18,136 @@ import {
 // ── State ──
 const state = {
     seniority: Seniority.vertical(),
-    order: 64, // cells per side: 32→8×8, 64→16×16, 128→32×32 sections
-    h: 1, v: 1, // dyadic offset (longitude, latitude)
-    baseAlpha: 0.55,
-    falloff: 0.42,
-    minPx: 4,
-    L: 0.63, C: 0.17, // OKLCH lightness / chroma for the palette
-    gap: 3, // leading width (px)
-    bg: "glass", // glass | dark | light
+    order: 64,
+    h: 1, v: 1,
+    baseAlpha: 0.55, falloff: 0.42, minPx: 4,
+    L: 0.63, C: 0.17,
+    bg: "glass",
+    patternOn: true,
+    patternDensity: 0, // extra line-refinement levels beyond the color order
+    patternWidth: 1,
+    patternColor: "#1d2230",
+    patternAlpha: 0.6,
+    // viewport
+    zoom: 1, panX: 0, panY: 0,
 };
 let engine = buildEngine(state.seniority);
 let palette = defaultPalette(state.seniority, { L: state.L, C: state.C });
-// User per-orbit color overrides (orbit → [r,g,b]); survive L/C regen.
 const overrides = new Map();
 
 const canvas = document.getElementById("glass-canvas");
-const ctx = canvas.getContext("2d");
+const vctx = canvas.getContext("2d");
+const offscreen = document.createElement("canvas");
+let offW = 0, offH = 0, dirty = true;
+
+// ── Offscreen full-map render ──
+function buildOffscreen() {
+    const model = mapModel(state.seniority, state.order, state.h, state.v);
+    const codes = model.secCodes;
+    const cols = codes[0].length, rows = codes.length;
+    const secPx = Math.max(16, Math.min(140, Math.round(1500 / cols)));
+    offW = cols * secPx;
+    offH = rows * secPx;
+    offscreen.width = offW;
+    offscreen.height = offH;
+    const octx = offscreen.getContext("2d");
+    octx.fillStyle = state.bg === "dark" ? "#0e0f13"
+        : state.bg === "light" ? "#ffffff" : "#ffffff";
+    octx.fillRect(0, 0, offW, offH);
+
+    const rects = compositeRects({
+        codes, gap: 0, secPx, engine, palette,
+        minPx: state.minPx, baseAlpha: state.baseAlpha, falloff: state.falloff,
+    });
+    for (const rk of rects) {
+        octx.fillStyle = `rgba(${rk.r},${rk.g},${rk.b},${rk.a})`;
+        octx.fillRect(rk.x, rk.y, rk.size, rk.size);
+    }
+    if (state.patternOn) drawLines(octx, secPx, model);
+    dirty = false;
+}
+
+// Whole-map Coylean line pattern, batched by priority (senior cage lines drawn
+// thicker). density>0 pulls the segments from a finer-order map.
+function drawLines(octx, secPx, baseModel) {
+    const lineOrder = Math.min(state.order * (1 << state.patternDensity), 512);
+    const mult = lineOrder / state.order;
+    const lm = lineOrder === state.order
+        ? baseModel
+        : mapModel(state.seniority, lineOrder, state.h, state.v);
+    const { verts, horis } = mapSegments(lm);
+    const cellPx = secPx / (4 * mult);
+    const [pr, pg, pb] = hexToRgb(state.patternColor);
+    const PRI_CAP = 6;
+    const groups = new Map();
+    const add = (p, x0, y0, x1, y1) => {
+        const pc = Math.min(p, PRI_CAP);
+        if (!groups.has(pc)) groups.set(pc, []);
+        groups.get(pc).push(x0, y0, x1, y1);
+    };
+    for (const s of verts)
+        add(s.pri, s.x * cellPx, s.y0 * cellPx, s.x * cellPx, s.y1 * cellPx);
+    for (const s of horis)
+        add(s.pri, s.x0 * cellPx, s.y * cellPx, s.x1 * cellPx, s.y * cellPx);
+    octx.lineCap = "round";
+    octx.strokeStyle = `rgba(${pr},${pg},${pb},${state.patternAlpha})`;
+    for (const pc of [...groups.keys()].sort((a, b) => a - b)) {
+        octx.lineWidth = state.patternWidth * (1 + 0.7 * pc);
+        octx.beginPath();
+        const arr = groups.get(pc);
+        for (let i = 0; i < arr.length; i += 4) {
+            octx.moveTo(arr[i], arr[i + 1]);
+            octx.lineTo(arr[i + 2], arr[i + 3]);
+        }
+        octx.stroke();
+    }
+}
+
+// ── Viewport ──
+function sizeCanvas() {
+    const stage = document.getElementById("stage");
+    canvas.width = Math.max(200, stage.clientWidth);
+    canvas.height = Math.max(200, window.innerHeight - 150);
+}
+function fitView() {
+    const z = Math.min(canvas.width / offW, canvas.height / offH);
+    state.zoom = z;
+    state.panX = (canvas.width - offW * z) / 2;
+    state.panY = (canvas.height - offH * z) / 2;
+}
+function blit() {
+    vctx.fillStyle = "#0b0c10";
+    vctx.fillRect(0, 0, canvas.width, canvas.height);
+    vctx.imageSmoothingEnabled = state.zoom < 1;
+    vctx.drawImage(offscreen, state.panX, state.panY,
+        offW * state.zoom, offH * state.zoom);
+    document.getElementById("info").textContent =
+        `${offW}×${offH} map · zoom ${(state.zoom).toFixed(2)}×`;
+}
+
+let pending = false;
+function scheduleRender() {
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(() => { pending = false; render(); });
+}
+function render() {
+    if (dirty) buildOffscreen();
+    blit();
+}
+// Content changed: rebuild the offscreen next frame.
+function invalidate() { dirty = true; scheduleRender(); }
 
 // ── Palette helpers ──
-// Rebuild the palette from OKLCH defaults at the current L/C, re-applying user
-// color overrides and the existing enabled flags. rebuildUI=false just refreshes
-// the swatch <input> values in place (cheap enough for live L/C dragging).
+function recolorPalette() {
+    for (const [o, pe] of palette) {
+        pe.rgb = overrides.has(o)
+            ? overrides.get(o).slice()
+            : rgbAt(state.L, state.C, pe.hue).rgb;
+        pe.L = state.L; pe.C = state.C;
+    }
+    refreshSwatches();
+}
 function regenPalette(rebuildUI) {
     const prev = palette;
     palette = defaultPalette(state.seniority, { L: state.L, C: state.C });
@@ -50,20 +163,15 @@ function regenPalette(rebuildUI) {
     if (rebuildUI) buildPaletteUI();
     else refreshSwatches();
 }
-// Recolor existing palette entries from the current L/C (hue/enabled kept,
-// overrides honored) — cheap enough for live dragging (no re-classification).
-function recolorPalette() {
-    for (const [o, pe] of palette) {
-        pe.rgb = overrides.has(o)
-            ? overrides.get(o).slice()
-            : rgbAt(state.L, state.C, pe.hue).rgb;
-        pe.L = state.L;
-        pe.C = state.C;
-    }
-    refreshSwatches();
-}
 function hexOf(rgb) {
     return "#" + rgb.map((v) => v.toString(16).padStart(2, "0")).join("");
+}
+function hexToRgb(hex) {
+    return [
+        parseInt(hex.slice(1, 3), 16),
+        parseInt(hex.slice(3, 5), 16),
+        parseInt(hex.slice(5, 7), 16),
+    ];
 }
 function refreshSwatches() {
     document.querySelectorAll(".pal-col").forEach((el) => {
@@ -71,70 +179,9 @@ function refreshSwatches() {
         if (pe) el.value = hexOf(pe.rgb);
     });
 }
-
-// ── Render (rAF-coalesced) ──
-let pending = false;
-function scheduleRender() {
-    if (pending) return;
-    pending = true;
-    requestAnimationFrame(() => { pending = false; render(); });
-}
-function render() {
-    const codes = mapCodes(state.seniority, state.order, state.h, state.v);
-    const cols = codes[0].length, rows = codes.length;
-    const gap = state.gap;
-    const maxW = Math.min(820, window.innerWidth - 340);
-    const secPx = Math.max(8, Math.floor((maxW - (cols + 1) * gap) / cols));
-    const totalW = cols * (secPx + gap) + gap;
-    const totalH = rows * (secPx + gap) + gap;
-    canvas.width = totalW;
-    canvas.height = totalH;
-
-    const lead = state.bg === "light" ? "#d8d8de"
-        : state.bg === "dark" ? "#0e0f13" : "#15161b";
-    const glass = state.bg === "dark" ? "#0e0f13"
-        : state.bg === "light" ? "#ffffff" : "#ffffff";
-    ctx.fillStyle = lead;
-    ctx.fillRect(0, 0, totalW, totalH);
-    // Lit glass base per section (so translucent colors read luminous).
-    if (state.bg !== "dark") {
-        ctx.fillStyle = glass;
-        for (let sr = 0; sr < rows; sr++)
-            for (let sc = 0; sc < cols; sc++)
-                ctx.fillRect(
-                    gap + sc * (secPx + gap), gap + sr * (secPx + gap),
-                    secPx, secPx);
-    }
-    const rects = compositeRects({
-        codes, gap, secPx, engine, palette,
-        minPx: state.minPx, baseAlpha: state.baseAlpha, falloff: state.falloff,
-    });
-    for (const rk of rects) {
-        ctx.fillStyle = `rgba(${rk.r},${rk.g},${rk.b},${rk.a})`;
-        ctx.fillRect(rk.x, rk.y, rk.size, rk.size);
-    }
-    document.getElementById("info").textContent =
-        `${cols}×${rows} sections · ${rects.length} color rects`;
-}
-
-// ── Controls wiring ──
-function num(id) { return document.getElementById(id); }
-function bindRange(id, key, fmtId, fmt = (x) => x) {
-    const el = num(id);
-    const out = fmtId ? num(fmtId) : null;
-    const apply = () => {
-        state[key] = parseFloat(el.value);
-        if (out) out.textContent = fmt(state[key]);
-        if (key === "L" || key === "C") recolorPalette();
-        scheduleRender();
-    };
-    el.addEventListener("input", apply);
-    if (out) out.textContent = fmt(state[key]);
-}
-
-// Which orbits actually appear on the current map (for the color map list).
 function presentOrbits() {
-    const codes = mapCodes(state.seniority, state.order, state.h, state.v);
+    const codes = mapModel(state.seniority, state.order, state.h, state.v)
+        .secCodes;
     const seen = new Set();
     for (const row of codes)
         for (const [d, r] of row) {
@@ -143,42 +190,49 @@ function presentOrbits() {
         }
     return [...seen].sort((a, b) => a - b);
 }
-
 function buildPaletteUI() {
     const host = document.getElementById("palette");
     host.innerHTML = "";
+    const tag = state.seniority.isVertical ? "V" : "H";
     for (const o of presentOrbits()) {
         const pe = palette.get(o);
-        const rep = pe.rep;
-        const hex = hexOf(pe.rgb);
         const row = document.createElement("label");
         row.className = "pal-row";
         row.innerHTML =
             `<input type="checkbox" ${pe.enabled ? "checked" : ""} ` +
             `data-orbit="${o}" class="pal-on" />` +
-            `<input type="color" value="${hex}" data-orbit="${o}" ` +
+            `<input type="color" value="${hexOf(pe.rgb)}" data-orbit="${o}" ` +
             `class="pal-col" />` +
-            `<span class="pal-name">${state.seniority.isVertical ? "V" : "H"}` +
-            `${rep[0]}${rep[1]}</span>`;
+            `<span class="pal-name">${tag}${pe.rep[0]}${pe.rep[1]}</span>`;
         host.appendChild(row);
     }
     host.querySelectorAll(".pal-on").forEach((el) =>
         el.addEventListener("change", () => {
             palette.get(+el.dataset.orbit).enabled = el.checked;
-            scheduleRender();
+            invalidate();
         }));
     host.querySelectorAll(".pal-col").forEach((el) =>
         el.addEventListener("input", () => {
             const o = +el.dataset.orbit;
-            const rgb = [
-                parseInt(el.value.slice(1, 3), 16),
-                parseInt(el.value.slice(3, 5), 16),
-                parseInt(el.value.slice(5, 7), 16),
-            ];
+            const rgb = hexToRgb(el.value);
             palette.get(o).rgb = rgb;
             overrides.set(o, rgb);
-            scheduleRender();
+            invalidate();
         }));
+}
+
+// ── Controls ──
+function num(id) { return document.getElementById(id); }
+function bindRange(id, key, fmtId, fmt = (x) => x) {
+    const el = num(id);
+    const out = fmtId ? num(fmtId) : null;
+    el.addEventListener("input", () => {
+        state[key] = parseFloat(el.value);
+        if (out) out.textContent = fmt(state[key]);
+        if (key === "L" || key === "C") recolorPalette();
+        invalidate();
+    });
+    if (out) out.textContent = fmt(state[key]);
 }
 
 function init() {
@@ -187,22 +241,30 @@ function init() {
     bindRange("minpx", "minPx", "minpx-out", (x) => x.toFixed(0));
     bindRange("lightness", "L", "lightness-out", (x) => x.toFixed(2));
     bindRange("chroma", "C", "chroma-out", (x) => x.toFixed(2));
-    bindRange("gap", "gap", "gap-out", (x) => x.toFixed(0));
+    bindRange("pat-density", "patternDensity", "pat-density-out",
+        (x) => x.toFixed(0));
+    bindRange("pat-width", "patternWidth", "pat-width-out", (x) => x.toFixed(1));
+    bindRange("pat-alpha", "patternAlpha", "pat-alpha-out", (x) => x.toFixed(2));
 
+    num("pattern-on").addEventListener("change", (e) => {
+        state.patternOn = e.target.checked; invalidate();
+    });
+    num("pat-color").addEventListener("input", (e) => {
+        state.patternColor = e.target.value; invalidate();
+    });
     num("order").addEventListener("change", (e) => {
         state.order = parseInt(e.target.value, 10);
         buildPaletteUI();
-        scheduleRender();
+        dirty = true; buildOffscreen(); fitView(); blit();
     });
     num("bg").addEventListener("change", (e) => {
-        state.bg = e.target.value;
-        scheduleRender();
+        state.bg = e.target.value; invalidate();
     });
     ["h", "v"].forEach((k) =>
         num(k + "-input").addEventListener("change", (e) => {
             state[k] = parseInt(e.target.value, 10) || 1;
             buildPaletteUI();
-            scheduleRender();
+            invalidate();
         }));
     document.querySelectorAll('input[name="seniority"]').forEach((r) =>
         r.addEventListener("change", () => {
@@ -213,18 +275,49 @@ function init() {
             engine = buildEngine(state.seniority);
             overrides.clear();
             regenPalette(true);
-            scheduleRender();
+            invalidate();
         }));
-
     document.getElementById("reset-palette").addEventListener("click", () => {
         overrides.clear();
         regenPalette(true);
-        scheduleRender();
+        invalidate();
     });
+    num("fit").addEventListener("click", () => { fitView(); blit(); });
+
+    // Pan (drag) + zoom (wheel).
+    let dragging = false, lx = 0, ly = 0;
+    canvas.addEventListener("pointerdown", (e) => {
+        dragging = true; lx = e.clientX; ly = e.clientY;
+        canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener("pointermove", (e) => {
+        if (!dragging) return;
+        state.panX += e.clientX - lx;
+        state.panY += e.clientY - ly;
+        lx = e.clientX; ly = e.clientY;
+        blit();
+    });
+    canvas.addEventListener("pointerup", () => { dragging = false; });
+    canvas.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+        const ix = (cx - state.panX) / state.zoom;
+        const iy = (cy - state.panY) / state.zoom;
+        const f = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+        state.zoom = Math.max(0.05, Math.min(40, state.zoom * f));
+        state.panX = cx - ix * state.zoom;
+        state.panY = cy - iy * state.zoom;
+        blit();
+    }, { passive: false });
+
+    window.addEventListener("resize", () => { sizeCanvas(); blit(); });
 
     buildPaletteUI();
-    render();
-    window.addEventListener("resize", scheduleRender);
+    sizeCanvas();
+    buildOffscreen();
+    fitView();
+    blit();
 }
 
 init();

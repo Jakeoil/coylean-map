@@ -20,6 +20,7 @@ import { Seniority } from "../../coylean-explorer/coylean-core.js";
 import {
     getSectionData,
     computeMapModel,
+    computeGlyphMatrices,
     classifyVisualD4,
     setOffset,
 } from "../../glyphs/glyph-core.js";
@@ -94,14 +95,51 @@ export function rgbAt(L, C, hue) {
     return { rgb: [(int >> 16) & 255, (int >> 8) & 255, int & 255] };
 }
 
-// ── Map codes ──
-// 2-D array of [d, r] section codes for a Coylean map at the given order
-// (cells per side; 32 → 8×8 sections, 64 → 16×16 …) and dyadic offset.
-export function mapCodes(seniority, order, h = 1, v = 1) {
+// ── Map model ──
+// Full computeMapModel result for a map at the given order (cells per side;
+// 32 → 8×8 sections, 64 → 16×16 …) and dyadic offset. Holds secCodes (for the
+// color composite) plus downMatrix / rightMatrix / colPriority / rowPriority /
+// firstDarkRow / firstDarkCol (for the whole-map line overlay).
+export function mapModel(seniority, order, h = 1, v = 1) {
     setOffset(h, v);
-    const model = computeMapModel(order, order, { seniority });
+    const m = computeMapModel(order, order, { seniority });
     setOffset(1, 1);
-    return model.secCodes;
+    return m;
+}
+// Convenience: just the section codes.
+export function mapCodes(seniority, order, h = 1, v = 1) {
+    return mapModel(seniority, order, h, v).secCodes;
+}
+
+// Whole-map line segments in cell units relative to the cage-grid origin, with
+// priority (so a renderer can thicken the senior cage lines). cellPx = secPx/4.
+//   verts: { x, y0, y1, pri } — vertical line at cell-x, spanning y0..y1
+//   horis: { y, x0, x1, pri } — horizontal line at cell-y, spanning x0..x1
+// Mirrors drawCoyleanMap's geometry (vertical at col x+1; horizontal at row
+// y+1), shifted so cell 0 is the first cage's first interior column/row.
+export function mapSegments(model) {
+    const { downMatrix, rightMatrix, colPriority, rowPriority,
+        firstDarkRow, firstDarkCol } = model;
+    const oc = firstDarkCol + 1, orr = firstDarkRow + 1;
+    const Mr = downMatrix.length;
+    const verts = [], horis = [];
+    for (let y = 0; y < Mr; y++) {
+        const drow = downMatrix[y];
+        if (drow)
+            for (let x = 0; x < drow.length; x++)
+                if (drow[x])
+                    verts.push({ x: x + 1 - oc, y0: y - orr, y1: y + 1 - orr,
+                        pri: colPriority[x] || 0 });
+    }
+    for (let x = 0; x < rightMatrix.length; x++) {
+        const rcol = rightMatrix[x];
+        if (rcol)
+            for (let y = 0; y < rcol.length; y++)
+                if (rcol[y])
+                    horis.push({ y: y + 1 - orr, x0: x - oc, x1: x + 1 - oc,
+                        pri: rowPriority[y] || 0 });
+    }
+    return { verts, horis };
 }
 
 // ── Composite ──
@@ -142,6 +180,58 @@ export function compositeRects(opts) {
             descend(codes[sr][sc],
                 gap + sc * (secPx + gap), gap + sr * (secPx + gap), secPx, 0);
     return rects;
+}
+
+// ── Coylean line pattern ──
+// A glyph's own segment geometry, in glyph-local cell units (0..4 per side):
+//   verts: [col, rowStart] → vertical segment (col, rowStart)–(col, rowStart+1)
+//   horis: [colStart, row] → horizontal segment (colStart, row)–(colStart+1, row)
+// Memoized — there are only 64 codes per seniority.
+const segCache = new Map();
+export function glyphSegments(d, r, seniority) {
+    const key = (seniority.isVertical ? "v" : "h") + d + "," + r;
+    if (segCache.has(key)) return segCache.get(key);
+    const { downMatrix, rightMatrix } =
+        computeGlyphMatrices(d, r, seniority);
+    const verts = [], horis = [];
+    for (let y = 0; y <= 3; y++)
+        for (let x = 0; x < 3; x++)
+            if (downMatrix[y] && downMatrix[y][x]) verts.push([x + 1, y]);
+    for (let x = 0; x <= 3; x++)
+        for (let y = 0; y < 3; y++)
+            if (rightMatrix[x] && rightMatrix[x][y]) horis.push([x, y + 1]);
+    const out = { verts, horis };
+    segCache.set(key, out);
+    return out;
+}
+
+// Boxes at which to draw the line pattern: descend each section `depth` levels
+// through the translation table (or until a code has no rule). Returns
+// { code, x, y, size } — the renderer draws glyphSegments(code) scaled to the
+// box. depth 0 = section glyphs; higher = finer self-similar linework.
+export function patternBoxes(opts) {
+    const { codes, gap, secPx, engine, depth } = opts;
+    const minPx = opts.minPx ?? 6; // don't descend into boxes finer than this
+    const { table } = engine;
+    const boxes = [];
+    function descend(code, x, y, size, d) {
+        const rule = table[code[0] + "," + code[1]];
+        const half = size / 2;
+        if (d >= depth || half < minPx || !rule) {
+            boxes.push({ code, x, y, size });
+            return;
+        }
+        descend(rule.children[0], x, y, half, d + 1);
+        descend(rule.children[1], x + half, y, half, d + 1);
+        descend(rule.children[2], x, y + half, half, d + 1);
+        descend(rule.children[3], x + half, y + half, half, d + 1);
+    }
+    const rows = codes.length, cols = codes[0].length;
+    for (let sr = 0; sr < rows; sr++)
+        for (let sc = 0; sc < cols; sc++)
+            descend(codes[sr][sc],
+                gap + sc * (secPx + gap), gap + sr * (secPx + gap), secPx, 0);
+    return boxes;
 }
 
 export { Seniority };

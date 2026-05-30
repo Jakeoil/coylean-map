@@ -14,33 +14,36 @@
                 font-family: Menlo, Monaco, "Courier New", monospace;
                 background: #0b0c10;
                 color: #c9ccd3;
-                padding: 20px;
+                padding: 16px 20px;
             }
             .breadcrumb {
                 font-size: 0.8rem;
                 color: #6b7280;
-                margin-bottom: 12px;
+                margin-bottom: 10px;
             }
             .breadcrumb a {
                 color: #8b93a3;
                 text-decoration: none;
             }
             h1 {
-                font-size: 1.5rem;
-                margin-bottom: 6px;
+                font-size: 1.4rem;
+                margin-bottom: 12px;
                 color: #e6e8ee;
-            }
-            .subtitle {
-                color: #8b93a3;
-                font-size: 0.85rem;
-                margin-bottom: 18px;
-                max-width: 760px;
-                line-height: 1.5;
             }
             .layout {
                 display: flex;
-                gap: 20px;
+                gap: 18px;
                 align-items: flex-start;
+            }
+            .panel {
+                flex: 0 0 286px;
+                background: #14161c;
+                border: 1px solid #23262f;
+                border-radius: 8px;
+                padding: 14px 16px;
+                font-size: 0.8rem;
+                max-height: calc(100vh - 110px);
+                overflow-y: auto;
             }
             .stage {
                 flex: 1 1 auto;
@@ -49,23 +52,20 @@
             canvas {
                 display: block;
                 border-radius: 4px;
-                box-shadow: 0 6px 30px rgba(0, 0, 0, 0.5);
+                background: #0b0c10;
+                cursor: grab;
+                touch-action: none;
+            }
+            canvas:active {
+                cursor: grabbing;
             }
             .info {
-                margin-top: 8px;
+                margin-top: 6px;
                 font-size: 0.72rem;
                 color: #6b7280;
             }
-            .panel {
-                flex: 0 0 300px;
-                background: #14161c;
-                border: 1px solid #23262f;
-                border-radius: 8px;
-                padding: 14px 16px;
-                font-size: 0.8rem;
-            }
             .group {
-                margin-bottom: 16px;
+                margin-bottom: 15px;
             }
             .group:last-child {
                 margin-bottom: 0;
@@ -75,17 +75,17 @@
                 text-transform: uppercase;
                 letter-spacing: 0.06em;
                 color: #6b7280;
-                margin-bottom: 8px;
+                margin-bottom: 7px;
                 font-weight: bold;
             }
             .ctl {
                 display: flex;
                 align-items: center;
                 gap: 8px;
-                margin-bottom: 8px;
+                margin-bottom: 7px;
             }
             .ctl label {
-                flex: 0 0 84px;
+                flex: 0 0 78px;
                 color: #9aa1b0;
             }
             .ctl input[type="range"] {
@@ -93,7 +93,7 @@
                 min-width: 0;
             }
             .ctl .val {
-                flex: 0 0 34px;
+                flex: 0 0 30px;
                 text-align: right;
                 color: #c9ccd3;
             }
@@ -116,13 +116,10 @@
                 margin-right: 12px;
                 cursor: pointer;
             }
-            /* Glyph color map */
             .palette {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
                 gap: 4px 12px;
-                max-height: 360px;
-                overflow-y: auto;
             }
             .pal-row {
                 display: flex;
@@ -163,20 +160,7 @@
             <a href="../index.html">Meta</a> / Stained Glass
         </div>
         <h1>Coylean Glyphs — Stained Glass</h1>
-        <p class="subtitle">
-            Every Coylean map is a substitution tiling: each glyph expands into a
-            2×2 of glyphs, forever. Here each glyph orbit gets an OKLCH hue, and
-            the map is colored by compositing those hues all the way down the
-            substitution — alpha falls off with depth, so the coarse glyph sets
-            the base color and finer scales add texture. On the anchor family the
-            result is exactly self-similar. Built on the renderer-agnostic
-            <code>orbit-color.js</code> engine.
-        </p>
         <div class="layout">
-            <div class="stage">
-                <canvas id="glass-canvas"></canvas>
-                <div class="info" id="info"></div>
-            </div>
             <aside class="panel">
                 <div class="group">
                     <div class="group-title">Map</div>
@@ -197,6 +181,7 @@
                             <option value="32">32 (8×8)</option>
                             <option value="64" selected>64 (16×16)</option>
                             <option value="128">128 (32×32)</option>
+                            <option value="256">256 (64×64)</option>
                         </select>
                     </div>
                     <div class="ctl">
@@ -205,9 +190,15 @@
                         <label style="flex: 0 0 auto">long</label>
                         <input type="number" id="h-input" value="1" step="1" />
                     </div>
+                    <div class="ctl">
+                        <button id="fit">Fit view</button>
+                        <span class="val" style="flex: 1; text-align: left">
+                            drag = pan · wheel = zoom
+                        </span>
+                    </div>
                 </div>
                 <div class="group">
-                    <div class="group-title">Composite dials</div>
+                    <div class="group-title">Color composite</div>
                     <div class="ctl">
                         <label>base α</label>
                         <input type="range" id="base-alpha" min="0.15"
@@ -221,14 +212,11 @@
                         <span class="val" id="falloff-out"></span>
                     </div>
                     <div class="ctl">
-                        <label>depth (min px)</label>
+                        <label>depth</label>
                         <input type="range" id="minpx" min="1" max="14"
                             step="1" value="4" />
                         <span class="val" id="minpx-out"></span>
                     </div>
-                </div>
-                <div class="group">
-                    <div class="group-title">Color &amp; leading</div>
                     <div class="ctl">
                         <label>OKLCH L</label>
                         <input type="range" id="lightness" min="0.4"
@@ -242,18 +230,43 @@
                         <span class="val" id="chroma-out"></span>
                     </div>
                     <div class="ctl">
-                        <label>leading</label>
-                        <input type="range" id="gap" min="0" max="8"
-                            step="1" value="3" />
-                        <span class="val" id="gap-out"></span>
-                    </div>
-                    <div class="ctl">
                         <label>background</label>
                         <select id="bg">
                             <option value="glass" selected>Stained glass</option>
                             <option value="dark">Dark</option>
                             <option value="light">Light</option>
                         </select>
+                    </div>
+                </div>
+                <div class="group">
+                    <div class="group-title">
+                        Coylean pattern
+                        <label style="float: right; font-weight: normal">
+                            <input type="checkbox" id="pattern-on" checked />
+                            show
+                        </label>
+                    </div>
+                    <div class="ctl">
+                        <label>density</label>
+                        <input type="range" id="pat-density" min="0" max="3"
+                            step="1" value="0" />
+                        <span class="val" id="pat-density-out"></span>
+                    </div>
+                    <div class="ctl">
+                        <label>thickness</label>
+                        <input type="range" id="pat-width" min="0.3" max="4"
+                            step="0.1" value="1" />
+                        <span class="val" id="pat-width-out"></span>
+                    </div>
+                    <div class="ctl">
+                        <label>visibility</label>
+                        <input type="range" id="pat-alpha" min="0.05" max="1"
+                            step="0.05" value="0.6" />
+                        <span class="val" id="pat-alpha-out"></span>
+                    </div>
+                    <div class="ctl">
+                        <label>color</label>
+                        <input type="color" id="pat-color" value="#1d2230" />
                     </div>
                 </div>
                 <div class="group">
@@ -266,6 +279,10 @@
                     <div class="palette" id="palette"></div>
                 </div>
             </aside>
+            <div class="stage" id="stage">
+                <canvas id="glass-canvas"></canvas>
+                <div class="info" id="info"></div>
+            </div>
         </div>
         <script type="module" src="./stained-glass.mjs"></script>
     </body>
