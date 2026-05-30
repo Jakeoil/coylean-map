@@ -676,6 +676,57 @@ function drawSelfSimShading(ctx, state, gap, secPx) {
                 secPx);
 }
 
+// ── Color by orbit (whole-map composite) ──
+// Paint every section, and recursively its translation sub-glyphs, with the
+// (sub-)glyph's orbit hue. Alpha falls off with depth so the coarse glyph
+// dominates and finer scales only tint — a scale-weighted composite of the
+// self-similar structure (think colored substitution tiling / Rauzy fractal).
+// Distinct hues come from the golden angle. Rendered once per grid to an
+// offscreen layer and cached on the state, so hover stays cheap.
+let colorByOrbit = false;
+const ORBIT_BASE_ALPHA = 0.55, ORBIT_FALLOFF = 0.42;
+function orbitHue(orbit) { return (orbit * 137.508) % 360; }
+function drawOrbitColoring(ctx, state, gap, secPx) {
+    const orbitMap = orbitIdMap(currentSeniority);
+    const sub = currentSubTable();
+    function descend(code, x, y, size, depth) {
+        const orbit = orbitMap.get(code[0] + "," + code[1]);
+        if (orbit !== undefined) {
+            ctx.fillStyle = `hsla(${orbitHue(orbit)}, 65%, 55%, ` +
+                `${ORBIT_BASE_ALPHA * Math.pow(ORBIT_FALLOFF, depth)})`;
+            ctx.fillRect(x, y, size, size);
+        }
+        const half = size / 2;
+        if (half < SELFSIM_MIN_PX) return;
+        const rule = sub[code[0] + "," + code[1]];
+        if (!rule) return;
+        descend(rule.children[0], x, y, half, depth + 1);
+        descend(rule.children[1], x + half, y, half, depth + 1);
+        descend(rule.children[2], x, y + half, half, depth + 1);
+        descend(rule.children[3], x + half, y + half, half, depth + 1);
+    }
+    const rows = state.grid.length, cols = state.grid[0].length;
+    for (let sr = 0; sr < rows; sr++)
+        for (let sc = 0; sc < cols; sc++)
+            descend(state.grid[sr][sc],
+                gap + sc * (secPx + gap), gap + sr * (secPx + gap), secPx, 0);
+}
+// Cached offscreen layer; recomputed only when the grid / size / seniority
+// changes (not on hover).
+function orbitLayer(state, w, h, gap, secPx) {
+    const sig = w + "x" + h + ":" + (currentSeniority.isVertical ? "v" : "h");
+    if (state._ol && state._olGrid === state.grid && state._olSig === sig)
+        return state._ol;
+    const off = document.createElement("canvas");
+    off.width = w;
+    off.height = h;
+    drawOrbitColoring(off.getContext("2d"), state, gap, secPx);
+    state._ol = off;
+    state._olGrid = state.grid;
+    state._olSig = sig;
+    return off;
+}
+
 function renderView(canvas, state) {
     const ctx = canvas.getContext("2d");
     const rows = state.grid.length;
@@ -688,6 +739,9 @@ function renderView(canvas, state) {
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, totalW, totalH);
 
+    // Whole-map orbit coloring (cached layer) sits at the base.
+    if (colorByOrbit)
+        ctx.drawImage(orbitLayer(state, totalW, totalH, gap, secPx), 0, 0);
     // Self-similar shading sits under everything; overlapping fills compound.
     if (selfSimShade) drawSelfSimShading(ctx, state, gap, secPx);
 
@@ -1051,6 +1105,13 @@ function wireControls() {
         selfSim.addEventListener("change", () => {
             selfSimShade = selfSim.checked;
             explorer.render();
+        });
+    }
+    const colorOrbit = document.getElementById("colororbit-toggle");
+    if (colorOrbit) {
+        colorOrbit.addEventListener("change", () => {
+            colorByOrbit = colorOrbit.checked;
+            rerenderAll();
         });
     }
     document.addEventListener("keydown", e => {

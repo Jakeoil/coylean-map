@@ -269,6 +269,14 @@
                 so deeply self-similar points darken. Cleanest on the anchor
                 family, where the map is an exact substitution tiling.
             </p>
+            <p>
+                <strong>Color by orbit</strong> (sidebar): tints the whole map by
+                each glyph's D4 orbit (one hue per orbit), descending the
+                translation so sub-glyphs tint their region too. Alpha falls off
+                with depth, so the coarse glyph sets the base hue and finer scales
+                add texture — a scale-weighted composite of the self-similar
+                structure.
+            </p>
         </div>
 
         <div class="layout">
@@ -307,6 +315,10 @@
                     <label>
                         <input type="checkbox" id="selfsim-toggle" />
                         Self-similar shading (Explorer)
+                    </label>
+                    <label>
+                        <input type="checkbox" id="colororbit-toggle" />
+                        Color by orbit
                     </label>
                 </div>
                 <div class="side-group">
