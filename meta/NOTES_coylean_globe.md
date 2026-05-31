@@ -28,6 +28,24 @@ cell scale but exposes *new* map every turn.
   positive, symmetric N/S. The front-most latitude is exactly the pitch `rotX`
   (so the screen-centre row is analytic — used to seed `visibleRowRange`).
 
+## Orientation controls (anchor + seniority)
+
+Three buttons toggle the map's dyadic anchor and tie-break, rebuilding the
+scaffold: **Lat** (vInitRow 0↔1), **Long** (hInitCol 0↔1), **Sen** (V↔H). A
+large label names the orientation. Verified in Node for all four anchors ×
+both seniorities: `axisCol = W − hInitCol`, `axisRow = W − vInitRow`, offsets
+`hInitCol − W` / `vInitRow − W`, tiles reconstruct exactly.
+
+Label rule (lat 1→S/0→N, long 1→E/0→W): **V** names N–S first, **H** names
+E–W first.
+
+| (lat,long) | V  | H  |
+|-----------|----|----|
+| 1,1       | SE | ES |
+| 0,1       | NE | EN |
+| 1,0       | SW | WS |
+| 0,0       | NW | WN |
+
 ## Branch-cut age tint
 
 Meridians within a small band of the branch cut (the back, at the window edges

@@ -17,7 +17,7 @@
 // 2W × 2W cells with the axis at (W-1, W-1). maxPri = ceil(log2(2W)) makes the
 // axis the unique global priority maximum (no repetition within the universe).
 
-import { pri } from "../coylean-explorer/coylean-core.js";
+import { pri, Seniority } from "../coylean-explorer/coylean-core.js";
 import {
     buildIntegratedScaffold,
     propagateBlock,
@@ -35,6 +35,10 @@ const lineScaleInput = document.getElementById("lineScale");
 const densityInput = document.getElementById("density");
 const showSkeletonCb = document.getElementById("showSkeleton");
 const showTextureCb = document.getElementById("showTexture");
+const latBtn = document.getElementById("latBtn");
+const longBtn = document.getElementById("longBtn");
+const senBtn = document.getElementById("senBtn");
+const orientLabel = document.getElementById("orientLabel");
 
 const lineScaleValue = document.getElementById("lineScaleValue");
 const densityValue = document.getElementById("densityValue");
@@ -104,18 +108,38 @@ function requestRender() {
     needsRender = true;
 }
 
+// ── Orientation: anchor (lat = vInitRow, long = hInitCol) + seniority ─────────
+// Each of lat/long toggles 0↔1; seniority toggles V↔H. The four anchors are the
+// canonical quadrant family; the big label names the orientation: lat 1→S/0→N,
+// long 1→E/0→W, V seniority names N–S first (SE/NE/SW/NW), H names E–W first
+// (ES/EN/WS/WN).
+let curHInitCol = 1; // longitude anchor
+let curVInitRow = 1; // latitude anchor
+let curSeniorityH = false; // false = V, true = H
+
+function orientationLabel(vInitRow, hInitCol, seniorityH) {
+    const ns = vInitRow === 1 ? "S" : "N";
+    const ew = hInitCol === 1 ? "E" : "W";
+    return seniorityH ? ew + ns : ns + ew;
+}
+
 // ── Source descriptor (the map's dyadic frame + lazy scaffold) ────────────────
 let src = null;
 
-function buildSource(division, W) {
+function buildSource(division, W, hInitCol, vInitRow, seniorityH) {
     const numCols = 2 * W;
     const numRows = 2 * W;
-    const axisCol = W - 1;
-    const axisRow = W - 1;
-    const hInitCol0 = 1 - W; // canonical hInitCol = 1, westExtent = W
-    const vInitRow0 = 1 - W; // canonical vInitRow = 1, northExtent = W
+    // Verified in Node for all four anchors × both seniorities:
+    //   axis = W − anchor, offset = anchor − W (= seed.hInitCol/vInitRow).
+    const axisCol = W - hInitCol;
+    const axisRow = W - vInitRow;
+    const hInitCol0 = hInitCol - W;
+    const vInitRow0 = vInitRow - W;
     // ceil(log2(2W)) makes pri(0) = maxPri the unique global max in [0, 2W).
     const maxPri = Math.ceil(Math.log2(2 * W));
+    const seniority = seniorityH
+        ? Seniority.horizontal()
+        : Seniority.vertical();
     // Lazy centred-universe scaffold (Phase 0 config). The boundary seed costs
     // O((2W)²) here — the one synchronous price; tiles then build on demand.
     const { scaffold } = buildIntegratedScaffold({
@@ -124,8 +148,9 @@ function buildSource(division, W) {
         southExtent: W,
         westExtent: W,
         eastExtent: W,
-        hInitCol: 1,
-        vInitRow: 1,
+        hInitCol,
+        vInitRow,
+        seniority,
         maxPri,
         maxLatPri: maxPri,
         maxLongPri: maxPri,
@@ -832,8 +857,24 @@ window.addEventListener("keydown", (e) => {
     }
 });
 
+function updateOrientUI() {
+    latBtn.textContent = `Lat ${curVInitRow}`;
+    longBtn.textContent = `Long ${curHInitCol}`;
+    senBtn.textContent = `Sen ${curSeniorityH ? "H" : "V"}`;
+    orientLabel.textContent = orientationLabel(
+        curVInitRow, curHInitCol, curSeniorityH,
+    );
+}
+
 function rebuild() {
-    buildSource(Number(divisionSelect.value), Number(extentSelect.value));
+    buildSource(
+        Number(divisionSelect.value),
+        Number(extentSelect.value),
+        curHInitCol,
+        curVInitRow,
+        curSeniorityH,
+    );
+    updateOrientUI();
     requestRender();
 }
 
@@ -843,6 +884,18 @@ function rebuild() {
 [lineScaleInput, densityInput, showSkeletonCb, showTextureCb].forEach((el) => {
     el.addEventListener("input", requestRender);
     el.addEventListener("change", requestRender);
+});
+latBtn.addEventListener("click", () => {
+    curVInitRow ^= 1;
+    rebuild();
+});
+longBtn.addEventListener("click", () => {
+    curHInitCol ^= 1;
+    rebuild();
+});
+senBtn.addEventListener("click", () => {
+    curSeniorityH = !curSeniorityH;
+    rebuild();
 });
 
 // ── Shareable URL ─────────────────────────────────────────────────────────────
@@ -866,6 +919,11 @@ function applyParams() {
     zoom = num("zoom", zoom);
     if (p.has("skel")) showSkeletonCb.checked = p.get("skel") !== "0";
     if (p.has("tex")) showTextureCb.checked = p.get("tex") !== "0";
+    if (p.get("long") === "0" || p.get("long") === "1")
+        curHInitCol = Number(p.get("long"));
+    if (p.get("lat") === "0" || p.get("lat") === "1")
+        curVInitRow = Number(p.get("lat"));
+    if (p.has("sen")) curSeniorityH = p.get("sen") === "h";
 }
 
 function buildQuery() {
@@ -879,6 +937,9 @@ function buildQuery() {
     p.set("density", densityInput.value);
     p.set("skel", showSkeletonCb.checked ? "1" : "0");
     p.set("tex", showTextureCb.checked ? "1" : "0");
+    p.set("lat", curVInitRow);
+    p.set("long", curHInitCol);
+    p.set("sen", curSeniorityH ? "h" : "v");
     return p.toString();
 }
 
@@ -901,6 +962,13 @@ copyUrl.addEventListener("click", async () => {
 
 window.addEventListener("resize", resize);
 applyParams();
-buildSource(Number(divisionSelect.value), Number(extentSelect.value));
+buildSource(
+    Number(divisionSelect.value),
+    Number(extentSelect.value),
+    curHInitCol,
+    curVInitRow,
+    curSeniorityH,
+);
+updateOrientUI();
 resize();
 requestAnimationFrame(frame);

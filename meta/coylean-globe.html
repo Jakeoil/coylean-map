@@ -124,6 +124,27 @@
                 font-variant-numeric: tabular-nums;
             }
 
+            .orient-btns {
+                display: flex;
+                gap: 8px;
+                margin-top: 4px;
+            }
+
+            .orient-btns button {
+                margin-top: 0;
+                flex: 1;
+                padding: 9px 6px;
+            }
+
+            .orient {
+                margin-top: 12px;
+                text-align: center;
+                font-size: 2rem;
+                font-weight: 700;
+                letter-spacing: 0.14em;
+                color: var(--accent);
+            }
+
             .toggles {
                 display: flex;
                 gap: 16px;
@@ -227,6 +248,14 @@
                 big-map seam scaffold: tiles propagate on demand where the
                 viewport visits, gated so sub-pixel cells are never built.
             </p>
+
+            <label>Orientation — anchor (lat/long) &amp; seniority</label>
+            <div class="orient-btns">
+                <button id="latBtn" type="button">Lat 1</button>
+                <button id="longBtn" type="button">Long 1</button>
+                <button id="senBtn" type="button">Sen V</button>
+            </div>
+            <div id="orientLabel" class="orient">SE</div>
 
             <label for="division">Division D (columns / turn)</label>
             <select id="division"></select>
