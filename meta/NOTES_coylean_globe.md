@@ -28,6 +28,24 @@ cell scale but exposes *new* map every turn.
   positive, symmetric N/S. The front-most latitude is exactly the pitch `rotX`
   (so the screen-centre row is analytic — used to seed `visibleRowRange`).
 
+## Branch-cut age tint
+
+Meridians within a small band of the branch cut (the back, at the window edges
+`centre ± D/2`, one turn apart) are coloured by age, so the cut reads as map
+emerging and dissipating as you spin (visible near the poles, where the far
+side peeks over):
+
+- **Leading edge (new, just emerged):** brightest **violet** → fades to the
+  normal line colour as it ages away from the cut.
+- **Trailing edge (old, about to vanish):** normal → darkens to **red** → fades
+  to **transparent** right at the cut.
+
+Which edge is new vs old follows `spinDir` (the last rotation direction; drag
+left = eastward = new at the high/east edge). Band width is ~5° each side, but
+at least `CUT_RAMP_MIN_COLS` columns so it stays visible at coarse divisions.
+`branchTint`/`meridianColor` in coylean-globe.mjs. Parallels stay neutral — the
+emerging meridian "spokes" carry the effect; the latitude circles cross them.
+
 ## Source config (Phase 0, validated in Node)
 
 A **centred integrated universe**, `2W × 2W` cells, from the big-map seam

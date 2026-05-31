@@ -80,6 +80,9 @@ const INITIAL_ROTY = -Math.PI / 2;
 let rotX = INITIAL_ROTX;
 let rotY = INITIAL_ROTY;
 let zoom = 1;
+// +1 = last spin was eastward (front column increasing), -1 = westward. Sets
+// which side of the branch cut is "new" (emerging) vs "old" (fading).
+let spinDir = 1;
 let dragging = false;
 let pinching = false;
 let lastX = 0,
@@ -398,8 +401,61 @@ function indicesAtLevel(p, off, lo, hi, maxPri) {
     return congruent(mod(2 ** p - off, step), step, lo, hi);
 }
 
+// ── Branch-cut age tint ───────────────────────────────────────────────────────
+// The branch cut sits at the back, at the window edges (col = centre ± D/2,
+// one full turn apart). A meridian within ~5° of the cut is coloured by age:
+//   * leading edge (new, just emerged): brightest violet → fades to the normal
+//     line colour as it ages away from the cut;
+//   * trailing edge (old, about to vanish): normal → darkens to red → fades to
+//     transparent right at the cut.
+// Which edge is new/old follows spinDir (the last rotation). Returns
+// [r, g, b, alphaMult] or null for the normal colour.
+const NORMAL_RGB = [215, 236, 255];
+const VIOLET_RGB = [200, 120, 255];
+const RED_RGB = [255, 80, 80];
+const CUT_RAMP = 5 / 360; // 5° on either side, in turns…
+const CUT_RAMP_MIN_COLS = 4; // …but at least a few columns so it stays visible
+
+function mix3(a, b, t) {
+    return [
+        Math.round(a[0] + (b[0] - a[0]) * t),
+        Math.round(a[1] + (b[1] - a[1]) * t),
+        Math.round(a[2] + (b[2] - a[2]) * t),
+    ];
+}
+
+function branchTint(col, center, dir) {
+    const ramp = Math.max(CUT_RAMP, CUT_RAMP_MIN_COLS / src.division);
+    const u = (col - center) / src.division; // [-0.5, 0.5] within the window
+    const dHigh = 0.5 - u; // turns to the high (east) edge
+    const dLow = u + 0.5; // turns to the low (west) edge
+    const dNew = dir >= 0 ? dHigh : dLow; // eastward → new at the high edge
+    const dOld = dir >= 0 ? dLow : dHigh;
+    if (dNew >= 0 && dNew < ramp) {
+        const age = dNew / ramp; // 0 newest → 1 normal
+        return [...mix3(VIOLET_RGB, NORMAL_RGB, age), 1];
+    }
+    if (dOld >= 0 && dOld < ramp) {
+        const t = dOld / ramp; // 0 at the cut → 1 normal
+        if (t >= 0.4) return [...mix3(RED_RGB, NORMAL_RGB, (t - 0.4) / 0.6), 1];
+        return [...RED_RGB, t / 0.4]; // red, alpha fading to 0 at the cut
+    }
+    return null;
+}
+
+function normalColor(alpha) {
+    return `rgba(${NORMAL_RGB[0]},${NORMAL_RGB[1]},${NORMAL_RGB[2]},${alpha})`;
+}
+
+// Colour for meridian `col`: the branch-cut tint if within range, else normal.
+function meridianColor(col, center, alpha) {
+    const t = branchTint(col, center, spinDir);
+    if (!t) return normalColor(alpha);
+    return `rgba(${t[0]},${t[1]},${t[2]},${(alpha * t[3]).toFixed(3)})`;
+}
+
 // ── Drawing ───────────────────────────────────────────────────────────────────
-function strokeArc(points, thickness, alpha) {
+function strokeArc(points, thickness, color) {
     ctx.beginPath();
     let started = false;
     for (const [lon, lat] of points) {
@@ -418,7 +474,7 @@ function strokeArc(points, thickness, alpha) {
         }
     }
     ctx.lineWidth = thickness * dpr;
-    ctx.strokeStyle = `rgba(215,236,255,${alpha})`;
+    ctx.strokeStyle = color;
     ctx.stroke();
 }
 
@@ -445,7 +501,7 @@ function parallelPoints(row, colLo, colHi, samples) {
 // Texture meridian: stroke column `gc`'s actual down-arrows as a polyline that
 // breaks wherever an arrow is absent (the flow turned) or rounds to the back.
 // Each present arrow spans its cell (row gr ± 0.5). subSamp smooths the arc.
-function drawTextureMeridian(gc, grLo, grHi, thickness, alpha, subSamp) {
+function drawTextureMeridian(gc, grLo, grHi, thickness, color, subSamp) {
     const lon = lonOf(gc + 0.5);
     ctx.beginPath();
     let started = false;
@@ -472,12 +528,12 @@ function drawTextureMeridian(gc, grLo, grHi, thickness, alpha, subSamp) {
         }
     }
     ctx.lineWidth = thickness * dpr;
-    ctx.strokeStyle = `rgba(215,236,255,${alpha})`;
+    ctx.strokeStyle = color;
     ctx.stroke();
 }
 
 // Texture parallel: row `gr`'s actual right-arrows, breaking on absence.
-function drawTextureParallel(gr, gcLo, gcHi, thickness, alpha, subSamp) {
+function drawTextureParallel(gr, gcLo, gcHi, thickness, color, subSamp) {
     const lat = latOf(gr + 0.5);
     ctx.beginPath();
     let started = false;
@@ -504,7 +560,7 @@ function drawTextureParallel(gr, gcLo, gcHi, thickness, alpha, subSamp) {
         }
     }
     ctx.lineWidth = thickness * dpr;
-    ctx.strokeStyle = `rgba(215,236,255,${alpha})`;
+    ctx.strokeStyle = color;
     ctx.stroke();
 }
 
@@ -550,30 +606,33 @@ function renderLines(lineScale, density, cols, rows, samp) {
         const colThick = (0.22 + rv * 0.34) * lineScale;
         const colAlpha = Math.min(0.16 + rv * 0.07, 0.82);
         for (const c of indicesAtLevel(p, hInitCol0, cols.lo, cols.hi, maxPri)) {
+            // Meridians carry the branch-cut age tint (violet new / red old).
+            const cColor = meridianColor(c, cols.center, colAlpha);
             if (wantTex && colBuilt(c, rows.lo, rows.hi)) {
                 drawTextureMeridian(
-                    c, rows.lo, rows.hi, colThick, colAlpha, subSamp,
+                    c, rows.lo, rows.hi, colThick, cColor, subSamp,
                 );
             } else if (skel) {
                 strokeArc(
                     meridianPoints(c, rows.lo, rows.hi, samp.meridian),
                     colThick,
-                    colAlpha,
+                    cColor,
                 );
             }
         }
         const rowThick = (0.2 + rv * 0.3) * lineScale;
         const rowAlpha = Math.min(0.14 + rv * 0.065, 0.76);
+        const rColor = normalColor(rowAlpha);
         for (const r of indicesAtLevel(p, vInitRow0, rows.lo, rows.hi, maxPri)) {
             if (wantTex && rowBuilt(r, cols.lo, cols.hi)) {
                 drawTextureParallel(
-                    r, cols.lo, cols.hi, rowThick, rowAlpha, subSamp,
+                    r, cols.lo, cols.hi, rowThick, rColor, subSamp,
                 );
             } else if (skel) {
                 strokeArc(
                     parallelPoints(r, cols.lo, cols.hi, samp.parallel),
                     rowThick,
-                    rowAlpha,
+                    rColor,
                 );
             }
         }
@@ -735,6 +794,8 @@ canvas.addEventListener("pointermove", (e) => {
     rotY += ((x - lastX) / radius) * lonGain;
     rotX += ((y - lastY) / radius) * 0.9;
     rotX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotX));
+    // Drag left (x decreasing) winds east (front column increasing).
+    if (x !== lastX) spinDir = x < lastX ? 1 : -1;
     lastX = x;
     lastY = y;
     requestRender();
