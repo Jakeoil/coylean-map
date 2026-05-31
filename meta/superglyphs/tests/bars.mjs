@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════════
-//  superglyphs/bin — bars.mjs   (what the separators are, and the anchor magic)
+//  superglyphs/tests — bars.mjs   (what the separators are, and the anchor magic)
 // ════════════════════════════════════════════════════════════════════════
 //
 //  A "bar" is the separator segment between two sub-glyphs of a substitution —
@@ -25,7 +25,7 @@
 //  and count broken vertical walls + walls that the same parent code splits
 //  inconsistently.
 //
-//  Run:  node meta/superglyphs/bin/bars.mjs
+//  Run:  node meta/superglyphs/tests/bars.mjs
 
 import { Seniority } from "../../../coylean-explorer/coylean-core.js";
 import { computeMapModel, setOffset } from "../../../glyphs/glyph-core.js";

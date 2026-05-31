@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════════
-//  superglyphs/bin — two-substitutions-make-a-translation.mjs
+//  superglyphs/tests — two-substitutions-make-a-translation.mjs
 // ════════════════════════════════════════════════════════════════════════
 //
 //  THE CLAIM (Jake's genealogy identity)
@@ -31,7 +31,7 @@
 //  getSectionData uses the canonical clean single-arrow seed at offset 0/0,
 //  i.e. the anchor fixed-point map — which is exactly where genealogy lives.
 //
-//  Run:  node meta/superglyphs/bin/two-substitutions-make-a-translation.mjs
+//  Run:  node meta/superglyphs/tests/two-substitutions-make-a-translation.mjs
 
 import { Seniority } from "../../../coylean-explorer/coylean-core.js";
 import { getSectionData } from "../../../glyphs/glyph-core.js";

@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════════
-//  superglyphs/bin — between-every-two-v-orders-an-h-map.mjs
+//  superglyphs/tests — between-every-two-v-orders-an-h-map.mjs
 // ════════════════════════════════════════════════════════════════════════
 //
 //  THE CLAIM (Jake)
@@ -31,7 +31,7 @@
 //  getSectionData(N, M, seniority): the canonical clean-seed map, N rows × M
 //  cols of cells, sectioned 4×4. ".codes[sr][sc] = [downCode, rightCode]".
 //
-//  Run:  node meta/superglyphs/bin/between-every-two-v-orders-an-h-map.mjs
+//  Run:  node meta/superglyphs/tests/between-every-two-v-orders-an-h-map.mjs
 
 import { Seniority } from "../../../coylean-explorer/coylean-core.js";
 import { getSectionData } from "../../../glyphs/glyph-core.js";

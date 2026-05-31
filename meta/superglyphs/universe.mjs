@@ -4,7 +4,7 @@
 //
 //  Scroll/zoom the SE-flowing Coylean map and jump to ANY cell up to 2⁴⁰
 //  (≈1.1 trillion) per axis — instantly, because on the anchor the glyph at a
-//  section is a pure function of its dyadic address (see bin/random-access-
+//  section is a pure function of its dyadic address (see tests/random-access-
 //  tile.mjs). No propagation, no seam chain: each visible section is found by
 //  descending the translation table O(order) times from a one-section root.
 //
@@ -25,7 +25,7 @@ import {
     getSectionData,
     computeGlyphMatrices,
 } from "../../glyphs/glyph-core.js";
-import { TRANSLATION_V, ORBIT_V, codeKey } from "./bin/rules.mjs";
+import { TRANSLATION_V, ORBIT_V, codeKey } from "./tests/rules.mjs";
 
 const V = Seniority.vertical();
 const MAX_ORDER = 40; //   2⁴⁰ ≈ 1.1e12 cells per axis (just over a trillion)

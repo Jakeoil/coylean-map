@@ -191,7 +191,7 @@ back in V, one whole cage level deeper.
          split → 2 H)               vertically → 2 V)             one cage level)
 ```
 
-**Verified** — `bin/two-substitutions-make-a-translation.mjs`. On the anchor
+**Verified** — `tests/two-substitutions-make-a-translation.mjs`. On the anchor
 fixed-point map, v→h and h→v are each a clean function of the glyph code (0
 conflicts; 27 V codes, 32 H codes), and composing the two rule tables reproduces
 the direct 4→1 translation exactly (0 mismatches). So the **translation table is
@@ -211,12 +211,12 @@ dimensionally between its V neighbours:
 
 So the orders **interleave at half-cage grain** — V, H, V, H, … — and every H
 map is a genuine intermediate (sideways) order, not bookkeeping. **Verified**
-(`bin/between-every-two-v-orders-an-h-map.mjs`): the half-step rules learned at
+(`tests/between-every-two-v-orders-an-h-map.mjs`): the half-step rules learned at
 one order regenerate the in-between H map *and* the next V map at other orders
 (0 mismatches; alphabet 34 V / 35 H codes), so this is a transferable
 substitution system, not a per-order coincidence.
 
-**Bars too — resolved** (`bin/bars.mjs`). The 2×2's four separators are
+**Bars too — resolved** (`tests/bars.mjs`). The 2×2's four separators are
 recovered exactly from the half-steps (35/35): the single v→h bar IS both
 vertical separators (`vTop = vBot = v→h bar`, unbroken — 35/35), and the two h→v
 bars are the two horizontal separators (`hLeft`, `hRight`, independent). So a
@@ -231,12 +231,12 @@ anchors.)
 
 ## Scaling up to the superglyph — the catalog closes
 
-The rules are encapsulated as plain dictionaries in **`bin/rules.mjs`**
+The rules are encapsulated as plain dictionaries in **`tests/rules.mjs`**
 (`TRANSLATION_V/H`, `V_TO_H`, `H_TO_V`, each keyed by a glyph code `"d,r"`;
-`node bin/rules.mjs` prints them readably, bars and all) plus `expandTranslation`
+`node tests/rules.mjs` prints them readably, bars and all) plus `expandTranslation`
 — a pure table lookup that doubles a map one cage level with no propagation.
 
-**`bin/scale-up.mjs`** rides that from a small seed up to the superglyph scale
+**`tests/scale-up.mjs`** rides that from a small seed up to the superglyph scale
 (priority-≥8 cage, order 8, 256 cells) and beyond, matching true propagation at
 every order:
 
@@ -269,7 +269,7 @@ each level is a doubling by lookup, not a fresh `O(4ⁿ)` propagation.
 
 A **bar** (separator) is a **cage wall**: a high-valuation priority line
 dividing a cage into children. The bars turn out to *carry* the whole anchor
-property. Measured (`bin/bars.mjs`, order-7 parents = 961 cages):
+property. Measured (`tests/bars.mjs`, order-7 parents = 961 cages):
 
 | offset | broken vertical walls | wall-ambiguous codes |
 |---|---|---|
@@ -308,7 +308,7 @@ that with **random access**: jump straight to the visible tile, seeded from one
 tiny root, no chain and no propagation. A section glyph expands to its 4×4 cell
 arrows via the catalog's per-glyph render, so full cell detail is kept.
 
-**Verified** (`bin/random-access-tile.mjs`): address descent reproduces every
+**Verified** (`tests/random-access-tile.mjs`): address descent reproduces every
 section of the order-8 map (0 wrong), spot-checks deeper orders against truth,
 and pulls a single tile out of an order-30 map (~10⁹ cells/side — hopeless to
 propagate) in 28 lookups / a few µs.
@@ -332,7 +332,7 @@ four-quadrant symmetric universe (negative coords) is the obvious next step.
 Engine verified in Node (descent = propagation to order 12; address bits exact to
 `2³⁸`); the live canvas is wired but unrun here.
 
-**The broken-wall count is 2-adic, not a constant** (`bin/broken-wall-structure.mjs`).
+**The broken-wall count is 2-adic, not a constant** (`tests/broken-wall-structure.mjs`).
 The "174" that three offsets shared (2/2, 5/3, 3/5) was *not* an invariant —
 they just fell in one dyadic band-cell. The count is a **self-similar function
 of the offset's 2-adic address**:
@@ -366,7 +366,7 @@ in the same band-cell.)
   via O(order) address descent (anchor / SE-flowing map). Loads via
   `<script type="module" src="./universe.mjs">`.
 
-### bin/ — the rules library + Node checks
+### tests/ — the rules library + Node checks
 
 - `rules.mjs` — the rule objects (`TRANSLATION_V/H`, `V_TO_H`, `H_TO_V`,
   `ORBIT_V/H`) + `expandTranslation`. `node rules.mjs` for a readable dump.

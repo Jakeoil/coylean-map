@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════════
-//  superglyphs/bin — random-access-tile.mjs
+//  superglyphs/tests — random-access-tile.mjs
 // ════════════════════════════════════════════════════════════════════════
 //
 //  THE BIG-MAP PAYOFF (anchor offsets only)
@@ -23,7 +23,7 @@
 //  The four quadrants of the canonical universe all sit at anchor offsets
 //  (NW 0/0, NE 1/0, SW 0/1, SE 1/1), so the whole default view qualifies.
 //
-//  Run:  node meta/superglyphs/bin/random-access-tile.mjs
+//  Run:  node meta/superglyphs/tests/random-access-tile.mjs
 
 import { Seniority } from "../../../coylean-explorer/coylean-core.js";
 import { getSectionData } from "../../../glyphs/glyph-core.js";

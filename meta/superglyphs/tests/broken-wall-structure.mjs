@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════════
-//  superglyphs/bin — broken-wall-structure.mjs
+//  superglyphs/tests — broken-wall-structure.mjs
 // ════════════════════════════════════════════════════════════════════════
 //
 //  CHASING "174". bars.mjs noticed that three off-anchor offsets (2/2, 5/3,
@@ -22,7 +22,7 @@
 //      fractal. Hence the count grows ≈×4 per order at ~constant density,
 //      but the exact value is fixed by the binary digits of (long, lat).
 //
-//  Run:  node meta/superglyphs/bin/broken-wall-structure.mjs
+//  Run:  node meta/superglyphs/tests/broken-wall-structure.mjs
 
 import { Seniority } from "../../../coylean-explorer/coylean-core.js";
 import { computeMapModel, setOffset } from "../../../glyphs/glyph-core.js";

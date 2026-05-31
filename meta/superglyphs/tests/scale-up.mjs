@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════════
-//  superglyphs/bin — scale-up.mjs
+//  superglyphs/tests — scale-up.mjs
 // ════════════════════════════════════════════════════════════════════════
 //
 //  GOAL
@@ -23,7 +23,7 @@
 //    reconstructs the map. The codes/orbits columns answer the open question:
 //    does the reachable superglyph catalog keep growing, or close?
 //
-//  Run:  node meta/superglyphs/bin/scale-up.mjs
+//  Run:  node meta/superglyphs/tests/scale-up.mjs
 
 import { Seniority } from "../../../coylean-explorer/coylean-core.js";
 import { getSectionData } from "../../../glyphs/glyph-core.js";

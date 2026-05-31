@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════════
-//  superglyphs/bin — translation-is-a-function.mjs
+//  superglyphs/tests — translation-is-a-function.mjs
 // ════════════════════════════════════════════════════════════════════════
 //
 //  WHAT THIS CHECKS
@@ -9,12 +9,12 @@
 //  reproduces that from scratch, standalone, so every later factorization
 //  test (V-sub ∘ H-sub = translation) has a verified floor to stand on.
 //
-//  HOW A bin TEST WORKS (the part worth learning)
+//  HOW A TEST WORKS (the part worth learning)
 //  These are plain Node ES modules — no test framework, no browser. You
 //  `import` the SAME pure math the web pages use (`glyph-core.js`, which is
 //  DOM-free on purpose) and assert against it in process. Run with:
 //
-//      node meta/superglyphs/bin/translation-is-a-function.mjs
+//      node meta/superglyphs/tests/translation-is-a-function.mjs
 //
 //  The pattern, top to bottom:
 //    1. import the pure layer (core engine + glyph-core model);

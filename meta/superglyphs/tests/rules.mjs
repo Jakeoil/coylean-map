@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════════
-//  superglyphs/bin — rules.mjs   (the substitution rules, as JS objects)
+//  superglyphs/tests — rules.mjs   (the substitution rules, as JS objects)
 // ════════════════════════════════════════════════════════════════════════
 //
 //  PURPOSE
