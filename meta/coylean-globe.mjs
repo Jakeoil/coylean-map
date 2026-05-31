@@ -71,11 +71,13 @@ let width = 0,
     dpr = 1;
 // rotY accumulates UNBOUNDED (no mod 2π) — it is the winding control. rotY =
 // π/2 parks the axis (φ = 0) at the back of the globe.
-// rotY ≡ π/2 (mod 2π) parks the prime meridian (axis, φ=0) at the back. The
-// −3π/2 representative additionally starts the front a half-turn EAST of it
-// (positive distance), so spinning further east keeps the distance increasing.
-const INITIAL_ROTY = -3 * Math.PI / 2;
-let rotX = -0.32;
+// Start at the origin (0, 0): the prime meridian × equator — the branch point
+// (max-priority axis) — at front centre. rotY = −π/2 lands the prime meridian
+// (φ = 0) at the front; rotX = 0 lands the equator there. The branch cut then
+// sits a half-turn away on the far side (back), out of view until you spin.
+const INITIAL_ROTX = 0;
+const INITIAL_ROTY = -Math.PI / 2;
+let rotX = INITIAL_ROTX;
 let rotY = INITIAL_ROTY;
 let zoom = 1;
 let dragging = false;
@@ -751,7 +753,7 @@ canvas.addEventListener("pointercancel", releasePointer);
 window.addEventListener("keydown", (e) => {
     if (e.target.tagName === "INPUT") return;
     if (e.key === "0") {
-        rotX = -0.32;
+        rotX = INITIAL_ROTX;
         rotY = INITIAL_ROTY;
         zoom = 1;
         radius = Math.min(width, height) * 0.39 * zoom;
