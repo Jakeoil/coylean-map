@@ -64,20 +64,20 @@
 <header>
     <h1>Coylean Universe</h1>
     <form id="jump">
-        <span class="hint">jump to cell</span>
-        <input id="jx" type="text" inputmode="numeric" placeholder="x" value="123456789" />
-        <input id="jy" type="text" inputmode="numeric" placeholder="y" value="987654321" />
+        <span class="hint">jump to cell (± from origin)</span>
+        <input id="jx" type="text" inputmode="numeric" placeholder="x (E+/W−)" value="-123456789" />
+        <input id="jy" type="text" inputmode="numeric" placeholder="y (S+/N−)" value="987654321" />
         <button type="submit">Go</button>
     </form>
     <div class="links">
         <span class="hint">try</span>
         <button data-jump="0,0">origin</button>
-        <button data-jump="1000000,1000000">1e6</button>
-        <button data-jump="1000000000,1000000000">1e9</button>
-        <button data-jump="1000000000000,500000000000">1e12</button>
+        <button data-jump="1000000000,1000000000">SE 1e9</button>
+        <button data-jump="-1000000000,-1000000000">NW 1e9</button>
+        <button data-jump="900000000000,-900000000000">NE ~1e12</button>
         <button id="reset">reset</button>
     </div>
-    <span class="hint">drag to pan · wheel to zoom</span>
+    <span class="hint">drag to pan · wheel to zoom · origin at centre</span>
 </header>
 <canvas id="map"></canvas>
 <footer id="hud">loading…</footer>

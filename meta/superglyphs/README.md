@@ -7,6 +7,20 @@ inside a priority-≥8 cage.
 This README is the shared-vocabulary anchor. Definitions are ordered from the
 ground up — each builds on the previous.
 
+> **⚠️ The universe is SEEDED, not hand-rolled. (This has tripped up every
+> session — read it.)** To get the symmetric four-quadrant universe — or any
+> coherent finite map — **create the seed with `Propagation.fromUniverseExtents`
+> (or `fromUniverseBoundary(Universe.create(…))`) and grow it by substitution.**
+> Do **not** try to reconstruct the off-SE quadrants as reflections / D4-duals of
+> the SE map: the four quadrants sit at the four anchor offsets with *different
+> N/W padding*, so naive reflection fails (tested — 0 matches). Seeded from a real
+> `fromUniverseExtents` grid, the translation table expands **all four quadrants
+> correctly** with no extra work. Verified: `expand(seed @ ext 32)` equals
+> `universe @ ext 64` with **0 mismatches**, and every seed glyph already has a
+> rule in `TRANSLATION_V`. The universe is a substitution fixed point *about its
+> centre* — so descent/expansion from the seed reaches all four quadrants. When in
+> doubt: **seed it, don't derive it.**
+
 ---
 
 ## Coylean map
@@ -327,10 +341,15 @@ real glyph arrows when zoomed in and coarse parent-glyph swatches when zoomed ou
 The **cage walls** (the bars between sections) are address-determined the same way
 — drawn on top, brighter + thicker for more outer cages (by the wall's 2-adic
 valuation), so the nested cage hierarchy reads at any zoom.
-Scope: the SE-flowing canonical map from the origin (the anchor map); the full
-four-quadrant symmetric universe (negative coords) is the obvious next step.
-Engine verified in Node (descent = propagation to order 12; address bits exact to
-`2³⁸`); the live canvas is wired but unrun here.
+It is the **full four-quadrant symmetric universe**, origin at the centre: built
+the right way (see the ⚠️ note up top) — a `fromUniverseExtents` **seed**, sectioned
+into glyphs, then descended; the seed carries all four quadrants and the table
+expands them, so no reflections are derived. The page **"fakes the address"** —
+underneath it is a 0-based propagation grid `[0, 2^d)`, but the user is shown
+centred, signed coordinates so it reads as a universe with the origin in the
+middle, not a propagation. Engine verified in Node (seed descent **and** walls ==
+`fromUniverseExtents` at depth, 0 mismatches; address bits exact to `2³⁸`); the
+live canvas is wired but unrun here.
 
 **The broken-wall count is 2-adic, not a constant** (`tests/broken-wall-structure.mjs`).
 The "174" that three offsets shared (2/2, 5/3, 3/5) was *not* an invariant —

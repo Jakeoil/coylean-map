@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Coylean Map — Superglyphs</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family:
+                    "Segoe UI",
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: linear-gradient(
+                    135deg,
+                    #1a1a2e 0%,
+                    #16213e 50%,
+                    #0f3460 100%
+                );
+                color: #eee;
+                min-height: 100vh;
+                padding: 48px 24px;
+            }
+            main {
+                max-width: 720px;
+                margin: 0 auto;
+            }
+            h1 {
+                font-size: 2.4rem;
+                color: #e94560;
+                text-shadow: 0 0 20px rgba(233, 69, 96, 0.4);
+                margin-bottom: 8px;
+            }
+            .lede {
+                color: rgba(255, 255, 255, 0.7);
+                margin-bottom: 32px;
+                line-height: 1.5;
+            }
+            .back {
+                display: inline-block;
+                margin-bottom: 24px;
+                color: #e94560;
+                text-decoration: none;
+                font-size: 0.9rem;
+            }
+            .back:hover {
+                text-decoration: underline;
+            }
+            .card {
+                display: block;
+                padding: 20px 24px;
+                margin-bottom: 16px;
+                background: rgba(22, 33, 62, 0.6);
+                border: 2px solid rgba(233, 69, 96, 0.5);
+                border-radius: 10px;
+                color: #eee;
+                text-decoration: none;
+                transition: all 0.2s;
+            }
+            .card:hover {
+                border-color: #e94560;
+                background: rgba(233, 69, 96, 0.12);
+                transform: translateY(-2px);
+                box-shadow: 0 4px 15px rgba(233, 69, 96, 0.25);
+            }
+            .card h2 {
+                font-size: 1.2rem;
+                color: #e94560;
+                margin-bottom: 6px;
+            }
+            .card p {
+                font-size: 0.95rem;
+                line-height: 1.5;
+                color: rgba(255, 255, 255, 0.8);
+            }
+            code {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.85em;
+                color: #ffd0d8;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <a class="back" href="../">← Meta</a>
+            <h1>Superglyphs</h1>
+            <p class="lede">
+                Lifting the fixed glyph catalog and its anchor-local translation
+                rule from the 3×3 glyph up to the 255×255 priority-≥8 cage — the
+                genealogy of a superglyph (translation = v→h then h→v), the
+                cage-wall "magic" of the anchor points, and instant substitution
+                address descent across the whole universe.
+            </p>
+
+            <a class="card" href="universe.html">
+                <h2>Coylean Universe</h2>
+                <p>
+                    The full symmetric four-quadrant universe, scrollable with
+                    the origin at the centre. Drag to pan, wheel to zoom, and
+                    jump to any cell up to ±2⁴⁰ (≈±1.1 trillion) per axis —
+                    instantly. On the anchor a section's glyph is a function of
+                    its dyadic address, so every visible tile is found by O(order)
+                    descent of the translation table from a
+                    <code>fromUniverseExtents</code> seed — no propagation, no
+                    seam chain. Cage walls drawn brighter and thicker for outer
+                    cages.
+                </p>
+            </a>
+
+            <a class="card" href="README.md">
+                <h2>Notes &amp; definitions (README)</h2>
+                <p>
+                    The shared-vocabulary anchor: Coylean map, reaction box,
+                    scaffold, glyph, anchor points, cage, superglyph, plus the
+                    genealogy chapter and the verified results. The Node checks
+                    that establish them live in <code>tests/</code>
+                    (<code>node tests/rules.mjs</code> dumps the rule tables).
+                </p>
+            </a>
+        </main>
+    </body>
+</html>
