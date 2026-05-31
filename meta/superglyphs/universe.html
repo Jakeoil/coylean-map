@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Coylean Universe — instant random access</title>
+<style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+        background: #0f1117;
+        color: #c7d0e0;
+        font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow: hidden;
+    }
+    header {
+        padding: 8px 12px;
+        border-bottom: 1px solid #232842;
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    header h1 { font-size: 13px; margin: 0; font-weight: 650; color: #9fb4e0; }
+    form, .links { display: flex; gap: 6px; align-items: center; }
+    input {
+        width: 13ch;
+        background: #171b28;
+        border: 1px solid #2c3350;
+        color: #d8e0f0;
+        padding: 3px 6px;
+        border-radius: 4px;
+        font: inherit;
+    }
+    button {
+        background: #20263c;
+        border: 1px solid #2c3350;
+        color: #b9c6e6;
+        padding: 3px 9px;
+        border-radius: 4px;
+        cursor: pointer;
+        font: inherit;
+    }
+    button:hover { background: #2a3252; }
+    .links button { padding: 3px 7px; }
+    #map { flex: 1; width: 100%; display: block; cursor: grab; }
+    #map:active { cursor: grabbing; }
+    footer {
+        padding: 5px 12px;
+        border-top: 1px solid #232842;
+        color: #8d9abd;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .hint { color: #6b7796; }
+</style>
+</head>
+<body>
+<header>
+    <h1>Coylean Universe</h1>
+    <form id="jump">
+        <span class="hint">jump to cell</span>
+        <input id="jx" type="text" inputmode="numeric" placeholder="x" value="123456789" />
+        <input id="jy" type="text" inputmode="numeric" placeholder="y" value="987654321" />
+        <button type="submit">Go</button>
+    </form>
+    <div class="links">
+        <span class="hint">try</span>
+        <button data-jump="0,0">origin</button>
+        <button data-jump="1000000,1000000">1e6</button>
+        <button data-jump="1000000000,1000000000">1e9</button>
+        <button data-jump="1000000000000,500000000000">1e12</button>
+        <button id="reset">reset</button>
+    </div>
+    <span class="hint">drag to pan · wheel to zoom</span>
+</header>
+<canvas id="map"></canvas>
+<footer id="hud">loading…</footer>
+<script type="module" src="./universe.mjs"></script>
+</body>
+</html>

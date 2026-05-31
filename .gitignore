@@ -4,6 +4,8 @@
 *.dex
 local.properties
 bin/
+!meta/superglyphs/bin/
+!meta/superglyphs/bin/**
 gen/
 build/
 Coylean/
