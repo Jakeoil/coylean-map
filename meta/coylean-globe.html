@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Unbounded Coylean Globe</title>
+        <style>
+            :root {
+                --bg: #10131a;
+                --panel: #181c26;
+                --ink: #e9eef8;
+                --muted: #9aa6bd;
+                --accent: #8cc8ff;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                margin: 0;
+                height: 100vh;
+                overflow: hidden;
+                display: grid;
+                grid-template-columns: minmax(290px, 370px) 1fr;
+                background: radial-gradient(
+                    circle at 70% 40%,
+                    #1d2637 0%,
+                    var(--bg) 62%
+                );
+                color: var(--ink);
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    sans-serif;
+            }
+
+            aside {
+                padding: 22px;
+                background: color-mix(in srgb, var(--panel), transparent 10%);
+                border-right: 1px solid rgba(255, 255, 255, 0.08);
+                box-shadow: 12px 0 40px rgba(0, 0, 0, 0.25);
+                min-height: 0;
+                overflow-y: auto;
+            }
+
+            .crumb {
+                display: inline-block;
+                margin-bottom: 8px;
+                color: var(--muted);
+                text-decoration: none;
+                font-size: 0.85rem;
+            }
+
+            .crumb:hover {
+                color: var(--accent);
+            }
+
+            h1 {
+                margin: 0 0 8px;
+                font-size: 1.4rem;
+                line-height: 1.15;
+            }
+
+            p {
+                color: var(--muted);
+                line-height: 1.45;
+                font-size: 0.93rem;
+            }
+
+            label {
+                display: block;
+                margin-top: 16px;
+                margin-bottom: 6px;
+                color: var(--ink);
+                font-weight: 650;
+                font-size: 0.9rem;
+            }
+
+            select,
+            input[type="range"],
+            input[type="text"],
+            button {
+                width: 100%;
+            }
+
+            select,
+            input[type="text"],
+            button {
+                color: var(--ink);
+                background: #0f1320;
+                border: 1px solid rgba(255, 255, 255, 0.16);
+                border-radius: 10px;
+                padding: 10px 12px;
+                font: inherit;
+            }
+
+            button {
+                margin-top: 8px;
+                cursor: pointer;
+            }
+
+            button:hover {
+                background: #161b2c;
+            }
+
+            #shareUrl {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 0.78rem;
+            }
+
+            .row {
+                display: flex;
+                gap: 10px;
+                align-items: center;
+            }
+
+            .value {
+                min-width: 60px;
+                text-align: right;
+                color: var(--accent);
+                font-variant-numeric: tabular-nums;
+            }
+
+            .toggles {
+                display: flex;
+                gap: 16px;
+                margin-top: 14px;
+                flex-wrap: wrap;
+            }
+
+            .toggles label {
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                margin: 0;
+                font-weight: 500;
+            }
+
+            .toggles input {
+                width: auto;
+            }
+
+            .hint {
+                margin-top: 18px;
+                padding: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 14px;
+                background: rgba(255, 255, 255, 0.04);
+                font-size: 0.86rem;
+                line-height: 1.45;
+            }
+
+            main {
+                position: relative;
+                display: grid;
+                place-items: center;
+                min-width: 0;
+                overflow: hidden;
+            }
+
+            canvas {
+                width: 100%;
+                height: 100%;
+                display: block;
+                cursor: grab;
+                touch-action: none;
+                -webkit-user-select: none;
+                user-select: none;
+                -webkit-touch-callout: none;
+            }
+
+            canvas:active {
+                cursor: grabbing;
+            }
+
+            .badge {
+                position: absolute;
+                right: 18px;
+                bottom: 16px;
+                color: var(--muted);
+                font-size: 0.78rem;
+                background: rgba(0, 0, 0, 0.28);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                padding: 8px 11px;
+                border-radius: 999px;
+                backdrop-filter: blur(8px);
+                font-variant-numeric: tabular-nums;
+            }
+
+            @media (max-width: 820px) {
+                body {
+                    grid-template-columns: 1fr;
+                    grid-template-rows: auto 1fr;
+                    height: auto;
+                    overflow: visible;
+                }
+                aside {
+                    border-right: 0;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+                    overflow-y: visible;
+                }
+                main {
+                    min-height: 62vh;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <aside>
+            <a class="crumb" href="index.html">← meta</a>
+            <h1>Unbounded Coylean Globe</h1>
+            <p>
+                The Coylean map wound onto a globe with <em>no</em> longitude
+                repetition. Each column spans 2π/D radians (the same cell scale
+                as the flat map), but successive turns expose
+                <em>new</em> map — spin east and the winding number τ climbs
+                without bound. The branch point (the maximum-priority axis —
+                prime meridian and equator) is parked at the back; the spiral's
+                cut sits there and may peek over the poles.
+            </p>
+            <p>
+                Latitude is Mercator (square cells), so the fine N–S structure
+                only resolves as you magnify. The map is built lazily from the
+                big-map seam scaffold: tiles propagate on demand where the
+                viewport visits, gated so sub-pixel cells are never built.
+            </p>
+
+            <label for="division">Division D (columns / turn)</label>
+            <select id="division"></select>
+
+            <label for="extent">Extent (cells / side)</label>
+            <select id="extent"></select>
+
+            <label for="lineScale">Line emphasis</label>
+            <div class="row">
+                <input
+                    id="lineScale"
+                    type="range"
+                    min="0.4"
+                    max="2.6"
+                    step="0.1"
+                    value="1.1"
+                />
+                <span id="lineScaleValue" class="value">1.1</span>
+            </div>
+
+            <label for="density">Draw density</label>
+            <div class="row">
+                <input
+                    id="density"
+                    type="range"
+                    min="80"
+                    max="900"
+                    step="20"
+                    value="340"
+                />
+                <span id="densityValue" class="value">340</span>
+            </div>
+
+            <div class="toggles">
+                <label
+                    ><input type="checkbox" id="showSkeleton" checked />
+                    Skeleton</label
+                >
+                <label
+                    ><input type="checkbox" id="showTexture" checked />
+                    Texture</label
+                >
+            </div>
+
+            <div class="hint" id="mapInfo"></div>
+
+            <div class="hint">
+                Drag to spin (longitude winds unbounded) and pitch. Wheel or
+                pinch to zoom. Press <strong>0</strong> to reset orientation.
+            </div>
+
+            <label for="shareUrl">Shareable link</label>
+            <input id="shareUrl" type="text" readonly />
+            <button id="copyUrl" type="button">Copy link</button>
+        </aside>
+
+        <main>
+            <canvas id="canvas"></canvas>
+            <div class="badge" id="badge">drag to spin · wheel to zoom</div>
+        </main>
+
+        <script type="module" src="./coylean-globe.mjs"></script>
+    </body>
+</html>
