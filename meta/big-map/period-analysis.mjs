@@ -16,7 +16,7 @@ const V = Seniority.vertical(), H = Seniority.horizontal();
 function build(opts) {
     return new Propagation({
         numRows: N, numColumns: N, hInitCol: 1, vInitRow: 1,
-        maxPri: 20, seniority: V, ...opts,
+        maxPri: 32, seniority: V, ...opts,
     });
 }
 // 2-bit cell state: bit0 = down arrow, bit1 = right arrow.
@@ -79,7 +79,7 @@ row("c=3, offset 1/1", { maxLatPri: 3, maxLongPri: 3 });
 rowFor(
     new Propagation({
         numRows: N, numColumns: N, hInitCol: 5, vInitRow: 3,
-        maxPri: 20, maxLatPri: 3, maxLongPri: 3,
+        maxPri: 32, maxLatPri: 3, maxLongPri: 3,
     }),
     "c=3, offset 5/3",
 );
@@ -94,7 +94,7 @@ function gf2LinearityHolds() {
     const M = 40;
     const f = (down, right) => new Propagation({
         numRows: M, numColumns: M, hInitCol: 1, vInitRow: 1,
-        maxPri: 20, maxLatPri: 3, maxLongPri: 3,
+        maxPri: 32, maxLatPri: 3, maxLongPri: 3,
         initDown: Array(M).fill(down), initRight: Array(M).fill(right),
     });
     const ones = f(true, true), a = f(true, false), b = f(false, true);

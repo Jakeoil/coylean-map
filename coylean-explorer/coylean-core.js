@@ -28,7 +28,7 @@ export class Seniority {
  * while still making the priority sequence periodic when callers shrink
  * the ceiling explicitly.
  */
-export const DEFAULT_MAX_PRI = 20;
+export const DEFAULT_MAX_PRI = 32;
 
 /**
  * Evenness (2-adic valuation) of n.
@@ -41,7 +41,9 @@ export const DEFAULT_MAX_PRI = 20;
  * propagation period).
  *
  * Implemented via `n & -n` (isolate lowest set bit) + Math.clz32.
- * Hard limitation: only valid for n in [0, 2^32) and maxPri ≤ 31.
+ * Hard limitation: only valid for n in [0, 2^32). Finite valuations top out
+ * at 31 (clz32); maxPri = 32 (the default) is the "infinity" sentinel returned
+ * for n = 0 (the origin axis), strictly above every finite valuation.
  * For arbitrary-precision n use priLoop() instead.
  */
 export function pri(n, maxPri = DEFAULT_MAX_PRI) {

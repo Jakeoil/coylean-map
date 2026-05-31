@@ -157,7 +157,7 @@ check("custom init arrays symmetric", {
 });
 check("custom init arrays asym + cap", {
     northExtent: 4, southExtent: 8, westExtent: 5, eastExtent: 3,
-    hInitCol: 1, vInitRow: 1, seniority: V, maxPri: 20, maxLatPri: 3,
+    hInitCol: 1, vInitRow: 1, seniority: V, maxPri: 32, maxLatPri: 3,
     westInitDown: bits(5, 7), eastInitDown: bits(3, 8),
     northInitRight: bits(4, 9), southInitRight: bits(8, 10),
 });
