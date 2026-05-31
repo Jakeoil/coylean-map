@@ -258,13 +258,17 @@ function mercatorYFromLat(lat) {
 function dLon() {
     return (2 * Math.PI) / src.division;
 }
+// Lines are drawn at cell centre (index + 0.5), so the axis reference carries
+// +0.5 too — the two cancel, putting the axis column/row exactly on lon/lat 0
+// (matches ruler-grid-sphere). Without it the prime meridian / equator land
+// half a cell off — glaring at low D where a cell spans tens of degrees.
 function lonOf(col) {
-    return -(col - src.axisCol) * dLon();
+    return -(col - (src.axisCol + 0.5)) * dLon();
 }
 // Mercator y with square cells (dy = dLon); equator at axisRow, south positive
 // (increasing row → south → bottom of screen).
 function latOf(row) {
-    return latFromMercatorY(-(row - src.axisRow) * dLon());
+    return latFromMercatorY(-(row - (src.axisRow + 0.5)) * dLon());
 }
 
 // The front-most point faces the camera at longitude φ = rotY + π/2 (from
@@ -301,7 +305,8 @@ function rowFrontFacing(r, lon) {
 function visibleRowRange() {
     const lon = lonOf(visibleColRange().center + 0.5);
     const { axisRow, numRows } = src;
-    let seed = Math.round(axisRow - mercatorYFromLat(rotX) / dLon());
+    // latOf(row) = 0 at row = axisRow + 0.5, so invert to that frame.
+    let seed = Math.round(axisRow + 0.5 - mercatorYFromLat(rotX) / dLon());
     seed = Math.max(0, Math.min(numRows - 1, seed));
     return bisectBand(seed, lon);
 }
@@ -599,7 +604,9 @@ function renderLines(lineScale, density, cols, rows, samp) {
     const skel = showSkeletonCb.checked;
     const wantTex =
         showTextureCb.checked && src.scaffold && cellArcPx() >= TEXTURE_PX;
-    const subSamp = Math.max(2, Math.min(8, Math.round(zoom)));
+    // Sub-samples per cell scale with the cell's on-screen arc, so big cells at
+    // low D stay smooth curves instead of polygons (capped to bound cost).
+    const subSamp = Math.max(2, Math.min(64, Math.ceil(cellArcPx() / 6)));
 
     for (let p = floor; p <= maxPri; p++) {
         const rv = p + 1;
@@ -677,9 +684,9 @@ function updateHud(density) {
     // Signed distance of the screen-centre cell from the prime meridian /
     // equator. East (increasing column) and south (increasing row) positive.
     const frontCol = visibleColRange().center;
-    const frontRow = src.axisRow - mercatorYFromLat(rotX) / dLon();
     const eastCols = Math.round(frontCol - src.axisCol);
-    const southRows = Math.round(frontRow - src.axisRow);
+    // Distance south of the equator line (lat 0), in cells.
+    const southRows = Math.round(-mercatorYFromLat(rotX) / dLon());
     const sgn = (n) => (n >= 0 ? `+${n}` : `${n}`);
     const tau = rotY / (2 * Math.PI);
     badge.textContent =
