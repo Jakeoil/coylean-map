@@ -265,11 +265,14 @@ function latOf(row) {
 }
 
 // The front-most point faces the camera at longitude φ = rotY + π/2 (from
-// rotatePoint). With the negated lon that inverts to a column; the visible
-// window is that centre column ± a quarter turn (front hemisphere = D/2 cols).
+// rotatePoint). With the negated lon that inverts to a column. We draw a FULL
+// turn around the centre (± D/2 columns = 360°), not just the front hemisphere,
+// so looking down a pole shows all longitudes (not a half-disk) and the branch
+// cut — where the two ends of the wind meet, D columns apart — appears on the
+// far side. Back-face culling hides whatever is genuinely behind the globe.
 function visibleColRange() {
     const center = src.axisCol - (rotY + Math.PI / 2) / dLon();
-    const half = src.division / 4 + 2; // front hemisphere + margin
+    const half = src.division / 2 + 2; // full turn + margin
     const lo = Math.max(0, Math.floor(center - half));
     const hi = Math.min(src.numCols - 1, Math.ceil(center + half));
     return { lo, hi, center };
@@ -811,12 +814,11 @@ function buildQuery() {
     return p.toString();
 }
 
-let urlTimer = null;
+// Build the share link into the sidebar field only — deliberately NOT written
+// to the address bar. That keeps a plain refresh on defaults (or on whatever
+// link was opened); use Copy link to capture the current view explicitly.
 function syncURL() {
-    const rel = `${location.pathname}?${buildQuery()}`;
-    shareUrl.value = location.origin + rel;
-    clearTimeout(urlTimer);
-    urlTimer = setTimeout(() => history.replaceState(null, "", rel), 300);
+    shareUrl.value = `${location.origin}${location.pathname}?${buildQuery()}`;
 }
 
 copyUrl.addEventListener("click", async () => {
