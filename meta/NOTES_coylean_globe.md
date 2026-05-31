@@ -64,33 +64,38 @@ at least `CUT_RAMP_MIN_COLS` columns so it stays visible at coarse divisions.
 `branchTint`/`meridianColor` in coylean-globe.mjs. Parallels stay neutral — the
 emerging meridian "spokes" carry the effect; the latitude circles cross them.
 
-## Source config (Phase 0, validated in Node)
+## Source: instant substitution descent (2026-05-31)
 
-A **centred integrated universe**, `2W × 2W` cells, from the big-map seam
-scaffold:
+The lazy big-map scaffold was **replaced by `meta/superglyphs/cell-descent.mjs`**
+— an UNBOUNDED, instant cell source. (See that directory's README ⚠️ note: the
+universe is *seeded*, not hand-rolled.) `buildSource`:
 
 ```
-buildIntegratedScaffold({
-  K: 256, northExtent: W, southExtent: W, westExtent: W, eastExtent: W,
-  hInitCol: 1, vInitRow: 1, maxPri, maxLatPri: maxPri, maxLongPri: maxPri,
-})
+cu = makeCellUniverse({ hInitCol, vInitRow, seniority, maxOrder: 32 })
+center  = cu.center = 2^31          // the origin cell
+numCols = numRows = 2^32            // effectively unbounded
+axisCol = center − hInitCol, axisRow = center − vInitRow
+hInitCol0 = hInitCol − center, vInitRow0 = vInitRow − center
+maxPri  = DEFAULT_MAX_PRI = 32
 ```
 
-- `axisCol = axisRow = W − 1`; `hInitCol0 = vInitRow0 = 1 − W`.
-- `maxPri = ceil(log2(2W))` makes `pri(0) = maxPri` the **unique global
-  priority maximum** in `[0, 2W)` → no repetition within the universe (verified
-  in Node: the top level yields exactly column `axisCol`).
-- **Build via explicit `propagateBlock` in SE dependency order** (the
-  `drainWork` diagonal + `nextReadyAncestor` march). `tile()`'s own
-  `extendScaffold` is a no-op here because `buildIntegratedScaffold` →
-  `allocateScaffold` pre-sets `nBlocks`. Verified: full lazy build reconstructs
-  the eager `Propagation.fromUniverseExtents` reference exactly (0 / 32768 cell
-  mismatches), and the texture read path (`downAt`/`rightAt` through the
-  diagonal drain over a region away from the origin) matches too (0 / 8192).
+- `cell-descent` seeds once with `Propagation.fromUniverseExtents` (a tiny 32×32
+  seed), sections it into glyph codes, and gives `downAt(gr,gc)`/`rightAt(gr,gc)`
+  by **descending the translation table** from the seed — O(order) lookups, no
+  propagation, no boundary seed, no SE-march. Verified in Node: descent ==
+  `fromUniverseExtents`, **0 mismatches** (incl. all four anchors × V/H via the
+  seed orientation).
+- `maxPri = 32` is the **infinity sentinel** at the origin (finite valuations top
+  out at 31 via `clz32`), so the axis is the unique priority maximum over *all*
+  columns — winding never repeats, with no extent cap.
+- **Cell vs wall.** The glyph reconstructs the `pri ≤ 1` interior cells (3 of each
+  cage's 4 cols/rows); the 4th is a senior cage wall (`pri ≥ 2`, incl. the axis),
+  which renders as **skeleton** (the axis never breaks, so solid is exact). So
+  texture is gated to `p ≤ 1` lines in `renderLines`; walls/coarse stay skeleton.
 
 `pri(n)` handles the negative offsets the centred map uses (`n & -n` + `clz32`
 give the right 2-adic valuation for `n < 0`), so the skeleton's
-`pri(col + hInitCol0, maxPri)` matches the scaffold tiles' priorities exactly.
+`pri(col + hInitCol0, maxPri)` matches the descent's cage walls exactly.
 
 ## Two-tier LOD (the GF(2) reason it works)
 
@@ -120,23 +125,23 @@ Both tiers live in `renderLines()`; the per-line skeleton↔texture choice is
 
 ## Constraints / known limits
 
-- **Extent is bounded** (`universeBoundarySeed` is O((2W)²) up front — the one
-  synchronous cost). Default W = 1024 (2048² map, ~32 turns at D = 64).
-  Winding stays coherent only within `[0, 2W)`; the HUD warns when
-  `2W/D < 2` (front past the edge — raise Extent or lower Division).
-- **First texture paint can lag.** The axis (interesting content) is at the
-  universe centre, far from the scaffold's NW origin (block 0,0), so reaching
-  the visible front builds a dependency triangle. Skeleton carries the view
-  meanwhile; texture fills over ~tenths of a second at the default.
+- **Unbounded + instant now** (the descent swap, 2026-05-31): no extent cap, no
+  O(extent²) boundary seed, no first-paint lag — every cell is an O(order)
+  lookup. The old "raise Extent / D too large for extent" warnings are gone; the
+  **Extent control is vestigial** (kept in the UI but ignored — repurpose or
+  remove). `MAX_ORDER = 32` sets the finest scale (2³² columns); raise it for an
+  even larger range at a few more lookups per cell.
+- **Anchor-only.** Descent is exact on the four anchor offsets {0,1}² × {V,H} —
+  exactly the Lat/Long/Sen buttons. No off-anchor mode (would need propagation).
+- The pri ≥ 2 walls render skeleton-solid; the sparse gaps where a wall crosses
+  a *higher* parallel (texture would show them) are not drawn. The axis (highest
+  priority) has none, so it's exact; lower walls lose a few gaps — acceptable.
 
 ## Deferred / future
 
-- **True unbounded** (no extent cap, no O(extent²) boundary): the moving-origin
-  all-direction scaffold growth (`scaffold-direction-growth`: concat NE/SW/NW
-  integrations onto the SE scaffold, same seam format) — not yet wired into
-  the scaffold. Alternatively an all-true generative seam rule (O(1) setup) for
-  a different-but-valid infinite map.
+- ~~True unbounded~~ **— done** via the substitution-descent swap.
 - Blended seam at the back instead of a hard cut.
+- Repurpose or drop the now-vestigial Extent control (e.g. → `MAX_ORDER`).
 - On-screen clip for the *column* window (rows are already clipped); cheap to
   add if wide-D zoomed views get heavy.
 - Optional refactor of the shared sphere geometry (`rotatePoint`/`project`/

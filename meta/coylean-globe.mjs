@@ -9,22 +9,23 @@
 //   * Skeleton — high-priority meridians/parallels drawn straight from the
 //     dyadic priority arrays alone (no propagation). Guarantees the large-scale
 //     structure at any zoom.
-//   * Texture — actual down/right arrows from the lazy big-map seam scaffold,
-//     built on demand and gated so sub-pixel cells are never propagated. A line
-//     stays skeleton until its blocks finish, then flips to true gapped arrows.
+//   * Texture — actual down/right arrows for the pri ≤ 1 interior lines,
+//     reconstructed INSTANTLY by substitution descent (superglyphs/cell-descent
+//     .mjs), no propagation. Drawn when cells clear TEXTURE_PX; the senior cage
+//     walls (pri ≥ 2, incl. the axis) stay skeleton — they don't break anyway.
 //
-// Source config validated in Node (Phase 0): a centred integrated universe of
-// 2W × 2W cells with the axis at (W-1, W-1). maxPri = ceil(log2(2W)) makes the
-// axis the unique global priority maximum (no repetition within the universe).
+// Source: an UNBOUNDED centred universe, seeded with Propagation.fromUniverse-
+// Extents and grown by the translation table — instant random access to any
+// cell, no O((2W)²) boundary seed, no lazy build. maxPri = 32 makes the origin
+// the infinity sentinel, the unique priority maximum over all columns (so the
+// winding never repeats). Verified in Node: descent == fromUniverseExtents.
 
-import { pri, Seniority } from "../coylean-explorer/coylean-core.js";
 import {
-    buildIntegratedScaffold,
-    propagateBlock,
-    isBlockBuilt,
-    nextReadyAncestor,
-} from "./big-map/scaffold.mjs";
-import { tile } from "./big-map/tile.mjs";
+    pri,
+    Seniority,
+    DEFAULT_MAX_PRI,
+} from "../coylean-explorer/coylean-core.js";
+import { makeCellUniverse } from "./superglyphs/cell-descent.mjs";
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -94,14 +95,13 @@ let lastX = 0,
 const pointers = new Map();
 let lastPinchDistance = 0;
 
-// ── Lazy texture tier config ──────────────────────────────────────────────────
-const K = 256; // scaffold block size (cells)
-const FRAME_BUDGET_MS = 8; // per-frame lazy-build budget
-const BUILD_GATE_PX = 0.5; // never propagate tiles whose cells are smaller
-const TEXTURE_PX = 1.3; // below this, draw straight skeleton (no tile reads)
-const PROP_CACHE_LIMIT = 512;
-
-let propCache = new Map();
+// ── Texture tier config ───────────────────────────────────────────────────────
+// Below this on-screen cell size, draw straight skeleton (no per-cell reads).
+const TEXTURE_PX = 1.3;
+// Finest order: 2^MAX_ORDER columns, centred → winding is effectively unbounded.
+// The cell source is instant substitution descent (superglyphs/cell-descent.mjs),
+// so there is no O((2W)²) boundary seed and no lazy build — only the tiny seed.
+const MAX_ORDER = 32;
 // Render only when something changed; drainWork progress + interaction flip it.
 let needsRender = true;
 function requestRender() {
@@ -123,117 +123,56 @@ function orientationLabel(vInitRow, hInitCol, seniorityH) {
     return seniorityH ? ew + ns : ns + ew;
 }
 
-// ── Source descriptor (the map's dyadic frame + lazy scaffold) ────────────────
+// ── Source descriptor (the map's dyadic frame + instant cell descent) ─────────
 let src = null;
 
-function buildSource(division, W, hInitCol, vInitRow, seniorityH) {
-    const numCols = 2 * W;
-    const numRows = 2 * W;
-    // Verified in Node for all four anchors × both seniorities:
-    //   axis = W − anchor, offset = anchor − W (= seed.hInitCol/vInitRow).
-    const axisCol = W - hInitCol;
-    const axisRow = W - vInitRow;
-    const hInitCol0 = hInitCol - W;
-    const vInitRow0 = vInitRow - W;
-    // ceil(log2(2W)) makes pri(0) = maxPri the unique global max in [0, 2W).
-    const maxPri = Math.ceil(Math.log2(2 * W));
+// `_extent` (the old Extent control) is now vestigial: the universe is unbounded,
+// seeded instantly by cell-descent — no extent to choose. Kept in the signature
+// so the callers/UI need no change.
+function buildSource(division, _extent, hInitCol, vInitRow, seniorityH) {
     const seniority = seniorityH
         ? Seniority.horizontal()
         : Seniority.vertical();
-    // Lazy centred-universe scaffold (Phase 0 config). The boundary seed costs
-    // O((2W)²) here — the one synchronous price; tiles then build on demand.
-    const { scaffold } = buildIntegratedScaffold({
-        K,
-        northExtent: W,
-        southExtent: W,
-        westExtent: W,
-        eastExtent: W,
+    // Unbounded centred universe via instant substitution descent: seeded with
+    // fromUniverseExtents, no boundary seed, no lazy build (cell-descent.mjs).
+    const cu = makeCellUniverse({
         hInitCol,
         vInitRow,
         seniority,
-        maxPri,
-        maxLatPri: maxPri,
-        maxLongPri: maxPri,
+        maxOrder: MAX_ORDER,
     });
-    propCache = new Map();
+    const center = cu.center; //          2^(MAX_ORDER-1), the origin cell
+    const numCols = 2 * center; //        = 2^MAX_ORDER (effectively unbounded)
+    const numRows = 2 * center;
+    const axisCol = center - hInitCol; //  unique max-priority meridian
+    const axisRow = center - vInitRow;
+    const hInitCol0 = hInitCol - center; // colPri(c)=pri(c+hInitCol0) peaks at axis
+    const vInitRow0 = vInitRow - center;
+    // maxPri = 32: the origin is the infinity sentinel, unique over all columns
+    // (finite valuations top out at 31), so winding never repeats — unbounded.
     src = {
         division,
-        W,
         numCols,
         numRows,
         axisCol,
         axisRow,
         hInitCol0,
         vInitRow0,
-        maxPri,
-        scaffold,
-        nBlocks: scaffold.nBlocks,
+        maxPri: DEFAULT_MAX_PRI,
+        cu,
     };
     return src;
 }
 
-// ── Lazy tile access (mirrors meta/big-map/explore.mjs) ───────────────────────
-// A block's K×K Propagation, reconstructed from the scaffold seams — but only
-// once its upstream seams are populated (the block above and to the left are
-// built). Returns null otherwise; drainWork() marches the build outward.
-function getPropagation(k1, k2) {
-    const s = src.scaffold;
-    if (k1 < 0 || k2 < 0 || k1 >= s.nBlocks || k2 >= s.nBlocks) return null;
-    const key = `${k1},${k2}`;
-    let p = propCache.get(key);
-    if (p) {
-        propCache.delete(key);
-        propCache.set(key, p);
-        return p;
-    }
-    const upOK = k1 === 0 || isBlockBuilt(s, k1 - 1, k2);
-    const leftOK = k2 === 0 || isBlockBuilt(s, k1, k2 - 1);
-    if (!upOK || !leftOK) return null;
-    p = tile(s, k1, k2);
-    propCache.set(key, p);
-    if (propCache.size > PROP_CACHE_LIMIT) {
-        propCache.delete(propCache.keys().next().value);
-    }
-    return p;
-}
-
-// Down-arrow present at global cell (gr, gc)? (vertical/meridian segment).
+// Down/right arrow at global cell (gr, gc) — instant, by substitution descent
+// (cell-descent.mjs). Interior cells only; the 4th col/row of each cage is a
+// senior wall (pri ≥ 2), which renders as skeleton, never texture (see
+// renderLines), so it is never asked of these.
 function downAt(gr, gc) {
-    const k1 = Math.floor(gr / K);
-    const k2 = Math.floor(gc / K);
-    const p = getPropagation(k1, k2);
-    if (!p) return false;
-    const row = p.downMatrix[gr - k1 * K];
-    return !!(row && row[gc - k2 * K]);
+    return src.cu.downAt(gr, gc);
 }
-
-// Right-arrow present at global cell (gr, gc)? (horizontal/parallel segment).
 function rightAt(gr, gc) {
-    const k1 = Math.floor(gr / K);
-    const k2 = Math.floor(gc / K);
-    const p = getPropagation(k1, k2);
-    if (!p) return false;
-    const col = p.rightMatrix[gc - k2 * K];
-    return !!(col && col[gr - k1 * K]);
-}
-
-// All blocks a column's meridian / a row's parallel touches across the visible
-// span are built — i.e. its true (gapped) arrows are available to draw.
-function colBuilt(gc, grLo, grHi) {
-    const s = src.scaffold;
-    const k2 = Math.floor(gc / K);
-    for (let k1 = Math.floor(grLo / K); k1 <= Math.floor(grHi / K); k1++) {
-        if (!isBlockBuilt(s, k1, k2)) return false;
-    }
-    return true;
-}
-function rowBuilt(gr, gcLo, gcHi) {
-    const s = src.scaffold;
-    const k1 = Math.floor(gr / K);
-    for (let k2 = Math.floor(gcLo / K); k2 <= Math.floor(gcHi / K); k2++) {
-        if (!isBlockBuilt(s, k1, k2)) return false;
-    }
-    return true;
+    return src.cu.rightAt(gr, gc);
 }
 
 function colPri(c) {
@@ -360,41 +299,10 @@ function bisectBand(seed, lon) {
     return { lo: Math.max(0, lo - 1), hi: Math.min(numRows - 1, hi + 1) };
 }
 
-function visibleBlockRange(cols, rows) {
-    const k1Min = Math.max(0, Math.floor(rows.lo / K));
-    const k1Max = Math.min(src.nBlocks - 1, Math.floor(rows.hi / K));
-    const k2Min = Math.max(0, Math.floor(cols.lo / K));
-    const k2Max = Math.min(src.nBlocks - 1, Math.floor(cols.hi / K));
-    if (k1Min > k1Max || k2Min > k2Max) return null;
-    return { k1Min, k1Max, k2Min, k2Max };
-}
-
-// Build visible-but-unbuilt blocks toward their ready ancestor, within budget.
-// Returns true while work remains (keep animating). Skips entirely when cells
-// are sub-½px (the build gate) — those views are skeleton-only.
-function drainWork(cols, rows) {
-    if (cellArcPx() < BUILD_GATE_PX) return false;
-    const range = visibleBlockRange(cols, rows);
-    if (!range) return false;
-    const s = src.scaffold;
-    const { k1Min, k1Max, k2Min, k2Max } = range;
-    const deadline = performance.now() + FRAME_BUDGET_MS;
-    let built = 0;
-    const span = k1Max - k1Min + (k2Max - k2Min);
-    for (let d = 0; d <= span; d++) {
-        for (let dk = 0; dk <= d; dk++) {
-            const k1 = k1Min + dk;
-            const k2 = k2Min + (d - dk);
-            if (k1 > k1Max || k2 > k2Max) continue;
-            if (isBlockBuilt(s, k1, k2)) continue;
-            const anc = nextReadyAncestor(s, k1, k2);
-            if (!anc) continue;
-            propagateBlock(s, anc.k1, anc.k2);
-            built++;
-            if (performance.now() >= deadline) return true;
-        }
-    }
-    return built > 0;
+// No build phase any more — cells are instant by descent. Kept as a no-op so
+// the rAF loop needs no change.
+function drainWork() {
+    return false;
 }
 
 // ── Priority level-of-detail ──────────────────────────────────────────────────
@@ -619,16 +527,19 @@ function clearAndDrawSphere() {
 }
 
 // Unified line render. Per dyadic level p ≥ floor, draw each visible meridian
-// and parallel: its TRUE gapped arrows from the scaffold tiles when zoomed in
-// far enough (cells ≥ TEXTURE_PX) and its blocks are built, else a straight
-// skeleton line from priorities alone. Thin first / thick last. A line stays
-// skeleton (instant) until its tiles finish, then flips to texture.
+// and parallel: for pri ≤ 1 interior lines, its TRUE gapped arrows reconstructed
+// instantly by descent when cells clear TEXTURE_PX; otherwise (senior walls, or
+// zoomed out) a straight skeleton line from priorities alone. Thin first / thick
+// last. Everything is instant — no build wait.
 function renderLines(lineScale, density, cols, rows, samp) {
     const { hInitCol0, vInitRow0, maxPri } = src;
     const floor = minPriFloor(density);
     const skel = showSkeletonCb.checked;
-    const wantTex =
-        showTextureCb.checked && src.scaffold && cellArcPx() >= TEXTURE_PX;
+    // Texture is instant now (descent), so it's available whenever cells are big
+    // enough. But only the pri ≤ 1 INTERIOR lines have reconstructable cells; the
+    // senior cage walls (pri ≥ 2, incl. the axis) stay skeleton — solid lines
+    // that, being the highest priority around, don't actually break anyway.
+    const wantTex = showTextureCb.checked && cellArcPx() >= TEXTURE_PX;
     // Sub-samples per cell scale with the cell's on-screen arc, so big cells at
     // low D stay smooth curves instead of polygons (capped to bound cost).
     const subSamp = Math.max(2, Math.min(64, Math.ceil(cellArcPx() / 6)));
@@ -640,7 +551,7 @@ function renderLines(lineScale, density, cols, rows, samp) {
         for (const c of indicesAtLevel(p, hInitCol0, cols.lo, cols.hi, maxPri)) {
             // Meridians carry the branch-cut age tint (violet new / red old).
             const cColor = meridianColor(c, cols.center, colAlpha);
-            if (wantTex && colBuilt(c, rows.lo, rows.hi)) {
+            if (wantTex && p <= 1) {
                 drawTextureMeridian(
                     c, rows.lo, rows.hi, colThick, cColor, subSamp,
                 );
@@ -656,7 +567,7 @@ function renderLines(lineScale, density, cols, rows, samp) {
         const rowAlpha = Math.min(0.14 + rv * 0.065, 0.76);
         const rColor = normalColor(rowAlpha);
         for (const r of indicesAtLevel(p, vInitRow0, rows.lo, rows.hi, maxPri)) {
-            if (wantTex && rowBuilt(r, cols.lo, cols.hi)) {
+            if (wantTex && p <= 1) {
                 drawTextureParallel(
                     r, cols.lo, cols.hi, rowThick, rColor, subSamp,
                 );
@@ -702,42 +613,21 @@ function draw() {
 }
 
 function updateHud(density) {
-    const cells = `${src.numCols}×${src.numRows}`;
-    const gated = cellArcPx() < BUILD_GATE_PX;
-    const tex =
-        cellArcPx() >= TEXTURE_PX ? "texture" : gated ? "skeleton (gated)" : "skeleton";
+    const tex = cellArcPx() >= TEXTURE_PX ? "texture" : "skeleton";
     // Signed distance of the screen-centre cell from the prime meridian /
     // equator. East (increasing column) and south (increasing row) positive.
     const frontCol = visibleColRange().center;
     const eastCols = Math.round(frontCol - src.axisCol);
-    // Distance south of the equator line (lat 0), in cells.
     const southRows = Math.round(-mercatorYFromLat(rotX) / dLon());
     const sgn = (n) => (n >= 0 ? `+${n}` : `${n}`);
     const tau = rotY / (2 * Math.PI);
     badge.textContent =
         `E ${sgn(eastCols)} · S ${sgn(southRows)} cells from prime` +
         ` · τ ${tau.toFixed(2)} · ${tex} · z ${zoom.toFixed(2)}`;
-    const turns = src.numCols / src.division;
-    const warn =
-        turns < 2
-            ? " ⚠ D is large for this extent — the front runs past the" +
-              " universe edge; raise Extent or lower Division."
-            : "";
     mapInfo.textContent =
-        `Centred universe ${cells}, axis at (${src.axisCol},${src.axisRow}),` +
-        ` maxPri ${src.maxPri}. One turn = ${src.division} columns;` +
-        ` ${turns.toFixed(0)} turns before the edge.` +
-        ` Built tiles: ${countBuilt()}.${warn}`;
-}
-
-function countBuilt() {
-    const s = src.scaffold;
-    let n = 0;
-    for (let k1 = 0; k1 < s.builtMask.length; k1++) {
-        const row = s.builtMask[k1];
-        if (row) for (let k2 = 0; k2 < row.length; k2++) if (row[k2]) n++;
-    }
-    return n;
+        `Unbounded centred universe, axis at (${src.axisCol}, ${src.axisRow}),` +
+        ` maxPri ${src.maxPri}. One turn = ${src.division} columns.` +
+        ` Instant by descent — no build, no edge.`;
 }
 
 // ── Interaction ───────────────────────────────────────────────────────────────
