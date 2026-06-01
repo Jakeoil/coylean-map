@@ -37,11 +37,15 @@ const extentSelect = document.getElementById("extent");
 // scaled units: emphasis ×10 (4..26 → 0.4..2.6), density ×20 (4..45 → 80..900).
 const emphasisRuler = document.getElementById("emphasisRuler");
 const densityRuler = document.getElementById("densityRuler");
+const zoomRuler = document.getElementById("zoomRuler");
 const cellPxRuler = document.getElementById("cellPxRuler");
 const washAlphaRuler = document.getElementById("washAlphaRuler");
 const budgetRuler = document.getElementById("budgetRuler");
 let lineScale = 1.1;
 let density = 340;
+// Phase 2 — zoomPoint: the drawn tile size (px) at which the next finer level is
+// revealed globally. Raise it to split while tiles are large; 1 ≈ today's floor.
+let zoomPoint = 1;
 const showSkeletonCb = document.getElementById("showSkeleton");
 const showTextureCb = document.getElementById("showTexture");
 const latBtn = document.getElementById("latBtn");
@@ -623,7 +627,14 @@ function colClip(cols) {
 // (zoomed out, or texture off). Thin first / thick last. Everything is instant.
 function renderLines(lineScale, density, cols, rows, samp) {
     const { hInitCol0, vInitRow0, maxPri } = src;
-    const floor = minPriFloor(density);
+    // Phase 2: the global uniform base level. zoomPoint is the drawn tile size
+    // (px) at which the next finer level is revealed — pMin is the finest level
+    // whose equatorial cell is already ≥ zoomPoint, so it drops a step each time
+    // cells double (a coherent split-into-four everywhere at once). It only ever
+    // RAISES the floor above the density-driven minimum, so zoomPoint=1 keeps the
+    // old look and higher values reveal later (split while tiles are larger).
+    const pMin = Math.max(0, Math.ceil(Math.log2(zoomPoint / cellArcPx())));
+    const floor = Math.max(minPriFloor(density), pMin);
     const skel = showSkeletonCb.checked;
     // Texture (the actual gapped arrows) is instant via descent, but it's PER-CELL
     // work, so only when cells are genuinely big (TEXTURE_PX). Skeleton otherwise.
@@ -942,6 +953,10 @@ densityRuler.addEventListener("change", (e) => {
     density = e.detail.value * 20;
     requestRender();
 });
+zoomRuler.addEventListener("change", (e) => {
+    zoomPoint = e.detail.value;
+    requestRender();
+});
 // Mouse wheel over a ruler nudges its value — driven from outside the widget
 // (no slider-code changes): track the current ruler integer in our state, step
 // it, and push it back via the `value` attribute (→ the widget's setValue).
@@ -958,6 +973,8 @@ wheelNudge(emphasisRuler, () => Math.round(lineScale * 10),
     (v) => (lineScale = v / 10), 4, 26);
 wheelNudge(densityRuler, () => Math.round(density / 20),
     (v) => (density = v * 20), 4, 45);
+wheelNudge(zoomRuler, () => Math.round(zoomPoint),
+    (v) => (zoomPoint = v), 1, 160);
 // Density-wash dials: cage px (direct), alpha (×10), budget (×1000).
 cellPxRuler.addEventListener("change", (e) => {
     DENSITY_CELL_PX = e.detail.value;
@@ -1011,8 +1028,10 @@ function applyParams() {
     // by the component when it inits a frame later).
     lineScale = num("scale", lineScale);
     density = num("density", density);
+    zoomPoint = num("zpt", zoomPoint);
     emphasisRuler.setAttribute("value", Math.round(lineScale * 10));
     densityRuler.setAttribute("value", Math.round(density / 20));
+    zoomRuler.setAttribute("value", Math.round(zoomPoint));
     DENSITY_CELL_PX = num("dcell", DENSITY_CELL_PX);
     DENSITY_ALPHA = num("dalpha", DENSITY_ALPHA);
     DENSITY_BUDGET = num("dbudget", DENSITY_BUDGET);
@@ -1037,6 +1056,7 @@ function buildQuery() {
     p.set("zoom", roundTo(zoom, 3));
     p.set("scale", roundTo(lineScale, 1));
     p.set("density", Math.round(density));
+    p.set("zpt", Math.round(zoomPoint));
     p.set("dcell", Math.round(DENSITY_CELL_PX));
     p.set("dalpha", roundTo(DENSITY_ALPHA, 2));
     p.set("dbudget", Math.round(DENSITY_BUDGET));

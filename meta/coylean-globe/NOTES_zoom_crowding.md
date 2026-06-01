@@ -90,8 +90,11 @@ default; we want to keep diving).
   once — not tile-by-tile in a ragged front.
 - **Four children, one level finer** — `2^k → 2^(k−1)`, the Coylean 2×2
   substitution. (The proposal's `2^10 → 2^8` was add/multiply slip for `2^9`.)
-- **`zoomPoint` is a taste knob.** Low → tiles split while still large and
-  obvious; high → split only once small. Either is valid.
+- **`zoomPoint` is a taste knob** — the drawn tile size (px) at which a level
+  splits. High → tiles split while still large and obvious; low (→ 1px) → split
+  only once small (≈ the old crowded floor). **Implemented (Phase 2):**
+  `pMin = ⌈log2(zoomPoint / cellArcPx)⌉`, and the render floor is
+  `max(minPriFloor(density), pMin)` so it only ever coarsens the density floor.
 
 ### Where they meet
 
@@ -136,11 +139,12 @@ Each phase is independently shippable and testable.
   Suppress below `lineMin`. This alone fixes polar/distance crowding and gives
   the reversible coarsen/uncoarsen ladder. Knob: `lineMin`.
 
-- **Phase 2 — `lineZoom`/`zoomPoint` reveal.**
-  Add the upper threshold and the level-anchored subdivision reveal from a
-  default coarse square. Cells split into 4 as they cross `zoomPoint`; `lineMin`
-  keeps culling the too-small instances. Knob: `zoomPoint` (taste). This turns
-  deep zoom into a progressive "lines forming" experience instead of all-at-once.
+- **Phase 2 — `zoomPoint` reveal. *(done)*** Global uniform base level
+  `pMin = ⌈log2(zoomPoint/cellArcPx)⌉` off the equatorial reference cell; render
+  floor `max(minPriFloor(density), pMin)`. Cells split into four as `cellArcPx`
+  doubles past each step, everywhere at once; Phase 1's `latBand` keeps culling
+  the too-small instances poleward. Knob: **Zoom point** dial (px), default 1
+  (≈ old floor), raise to split while tiles are larger.
 
 - **Phase 3 — priority stagger (downs before rights for V).**
   Shape `lineWeight` so the senior orientation outweighs the junior within a

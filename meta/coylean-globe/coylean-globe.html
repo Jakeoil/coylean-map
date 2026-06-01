@@ -285,38 +285,53 @@
                 indicator-color="#7fb2ff"
             ></sliding-ruler>
 
-            <label>Wash cage size (px)</label>
+            <label>Zoom point (tile px to split)</label>
             <sliding-ruler
-                id="cellPxRuler"
-                min="3"
-                max="16"
-                value="6"
+                id="zoomRuler"
+                min="1"
+                max="160"
+                value="1"
                 height="50"
-                visible-range="13"
-                indicator-color="#9f86ff"
+                visible-range="24"
+                indicator-color="#7fb2ff"
             ></sliding-ruler>
 
-            <label>Wash strength (alpha ×10)</label>
-            <sliding-ruler
-                id="washAlphaRuler"
-                min="2"
-                max="10"
-                value="9"
-                height="50"
-                visible-range="8"
-                indicator-color="#9f86ff"
-            ></sliding-ruler>
+            <!-- Density wash disabled for now (DENSITY_WASH_ON=false); kept in
+                 the DOM so the controller's element refs stay valid. -->
+            <div hidden>
+                <label>Wash cage size (px)</label>
+                <sliding-ruler
+                    id="cellPxRuler"
+                    min="3"
+                    max="16"
+                    value="6"
+                    height="50"
+                    visible-range="13"
+                    indicator-color="#9f86ff"
+                ></sliding-ruler>
 
-            <label>Wash budget (cages ×1000)</label>
-            <sliding-ruler
-                id="budgetRuler"
-                min="2"
-                max="40"
-                value="14"
-                height="50"
-                visible-range="20"
-                indicator-color="#9f86ff"
-            ></sliding-ruler>
+                <label>Wash strength (alpha ×10)</label>
+                <sliding-ruler
+                    id="washAlphaRuler"
+                    min="2"
+                    max="10"
+                    value="9"
+                    height="50"
+                    visible-range="8"
+                    indicator-color="#9f86ff"
+                ></sliding-ruler>
+
+                <label>Wash budget (cages ×1000)</label>
+                <sliding-ruler
+                    id="budgetRuler"
+                    min="2"
+                    max="40"
+                    value="14"
+                    height="50"
+                    visible-range="20"
+                    indicator-color="#9f86ff"
+                ></sliding-ruler>
+            </div>
 
             <div class="toggles">
                 <label
