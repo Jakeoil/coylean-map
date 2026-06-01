@@ -219,14 +219,14 @@ function render() {
             }
         }
 
-    // Origin cross (universe 0,0) — the centre the four quadrants meet at.
+    // Origin prime meridian (universe col 0) — marks the centre the four
+    // quadrants meet at. The horizontal "equator" guide was dropped: extraneous,
+    // since the map's own senior axis already reads the centre line.
     ctx.strokeStyle = "#5a6498";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     const ox = W / 2 + (0 - view.cx) * view.scale;
-    const oy = H / 2 + (0 - view.cy) * view.scale;
     ctx.moveTo(ox, 0); ctx.lineTo(ox, H);
-    ctx.moveTo(0, oy); ctx.lineTo(W, oy);
     ctx.stroke();
 
     updateHud(d, secPx);

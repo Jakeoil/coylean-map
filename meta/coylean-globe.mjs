@@ -49,12 +49,15 @@ const shareUrl = document.getElementById("shareUrl");
 const copyUrl = document.getElementById("copyUrl");
 
 // Division = columns per full turn (one circumference). Powers of two.
-for (let n = 3; n <= 14; n++) {
+for (let n = 3; n <= 20; n++) {
     const div = 2 ** n;
     const opt = document.createElement("option");
     opt.value = div;
     opt.textContent = `${div}  (2^${n} cols / turn)`;
-    if (div === 64) opt.selected = true;
+    // Default fine enough that zooming reveals deeper structure (at 64 there's
+    // nothing below the cell), but not so fine the zoomed-out view drags with
+    // thousands of meridian arcs. Higher = deeper dive, heavier zoom-out.
+    if (div === 512) opt.selected = true;
     divisionSelect.appendChild(opt);
 }
 
@@ -96,12 +99,16 @@ const pointers = new Map();
 let lastPinchDistance = 0;
 
 // ── Texture tier config ───────────────────────────────────────────────────────
-// Below this on-screen cell size, draw straight skeleton (no per-cell reads).
-const TEXTURE_PX = 1.3;
+// Below this on-screen cell size, draw straight skeleton (cheap) instead of the
+// per-cell texture. Higher = texture only once cells are genuinely big (so the
+// dense zoomed-out view stays skeleton and fast).
+const TEXTURE_PX = 5;
 // Finest order: 2^MAX_ORDER columns, centred → winding is effectively unbounded.
-// The cell source is instant substitution descent (superglyphs/cell-descent.mjs),
-// so there is no O((2W)²) boundary seed and no lazy build — only the tiny seed.
-const MAX_ORDER = 32;
+// 2^40 columns gives room for both a fine cell scale (high Division → deep zoom)
+// AND hundreds of thousands of non-repeating turns. The cell source is instant
+// substitution descent (superglyphs/cell-descent.mjs) — no boundary seed, no
+// lazy build, just a few more lookups per cell at this depth.
+const MAX_ORDER = 40;
 // Render only when something changed; drainWork progress + interaction flip it.
 let needsRender = true;
 function requestRender() {
@@ -548,13 +555,20 @@ function renderLines(lineScale, density, cols, rows, samp) {
     const { hInitCol0, vInitRow0, maxPri } = src;
     const floor = minPriFloor(density);
     const skel = showSkeletonCb.checked;
-    // Texture (the actual gapped arrows) is instant via descent — every line, any
-    // priority — so use it whenever cells are big enough; skeleton is only the
-    // zoomed-out / texture-off fallback.
+    // Texture (the actual gapped arrows) is instant via descent, but it's PER-CELL
+    // work, so only when cells are genuinely big (TEXTURE_PX). Skeleton otherwise.
     const wantTex = showTextureCb.checked && cellArcPx() >= TEXTURE_PX;
-    // Sub-samples per cell scale with the cell's on-screen arc, so big cells at
-    // low D stay smooth curves instead of polygons (capped to bound cost).
     const subSamp = Math.max(2, Math.min(64, Math.ceil(cellArcPx() / 6)));
+
+    // Per-cell / per-row work (texture + parallels) is bounded to a tight band
+    // around the front-centre row — the rest of the wide `rows` band is sub-pixel
+    // near the poles and would explode the cost at high Division. Meridian ARCS
+    // still use the full `rows` band (samp points, cheap) so they reach the poles.
+    const seedRow = Math.round(
+        src.axisRow + 0.5 - mercatorYFromLat(rotX) / dLon());
+    const TEX_HALF = 160;
+    const tLo = Math.max(rows.lo, seedRow - TEX_HALF);
+    const tHi = Math.min(rows.hi, seedRow + TEX_HALF);
 
     for (let p = floor; p <= maxPri; p++) {
         // Visual weight of priority p. Capped: maxPri is now 32 (the infinity
@@ -567,9 +581,7 @@ function renderLines(lineScale, density, cols, rows, samp) {
             // Meridians carry the branch-cut age tint (violet new / red old).
             const cColor = meridianColor(c, cols.center, colAlpha);
             if (wantTex) {
-                drawTextureMeridian(
-                    c, rows.lo, rows.hi, colThick, cColor, subSamp,
-                );
+                drawTextureMeridian(c, tLo, tHi, colThick, cColor, subSamp);
             } else if (skel) {
                 strokeArc(
                     meridianPoints(c, rows.lo, rows.hi, samp.meridian),
@@ -581,7 +593,9 @@ function renderLines(lineScale, density, cols, rows, samp) {
         const rowThick = (0.2 + rv * 0.3) * lineScale;
         const rowAlpha = Math.min(0.14 + rv * 0.065, 0.76);
         const rColor = normalColor(rowAlpha);
-        for (const r of indicesAtLevel(p, vInitRow0, rows.lo, rows.hi, maxPri)) {
+        // Parallels only for rows actually on screen (tight band) — at high
+        // Division the wide band would be thousands of near-pole, sub-pixel rings.
+        for (const r of indicesAtLevel(p, vInitRow0, tLo, tHi, maxPri)) {
             if (wantTex) {
                 drawTextureParallel(
                     r, cols.lo, cols.hi, rowThick, rColor, subSamp,
@@ -658,7 +672,7 @@ function resize() {
 }
 
 function setZoom(next) {
-    zoom = Math.max(0.45, Math.min(64, next));
+    zoom = Math.max(0.45, Math.min(1e6, next));
     radius = Math.min(width, height) * 0.39 * zoom;
     requestRender();
 }
