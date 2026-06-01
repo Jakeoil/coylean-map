@@ -72,10 +72,15 @@ export function makeCellUniverse({
         northExtent: ext, southExtent: ext, westExtent: ext, eastExtent: ext,
         hInitCol, vInitRow, seniority,
     });
-    const { originRow, originCol } = cageOrigin(hInitCol, vInitRow, ext, ext);
-    const ns = Math.floor(
-        Math.min(p.numRows - originRow, p.numColumns - originCol) / SEC);
-    const seed = sectionize(p, originRow, originCol, ns);
+    // Cage origin: at non-1/1 anchors the senior cage lattice starts at cell
+    // (oR, oC) ∈ {0,1}², not 0 — the firstDark N/W margin. EVERY cell read must
+    // carry it, or the whole map shears one cell into the wrong cage (the dotted
+    // equator / gap-at-the-prime-meridian bug). A clean 2^seedDepth seed: the SE
+    // edge cage is partial but its 3-bit code still reads in-range cells.
+    const { originRow: oR, originCol: oC } = cageOrigin(
+        hInitCol, vInitRow, ext, ext);
+    const ns = 1 << seedDepth;
+    const seed = sectionize(p, oR, oC, ns);
     const depth = maxOrder - 2; // section grid = 2^depth per side
 
     // Glyph code at section (R, C) at a given depth d — descend from the seed.
@@ -133,16 +138,18 @@ export function makeCellUniverse({
     // come from the glyph; the 4th (the senior wall) comes from its bar, so
     // walls texture gapped-as-map rather than as a solid graticule.
     function downAt(gr, gc) {
-        const sr = Math.floor(gr / 4), sc = Math.floor(gc / 4);
-        const lc = gc % 4;
+        const r = gr - oR, c = gc - oC;
+        if (r < 0 || c < 0) return false; // N/W margin: no full cage
+        const sr = Math.floor(r / 4), sc = Math.floor(c / 4), lc = c - sc * 4;
         if (lc === 3) return wallEastAt(sr, sc, depth);
-        return !!cageMatrices(sr, sc).downMatrix[gr % 4][lc];
+        return !!cageMatrices(sr, sc).downMatrix[r - sr * 4][lc];
     }
     function rightAt(gr, gc) {
-        const sr = Math.floor(gr / 4), sc = Math.floor(gc / 4);
-        const lr = gr % 4;
+        const r = gr - oR, c = gc - oC;
+        if (r < 0 || c < 0) return false;
+        const sr = Math.floor(r / 4), sc = Math.floor(c / 4), lr = r - sr * 4;
         if (lr === 3) return wallSouthAt(sr, sc, depth);
-        return !!cageMatrices(sr, sc).rightMatrix[gc % 4][lr];
+        return !!cageMatrices(sr, sc).rightMatrix[c - sc * 4][lr];
     }
 
     return {
