@@ -5,7 +5,7 @@
 // prime meridian + equator) is parked at the back; the spiral's cut lives there
 // and may peek over the poles.
 //
-// Two tiers (see meta/NOTES_coylean_globe.md), both in renderLines():
+// Two tiers (see meta/coylean-globe/NOTES_coylean_globe.md), both in renderLines():
 //   * Skeleton — high-priority meridians/parallels drawn straight from the
 //     dyadic priority arrays alone (no propagation). Guarantees the large-scale
 //     structure at any zoom.
@@ -17,14 +17,14 @@
 // 2W × 2W cells with the axis at (W-1, W-1). maxPri = ceil(log2(2W)) makes the
 // axis the unique global priority maximum (no repetition within the universe).
 
-import { pri, Seniority } from "../coylean-explorer/coylean-core.js";
+import { pri, Seniority } from "../../coylean-explorer/coylean-core.js";
 import {
     buildIntegratedScaffold,
     propagateBlock,
     isBlockBuilt,
     nextReadyAncestor,
-} from "./big-map/scaffold.mjs";
-import { tile } from "./big-map/tile.mjs";
+} from "../big-map/scaffold.mjs";
+import { tile } from "../big-map/tile.mjs";
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");

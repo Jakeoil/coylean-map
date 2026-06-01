@@ -5,7 +5,7 @@
 // prime meridian + equator) is parked at the back; the spiral's cut lives there
 // and may peek over the poles.
 //
-// Two tiers (see meta/NOTES_coylean_globe.md), both in renderLines():
+// Two tiers (see meta/coylean-globe/NOTES_coylean_globe.md), both in renderLines():
 //   * Skeleton — high-priority meridians/parallels drawn straight from the
 //     dyadic priority arrays alone (no propagation). Guarantees the large-scale
 //     structure at any zoom.
@@ -24,8 +24,8 @@ import {
     pri,
     Seniority,
     DEFAULT_MAX_PRI,
-} from "../coylean-explorer/coylean-core.js";
-import { makeCellUniverse } from "./superglyphs/cell-descent.mjs";
+} from "../../coylean-explorer/coylean-core.js";
+import { makeCellUniverse } from "../superglyphs/cell-descent.mjs";
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");

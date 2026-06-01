@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Coylean Map — Coylean Globe</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+                font-family:
+                    "Segoe UI", system-ui, -apple-system, sans-serif;
+                background: linear-gradient(
+                    135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+                color: #eee;
+                min-height: 100vh;
+                padding: 48px 24px;
+            }
+            main { max-width: 720px; margin: 0 auto; }
+            h1 {
+                font-size: 2.4rem;
+                color: #e94560;
+                text-shadow: 0 0 20px rgba(233, 69, 96, 0.4);
+                margin-bottom: 8px;
+            }
+            .lede {
+                color: rgba(255, 255, 255, 0.7);
+                margin-bottom: 32px;
+                line-height: 1.5;
+            }
+            .back {
+                display: inline-block;
+                margin-bottom: 24px;
+                color: #e94560;
+                text-decoration: none;
+                font-size: 0.9rem;
+            }
+            .back:hover { text-decoration: underline; }
+            .card {
+                display: block;
+                padding: 20px 24px;
+                margin-bottom: 16px;
+                background: rgba(22, 33, 62, 0.6);
+                border: 2px solid rgba(233, 69, 96, 0.5);
+                border-radius: 10px;
+                color: #eee;
+                text-decoration: none;
+                transition: all 0.2s;
+            }
+            .card:hover {
+                border-color: #e94560;
+                background: rgba(233, 69, 96, 0.12);
+                transform: translateY(-2px);
+                box-shadow: 0 4px 15px rgba(233, 69, 96, 0.25);
+            }
+            .card h2 {
+                font-size: 1.2rem;
+                color: #e94560;
+                margin-bottom: 6px;
+            }
+            .card .tag {
+                font-size: 0.72rem;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                letter-spacing: 0.04em;
+                color: #ffd0d8;
+                background: rgba(233, 69, 96, 0.22);
+                padding: 2px 7px;
+                border-radius: 4px;
+                margin-left: 8px;
+                vertical-align: middle;
+            }
+            .card p {
+                font-size: 0.95rem;
+                line-height: 1.5;
+                color: rgba(255, 255, 255, 0.8);
+            }
+            code {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.85em;
+                color: #ffd0d8;
+            }
+            .docs { margin-top: 8px; font-size: 0.9rem; color: rgba(255,255,255,0.6); }
+            .docs a { color: #e94560; text-decoration: none; }
+            .docs a:hover { text-decoration: underline; }
+        </style>
+    </head>
+    <body>
+        <main>
+            <a class="back" href="../">← Meta</a>
+            <h1>Coylean Globe</h1>
+            <p class="lede">
+                The Coylean map wound onto a sphere with <strong>no longitude
+                repetition</strong> — each column spans 2π/D radians, so spinning
+                east raises the winding number τ without bound and every turn
+                exposes new map. Two builds of the same idea:
+            </p>
+
+            <a class="card" href="coylean-globe.html">
+                <h2>Coylean Globe<span class="tag">descent · current</span></h2>
+                <p>
+                    The unbounded, instant build. Cells come from
+                    <strong>substitution address descent</strong> off a tiny
+                    seed (<code>superglyphs/cell-descent.mjs</code>) — no boundary
+                    propagation, no lazy tile build, no extent cap. Deep zoom and
+                    hundreds of thousands of non-repeating turns. Orientation
+                    (Lat/Long/Sen), branch-cut age tint, two-tier skeleton/texture
+                    LOD.
+                </p>
+            </a>
+
+            <a class="card" href="coylean-globe-old.html">
+                <h2>Coylean Globe<span class="tag">scaffold · old</span></h2>
+                <p>
+                    The original build, kept for comparison. Cells come from the
+                    <strong>lazy big-map seam scaffold</strong> — a centred
+                    integrated universe propagated in K×K blocks on demand, with a
+                    bounded Extent and an <code>O((2W)²)</code> boundary seed up
+                    front. Same winding model and look; slower to fill in and
+                    capped in size.
+                </p>
+            </a>
+
+            <p class="docs">
+                Docs: <a href="README.md">README</a> (both builds) ·
+                <a href="NOTES_coylean_globe.md">design notes</a>.
+            </p>
+        </main>
+    </body>
+</html>
