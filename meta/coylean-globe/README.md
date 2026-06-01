@@ -52,9 +52,17 @@ descent build was validated against.
   descent build (unbounded).
 - **Line scale / Density** — line weight, and the priority floor (how many fine
   lines show).
-- **Skeleton / Texture** — the two LOD tiers. Skeleton = high-priority lines
+- **Skeleton / Texture** — the two line LOD tiers. Skeleton = high-priority lines
   drawn straight from the dyadic priority arrays (any zoom, cheap). Texture =
   actual gapped arrows, drawn once cells clear `TEXTURE_PX`.
+- **Density wash** (descent build) — the sub-pixel tier under the lines. Below
+  `TEXTURE_PX`, where the lines go coarse and gaps read blank, each cage is
+  filled with a wash whose **alpha = its glyph line-density** (down+right count,
+  0..17) in the line colour. The unique empty glyph `V_00`/`H_00` is density 0 →
+  alpha 0 → **bare sphere shows through**, so blank regions stay visible (a blank
+  area is `00` at every level, so it stays bare at any zoom). The cage level
+  climbs the substitution ladder to keep cages ~6 px and the draw count bounded.
+  *Future:* two-colour (downs vs rights) to show the bias instead of just total.
 - **Lat / Long / Sen** — dyadic anchor (vInitRow/hInitCol ∈ {0,1}) and seniority
   (V↔H); the four anchors × two seniorities. Drag to spin (winds longitude) /
   pitch; wheel to zoom; `0` resets.
@@ -65,6 +73,7 @@ descent build was validated against.
   pole-to-pole arc, so a very fine Division draws many arcs and the spin gets
   heavy. Texture/parallels are clipped to the on-screen band; the remaining lever
   is clipping the column window to on-screen + fewer samples per arc at low zoom.
+  The density wash adds ≤ `DENSITY_BUDGET` (14k) fills per frame in that regime.
 - **Anchor-only.** Descent is exact on the four anchor offsets `{0,1}²` × {V,H}
   (exactly the Lat/Long/Sen toggles); no off-anchor mode.
 - **Winding speed.** Drag pans a fixed screen amount, so traversing hundreds of

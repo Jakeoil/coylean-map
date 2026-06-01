@@ -134,6 +134,25 @@ export function makeCellUniverse({
         return m;
     }
 
+    // Line density of a glyph code = down + right segment count (0..17). Drives
+    // the sub-pixel LOD: the empty glyph V_00/H_00 is the unique 0 (a blank
+    // region stays 00 up every level), so density→alpha leaves blanks bare.
+    const densCache = new Map();
+    function cageDensity(code) {
+        const k = code[0] + "," + code[1];
+        let n = densCache.get(k);
+        if (n === undefined) {
+            const m = matrices(code);
+            n = 0;
+            for (let gy = 0; gy <= 3; gy++)
+                for (let gx = 0; gx < 3; gx++) if (m.downMatrix[gy][gx]) n++;
+            for (let gx = 0; gx <= 3; gx++)
+                for (let gy = 0; gy < 3; gy++) if (m.rightMatrix[gx][gy]) n++;
+            densCache.set(k, n);
+        }
+        return n;
+    }
+
     // Down/right arrow at absolute cell (gr, gc). Interior cols/rows (0,1,2)
     // come from the glyph; the 4th (the senior wall) comes from its bar, so
     // walls texture gapped-as-map rather than as a solid graticule.
@@ -152,8 +171,21 @@ export function makeCellUniverse({
         return !!cageMatrices(sr, sc).rightMatrix[c - sc * 4][lr];
     }
 
+    // Density of the level-k ancestor cage covering cell (gr, gc). level 0 is
+    // the glyph itself (4 cells/side); each level up is the substitution parent
+    // (×2/side), so the caller climbs the ladder as cells go sub-pixel. Clamped
+    // so the descent never goes shallower than the seed.
+    function densityAt(gr, gc, level) {
+        const r = gr - oR, c = gc - oC;
+        if (r < 0 || c < 0) return 0;
+        const lv = Math.max(0, Math.min(depth - seedDepth, level));
+        const span = 1 << (lv + 2); // cells per side of a level-lv cage
+        const cageR = Math.floor(r / span), cageC = Math.floor(c / span);
+        return cageDensity(glyphAtD(cageR, cageC, depth - lv));
+    }
+
     return {
-        glyphAt, downAt, rightAt,
+        glyphAt, downAt, rightAt, densityAt, densityMax: 17,
         depth, seedDepth, seedNs: ns,
         center: 2 ** (maxOrder - 1), // internal-cell coordinate of the origin
     };

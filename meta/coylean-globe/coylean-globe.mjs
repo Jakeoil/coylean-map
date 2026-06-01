@@ -106,6 +106,15 @@ let lastPinchDistance = 0;
 // per-cell texture. Higher = texture only once cells are genuinely big (so the
 // dense zoomed-out view stays skeleton and fast).
 const TEXTURE_PX = 5;
+// ── Density tier config ───────────────────────────────────────────────────────
+// Sub-pixel LOD: when cells are below TEXTURE_PX the lines go coarse and large
+// areas read blank. Fill them with a per-cage density wash — alpha ∝ the glyph's
+// line count (down+right, 0..17), so the empty glyph V_00/H_00 → alpha 0 → bare
+// sphere (blank areas stay visible as sphere, never missed). Same colour as the
+// lines, so a dense region reads as a wash the lines resolve out of.
+const DENSITY_CELL_PX = 6; // target on-screen size of one density cage
+const DENSITY_BUDGET = 14000; // max cages/frame — coarsen the level to fit
+const DENSITY_ALPHA = 0.9; // alpha of the densest cage (17/17); 00 → 0
 // Finest order: 2^MAX_ORDER columns, centred → winding is effectively unbounded.
 // 2^40 columns gives room for both a fine cell scale (high Division → deep zoom)
 // AND hundreds of thousands of non-repeating turns. The cell source is instant
@@ -625,6 +634,64 @@ function renderLines(lineScale, density, cols, rows, samp) {
     }
 }
 
+// Sub-pixel density wash. When cells are below TEXTURE_PX the lines are coarse
+// and the gaps read blank; tile the visible sphere with cage-density quads so
+// you see WHERE the fine map is dense vs empty. Cage level is picked so a cage is
+// ~DENSITY_CELL_PX on screen (the ladder), then coarsened until the cage count
+// fits DENSITY_BUDGET. alpha = density/17 · DENSITY_ALPHA; 00 (the unique empty
+// glyph, and its ancestors) → alpha 0 → skipped → bare sphere shows through.
+function drawDensity(cols, rows) {
+    const arc = cellArcPx();
+    if (arc >= TEXTURE_PX) return; // cells big enough for real lines/texture
+    const cu = src.cu;
+    const maxLevel = cu.depth - cu.seedDepth;
+
+    // Same on-screen column clip as renderLines: skip the off-canvas hemisphere
+    // when zoomed in past globe-fills-screen; keep the full turn when zoomed out.
+    let clo = cols.lo, chi = cols.hi;
+    if (radius > width / 2) {
+        const aMax = Math.asin(Math.min(1, width / (1.9 * radius)));
+        const half = Math.ceil(aMax / dLon()) + 8;
+        clo = Math.max(cols.lo, Math.round(cols.center - half));
+        chi = Math.min(cols.hi, Math.round(cols.center + half));
+    }
+
+    // Level so a cage ≈ DENSITY_CELL_PX on screen, then coarsen to fit the budget.
+    let level = Math.round(Math.log2(DENSITY_CELL_PX / Math.max(arc, 1e-6))) - 2;
+    level = Math.max(0, Math.min(maxLevel, level));
+    let span = 1 << (level + 2);
+    while (
+        level < maxLevel &&
+        (Math.floor((chi - clo) / span) + 1) *
+            (Math.floor((rows.hi - rows.lo) / span) + 1) >
+            DENSITY_BUDGET
+    ) {
+        level++;
+        span = 1 << (level + 2);
+    }
+
+    const half = span / 2;
+    const cageArcPx = span * arc;
+    const [cr, cg, cb] = NORMAL_RGB;
+    const c0 = Math.floor(clo / span) * span;
+    const r0 = Math.floor(rows.lo / span) * span;
+    for (let gc = c0; gc <= chi; gc += span) {
+        const lon = lonOf(gc + half);
+        for (let gr = r0; gr <= rows.hi; gr += span) {
+            const den = cu.densityAt(gr + half, gc + half, level);
+            if (den === 0) continue; // empty cage → leave the sphere bare
+            const [px, py, pz] = spherePoint(lon, latOf(gr + half));
+            const [x, y, z] = rotatePoint(px, py, pz);
+            if (z < -0.02) continue; // back face
+            const [sx, sy] = project(x, y, z);
+            const sz = cageArcPx * (3 / (3 - z)) * dpr; // perspective size
+            const a = (den / cu.densityMax) * DENSITY_ALPHA;
+            ctx.fillStyle = `rgba(${cr},${cg},${cb},${a.toFixed(3)})`;
+            ctx.fillRect(sx - sz / 2, sy - sz / 2, sz, sz);
+        }
+    }
+}
+
 function draw() {
     if (!width || !height || !src) return;
 
@@ -648,6 +715,7 @@ function draw() {
         ),
     };
 
+    drawDensity(cols, rows);
     renderLines(lineScale, density, cols, rows, samp);
 
     updateHud(density);
