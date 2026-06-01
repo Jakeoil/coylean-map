@@ -32,8 +32,13 @@ const ctx = canvas.getContext("2d");
 
 const divisionSelect = document.getElementById("division");
 const extentSelect = document.getElementById("extent");
-const lineScaleInput = document.getElementById("lineScale");
-const densityInput = document.getElementById("density");
+// Line emphasis + draw density are sliding-ruler widgets (meta/sliding-ruler).
+// The ruler snaps to integers and would crowd over a wide range, so both run in
+// scaled units: emphasis ×10 (4..26 → 0.4..2.6), density ×20 (4..45 → 80..900).
+const emphasisRuler = document.getElementById("emphasisRuler");
+const densityRuler = document.getElementById("densityRuler");
+let lineScale = 1.1;
+let density = 340;
 const showSkeletonCb = document.getElementById("showSkeleton");
 const showTextureCb = document.getElementById("showTexture");
 const latBtn = document.getElementById("latBtn");
@@ -41,8 +46,6 @@ const longBtn = document.getElementById("longBtn");
 const senBtn = document.getElementById("senBtn");
 const orientLabel = document.getElementById("orientLabel");
 
-const lineScaleValue = document.getElementById("lineScaleValue");
-const densityValue = document.getElementById("densityValue");
 const mapInfo = document.getElementById("mapInfo");
 const badge = document.getElementById("badge");
 const shareUrl = document.getElementById("shareUrl");
@@ -570,6 +573,19 @@ function renderLines(lineScale, density, cols, rows, samp) {
     const tLo = Math.max(rows.lo, seedRow - TEX_HALF);
     const tHi = Math.min(rows.hi, seedRow + TEX_HALF);
 
+    // Column clip: once the globe is bigger than the screen (zoomed in), the far
+    // side and most of the hemisphere are off-screen, so only draw the columns
+    // that can actually project on-canvas — no point sampling/projecting hundreds
+    // of culled meridians per frame. When the whole globe fits (zoomed out) keep
+    // the full ±D/2 turn so the branch cut on the far side / poles still shows.
+    let clo = cols.lo, chi = cols.hi;
+    if (radius > width / 2) {
+        const aMax = Math.asin(Math.min(1, width / (1.9 * radius)));
+        const half = Math.ceil(aMax / dLon()) + 8;
+        clo = Math.max(cols.lo, Math.round(cols.center - half));
+        chi = Math.min(cols.hi, Math.round(cols.center + half));
+    }
+
     for (let p = floor; p <= maxPri; p++) {
         // Visual weight of priority p. Capped: maxPri is now 32 (the infinity
         // sentinel), but the axis/walls shouldn't balloon — cap at the old
@@ -577,7 +593,7 @@ function renderLines(lineScale, density, cols, rows, samp) {
         const rv = Math.min(p + 1, 12);
         const colThick = (0.22 + rv * 0.34) * lineScale;
         const colAlpha = Math.min(0.16 + rv * 0.07, 0.82);
-        for (const c of indicesAtLevel(p, hInitCol0, cols.lo, cols.hi, maxPri)) {
+        for (const c of indicesAtLevel(p, hInitCol0, clo, chi, maxPri)) {
             // Meridians carry the branch-cut age tint (violet new / red old).
             const cColor = meridianColor(c, cols.center, colAlpha);
             if (wantTex) {
@@ -597,12 +613,10 @@ function renderLines(lineScale, density, cols, rows, samp) {
         // Division the wide band would be thousands of near-pole, sub-pixel rings.
         for (const r of indicesAtLevel(p, vInitRow0, tLo, tHi, maxPri)) {
             if (wantTex) {
-                drawTextureParallel(
-                    r, cols.lo, cols.hi, rowThick, rColor, subSamp,
-                );
+                drawTextureParallel(r, clo, chi, rowThick, rColor, subSamp);
             } else if (skel) {
                 strokeArc(
-                    parallelPoints(r, cols.lo, cols.hi, samp.parallel),
+                    parallelPoints(r, clo, chi, samp.parallel),
                     rowThick,
                     rColor,
                 );
@@ -614,24 +628,23 @@ function renderLines(lineScale, density, cols, rows, samp) {
 function draw() {
     if (!width || !height || !src) return;
 
-    const lineScale = Number(lineScaleInput.value);
-    const density = Number(densityInput.value);
-    lineScaleValue.textContent = lineScale.toFixed(1);
-    densityValue.textContent = `${density}`;
-
     clearAndDrawSphere();
 
     const cols = visibleColRange();
     const rows = visibleRowRange();
     const detail = Math.max(1, zoom);
+    // Points per arc. Scales with zoom (few, screen-spanning arcs when zoomed in
+    // need detail) but the zoomed-OUT base is kept modest: there the arcs are
+    // many and thin, so extra points are invisible and just cost trig. Even-in-
+    // latitude sampling keeps them smooth at low counts.
     const samp = {
         meridian: Math.min(
             6000,
-            Math.round(Math.max(60, Math.min(420, density * 0.7)) * detail),
+            Math.round(Math.max(48, Math.min(220, density * 0.45)) * detail),
         ),
         parallel: Math.min(
             8000,
-            Math.round(Math.max(120, Math.min(640, density)) * detail),
+            Math.round(Math.max(80, Math.min(300, density * 0.6)) * detail),
         ),
     };
 
@@ -800,10 +813,33 @@ function rebuild() {
 [divisionSelect, extentSelect].forEach((el) =>
     el.addEventListener("change", rebuild),
 );
-[lineScaleInput, densityInput, showSkeletonCb, showTextureCb].forEach((el) => {
-    el.addEventListener("input", requestRender);
-    el.addEventListener("change", requestRender);
+[showSkeletonCb, showTextureCb].forEach((el) =>
+    el.addEventListener("change", requestRender),
+);
+emphasisRuler.addEventListener("change", (e) => {
+    lineScale = e.detail.value / 10;
+    requestRender();
 });
+densityRuler.addEventListener("change", (e) => {
+    density = e.detail.value * 20;
+    requestRender();
+});
+// Mouse wheel over a ruler nudges its value — driven from outside the widget
+// (no slider-code changes): track the current ruler integer in our state, step
+// it, and push it back via the `value` attribute (→ the widget's setValue).
+function wheelNudge(el, getUnit, setFromUnit, lo, hi) {
+    el.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        const v = Math.max(lo, Math.min(hi, getUnit() + (e.deltaY < 0 ? 1 : -1)));
+        setFromUnit(v);
+        el.setAttribute("value", v);
+        requestRender();
+    }, { passive: false });
+}
+wheelNudge(emphasisRuler, () => Math.round(lineScale * 10),
+    (v) => (lineScale = v / 10), 4, 26);
+wheelNudge(densityRuler, () => Math.round(density / 20),
+    (v) => (density = v * 20), 4, 45);
 latBtn.addEventListener("click", () => {
     curVInitRow ^= 1;
     rebuild();
@@ -827,8 +863,6 @@ function applyParams() {
     };
     setVal(divisionSelect, "div");
     setVal(extentSelect, "ext");
-    setVal(lineScaleInput, "scale");
-    setVal(densityInput, "density");
     const num = (key, cur) => {
         const v = Number(p.get(key));
         return p.has(key) && Number.isFinite(v) ? v : cur;
@@ -836,6 +870,12 @@ function applyParams() {
     rotX = num("rotx", rotX);
     rotY = num("roty", rotY);
     zoom = num("zoom", zoom);
+    // Rulers: restore the state vars and seed each widget's initial value (read
+    // by the component when it inits a frame later).
+    lineScale = num("scale", lineScale);
+    density = num("density", density);
+    emphasisRuler.setAttribute("value", Math.round(lineScale * 10));
+    densityRuler.setAttribute("value", Math.round(density / 20));
     if (p.has("skel")) showSkeletonCb.checked = p.get("skel") !== "0";
     if (p.has("tex")) showTextureCb.checked = p.get("tex") !== "0";
     if (p.get("long") === "0" || p.get("long") === "1")
@@ -852,8 +892,8 @@ function buildQuery() {
     p.set("rotx", roundTo(rotX, 4));
     p.set("roty", roundTo(rotY, 4));
     p.set("zoom", roundTo(zoom, 3));
-    p.set("scale", lineScaleInput.value);
-    p.set("density", densityInput.value);
+    p.set("scale", roundTo(lineScale, 1));
+    p.set("density", Math.round(density));
     p.set("skel", showSkeletonCb.checked ? "1" : "0");
     p.set("tex", showTextureCb.checked ? "1" : "0");
     p.set("lat", curVInitRow);

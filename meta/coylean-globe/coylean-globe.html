@@ -263,31 +263,27 @@
             <label for="extent">Extent (cells / side)</label>
             <select id="extent"></select>
 
-            <label for="lineScale">Line emphasis</label>
-            <div class="row">
-                <input
-                    id="lineScale"
-                    type="range"
-                    min="0.4"
-                    max="2.6"
-                    step="0.1"
-                    value="1.1"
-                />
-                <span id="lineScaleValue" class="value">1.1</span>
-            </div>
+            <label>Line emphasis</label>
+            <sliding-ruler
+                id="emphasisRuler"
+                min="4"
+                max="26"
+                value="11"
+                height="50"
+                visible-range="16"
+                indicator-color="#7fb2ff"
+            ></sliding-ruler>
 
-            <label for="density">Draw density</label>
-            <div class="row">
-                <input
-                    id="density"
-                    type="range"
-                    min="80"
-                    max="900"
-                    step="20"
-                    value="340"
-                />
-                <span id="densityValue" class="value">340</span>
-            </div>
+            <label>Draw density</label>
+            <sliding-ruler
+                id="densityRuler"
+                min="4"
+                max="45"
+                value="17"
+                height="50"
+                visible-range="16"
+                indicator-color="#7fb2ff"
+            ></sliding-ruler>
 
             <div class="toggles">
                 <label
@@ -317,6 +313,10 @@
             <div class="badge" id="badge">drag to spin · wheel to zoom</div>
         </main>
 
+        <script
+            type="module"
+            src="../sliding-ruler/volume-ruler-control/sliding-ruler-element.js"
+        ></script>
         <script type="module" src="./coylean-globe.mjs"></script>
     </body>
 </html>
