@@ -350,6 +350,26 @@ function minPriFloor(density) {
     const effPx = cellArcPx() * (density / 340);
     return Math.max(0, Math.ceil(-Math.log2(Math.max(effPx, 1e-6))));
 }
+// Phase 1 — local-drawn-size suppression (NOTES_zoom_crowding.md). A level-p
+// line's drawn spacing is 2^p·cellArcPx·cos(lat): meridians converge and
+// parallels compress by the SAME cos(lat) toward the poles. It clears the
+// visibility floor where that spacing ≥ ~1px (the density budget = effPx0), i.e.
+// cos(lat) ≥ cmin = 2^-p / effPx0. So level p lives in |lat| ≤ acos(cmin): fine
+// levels hug the equator, coarse levels reach the poles — the poles declutter on
+// their own. Returns the row band [lo,hi] for level p, intersected with `rows`.
+// At the equator cos(lat)=1 ≥ cmin for every p ≥ floor, so equatorial output is
+// unchanged; the band only clips poleward. (cos-of-longitude limb foreshortening
+// — the other "distance" crowding — is a later refinement.)
+function latBand(p, effPx0, rows) {
+    const cmin = 2 ** -p / effPx0;
+    if (cmin >= 1) return { lo: 1, hi: 0 }; // sub-floor even at the equator
+    const half = mercatorYFromLat(Math.acos(cmin)) / dLon(); // |rows| from equator
+    const c = src.axisRow + 0.5;
+    return {
+        lo: Math.max(rows.lo, Math.ceil(c - half)),
+        hi: Math.min(rows.hi, Math.floor(c + half)),
+    };
+}
 
 // Indices in [lo, hi] congruent to `base` modulo `step`.
 function congruent(base, step, lo, hi) {
@@ -623,8 +643,14 @@ function renderLines(lineScale, density, cols, rows, samp) {
     // Column window: on-screen front columns when zoomed in, full ±D/2 turn when
     // the globe fits OR a pole is near (the fan needs every longitude) — colClip.
     const { clo, chi } = colClip(cols);
+    const effPx0 = cellArcPx() * (density / 340); // equatorial pixel budget
 
     for (let p = floor; p <= maxPri; p++) {
+        // Phase 1: confine this level to the latitude band where it isn't
+        // crowded. Meridian arcs clip to it; parallels outside it are dropped.
+        const band = latBand(p, effPx0, rows);
+        if (band.lo > band.hi) continue;
+        const tbLo = Math.max(tLo, band.lo), tbHi = Math.min(tHi, band.hi);
         // Visual weight of priority p. Capped: maxPri is now 32 (the infinity
         // sentinel), but the axis/walls shouldn't balloon — cap at the old
         // ceiling (~11) so thickness/alpha tops out at a sane bold, not a slab.
@@ -635,10 +661,11 @@ function renderLines(lineScale, density, cols, rows, samp) {
             // Meridians carry the branch-cut age tint (violet new / red old).
             const cColor = meridianColor(c, cols.center, colAlpha);
             if (wantTex) {
-                drawTextureMeridian(c, tLo, tHi, colThick, cColor, subSamp);
+                if (tbLo <= tbHi)
+                    drawTextureMeridian(c, tbLo, tbHi, colThick, cColor, subSamp);
             } else if (skel) {
                 strokeArc(
-                    meridianPoints(c, rows.lo, rows.hi, samp.meridian),
+                    meridianPoints(c, band.lo, band.hi, samp.meridian),
                     colThick,
                     cColor,
                 );
@@ -647,9 +674,10 @@ function renderLines(lineScale, density, cols, rows, samp) {
         const rowThick = (0.2 + rv * 0.3) * lineScale;
         const rowAlpha = Math.min(0.14 + rv * 0.065, 0.76);
         const rColor = normalColor(rowAlpha);
-        // Parallels only for rows actually on screen (tight band) — at high
-        // Division the wide band would be thousands of near-pole, sub-pixel rings.
-        for (const r of indicesAtLevel(p, vInitRow0, tLo, tHi, maxPri)) {
+        // Parallels only for rows on screen (tight band) AND within the level's
+        // latitude band — near-pole rings of a fine level are crowded out.
+        if (tbLo > tbHi) continue;
+        for (const r of indicesAtLevel(p, vInitRow0, tbLo, tbHi, maxPri)) {
             if (wantTex) {
                 drawTextureParallel(r, clo, chi, rowThick, rColor, subSamp);
             } else if (skel) {
