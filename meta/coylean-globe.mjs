@@ -272,7 +272,17 @@ function visibleRowRange() {
     // latOf(row) = 0 at row = axisRow + 0.5, so invert to that frame.
     let seed = Math.round(axisRow + 0.5 - mercatorYFromLat(rotX) / dLon());
     seed = Math.max(0, Math.min(numRows - 1, seed));
-    return bisectBand(seed, lon);
+    const band = bisectBand(seed, lon);
+    // Latitude does NOT wind (only longitude does), and Mercator saturates fast —
+    // even ±a few hundred rows of the front-centre spans the whole visible ±90°.
+    // On the unbounded 2^MAX_ORDER grid the far rows all pile up at the poles
+    // (front-facing, on-screen), so `band` can be billions wide; cap it so the
+    // per-cell texture loop (drawTextureMeridian) never runs away.
+    const CAP = 1024;
+    return {
+        lo: Math.max(band.lo, seed - CAP),
+        hi: Math.min(band.hi, seed + CAP),
+    };
 }
 
 function bisectBand(seed, lon) {
