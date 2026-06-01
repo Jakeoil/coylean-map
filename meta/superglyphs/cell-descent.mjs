@@ -29,10 +29,12 @@ function cageOrigin(h, v, we, ne) {
         originCol: (((we + 1 - h) % SEC) + SEC) % SEC,
     };
 }
-function sectionCodes(p, oR, oC, ns) {
+function sectionize(p, oR, oC, ns) {
     const { downMatrix: D, rightMatrix: R } = p;
     const codes = Array.from({ length: ns }, () =>
         Array.from({ length: ns }, () => [0, 0]));
+    const vBound = Array.from({ length: ns }, () => Array(ns).fill(false));
+    const hBound = Array.from({ length: ns }, () => Array(ns).fill(false));
     for (let sr = 0; sr < ns; sr++)
         for (let sc = 0; sc < ns; sc++) {
             const y0 = oR + sr * SEC, x0 = oC + sc * SEC;
@@ -40,8 +42,18 @@ function sectionCodes(p, oR, oC, ns) {
                 if (D[y0] && D[y0][x0 + i]) codes[sr][sc][0] |= 1 << i;
                 if (R[x0] && R[x0][y0 + i]) codes[sr][sc][1] |= 1 << i;
             }
+            if (sc < ns - 1) {
+                const xe = x0 + SEC - 1;
+                for (let i = 0; i < SEC; i++)
+                    if (D[y0 + i] && D[y0 + i][xe]) { vBound[sr][sc] = true; break; }
+            }
+            if (sr < ns - 1) {
+                const ye = y0 + SEC - 1;
+                for (let i = 0; i < SEC; i++)
+                    if (R[x0 + i] && R[x0 + i][ye]) { hBound[sr][sc] = true; break; }
+            }
         }
-    return codes;
+    return { codes, vBound, hBound };
 }
 
 // Build an instant cell-universe for one orientation. `maxOrder` sets the finest
@@ -63,21 +75,45 @@ export function makeCellUniverse({
     const { originRow, originCol } = cageOrigin(hInitCol, vInitRow, ext, ext);
     const ns = Math.floor(
         Math.min(p.numRows - originRow, p.numColumns - originCol) / SEC);
-    const seed = sectionCodes(p, originRow, originCol, ns);
+    const seed = sectionize(p, originRow, originCol, ns);
     const depth = maxOrder - 2; // section grid = 2^depth per side
 
-    // Glyph code at section (R, C) — descend the table from the seed cell.
-    function glyphAt(R, C) {
-        const e = depth - seedDepth;
-        let code = seed[Math.floor(R / 2 ** e)][Math.floor(C / 2 ** e)];
+    // Glyph code at section (R, C) at a given depth d — descend from the seed.
+    function glyphAtD(R, C, d) {
+        const e = d - seedDepth;
+        let code = seed.codes[Math.floor(R / 2 ** e)][Math.floor(C / 2 ** e)];
         for (let l = e - 1; l >= 0; l--) {
             const rb = (R / 2 ** l) & 1, cb = (C / 2 ** l) & 1;
             code = table[codeKey(code)].children[rb * 2 + cb];
         }
         return code;
     }
+    const glyphAt = (R, C) => glyphAtD(R, C, depth);
 
-    // Reconstructed cage cell-matrices, cached per glyph code.
+    // Senior cage walls, address-determined (the bars of bars.mjs): a sibling
+    // edge is the parent's internal bar; a cross-parent edge is inherited. Used
+    // to texture the 4th col/row of each cage (the wall meridian/parallel) so it
+    // appears GAPPED per the map, not as a continuous skeleton grid line.
+    function wallEastAt(R, C, d) {
+        if (d === seedDepth) return C + 1 < ns ? seed.vBound[R][C] : false;
+        const Rp = Math.floor(R / 2), Cp = Math.floor(C / 2);
+        if (C % 2 === 0) {
+            const b = table[codeKey(glyphAtD(Rp, Cp, d - 1))].bars;
+            return R % 2 === 0 ? b.vTop : b.vBot;
+        }
+        return wallEastAt(Rp, Cp, d - 1);
+    }
+    function wallSouthAt(R, C, d) {
+        if (d === seedDepth) return R + 1 < ns ? seed.hBound[R][C] : false;
+        const Rp = Math.floor(R / 2), Cp = Math.floor(C / 2);
+        if (R % 2 === 0) {
+            const b = table[codeKey(glyphAtD(Rp, Cp, d - 1))].bars;
+            return C % 2 === 0 ? b.hLeft : b.hRight;
+        }
+        return wallSouthAt(Rp, Cp, d - 1);
+    }
+
+    // Reconstructed cage cell-matrices, cached per glyph code + per cage.
     const gmCache = new Map();
     function matrices(code) {
         const k = code[0] + "," + code[1];
@@ -85,8 +121,6 @@ export function makeCellUniverse({
         if (!m) { m = computeGlyphMatrices(code[0], code[1], seniority, 1, 1); gmCache.set(k, m); }
         return m;
     }
-    // Per-cage glyph cache keyed by section, so a meridian's column of cells
-    // descends once.
     const cageCache = new Map();
     function cageMatrices(sr, sc) {
         const k = sr + "," + sc;
@@ -95,19 +129,20 @@ export function makeCellUniverse({
         return m;
     }
 
-    // Down-arrow at absolute cell (gr, gc). Interior cols (gc%4 ∈ {0,1,2}) only —
-    // the 4th column is a senior wall (skeleton tier); returns false there.
+    // Down/right arrow at absolute cell (gr, gc). Interior cols/rows (0,1,2)
+    // come from the glyph; the 4th (the senior wall) comes from its bar, so
+    // walls texture gapped-as-map rather than as a solid graticule.
     function downAt(gr, gc) {
+        const sr = Math.floor(gr / 4), sc = Math.floor(gc / 4);
         const lc = gc % 4;
-        if (lc === 3) return false;
-        return !!cageMatrices(Math.floor(gr / 4), Math.floor(gc / 4))
-            .downMatrix[gr % 4][lc];
+        if (lc === 3) return wallEastAt(sr, sc, depth);
+        return !!cageMatrices(sr, sc).downMatrix[gr % 4][lc];
     }
     function rightAt(gr, gc) {
+        const sr = Math.floor(gr / 4), sc = Math.floor(gc / 4);
         const lr = gr % 4;
-        if (lr === 3) return false;
-        return !!cageMatrices(Math.floor(gr / 4), Math.floor(gc / 4))
-            .rightMatrix[gc % 4][lr];
+        if (lr === 3) return wallSouthAt(sr, sc, depth);
+        return !!cageMatrices(sr, sc).rightMatrix[gc % 4][lr];
     }
 
     return {
