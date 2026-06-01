@@ -119,6 +119,9 @@ const TEXTURE_PX = 5;
 // line count (down+right, 0..17), so the empty glyph V_00/H_00 → alpha 0 → bare
 // sphere (blank areas stay visible as sphere, never missed). Same colour as the
 // lines, so a dense region reads as a wash the lines resolve out of.
+// Density wash is disabled for now (the glyph-density tiles didn't look good);
+// the code + dials are kept, just gated off. Flip to true to bring it back.
+const DENSITY_WASH_ON = false;
 // Tunable via the sidebar dials (sliding-rulers), so `let` not `const`.
 let DENSITY_CELL_PX = 6; // target on-screen size of one density cage
 let DENSITY_BUDGET = 14000; // max cages/frame — coarsen the level to fit
@@ -776,7 +779,7 @@ function draw() {
         ),
     };
 
-    drawDensity(cols, rows);
+    if (DENSITY_WASH_ON) drawDensity(cols, rows);
     renderLines(lineScale, density, cols, rows, samp);
 
     updateHud(density);
