@@ -558,6 +558,40 @@ function clearAndDrawSphere() {
     ctx.stroke();
 }
 
+// Is a front-facing pole within ~one canvas of the screen? Near a visible pole
+// every meridian fans onto the screen (all longitudes converge there), so the
+// equatorial column clip below MUST be disabled or the polar caps show only a
+// central wedge — the "north/south not full 360°" gap. Margin = one canvas
+// dimension: only when a pole is that far off-screen (deep zoom on a non-polar
+// patch) is the clip safe, and there it pays for itself.
+function poleNearScreen() {
+    for (const lat of [Math.PI / 2, -Math.PI / 2]) {
+        const [px, py, pz] = spherePoint(0, lat); // longitude irrelevant at a pole
+        const [x, y, z] = rotatePoint(px, py, pz);
+        if (z < -0.05) continue; // back-facing pole: its fan is hidden
+        const [sx, sy] = project(x, y, z);
+        if (sx >= -width && sx <= 2 * width && sy >= -height && sy <= 2 * height)
+            return true;
+    }
+    return false;
+}
+
+// Column window for a frame: the full ±D/2 turn, narrowed to the on-screen
+// front columns only when the globe overflows the canvas AND no pole is near
+// (see poleNearScreen). Drawing off-screen meridians is otherwise just wasted
+// projection at high zoom.
+function colClip(cols) {
+    if (radius <= width / 2 || poleNearScreen()) {
+        return { clo: cols.lo, chi: cols.hi };
+    }
+    const aMax = Math.asin(Math.min(1, width / (1.9 * radius)));
+    const half = Math.ceil(aMax / dLon()) + 8;
+    return {
+        clo: Math.max(cols.lo, Math.round(cols.center - half)),
+        chi: Math.min(cols.hi, Math.round(cols.center + half)),
+    };
+}
+
 // Unified line render. Per dyadic level p ≥ floor, draw each visible meridian
 // and parallel: its TRUE gapped arrows reconstructed instantly by descent when
 // cells clear TEXTURE_PX (interior cells from the glyph, the senior wall from
@@ -582,18 +616,9 @@ function renderLines(lineScale, density, cols, rows, samp) {
     const tLo = Math.max(rows.lo, seedRow - TEX_HALF);
     const tHi = Math.min(rows.hi, seedRow + TEX_HALF);
 
-    // Column clip: once the globe is bigger than the screen (zoomed in), the far
-    // side and most of the hemisphere are off-screen, so only draw the columns
-    // that can actually project on-canvas — no point sampling/projecting hundreds
-    // of culled meridians per frame. When the whole globe fits (zoomed out) keep
-    // the full ±D/2 turn so the branch cut on the far side / poles still shows.
-    let clo = cols.lo, chi = cols.hi;
-    if (radius > width / 2) {
-        const aMax = Math.asin(Math.min(1, width / (1.9 * radius)));
-        const half = Math.ceil(aMax / dLon()) + 8;
-        clo = Math.max(cols.lo, Math.round(cols.center - half));
-        chi = Math.min(cols.hi, Math.round(cols.center + half));
-    }
+    // Column window: on-screen front columns when zoomed in, full ±D/2 turn when
+    // the globe fits OR a pole is near (the fan needs every longitude) — colClip.
+    const { clo, chi } = colClip(cols);
 
     for (let p = floor; p <= maxPri; p++) {
         // Visual weight of priority p. Capped: maxPri is now 32 (the infinity
@@ -646,15 +671,8 @@ function drawDensity(cols, rows) {
     const cu = src.cu;
     const maxLevel = cu.depth - cu.seedDepth;
 
-    // Same on-screen column clip as renderLines: skip the off-canvas hemisphere
-    // when zoomed in past globe-fills-screen; keep the full turn when zoomed out.
-    let clo = cols.lo, chi = cols.hi;
-    if (radius > width / 2) {
-        const aMax = Math.asin(Math.min(1, width / (1.9 * radius)));
-        const half = Math.ceil(aMax / dLon()) + 8;
-        clo = Math.max(cols.lo, Math.round(cols.center - half));
-        chi = Math.min(cols.hi, Math.round(cols.center + half));
-    }
+    // Same column window as renderLines (full turn near a pole — see colClip).
+    const { clo, chi } = colClip(cols);
 
     // Level so a cage ≈ DENSITY_CELL_PX on screen, then coarsen to fit the budget.
     let level = Math.round(Math.log2(DENSITY_CELL_PX / Math.max(arc, 1e-6))) - 2;
