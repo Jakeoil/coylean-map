@@ -37,6 +37,9 @@ const extentSelect = document.getElementById("extent");
 // scaled units: emphasis ×10 (4..26 → 0.4..2.6), density ×20 (4..45 → 80..900).
 const emphasisRuler = document.getElementById("emphasisRuler");
 const densityRuler = document.getElementById("densityRuler");
+const cellPxRuler = document.getElementById("cellPxRuler");
+const washAlphaRuler = document.getElementById("washAlphaRuler");
+const budgetRuler = document.getElementById("budgetRuler");
 let lineScale = 1.1;
 let density = 340;
 const showSkeletonCb = document.getElementById("showSkeleton");
@@ -112,9 +115,10 @@ const TEXTURE_PX = 5;
 // line count (down+right, 0..17), so the empty glyph V_00/H_00 → alpha 0 → bare
 // sphere (blank areas stay visible as sphere, never missed). Same colour as the
 // lines, so a dense region reads as a wash the lines resolve out of.
-const DENSITY_CELL_PX = 6; // target on-screen size of one density cage
-const DENSITY_BUDGET = 14000; // max cages/frame — coarsen the level to fit
-const DENSITY_ALPHA = 0.9; // alpha of the densest cage (17/17); 00 → 0
+// Tunable via the sidebar dials (sliding-rulers), so `let` not `const`.
+let DENSITY_CELL_PX = 6; // target on-screen size of one density cage
+let DENSITY_BUDGET = 14000; // max cages/frame — coarsen the level to fit
+let DENSITY_ALPHA = 0.9; // alpha of the densest cage (17/17); 00 → 0
 // Finest order: 2^MAX_ORDER columns, centred → winding is effectively unbounded.
 // 2^40 columns gives room for both a fine cell scale (high Division → deep zoom)
 // AND hundreds of thousands of non-repeating turns. The cell source is instant
@@ -926,6 +930,25 @@ wheelNudge(emphasisRuler, () => Math.round(lineScale * 10),
     (v) => (lineScale = v / 10), 4, 26);
 wheelNudge(densityRuler, () => Math.round(density / 20),
     (v) => (density = v * 20), 4, 45);
+// Density-wash dials: cage px (direct), alpha (×10), budget (×1000).
+cellPxRuler.addEventListener("change", (e) => {
+    DENSITY_CELL_PX = e.detail.value;
+    requestRender();
+});
+washAlphaRuler.addEventListener("change", (e) => {
+    DENSITY_ALPHA = e.detail.value / 10;
+    requestRender();
+});
+budgetRuler.addEventListener("change", (e) => {
+    DENSITY_BUDGET = e.detail.value * 1000;
+    requestRender();
+});
+wheelNudge(cellPxRuler, () => Math.round(DENSITY_CELL_PX),
+    (v) => (DENSITY_CELL_PX = v), 3, 16);
+wheelNudge(washAlphaRuler, () => Math.round(DENSITY_ALPHA * 10),
+    (v) => (DENSITY_ALPHA = v / 10), 2, 10);
+wheelNudge(budgetRuler, () => Math.round(DENSITY_BUDGET / 1000),
+    (v) => (DENSITY_BUDGET = v * 1000), 2, 40);
 latBtn.addEventListener("click", () => {
     curVInitRow ^= 1;
     rebuild();
@@ -962,6 +985,12 @@ function applyParams() {
     density = num("density", density);
     emphasisRuler.setAttribute("value", Math.round(lineScale * 10));
     densityRuler.setAttribute("value", Math.round(density / 20));
+    DENSITY_CELL_PX = num("dcell", DENSITY_CELL_PX);
+    DENSITY_ALPHA = num("dalpha", DENSITY_ALPHA);
+    DENSITY_BUDGET = num("dbudget", DENSITY_BUDGET);
+    cellPxRuler.setAttribute("value", Math.round(DENSITY_CELL_PX));
+    washAlphaRuler.setAttribute("value", Math.round(DENSITY_ALPHA * 10));
+    budgetRuler.setAttribute("value", Math.round(DENSITY_BUDGET / 1000));
     if (p.has("skel")) showSkeletonCb.checked = p.get("skel") !== "0";
     if (p.has("tex")) showTextureCb.checked = p.get("tex") !== "0";
     if (p.get("long") === "0" || p.get("long") === "1")
@@ -980,6 +1009,9 @@ function buildQuery() {
     p.set("zoom", roundTo(zoom, 3));
     p.set("scale", roundTo(lineScale, 1));
     p.set("density", Math.round(density));
+    p.set("dcell", Math.round(DENSITY_CELL_PX));
+    p.set("dalpha", roundTo(DENSITY_ALPHA, 2));
+    p.set("dbudget", Math.round(DENSITY_BUDGET));
     p.set("skel", showSkeletonCb.checked ? "1" : "0");
     p.set("tex", showTextureCb.checked ? "1" : "0");
     p.set("lat", curVInitRow);

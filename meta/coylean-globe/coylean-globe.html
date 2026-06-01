@@ -285,6 +285,39 @@
                 indicator-color="#7fb2ff"
             ></sliding-ruler>
 
+            <label>Wash cage size (px)</label>
+            <sliding-ruler
+                id="cellPxRuler"
+                min="3"
+                max="16"
+                value="6"
+                height="50"
+                visible-range="13"
+                indicator-color="#9f86ff"
+            ></sliding-ruler>
+
+            <label>Wash strength (alpha ×10)</label>
+            <sliding-ruler
+                id="washAlphaRuler"
+                min="2"
+                max="10"
+                value="9"
+                height="50"
+                visible-range="8"
+                indicator-color="#9f86ff"
+            ></sliding-ruler>
+
+            <label>Wash budget (cages ×1000)</label>
+            <sliding-ruler
+                id="budgetRuler"
+                min="2"
+                max="40"
+                value="14"
+                height="50"
+                visible-range="20"
+                indicator-color="#9f86ff"
+            ></sliding-ruler>
+
             <div class="toggles">
                 <label
                     ><input type="checkbox" id="showSkeleton" />
