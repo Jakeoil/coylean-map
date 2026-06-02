@@ -151,6 +151,16 @@ const TEXTURE_PX = 5;
 // it the real arrows take over). See NOTES_zoom_crowding.md.
 const TARGET_SECTION_PX = 34; // on-screen size a section aims for
 const ARROW_MIN_PX = 22; // above this a section draws arrows; below, a swatch
+// Priority-line emphasis (the dive's line model). Every segment is a dyadic line
+// at RELATIVE priority p (absolute valuation − depth base level), so the look is
+// scale-invariant. Width ramps ~linearly in p (log-faithful) capped at LW_CAP so
+// the axis is only a touch above the top cage; it scales with sLocal (on-screen
+// sub-cell size) so emphasis fades with distance. alpha fades a line in by its
+// on-screen SPACING (2^p·sLocal): senior (wide) first, junior up as you zoom;
+// the Line-emphasis dial shifts that threshold. Tune to taste.
+const LW_BASE = 0.05, LW_SLOPE = 0.05, LW_CAP = 7;
+const REVEAL_LO = 2.4, REVEAL_RANGE = 2.6;
+const EMPH_GAIN = 1.6, EMPH_MID = 1.2; // Line-emphasis dial (lineScale) → reveal bias
 // ── Density tier config ───────────────────────────────────────────────────────
 // Sub-pixel LOD: when cells are below TEXTURE_PX the lines go coarse and large
 // areas read blank. Fill them with a per-cage density wash — alpha ∝ the glyph's
@@ -818,61 +828,97 @@ function projCell(lon, lat) {
     return project(x, y, z);
 }
 
-// Draw a section's glyph as Coylean arrow segments on the sphere — each glyph
-// segment (universe.html's catalog convention) becomes a short meridian/parallel
-// arc within the section's [base..base+cps] cell box. SEC=4 sub-cells per side.
-function drawSectionGlyph(code, baseC, baseR, cps, senH, lw) {
-    const { downMatrix, rightMatrix } = glyphMatrices(code, senH);
-    const sub = cps / 4; // finest cells per glyph sub-cell
-    ctx.beginPath();
-    for (let gy = 0; gy <= 3; gy++)
-        for (let gx = 0; gx < 3; gx++)
-            if (downMatrix[gy][gx]) {
-                const lon = lonOf(baseC + (gx + 1) * sub);
-                const p0 = projCell(lon, latOf(baseR + gy * sub));
-                const p1 = projCell(lon, latOf(baseR + (gy + 1) * sub));
-                if (p0 && p1) { ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }
-            }
-    for (let gx = 0; gx <= 3; gx++)
-        for (let gy = 0; gy < 3; gy++)
-            if (rightMatrix[gx][gy]) {
-                const lat = latOf(baseR + (gy + 1) * sub);
-                const p0 = projCell(lonOf(baseC + gx * sub), lat);
-                const p1 = projCell(lonOf(baseC + (gx + 1) * sub), lat);
-                if (p0 && p1) { ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }
-            }
-    ctx.strokeStyle = "rgba(226,238,255,0.82)"; // the map's arrow colour
-    ctx.lineWidth = lw;
+const emphAmt = () => (lineScale - EMPH_MID) * EMPH_GAIN; // dial → reveal bias
+
+// Stroke the current path as a priority-`relP` line. Width ramps with relP and
+// scales with sLocal (the on-screen sub-cell size); alpha fades the line in by
+// its on-screen spacing (relP + log2 sLocal vs the reveal threshold + emphasis),
+// so senior lines appear first and junior ones fade up as you zoom. Walls carry
+// a seniority brightness; arrows are the plain map colour.
+function strokeAtPriority(relP, sLocal, emph, wall) {
+    const a = (relP + Math.log2(Math.max(sLocal, 1e-3)) - REVEAL_LO + emph)
+        / REVEAL_RANGE;
+    if (a <= 0.012) return; // below the reveal floor — leave it invisible
+    const alpha = Math.min(1, a).toFixed(3);
+    // sLocal is already device-px (scale = radius·dLon), so no ×dpr here.
+    ctx.lineWidth = (LW_BASE + LW_SLOPE * Math.min(relP, LW_CAP)) * sLocal;
+    ctx.strokeStyle = wall
+        ? `hsl(214 38% ${66 + Math.min(relP, 6) * 4}% / ${alpha})`
+        : `rgba(226,238,255,${alpha})`;
     ctx.stroke();
 }
 
-// A section's senior cage bars on the sphere: its east wall (a meridian arc at
-// the section's right edge) and south wall (a parallel arc at its bottom), when
-// present. Brighter + thicker for senior cages, by the boundary's 2-adic
-// valuation — the cage hierarchy reads at a glance (universe.html Pass 2).
-function drawSectionWalls(C, R, cps, d, base) {
-    if (src.cu.wallEastAt(R, C, d)) {
-        const lvl = Math.min(pri(C + 1, 12), 6);
-        const le = lonOf((C + 1) * cps);
+// Draw a section's glyph as Coylean arrow segments on the sphere — each glyph
+// segment (universe.html's catalog convention) becomes a short meridian/parallel
+// arc. Grouped by line (column / row) so each gets its own priority width/alpha.
+// baseLevel = log2(sub): subtracted from absolute valuation → relative priority.
+function drawSectionGlyph(code, baseC, baseR, cps, senH, sLocal, emph) {
+    const { downMatrix, rightMatrix } = glyphMatrices(code, senH);
+    const sub = cps / 4; // finest cells per glyph sub-cell
+    for (let gx = 0; gx < 3; gx++) { // interior down-lines, one priority each
+        const col = baseC + (gx + 1) * sub;
+        // Relative priority from the sub-cell GRID position (anchor-agnostic):
+        // the glyph's middle line (gx 1) is the 2×2 divider (relP 1), the cell
+        // lines (gx 0,2) are relP 0. Cages (the 4×4 boundary) come in at relP 2+.
+        const relP = pri(gx + 1, 40);
+        const lon = lonOf(col);
+        ctx.beginPath();
+        let any = false;
+        for (let gy = 0; gy <= 3; gy++) {
+            if (!downMatrix[gy][gx]) continue;
+            const p0 = projCell(lon, latOf(baseR + gy * sub));
+            const p1 = projCell(lon, latOf(baseR + (gy + 1) * sub));
+            if (p0 && p1) { ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); any = true; }
+        }
+        if (any) strokeAtPriority(relP, sLocal, emph, false);
+    }
+    for (let gy = 0; gy < 3; gy++) { // interior right-lines
+        const row = baseR + (gy + 1) * sub;
+        const relP = pri(gy + 1, 40);
+        const lat = latOf(row);
+        ctx.beginPath();
+        let any = false;
+        for (let gx = 0; gx <= 3; gx++) {
+            if (!rightMatrix[gx][gy]) continue;
+            const p0 = projCell(lonOf(baseC + gx * sub), lat);
+            const p1 = projCell(lonOf(baseC + (gx + 1) * sub), lat);
+            if (p0 && p1) { ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); any = true; }
+        }
+        if (any) strokeAtPriority(relP, sLocal, emph, false);
+    }
+}
+
+// A section's senior cage bars: east wall (meridian at the right edge) + south
+// wall (parallel at the bottom), each a high-priority line — same priority model
+// (relative p, width/alpha), so the cage hierarchy reads as the senior end of the
+// same ramp and the axis is its top.
+function drawSectionWalls(C, R, cps, d, sLocal, emph) {
+    const cu = src.cu;
+    if (cu.wallEastAt(R, C, d)) {
+        // Cage seniority = how senior this section boundary is in the section
+        // grid (v2 of the index), +2 so the 4×4 glyph boundary is relP 2, 8×8 is
+        // 3, 16×16 is 4 … the axis (a power-of-two index) saturates the cap.
+        const relP = 2 + pri(C + 1, 40);
+        const col = (C + 1) * cps;
+        const le = lonOf(col);
         const p0 = projCell(le, latOf(R * cps));
         const p1 = projCell(le, latOf((R + 1) * cps));
         if (p0 && p1) {
-            ctx.strokeStyle = `hsl(214 38% ${70 + lvl * 4}%)`;
-            ctx.lineWidth = (base * (1 + 0.7 * lvl)) * dpr;
             ctx.beginPath();
-            ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+            ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]);
+            strokeAtPriority(relP, sLocal, emph, true);
         }
     }
-    if (src.cu.wallSouthAt(R, C, d)) {
-        const lvl = Math.min(pri(R + 1, 12), 6);
-        const ls = latOf((R + 1) * cps);
+    if (cu.wallSouthAt(R, C, d)) {
+        const relP = 2 + pri(R + 1, 40);
+        const row = (R + 1) * cps;
+        const ls = latOf(row);
         const p0 = projCell(lonOf(C * cps), ls);
         const p1 = projCell(lonOf((C + 1) * cps), ls);
         if (p0 && p1) {
-            ctx.strokeStyle = `hsl(214 38% ${70 + lvl * 4}%)`;
-            ctx.lineWidth = (base * (1 + 0.7 * lvl)) * dpr;
             ctx.beginPath();
-            ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+            ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]);
+            strokeAtPriority(relP, sLocal, emph, true);
         }
     }
 }
@@ -907,8 +953,7 @@ function renderSections(cols) {
     const halfSec = Math.min(600, Math.ceil(height / Math.max(secPx, 1)) + 2);
     const r0 = Math.max(0, seedSec - halfSec), r1 = seedSec + halfSec;
     const drawArrows = secPx >= ARROW_MIN_PX;
-    const arrowLw = Math.max(0.6, secPx / 90) * dpr;
-    const wallBase = Math.max(0.7, secPx / 60); // before dpr (drawSectionWalls × dpr)
+    const emph = emphAmt();
     for (let C = c0; C <= c1; C++) {
         const lon = lonOf((C + 0.5) * cps);
         for (let R = r0; R <= r1; R++) {
@@ -918,19 +963,19 @@ function renderSections(cols) {
             const [x, y, z] = rotatePoint(px, py, pz);
             if (z < -0.02) continue; // back face
             const [sx, sy] = project(x, y, z);
-            const sz = cps * scale * (3 / (3 - z)) * 1.04; // device-px + perspective
+            const persp = 3 / (3 - z);
+            const sz = cps * scale * persp * 1.04; // device-px section size
             if (sx < -sz || sx > width + sz || sy < -sz || sy > height + sz) continue;
-            if (!empty) {
-                if (drawArrows) {
-                    // big enough to read: just the arrows (the map), no fill
-                    drawSectionGlyph(code, C * cps, R * cps, cps, senH, arrowLw);
-                } else {
-                    // too small for arrows: a solid orbit swatch carries structure
-                    ctx.fillStyle = `hsl(${orbitHue(code, senH)} 58% 52% / 0.8)`;
-                    ctx.fillRect(sx - sz / 2, sy - sz / 2, sz, sz);
-                }
+            const sLocal = (cps / 4) * scale * persp; // on-screen sub-cell size
+            if (drawArrows) {
+                if (!empty)
+                    drawSectionGlyph(code, C * cps, R * cps, cps, senH, sLocal, emph);
+                drawSectionWalls(C, R, cps, d, sLocal, emph); // cage bars
+            } else if (!empty) {
+                // too small for arrows: a solid orbit swatch carries structure
+                ctx.fillStyle = `hsl(${orbitHue(code, senH)} 58% 52% / 0.8)`;
+                ctx.fillRect(sx - sz / 2, sy - sz / 2, sz, sz);
             }
-            drawSectionWalls(C, R, cps, d, wallBase); // senior cage bars
         }
     }
 }
