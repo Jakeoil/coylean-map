@@ -65,6 +65,36 @@
                 min-width: 0;
             }
 
+            /* sidebar orientation card (nav reachable in full screen) */
+            .orient-card {
+                border-bottom: 1px solid #23262f;
+                padding-bottom: 12px;
+                margin-bottom: 4px;
+            }
+            .orient-card .crumbs {
+                display: flex;
+                gap: 14px;
+                margin-bottom: 8px;
+            }
+            .orient-card .crumbs a {
+                color: #8b93a3;
+                text-decoration: none;
+                font-size: 0.78rem;
+            }
+            .orient-card .crumbs a:hover {
+                color: #d8b56a;
+            }
+            .orient-card .card-title {
+                font-size: 1.05rem;
+                color: #e6e8ee;
+                margin-bottom: 6px;
+            }
+            .orient-card .card-desc {
+                font-size: 0.74rem;
+                color: #9aa1ad;
+                line-height: 1.5;
+            }
+
             /* glyph palette */
             #palette {
                 display: grid;
@@ -234,6 +264,20 @@
 
         <div class="layout">
             <aside class="panel">
+                <div class="orient-card">
+                    <div class="crumbs">
+                        <a href="../index.html">← meta</a>
+                        <a href="./index.html">← planet-coyleus</a>
+                    </div>
+                    <div class="card-title">Terrains</div>
+                    <div class="card-desc">
+                        Cell-color the 12 anchor glyphs into a Coylean planet.
+                        Paint any cell — focus, a relative, or the maps — and
+                        every occurrence and substitution / translation sibling
+                        updates at once.
+                    </div>
+                </div>
+
                 <h2>Glyphs</h2>
                 <div id="palette"></div>
 
