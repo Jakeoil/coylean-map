@@ -186,6 +186,7 @@ export function makeCellUniverse({
 
     return {
         glyphAt, glyphAtD, downAt, rightAt, densityAt, densityMax: 17,
+        wallEastAt, wallSouthAt, // senior cage bars (section walls) at any depth
         depth, seedDepth, seedNs: ns, maxOrder,
         center: 2 ** (maxOrder - 1), // internal-cell coordinate of the origin
     };

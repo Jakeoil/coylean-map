@@ -27,6 +27,21 @@ import {
 } from "../../coylean-explorer/coylean-core.js";
 import { makeCellUniverse } from "../superglyphs/cell-descent.mjs";
 import { ORBIT_V, ORBIT_H, codeKey } from "../superglyphs/tests/rules.mjs";
+import { computeGlyphMatrices } from "../../glyphs/glyph-core.js";
+
+// Glyph arrow matrices, cached per code+seniority (the actual Coylean segments a
+// section draws once its tiles are big enough — the map, not just the swatch).
+const glyphMxCache = new Map();
+function glyphMatrices(code, senH) {
+    const k = code[0] + "," + code[1] + (senH ? "h" : "v");
+    let m = glyphMxCache.get(k);
+    if (!m) {
+        const sen = senH ? Seniority.horizontal() : Seniority.vertical();
+        m = computeGlyphMatrices(code[0], code[1], sen, 1, 1);
+        glyphMxCache.set(k, m);
+    }
+    return m;
+}
 
 // Orbit hue per glyph (universe.html dive colouring): the glyph's orbit index
 // spun by the golden angle. Seniority picks the orbit table (V vs H).
@@ -80,9 +95,9 @@ for (let n = 3; n <= 20; n++) {
     const opt = document.createElement("option");
     opt.value = div;
     opt.textContent = `${div}  (2^${n} cols / turn)`;
-    // The dive depth ≈ log2(D) − 4 section levels before the leaves, so default
-    // high enough for a real dive (2^14 → ~10 levels, ~262 k turns) yet finite.
-    if (div === 16384) opt.selected = true;
+    // More cells/turn → more zoom-in subdivision levels before the 2^32 floor
+    // (≈ log2(D) levels), at the cost of fewer turns. 2^18 → ~9 levels, ~16k turns.
+    if (div === 262144) opt.selected = true;
     divisionSelect.appendChild(opt);
 }
 
@@ -135,6 +150,7 @@ const TEXTURE_PX = 5;
 // depth d spans 2^(MAX_ORDER−d) finest cells. Drawn only below TEXTURE_PX (above
 // it the real arrows take over). See NOTES_zoom_crowding.md.
 const TARGET_SECTION_PX = 34; // on-screen size a section aims for
+const ARROW_MIN_PX = 22; // above this a section draws arrows; below, a swatch
 // ── Density tier config ───────────────────────────────────────────────────────
 // Sub-pixel LOD: when cells are below TEXTURE_PX the lines go coarse and large
 // areas read blank. Fill them with a per-cage density wash — alpha ∝ the glyph's
@@ -794,13 +810,81 @@ function drawDensity(cols, rows) {
     }
 }
 
-// The dive: orbit-hue glyph tiles at a zoom-derived depth, subdividing into four
-// as you zoom in (universe.html ported to the sphere). Only below TEXTURE_PX —
-// closer in, renderLines' real arrows take over. The depth climbs with zoom, so
-// finer Coylean structure keeps emerging rather than cells just getting bigger.
+// Project a cell-space (lon, lat) to screen, or null if back-facing.
+function projCell(lon, lat) {
+    const [px, py, pz] = spherePoint(lon, lat);
+    const [x, y, z] = rotatePoint(px, py, pz);
+    if (z < -0.02) return null;
+    return project(x, y, z);
+}
+
+// Draw a section's glyph as Coylean arrow segments on the sphere — each glyph
+// segment (universe.html's catalog convention) becomes a short meridian/parallel
+// arc within the section's [base..base+cps] cell box. SEC=4 sub-cells per side.
+function drawSectionGlyph(code, baseC, baseR, cps, senH, lw) {
+    const { downMatrix, rightMatrix } = glyphMatrices(code, senH);
+    const sub = cps / 4; // finest cells per glyph sub-cell
+    ctx.beginPath();
+    for (let gy = 0; gy <= 3; gy++)
+        for (let gx = 0; gx < 3; gx++)
+            if (downMatrix[gy][gx]) {
+                const lon = lonOf(baseC + (gx + 1) * sub);
+                const p0 = projCell(lon, latOf(baseR + gy * sub));
+                const p1 = projCell(lon, latOf(baseR + (gy + 1) * sub));
+                if (p0 && p1) { ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }
+            }
+    for (let gx = 0; gx <= 3; gx++)
+        for (let gy = 0; gy < 3; gy++)
+            if (rightMatrix[gx][gy]) {
+                const lat = latOf(baseR + (gy + 1) * sub);
+                const p0 = projCell(lonOf(baseC + gx * sub), lat);
+                const p1 = projCell(lonOf(baseC + (gx + 1) * sub), lat);
+                if (p0 && p1) { ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }
+            }
+    ctx.strokeStyle = "rgba(226,238,255,0.82)"; // the map's arrow colour
+    ctx.lineWidth = lw;
+    ctx.stroke();
+}
+
+// A section's senior cage bars on the sphere: its east wall (a meridian arc at
+// the section's right edge) and south wall (a parallel arc at its bottom), when
+// present. Brighter + thicker for senior cages, by the boundary's 2-adic
+// valuation — the cage hierarchy reads at a glance (universe.html Pass 2).
+function drawSectionWalls(C, R, cps, d, base) {
+    if (src.cu.wallEastAt(R, C, d)) {
+        const lvl = Math.min(pri(C + 1, 12), 6);
+        const le = lonOf((C + 1) * cps);
+        const p0 = projCell(le, latOf(R * cps));
+        const p1 = projCell(le, latOf((R + 1) * cps));
+        if (p0 && p1) {
+            ctx.strokeStyle = `hsl(214 38% ${70 + lvl * 4}%)`;
+            ctx.lineWidth = (base * (1 + 0.7 * lvl)) * dpr;
+            ctx.beginPath();
+            ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+        }
+    }
+    if (src.cu.wallSouthAt(R, C, d)) {
+        const lvl = Math.min(pri(R + 1, 12), 6);
+        const ls = latOf((R + 1) * cps);
+        const p0 = projCell(lonOf(C * cps), ls);
+        const p1 = projCell(lonOf((C + 1) * cps), ls);
+        if (p0 && p1) {
+            ctx.strokeStyle = `hsl(214 38% ${70 + lvl * 4}%)`;
+            ctx.lineWidth = (base * (1 + 0.7 * lvl)) * dpr;
+            ctx.beginPath();
+            ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+        }
+    }
+}
+
+// The dive: glyph sections at a zoom-derived depth, subdividing into four as you
+// zoom in (universe.html ported to the sphere). Big tiles draw the real Coylean
+// ARROWS over a faint orbit tint; small ones a solid orbit swatch. Only below
+// TEXTURE_PX — closer in, renderLines' per-cell texture takes over. The depth
+// climbs with zoom, so finer structure keeps emerging, not just bigger cells.
 function renderSections(cols) {
     const scale = cellArcPx(); // px per finest cell
-    if (scale >= TEXTURE_PX || scale <= 0) return; // close in, real arrows take over
+    if (scale <= 0) return;
     const cu = src.cu;
     if (typeof cu.glyphAtD !== "function") return; // stale module → skip, don't blank
     const MO = cu.maxOrder;
@@ -822,19 +906,31 @@ function renderSections(cols) {
     const seedSec = Math.floor(seedRow / cps);
     const halfSec = Math.min(600, Math.ceil(height / Math.max(secPx, 1)) + 2);
     const r0 = Math.max(0, seedSec - halfSec), r1 = seedSec + halfSec;
+    const drawArrows = secPx >= ARROW_MIN_PX;
+    const arrowLw = Math.max(0.6, secPx / 90) * dpr;
+    const wallBase = Math.max(0.7, secPx / 60); // before dpr (drawSectionWalls × dpr)
     for (let C = c0; C <= c1; C++) {
         const lon = lonOf((C + 0.5) * cps);
         for (let R = r0; R <= r1; R++) {
             const code = cu.glyphAtD(R, C, d);
-            if (code[0] === 0 && code[1] === 0) continue; // empty glyph → bare
+            const empty = code[0] === 0 && code[1] === 0;
             const [px, py, pz] = spherePoint(lon, latOf((R + 0.5) * cps));
             const [x, y, z] = rotatePoint(px, py, pz);
             if (z < -0.02) continue; // back face
             const [sx, sy] = project(x, y, z);
             const sz = cps * scale * (3 / (3 - z)) * 1.04; // device-px + perspective
             if (sx < -sz || sx > width + sz || sy < -sz || sy > height + sz) continue;
-            ctx.fillStyle = `hsl(${orbitHue(code, senH)} 58% 52% / 0.72)`;
-            ctx.fillRect(sx - sz / 2, sy - sz / 2, sz, sz);
+            if (!empty) {
+                if (drawArrows) {
+                    // big enough to read: just the arrows (the map), no fill
+                    drawSectionGlyph(code, C * cps, R * cps, cps, senH, arrowLw);
+                } else {
+                    // too small for arrows: a solid orbit swatch carries structure
+                    ctx.fillStyle = `hsl(${orbitHue(code, senH)} 58% 52% / 0.8)`;
+                    ctx.fillRect(sx - sz / 2, sy - sz / 2, sz, sz);
+                }
+            }
+            drawSectionWalls(C, R, cps, d, wallBase); // senior cage bars
         }
     }
 }
@@ -845,26 +941,12 @@ function draw() {
     clearAndDrawSphere();
 
     const cols = visibleColRange();
-    const rows = visibleRowRange();
-    const detail = Math.max(1, zoom);
-    // Points per arc. Scales with zoom (few, screen-spanning arcs when zoomed in
-    // need detail) but the zoomed-OUT base is kept modest: there the arcs are
-    // many and thin, so extra points are invisible and just cost trig. Even-in-
-    // latitude sampling keeps them smooth at low counts.
-    const samp = {
-        meridian: Math.min(
-            6000,
-            Math.round(Math.max(48, Math.min(220, density * 0.45)) * detail),
-        ),
-        parallel: Math.min(
-            8000,
-            Math.round(Math.max(80, Math.min(300, density * 0.6)) * detail),
-        ),
-    };
-
-    if (DENSITY_WASH_ON) drawDensity(cols, rows);
-    renderSections(cols); // orbit-hue dive tiles (subdivide on zoom)
-    renderLines(lineScale, density, cols, rows, samp);
+    // The dive (renderSections) is now the sole map renderer — glyph sections /
+    // arrows / cage bars at a zoom-derived depth, continuous to the finest. The
+    // old renderLines (priority gridlines + per-cell texture) is retired here; its
+    // line-emphasis / density / zoom-point dials are inert for now. (Branch-cut
+    // age tint and the axis line lived there — re-add to the dive if wanted.)
+    renderSections(cols);
 
     updateHud(density);
     syncURL();
