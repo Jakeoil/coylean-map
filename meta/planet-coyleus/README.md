@@ -191,8 +191,9 @@ single painted canonical generates by D4.
 - Zoomable-map reference: `meta/superglyphs/universe.html` / `universe.mjs`.
 - OKLCH helper + ramp idiom: `meta/4d/src/oklch-ramps.js`, `meta/oklch.html`.
 - Node checks (Node-importable, no canvas): `test/` — `orbits-12.mjs` (12-key
-  palette shape) and `cell-d4.mjs` (the verified 16-cell `CELL_PERM`). Keep new
-  exploratory checks here.
+  palette shape), `cell-d4.mjs` (the verified 16-cell `CELL_PERM`), and
+  `quadrants.mjs` (four quadrant anchors × V/H all on-anchor & paintable). Keep
+  new exploratory checks here.
 
 ## Prototype
 
@@ -204,10 +205,22 @@ cells to paint — every paint maps back to the orbit canonical so all occurrenc
 and siblings update at once. **Erase** with the chip or right-click; **undo**
 with the button or ⌘/Ctrl-Z.
 
-The relatives render structurally: the **substitution** is the v→h `left | right`
-pair with its vertical bar; the **translation** is the 2×2 `NW NE / SW SE` square
-with its cage-wall bars (`vTop vBot hLeft hRight`, drawn in the accent color).
-Two **universe patches** sit side by side — order 6 and order 7, one cage level
-apart — both showing the v/h lines, so the self-similar zoom reads directly.
+The relatives render structurally: the **substitution** is the substitution
+pair with its bar — `left | right` (v→h) under V, `top / bottom` (h→v) under H;
+the **translation** is the 2×2 `NW NE / SW SE` square with its cage-wall bars
+(`vTop vBot hLeft hRight`, drawn in the accent color). Two **universe patches**
+sit side by side — order 6 and order 7, one cage level apart — both showing the
+v/h lines, so the self-similar zoom reads directly.
+
+**Orientation control** (sidebar, modeled on `coylean-globe`): `Long`/`Lat`
+toggle the anchor offset (curHInit/curVInit ∈ {0,1} — the four quadrant anchors
+**NW NE SW SE**), and `Sen` toggles **V/H seniority**. Changing seniority swaps
+the whole displayed glyph set (focus rep, relatives, palette swatches, maps) to
+that grid; the quadrant re-tiles the maps. The **color config is one shared
+palette** — keyed per orbit in the V-rep frame, with H glyphs derived — so it
+rides through every quadrant and seniority unchanged (validated: all four
+quadrants × both seniorities are on-anchor, every section paintable —
+`test/quadrants.mjs`).
+
 Schemes save/load as JSON. The maps are finite patches for now; full zoomable
 `universe`-style descent is the later swap-in.

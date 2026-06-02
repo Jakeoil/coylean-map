@@ -24,16 +24,27 @@ import {
 } from "./terrain-render.js";
 
 // Two map orders side by side — the same region one cage level apart.
-const MAPS = [
-    { id: "patch", order: 6, patch: mapPatch(64) },
-    { id: "patch2", order: 7, patch: mapPatch(128) },
-];
+const MAP_ORDERS = [6, 7];
+const MAP_IDS = ["patch", "patch2"];
 const SIZES = { focus: 300, sub: 100, trans: 88, bar: 7 };
 
 const state = {
     letter: LETTERS[0],
     color: TERRAINS[0].stops[2].hex, // a mid water stop to start
+    curH: 1, // longitude anchor (0/1)
+    curV: 1, // latitude anchor (0/1)
+    seniorityH: false, // false = V, true = H
 };
+
+// Maps depend on the orientation; recompute on any anchor/seniority change.
+let maps = [];
+function rebuildMaps() {
+    maps = MAP_ORDERS.map((order, i) => ({
+        id: MAP_IDS[i],
+        order,
+        patch: mapPatch(order, state.seniorityH, state.curH, state.curV),
+    }));
+}
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls) => {
@@ -144,9 +155,71 @@ function markColor() {
     });
 }
 
+// ── sidebar: orientation (anchor lat/long + seniority), like coylean-globe ──
+function buildOrient() {
+    const box = $("orient");
+    box.innerHTML = "";
+    const mk = (id, onClick) => {
+        const b = el("button", "orient-btn");
+        b.id = id;
+        b.addEventListener("click", onClick);
+        return b;
+    };
+    const btns = el("div", "orient-btns");
+    btns.append(
+        mk("longBtn", () => {
+            state.curH ^= 1;
+            orientChanged();
+        }),
+        mk("latBtn", () => {
+            state.curV ^= 1;
+            orientChanged();
+        }),
+        mk("senBtn", () => {
+            state.seniorityH = !state.seniorityH;
+            orientChanged();
+        }),
+    );
+    const label = el("div", "orient-label");
+    label.id = "orientLabel";
+    box.append(btns, label);
+    syncOrient();
+}
+
+function quadrantLabel() {
+    const ns = state.curV === 1 ? "S" : "N";
+    const ew = state.curH === 1 ? "E" : "W";
+    return state.seniorityH ? ew + ns : ns + ew;
+}
+
+function syncOrient() {
+    $("longBtn").textContent = `Long ${state.curH}`;
+    $("latBtn").textContent = `Lat ${state.curV}`;
+    $("senBtn").textContent = `Sen ${state.seniorityH ? "H" : "V"}`;
+    $("orientLabel").textContent = `${quadrantLabel()} · ${
+        state.seniorityH ? "H" : "V"
+    } seniority`;
+}
+
+// Anchor or seniority changed: relabel, rebuild the maps, redraw everything.
+function orientChanged() {
+    syncOrient();
+    rebuildMaps();
+    redraw();
+}
+
 // ── main panels ──
 function subLayout(letter) {
-    const m = substitutionOf(letter);
+    const m = substitutionOf(letter, state.seniorityH);
+    if (m.layout === "tb")
+        return {
+            rows: 2,
+            cols: 1,
+            glyphPx: SIZES.sub,
+            barPx: SIZES.bar,
+            children: m.pair,
+            bars: { barH: m.bar },
+        };
     return {
         rows: 1,
         cols: 2,
@@ -157,7 +230,7 @@ function subLayout(letter) {
     };
 }
 function transLayout(letter) {
-    const m = translationOf(letter);
+    const m = translationOf(letter, state.seniorityH);
     return {
         rows: 2,
         cols: 2,
@@ -169,13 +242,17 @@ function transLayout(letter) {
 }
 
 function rebuildPanels() {
-    const f = focusGlyph(state.letter);
+    const f = focusGlyph(state.letter, state.seniorityH);
     const fc = makeGlyphCanvas(SIZES.focus, f.grid, f.d, f.r, onPaint);
     const fbox = $("focus");
     fbox.innerHTML = "";
     fbox.appendChild(fc);
     renderGlyph(fc, f.grid, f.d, f.r);
     $("focus-label").textContent = `${state.letter} · ${f.grid}${f.d}${f.r}`;
+    $("subs-h2").textContent = state.seniorityH
+        ? "Substitution · h→v (top / bottom)"
+        : "Substitution · v→h (left | right)";
+    $("trans-h2").textContent = "Translation · 4→1 (square + bars)";
 
     buildComposite("subs", subLayout(state.letter));
     buildComposite("trans", transLayout(state.letter));
@@ -217,14 +294,17 @@ function onPaint(grid, d, r, idx, erase) {
 
 // ── full redraw ──
 function redraw() {
-    // highlight current orbit + refresh palette swatches
+    // highlight current orbit + refresh palette swatches (in active seniority)
     document.querySelectorAll("#palette .swatch").forEach((s) => {
         s.classList.toggle("on", s.dataset.letter === state.letter);
-        const g = focusGlyph(s.dataset.letter);
+        const g = focusGlyph(s.dataset.letter, state.seniorityH);
         renderGlyph(s.querySelector("canvas"), g.grid, g.d, g.r);
     });
     rebuildPanels(); // draws focus + the two composites
-    for (const m of MAPS) renderPatch($(m.id), m.patch, { lines: true });
+    for (const m of maps) {
+        renderPatch($(m.id), m.patch, { lines: true });
+        $(m.id + "-label").textContent = `order ${m.order} · ${quadrantLabel()}`;
+    }
 }
 
 // Paint (or erase) a cell of a map (click → section → code → cell).
@@ -281,16 +361,18 @@ function buildIO() {
 export function init() {
     buildPalette();
     buildColors();
+    buildOrient();
     buildIO();
-    for (const m of MAPS) {
-        const canvas = $(m.id);
+    for (const id of MAP_IDS) {
+        const canvas = $(id);
+        const patchFor = () => maps.find((m) => m.id === id).patch;
         canvas.addEventListener("mousedown", (e) => {
             if (e.button === 2) return;
-            paintMap(m.patch, canvas, e, false);
+            paintMap(patchFor(), canvas, e, false);
         });
         canvas.addEventListener("contextmenu", (e) => {
             e.preventDefault();
-            paintMap(m.patch, canvas, e, true);
+            paintMap(patchFor(), canvas, e, true);
         });
     }
     window.addEventListener("keydown", (e) => {
@@ -300,5 +382,6 @@ export function init() {
         }
     });
     markColor();
+    rebuildMaps();
     redraw();
 }

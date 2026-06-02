@@ -65,34 +65,32 @@
                 min-width: 0;
             }
 
-            /* sidebar orientation card (nav reachable in full screen) */
-            .orient-card {
-                border-bottom: 1px solid #23262f;
-                padding-bottom: 12px;
-                margin-bottom: 4px;
-            }
-            .orient-card .crumbs {
+            /* sidebar orientation control (anchor quadrant + seniority) */
+            #orient .orient-btns {
                 display: flex;
-                gap: 14px;
+                gap: 6px;
                 margin-bottom: 8px;
             }
-            .orient-card .crumbs a {
-                color: #8b93a3;
-                text-decoration: none;
-                font-size: 0.78rem;
-            }
-            .orient-card .crumbs a:hover {
-                color: #d8b56a;
-            }
-            .orient-card .card-title {
-                font-size: 1.05rem;
-                color: #e6e8ee;
-                margin-bottom: 6px;
-            }
-            .orient-card .card-desc {
+            #orient .orient-btn {
+                flex: 1;
+                background: #1b1e25;
+                border: 1px solid #2b2f39;
+                color: #c2c6cf;
+                border-radius: 5px;
+                padding: 6px 4px;
+                font-family: inherit;
                 font-size: 0.74rem;
-                color: #9aa1ad;
-                line-height: 1.5;
+                cursor: pointer;
+            }
+            #orient .orient-btn:hover {
+                background: #232733;
+                border-color: #3a3f4d;
+            }
+            #orient .orient-label {
+                font-size: 1.2rem;
+                color: #d8b56a;
+                text-align: center;
+                letter-spacing: 0.04em;
             }
 
             /* glyph palette */
@@ -264,19 +262,8 @@
 
         <div class="layout">
             <aside class="panel">
-                <div class="orient-card">
-                    <div class="crumbs">
-                        <a href="../index.html">← meta</a>
-                        <a href="./index.html">← planet-coyleus</a>
-                    </div>
-                    <div class="card-title">Terrains</div>
-                    <div class="card-desc">
-                        Cell-color the 12 anchor glyphs into a Coylean planet.
-                        Paint any cell — focus, a relative, or the maps — and
-                        every occurrence and substitution / translation sibling
-                        updates at once.
-                    </div>
-                </div>
+                <h2>Orientation — anchor (lat/long) &amp; seniority</h2>
+                <div id="orient"></div>
 
                 <h2>Glyphs</h2>
                 <div id="palette"></div>
@@ -305,11 +292,11 @@
 
                 <div class="relatives">
                     <div class="rel-group">
-                        <h2>Substitution · v→h (left | right, bar)</h2>
+                        <h2 id="subs-h2">Substitution · v→h (left | right)</h2>
                         <div id="subs"></div>
                     </div>
                     <div class="rel-group">
-                        <h2>Translation · 4→1 (square + bars)</h2>
+                        <h2 id="trans-h2">Translation · 4→1 (square + bars)</h2>
                         <div id="trans"></div>
                     </div>
                 </div>
@@ -321,11 +308,11 @@
                 </div>
                 <div class="maps">
                     <div class="map-wrap map">
-                        <span class="map-label">order 6 · 16×16 sections</span>
+                        <span class="map-label" id="patch-label">order 6</span>
                         <canvas id="patch" width="512" height="512"></canvas>
                     </div>
                     <div class="map-wrap map">
-                        <span class="map-label">order 7 · 32×32 sections</span>
+                        <span class="map-label" id="patch2-label">order 7</span>
                         <canvas id="patch2" width="512" height="512"></canvas>
                     </div>
                 </div>

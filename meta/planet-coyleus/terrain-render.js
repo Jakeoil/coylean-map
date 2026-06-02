@@ -116,6 +116,8 @@ export function drawComposite(canvas, layout) {
     ctx.fillStyle = BAR_COLOR;
     if (rows === 1 && cols === 2) {
         if (bars.barV) ctx.fillRect(glyphPx, 0, barPx, glyphPx);
+    } else if (rows === 2 && cols === 1) {
+        if (bars.barH) ctx.fillRect(0, glyphPx, glyphPx, barPx);
     } else if (rows === 2 && cols === 2) {
         if (bars.vTop) ctx.fillRect(glyphPx, 0, barPx, glyphPx);
         if (bars.vBot) ctx.fillRect(glyphPx, step, barPx, glyphPx);
@@ -154,6 +156,7 @@ export function renderPatch(canvas, patch, opts = {}) {
     const ctx = canvas.getContext("2d");
     const size = canvas.width;
     const sec = size / patch.NSc;
+    const grid = patch.grid || "V";
     ctx.clearRect(0, 0, size, size);
     for (let sr = 0; sr < patch.NSr; sr++)
         for (let sc = 0; sc < patch.NSc; sc++) {
@@ -163,8 +166,8 @@ export function renderPatch(canvas, patch, opts = {}) {
                 sc * sec,
                 sr * sec,
                 sec,
-                cellsFor("V", d, r),
-                opts.lines ? { matrices: matricesFor("V", d, r) } : {},
+                cellsFor(grid, d, r),
+                opts.lines ? { matrices: matricesFor(grid, d, r) } : {},
             );
         }
 }

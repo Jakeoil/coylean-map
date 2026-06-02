@@ -13,13 +13,16 @@ import {
     computePattern,
     transformedPatternKey,
     computeGlyphMatrices,
-    getSectionData,
     getWorkingAssignments,
+    setOffset,
+    computeMapModel,
     pairKey,
 } from "../../glyphs/glyph-core.js";
 import {
     TRANSLATION_V,
+    TRANSLATION_H,
     V_TO_H,
+    H_TO_V,
 } from "../superglyphs/tests/rules.mjs";
 import { oklchHex } from "../4d/src/oklch-ramps.js";
 
@@ -107,6 +110,31 @@ const ORBITS = (() => {
 
 export const LETTERS = ORBITS.map((o) => o.letter);
 
+// H display reps: the orbit's H-grid member (transpose dual) that has a
+// TRANSLATION_H rule. Used only to *show* the orbit under H seniority — the
+// color storage frame stays the V rep (resolve handles H glyphs as D4 images).
+const H_REP = (() => {
+    const classesH = classifyVisualD4(H);
+    const out = {};
+    for (const o of ORBITS) {
+        const [vd, vr] = o.rep;
+        const cls = classesH.find((c) =>
+            c.orbit.some(([d, r]) => d === vr && r === vd),
+        );
+        const sorted = [...cls.orbit].sort(
+            (a, b) => pairKey(a[0], a[1]) - pairKey(b[0], b[1]),
+        );
+        out[o.letter] =
+            sorted.find(([d, r]) => TRANSLATION_H[keyStr(d, r)]) || sorted[0];
+    }
+    return out;
+})();
+
+// The display rep of an orbit in the active seniority.
+function repOf(letter, seniorityH) {
+    return seniorityH ? H_REP[letter] : orbitByLetter(letter).rep;
+}
+
 // Resolve any glyph (grid "V"/"H", code d,r) to { orbit, ti } where ti is the
 // D4 element taking the orbit's rep pattern to this glyph's pattern. null if the
 // glyph is outside the 12-orbit alphabet (shouldn't happen on the anchor).
@@ -186,38 +214,55 @@ export function matricesFor(grid, d, r) {
     return m;
 }
 
-// ── relatives of an orbit's display rep ──
-export function focusGlyph(letter) {
-    const [d, r] = orbitByLetter(letter).rep;
-    return { grid: "V", d, r };
+// ── relatives of an orbit's display rep (in the active seniority) ──
+export function focusGlyph(letter, seniorityH) {
+    const [d, r] = repOf(letter, seniorityH);
+    return { grid: seniorityH ? "H" : "V", d, r };
 }
-// v→h substitution of the V rep: a left/right pair of H glyphs with a vertical
-// bar between (the rep splits horizontally). { pair:[{grid,d,r}×2], bar }.
-export function substitutionOf(letter) {
-    const [d, r] = orbitByLetter(letter).rep;
-    const rule = V_TO_H[keyStr(d, r)];
-    if (!rule) return { pair: [], bar: false };
+
+// Substitution of the active rep. Under V it is v→h: a left|right pair of H
+// glyphs with a vertical bar (layout "lr"). Under H it is h→v: a top/bottom pair
+// of V glyphs with a horizontal bar (layout "tb"). { pair:[{grid,d,r}×2], bar }.
+export function substitutionOf(letter, seniorityH) {
+    const [d, r] = repOf(letter, seniorityH);
+    const rule = (seniorityH ? H_TO_V : V_TO_H)[keyStr(d, r)];
+    const grid = seniorityH ? "V" : "H";
+    const layout = seniorityH ? "tb" : "lr";
+    if (!rule) return { pair: [], bar: false, layout };
     return {
-        pair: rule.pair.map(([cd, cr]) => ({ grid: "H", d: cd, r: cr })),
+        pair: rule.pair.map(([cd, cr]) => ({ grid, d: cd, r: cr })),
         bar: !!rule.bar,
+        layout,
     };
 }
-// 4→1 translation of the V rep: a 2×2 square of V children (NW NE SW SE) with
-// cage-wall bars. { children:[{grid,d,r}×4], bars:{vTop,vBot,hLeft,hRight} }.
-export function translationOf(letter) {
-    const [d, r] = orbitByLetter(letter).rep;
-    const rule = TRANSLATION_V[keyStr(d, r)];
+
+// 4→1 translation of the active rep: a 2×2 square (NW NE SW SE) with cage-wall
+// bars. { children:[{grid,d,r}×4], bars:{vTop,vBot,hLeft,hRight} }.
+export function translationOf(letter, seniorityH) {
+    const [d, r] = repOf(letter, seniorityH);
+    const rule = (seniorityH ? TRANSLATION_H : TRANSLATION_V)[keyStr(d, r)];
+    const grid = seniorityH ? "H" : "V";
     if (!rule) return { children: [], bars: {} };
     return {
-        children: rule.children.map(([cd, cr]) => ({ grid: "V", d: cd, r: cr })),
+        children: rule.children.map(([cd, cr]) => ({ grid, d: cd, r: cr })),
         bars: rule.bars,
     };
 }
 
-// ── universe patch (clean anchor V map), sectioned into glyphs ──
-export function mapPatch(cells = 64) {
-    const { codes, NSr, NSc } = getSectionData(cells, cells, V);
-    return { codes, NSr, NSc };
+// ── universe patch at a quadrant anchor + seniority, sectioned into glyphs ──
+// Anchor offsets curHInit (long) / curVInit (lat) ∈ {0,1} are the four quadrant
+// anchors (validated 12-orbit clean in test/quadrants.mjs). `order` → 2^order
+// cells per axis. Returns { codes, NSr, NSc, grid }.
+export function mapPatch(order, seniorityH, curH, curV) {
+    setOffset(curH, curV);
+    const N = 1 << order;
+    const m = computeMapModel(N, N, { seniority: seniorityH ? H : V });
+    return {
+        codes: m.secCodes,
+        NSr: m.NSr,
+        NSc: m.NSc,
+        grid: seniorityH ? "H" : "V",
+    };
 }
 
 // ── scheme IO ──
