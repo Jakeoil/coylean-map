@@ -199,8 +199,15 @@ single painted canonical generates by D4.
 `terrains.html` (→ `index.html`) is live, built on the verified math. Three-layer
 split like `glyphs/`: `terrain-core.js` (pure model — palette, `CELL_PERM`,
 relatives, ramps) → `terrain-render.js` (canvas) → `terrains.js` (controller) →
-`terrains.mjs` barrel. Start blank; pick a biome stop from the tray, click cells
-in the focus glyph / its 2 substitution + 4 translation relatives / the order-6
-universe patch — every paint maps back to the orbit canonical so all occurrences
-and siblings update at once. Schemes save/load as JSON. Map is the finite patch
-for now; full zoomable `universe`-style descent is the later swap-in.
+`terrains.mjs` barrel. Start blank; pick a biome stop from the tray and click
+cells to paint — every paint maps back to the orbit canonical so all occurrences
+and siblings update at once. **Erase** with the chip or right-click; **undo**
+with the button or ⌘/Ctrl-Z.
+
+The relatives render structurally: the **substitution** is the v→h `left | right`
+pair with its vertical bar; the **translation** is the 2×2 `NW NE / SW SE` square
+with its cage-wall bars (`vTop vBot hLeft hRight`, drawn in the accent color).
+Two **universe patches** sit side by side — order 6 and order 7, one cage level
+apart — both showing the v/h lines, so the self-similar zoom reads directly.
+Schemes save/load as JSON. The maps are finite patches for now; full zoomable
+`universe`-style descent is the later swap-in.

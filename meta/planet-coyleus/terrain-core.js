@@ -110,18 +110,23 @@ export const LETTERS = ORBITS.map((o) => o.letter);
 // Resolve any glyph (grid "V"/"H", code d,r) to { orbit, ti } where ti is the
 // D4 element taking the orbit's rep pattern to this glyph's pattern. null if the
 // glyph is outside the 12-orbit alphabet (shouldn't happen on the anchor).
+// Memoized — resolution is static, only 128 (grid,code) inputs exist.
+const resolveCache = new Map();
 function resolve(grid, d, r) {
-    const key = transformedPatternKey(
-        ...(() => {
-            const p = computePattern(d, r, grid === "H" ? H : V);
-            return [p.v, p.h, 0];
-        })(),
-    );
+    const ck = grid + d + "," + r;
+    if (resolveCache.has(ck)) return resolveCache.get(ck);
+    const p = computePattern(d, r, grid === "H" ? H : V);
+    const key = transformedPatternKey(p.v, p.h, 0);
+    let result = null;
     for (const orbit of ORBITS) {
         const ti = orbit.keys.indexOf(key);
-        if (ti >= 0) return { orbit, ti };
+        if (ti >= 0) {
+            result = { orbit, ti };
+            break;
+        }
     }
-    return null;
+    resolveCache.set(ck, result);
+    return result;
 }
 
 // ── palette: letter → 16 cell colors (null = unpainted), against the rep frame ──
@@ -143,6 +148,9 @@ export function cellsFor(grid, d, r) {
     return out;
 }
 
+// Undo history: one entry per cell change (previous value of a canonical cell).
+const history = [];
+
 // Paint (or clear, color=null) cell `idx` of a displayed glyph — maps back
 // through the D4 element to the orbit's canonical cell, so every occurrence and
 // every sibling re-derives. Returns the affected letter (or null).
@@ -150,12 +158,32 @@ export function paintCell(grid, d, r, idx, color) {
     const res = resolve(grid, d, r);
     if (!res) return null;
     const canonCell = CELL_PERM[res.ti].indexOf(idx);
-    palette[res.orbit.letter][canonCell] = color;
+    const arr = palette[res.orbit.letter];
+    history.push({ letter: res.orbit.letter, cell: canonCell, prev: arr[canonCell] });
+    arr[canonCell] = color;
     return res.orbit.letter;
 }
 
+// Undo the last cell change. Returns true if something was undone.
+export function undo() {
+    const last = history.pop();
+    if (!last) return false;
+    palette[last.letter][last.cell] = last.prev;
+    return true;
+}
+export function canUndo() {
+    return history.length > 0;
+}
+
+const matCache = new Map();
 export function matricesFor(grid, d, r) {
-    return computeGlyphMatrices(d, r, grid === "H" ? H : V);
+    const ck = grid + d + "," + r;
+    let m = matCache.get(ck);
+    if (!m) {
+        m = computeGlyphMatrices(d, r, grid === "H" ? H : V);
+        matCache.set(ck, m);
+    }
+    return m;
 }
 
 // ── relatives of an orbit's display rep ──
@@ -163,17 +191,27 @@ export function focusGlyph(letter) {
     const [d, r] = orbitByLetter(letter).rep;
     return { grid: "V", d, r };
 }
-export function substitutionsOf(letter) {
+// v→h substitution of the V rep: a left/right pair of H glyphs with a vertical
+// bar between (the rep splits horizontally). { pair:[{grid,d,r}×2], bar }.
+export function substitutionOf(letter) {
     const [d, r] = orbitByLetter(letter).rep;
     const rule = V_TO_H[keyStr(d, r)];
-    if (!rule) return [];
-    return rule.pair.map(([cd, cr]) => ({ grid: "H", d: cd, r: cr }));
+    if (!rule) return { pair: [], bar: false };
+    return {
+        pair: rule.pair.map(([cd, cr]) => ({ grid: "H", d: cd, r: cr })),
+        bar: !!rule.bar,
+    };
 }
-export function translationsOf(letter) {
+// 4→1 translation of the V rep: a 2×2 square of V children (NW NE SW SE) with
+// cage-wall bars. { children:[{grid,d,r}×4], bars:{vTop,vBot,hLeft,hRight} }.
+export function translationOf(letter) {
     const [d, r] = orbitByLetter(letter).rep;
     const rule = TRANSLATION_V[keyStr(d, r)];
-    if (!rule) return [];
-    return rule.children.map(([cd, cr]) => ({ grid: "V", d: cd, r: cr }));
+    if (!rule) return { children: [], bars: {} };
+    return {
+        children: rule.children.map(([cd, cr]) => ({ grid: "V", d: cd, r: cr })),
+        bars: rule.bars,
+    };
 }
 
 // ── universe patch (clean anchor V map), sectioned into glyphs ──
@@ -194,6 +232,7 @@ export function serialize(name = "scheme") {
     return { name, orbits };
 }
 export function loadScheme(data) {
+    history.length = 0; // a load/clear is not undoable
     for (const L of LETTERS) palette[L] = Array(16).fill(null);
     if (!data || !data.orbits) return;
     for (const [L, entry] of Object.entries(data.orbits)) {

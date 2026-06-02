@@ -6,19 +6,29 @@
 import {
     LETTERS,
     TERRAINS,
-    EMPTY,
     focusGlyph,
-    substitutionsOf,
-    translationsOf,
+    substitutionOf,
+    translationOf,
     mapPatch,
     paintCell,
+    undo,
     serialize,
     loadScheme,
 } from "./terrain-core.js";
-import { renderGlyph, renderPatch } from "./terrain-render.js";
+import {
+    renderGlyph,
+    renderPatch,
+    drawComposite,
+    compositeHit,
+    compositeSize,
+} from "./terrain-render.js";
 
-const PATCH = mapPatch(64);
-const SIZES = { focus: 300, rel: 104 };
+// Two map orders side by side — the same region one cage level apart.
+const MAPS = [
+    { id: "patch", order: 6, patch: mapPatch(64) },
+    { id: "patch2", order: 7, patch: mapPatch(128) },
+];
+const SIZES = { focus: 300, sub: 100, trans: 88, bar: 7 };
 
 const state = {
     letter: LETTERS[0],
@@ -108,14 +118,21 @@ function buildColors() {
         row.appendChild(strip);
         box.appendChild(row);
     }
-    const erase = el("button", "chip erase");
+    const actions = el("div", "actions");
+    const erase = el("button", "chip act erase");
     erase.textContent = "erase";
     erase.dataset.hex = "";
     erase.addEventListener("click", () => {
         state.color = null;
         markColor();
     });
-    box.appendChild(erase);
+    const undoBtn = el("button", "chip act");
+    undoBtn.textContent = "undo";
+    undoBtn.addEventListener("click", () => {
+        if (undo()) redraw();
+    });
+    actions.append(erase, undoBtn);
+    box.appendChild(actions);
 }
 
 function markColor() {
@@ -128,31 +145,67 @@ function markColor() {
 }
 
 // ── main panels ──
+function subLayout(letter) {
+    const m = substitutionOf(letter);
+    return {
+        rows: 1,
+        cols: 2,
+        glyphPx: SIZES.sub,
+        barPx: SIZES.bar,
+        children: m.pair,
+        bars: { barV: m.bar },
+    };
+}
+function transLayout(letter) {
+    const m = translationOf(letter);
+    return {
+        rows: 2,
+        cols: 2,
+        glyphPx: SIZES.trans,
+        barPx: SIZES.bar,
+        children: m.children,
+        bars: m.bars,
+    };
+}
+
 function rebuildPanels() {
-    // focus
     const f = focusGlyph(state.letter);
     const fc = makeGlyphCanvas(SIZES.focus, f.grid, f.d, f.r, onPaint);
     const fbox = $("focus");
     fbox.innerHTML = "";
     fbox.appendChild(fc);
-    $("focus-label").textContent =
-        `${state.letter} · ${f.grid}${f.d}${f.r}`;
+    renderGlyph(fc, f.grid, f.d, f.r);
+    $("focus-label").textContent = `${state.letter} · ${f.grid}${f.d}${f.r}`;
 
-    fillRel("subs", substitutionsOf(state.letter));
-    fillRel("trans", translationsOf(state.letter));
+    buildComposite("subs", subLayout(state.letter));
+    buildComposite("trans", transLayout(state.letter));
 }
 
-function fillRel(id, glyphs) {
-    const box = $(id);
+// A composite relative (substitution pair / translation square) in one canvas,
+// with cage-wall bars and per-child cell hit-testing.
+function buildComposite(boxId, layout) {
+    const { w, h } = compositeSize(layout);
+    const canvas = el("canvas", "glyph");
+    canvas.width = w;
+    canvas.height = h;
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
+    const fire = (e, erase) => {
+        const hit = compositeHit(canvas, layout, e);
+        if (hit) onPaint(hit.grid, hit.d, hit.r, hit.idx, erase);
+    };
+    canvas.addEventListener("mousedown", (e) => {
+        if (e.button === 2) return;
+        fire(e, false);
+    });
+    canvas.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        fire(e, true);
+    });
+    const box = $(boxId);
     box.innerHTML = "";
-    for (const g of glyphs) {
-        const c = makeGlyphCanvas(SIZES.rel, g.grid, g.d, g.r, onPaint);
-        const wrap = el("div", "rel");
-        const tag = el("span", "rel-tag");
-        tag.textContent = `${g.grid}${g.d}${g.r}`;
-        wrap.append(c, tag);
-        box.appendChild(wrap);
-    }
+    box.appendChild(canvas);
+    drawComposite(canvas, layout);
 }
 
 // paint handler shared by every editable glyph + the patch; erase clears the
@@ -164,35 +217,29 @@ function onPaint(grid, d, r, idx, erase) {
 
 // ── full redraw ──
 function redraw() {
-    // highlight current orbit
+    // highlight current orbit + refresh palette swatches
     document.querySelectorAll("#palette .swatch").forEach((s) => {
         s.classList.toggle("on", s.dataset.letter === state.letter);
-        const cv = s.querySelector("canvas");
         const g = focusGlyph(s.dataset.letter);
-        renderGlyph(cv, g.grid, g.d, g.r);
+        renderGlyph(s.querySelector("canvas"), g.grid, g.d, g.r);
     });
-    rebuildPanels();
-    // panels just rebuilt their canvases — draw them
-    for (const c of document.querySelectorAll("#focus canvas, #subs canvas, #trans canvas")) {
-        renderGlyph(c, c.dataset.grid, +c.dataset.d, +c.dataset.r);
-    }
-    renderPatch($("patch"), PATCH);
+    rebuildPanels(); // draws focus + the two composites
+    for (const m of MAPS) renderPatch($(m.id), m.patch, { lines: true });
 }
 
-// Paint (or erase) a cell of the universe patch (click → section → code → cell).
-function paintPatch(e, erase) {
-    const canvas = $("patch");
+// Paint (or erase) a cell of a map (click → section → code → cell).
+function paintMap(patch, canvas, e, erase) {
     const rect = canvas.getBoundingClientRect();
     const scale = canvas.width / rect.width;
     const x = (e.clientX - rect.left) * scale;
     const y = (e.clientY - rect.top) * scale;
-    const secPx = canvas.width / PATCH.NSc;
-    const sc = Math.min(PATCH.NSc - 1, Math.floor(x / secPx));
-    const sr = Math.min(PATCH.NSr - 1, Math.floor(y / secPx));
+    const secPx = canvas.width / patch.NSc;
+    const sc = Math.min(patch.NSc - 1, Math.floor(x / secPx));
+    const sr = Math.min(patch.NSr - 1, Math.floor(y / secPx));
     const cs = secPx / 4;
     const j = Math.min(3, Math.floor((x - sc * secPx) / cs));
     const i = Math.min(3, Math.floor((y - sr * secPx) / cs));
-    const [d, r] = PATCH.codes[sr][sc];
+    const [d, r] = patch.codes[sr][sc];
     onPaint("V", d, r, i * 4 + j, erase);
 }
 
@@ -235,13 +282,22 @@ export function init() {
     buildPalette();
     buildColors();
     buildIO();
-    $("patch").addEventListener("mousedown", (e) => {
-        if (e.button === 2) return;
-        paintPatch(e, false);
-    });
-    $("patch").addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        paintPatch(e, true);
+    for (const m of MAPS) {
+        const canvas = $(m.id);
+        canvas.addEventListener("mousedown", (e) => {
+            if (e.button === 2) return;
+            paintMap(m.patch, canvas, e, false);
+        });
+        canvas.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            paintMap(m.patch, canvas, e, true);
+        });
+    }
+    window.addEventListener("keydown", (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+            e.preventDefault();
+            if (undo()) redraw();
+        }
     });
     markColor();
     redraw();

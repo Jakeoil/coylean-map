@@ -125,14 +125,21 @@
             .chip.on {
                 border-color: #e6e8ee;
             }
-            .chip.erase {
+            .actions {
+                display: flex;
+                gap: 6px;
+                margin-top: 8px;
+            }
+            .chip.act {
                 width: auto;
-                padding: 2px 8px;
-                margin-top: 6px;
+                padding: 3px 12px;
                 background: #1b1e25;
-                color: #9aa1ad;
-                font-size: 0.7rem;
+                color: #c2c6cf;
+                font-size: 0.72rem;
                 font-family: inherit;
+            }
+            .chip.act:hover {
+                background: #232733;
             }
 
             /* IO */
@@ -181,32 +188,35 @@
                 gap: 30px;
                 margin-top: 16px;
             }
-            .rel-group .row {
-                display: flex;
-                gap: 10px;
-            }
-            .rel {
-                text-align: center;
-            }
-            .rel canvas {
+            #subs canvas,
+            #trans canvas {
                 border: 1px solid #2b2f39;
                 border-radius: 3px;
                 cursor: crosshair;
                 image-rendering: pixelated;
             }
-            .rel-tag {
-                display: block;
-                font-size: 0.65rem;
-                color: #7c8494;
-                margin-top: 3px;
+            .maps {
+                display: flex;
+                gap: 20px;
+                flex-wrap: wrap;
+                align-items: flex-start;
             }
-            #patch {
+            .map-wrap {
+                display: flex;
+                flex-direction: column;
+            }
+            .map-label {
+                font-size: 0.72rem;
+                color: #7c8494;
+                margin-bottom: 5px;
+            }
+            .map canvas {
                 border: 1px solid #2b2f39;
                 border-radius: 4px;
                 cursor: crosshair;
                 image-rendering: pixelated;
-                width: 512px;
-                height: 512px;
+                width: 384px;
+                height: 384px;
             }
             .hint {
                 font-size: 0.72rem;
@@ -251,20 +261,30 @@
 
                 <div class="relatives">
                     <div class="rel-group">
-                        <h2>Substitutions · v→h (2)</h2>
-                        <div id="subs" class="row"></div>
+                        <h2>Substitution · v→h (left | right, bar)</h2>
+                        <div id="subs"></div>
                     </div>
                     <div class="rel-group">
-                        <h2>Translations · 4→1 (4)</h2>
-                        <div id="trans" class="row"></div>
+                        <h2>Translation · 4→1 (square + bars)</h2>
+                        <div id="trans"></div>
                     </div>
                 </div>
 
                 <h2>Universe patch</h2>
                 <div class="hint">
-                    order-6 anchor map · click to paint · right-click to erase
+                    anchor map, two orders · click to paint · right-click to
+                    erase
                 </div>
-                <canvas id="patch" width="512" height="512"></canvas>
+                <div class="maps">
+                    <div class="map-wrap map">
+                        <span class="map-label">order 6 · 16×16 sections</span>
+                        <canvas id="patch" width="512" height="512"></canvas>
+                    </div>
+                    <div class="map-wrap map">
+                        <span class="map-label">order 7 · 32×32 sections</span>
+                        <canvas id="patch2" width="512" height="512"></canvas>
+                    </div>
+                </div>
             </main>
         </div>
 
