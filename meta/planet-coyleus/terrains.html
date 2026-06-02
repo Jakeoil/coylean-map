@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>planet-coyleus · terrains</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family: Menlo, Monaco, "Courier New", monospace;
+                background: #0b0c10;
+                color: #c9ccd3;
+                padding: 16px 20px;
+            }
+            .breadcrumb {
+                font-size: 0.8rem;
+                color: #6b7280;
+                margin-bottom: 8px;
+            }
+            .breadcrumb a {
+                color: #8b93a3;
+                text-decoration: none;
+            }
+            h1 {
+                font-size: 1.3rem;
+                margin-bottom: 4px;
+                color: #e6e8ee;
+            }
+            .sub {
+                font-size: 0.78rem;
+                color: #6b7280;
+                margin-bottom: 14px;
+            }
+            .layout {
+                display: flex;
+                gap: 18px;
+                align-items: flex-start;
+            }
+            .panel {
+                flex: 0 0 268px;
+                background: #14161c;
+                border: 1px solid #23262f;
+                border-radius: 8px;
+                padding: 14px;
+                max-height: calc(100vh - 96px);
+                overflow-y: auto;
+            }
+            .panel h2,
+            .stage h2 {
+                font-size: 0.72rem;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                color: #7c8494;
+                margin: 14px 0 8px;
+            }
+            .panel h2:first-child {
+                margin-top: 0;
+            }
+            .stage {
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+
+            /* glyph palette */
+            #palette {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px;
+            }
+            .swatch {
+                position: relative;
+                cursor: pointer;
+                border: 2px solid #23262f;
+                border-radius: 5px;
+                padding: 2px;
+                line-height: 0;
+            }
+            .swatch.on {
+                border-color: #d8b56a;
+            }
+            .swatch canvas {
+                width: 100%;
+                height: auto;
+                display: block;
+                border-radius: 3px;
+            }
+            .swatch-tag {
+                position: absolute;
+                top: 1px;
+                left: 3px;
+                font-size: 0.62rem;
+                color: #e6e8ee;
+                text-shadow: 0 0 3px #000, 0 0 3px #000;
+                line-height: 1;
+            }
+
+            /* color tray */
+            .ramp {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 5px;
+            }
+            .ramp-name {
+                flex: 0 0 64px;
+                font-size: 0.72rem;
+                color: #9aa1ad;
+            }
+            .ramp-strip {
+                display: flex;
+                gap: 3px;
+            }
+            .chip {
+                width: 26px;
+                height: 20px;
+                border: 2px solid transparent;
+                border-radius: 4px;
+                cursor: pointer;
+                padding: 0;
+            }
+            .chip.on {
+                border-color: #e6e8ee;
+            }
+            .chip.erase {
+                width: auto;
+                padding: 2px 8px;
+                margin-top: 6px;
+                background: #1b1e25;
+                color: #9aa1ad;
+                font-size: 0.7rem;
+                font-family: inherit;
+            }
+
+            /* IO */
+            #io input[type="text"] {
+                width: 100%;
+                background: #1b1e25;
+                border: 1px solid #2b2f39;
+                color: #d4d7de;
+                border-radius: 4px;
+                padding: 5px 7px;
+                font-family: inherit;
+                font-size: 0.75rem;
+                margin-bottom: 7px;
+            }
+            #io button,
+            #io label {
+                display: inline-block;
+                background: #1b1e25;
+                border: 1px solid #2b2f39;
+                color: #c9ccd3;
+                border-radius: 4px;
+                padding: 5px 10px;
+                font-family: inherit;
+                font-size: 0.72rem;
+                cursor: pointer;
+                margin: 0 4px 4px 0;
+            }
+            #io input[type="file"] {
+                display: none;
+            }
+
+            /* stage */
+            #focus-label {
+                font-size: 0.8rem;
+                color: #d8b56a;
+                margin-bottom: 6px;
+            }
+            #focus canvas {
+                border: 1px solid #2b2f39;
+                border-radius: 4px;
+                cursor: crosshair;
+                image-rendering: pixelated;
+            }
+            .relatives {
+                display: flex;
+                gap: 30px;
+                margin-top: 16px;
+            }
+            .rel-group .row {
+                display: flex;
+                gap: 10px;
+            }
+            .rel {
+                text-align: center;
+            }
+            .rel canvas {
+                border: 1px solid #2b2f39;
+                border-radius: 3px;
+                cursor: crosshair;
+                image-rendering: pixelated;
+            }
+            .rel-tag {
+                display: block;
+                font-size: 0.65rem;
+                color: #7c8494;
+                margin-top: 3px;
+            }
+            #patch {
+                border: 1px solid #2b2f39;
+                border-radius: 4px;
+                cursor: crosshair;
+                image-rendering: pixelated;
+                width: 512px;
+                height: 512px;
+            }
+            .hint {
+                font-size: 0.72rem;
+                color: #6b7280;
+                margin: 4px 0 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="breadcrumb">
+            <a href="../index.html">meta</a> /
+            <a href="./index.html">planet-coyleus</a> / terrains
+        </div>
+        <h1>planet-coyleus · terrains</h1>
+
+        <div class="layout">
+            <aside class="panel">
+                <h2>Glyphs</h2>
+                <div id="palette"></div>
+
+                <h2>Paint</h2>
+                <div id="colors"></div>
+
+                <h2>Scheme</h2>
+                <div id="io">
+                    <input
+                        type="text"
+                        id="scheme-name"
+                        value="first-terrain"
+                        placeholder="scheme name"
+                    />
+                    <button id="save">save json</button>
+                    <label for="load">load json</label>
+                    <input type="file" id="load" accept="application/json" />
+                    <button id="clear-all">clear all</button>
+                </div>
+            </aside>
+
+            <main class="stage">
+                <div id="focus-label"></div>
+                <div id="focus"></div>
+
+                <div class="relatives">
+                    <div class="rel-group">
+                        <h2>Substitutions · v→h (2)</h2>
+                        <div id="subs" class="row"></div>
+                    </div>
+                    <div class="rel-group">
+                        <h2>Translations · 4→1 (4)</h2>
+                        <div id="trans" class="row"></div>
+                    </div>
+                </div>
+
+                <h2>Universe patch</h2>
+                <div class="hint">
+                    order-6 anchor map · click any cell to paint it
+                </div>
+                <canvas id="patch" width="512" height="512"></canvas>
+            </main>
+        </div>
+
+        <script type="module" src="./terrains.mjs"></script>
+    </body>
+</html>
