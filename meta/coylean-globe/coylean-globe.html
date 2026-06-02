@@ -257,13 +257,19 @@
             </div>
             <div id="orientLabel" class="orient">SE</div>
 
-            <label for="division">Division D (columns / turn)</label>
+            <label for="division"
+                >Division — cells per turn (deeper = more dive, fewer winds)</label
+            >
             <select id="division"></select>
 
-            <label for="extent">Extent (cells / side)</label>
-            <select id="extent"></select>
+            <!-- Extent is vestigial on the descent build (ignored); kept in the
+                 DOM (refs) but hidden. -->
+            <div hidden>
+                <label for="extent">Extent (cells / side)</label>
+                <select id="extent"></select>
+            </div>
 
-            <label>Line emphasis</label>
+            <label>Line emphasis — fine-line visibility (faint → crisp)</label>
             <sliding-ruler
                 id="emphasisRuler"
                 min="4"
@@ -274,27 +280,31 @@
                 indicator-color="#7fb2ff"
             ></sliding-ruler>
 
-            <label>Draw density</label>
-            <sliding-ruler
-                id="densityRuler"
-                min="4"
-                max="45"
-                value="17"
-                height="50"
-                visible-range="16"
-                indicator-color="#7fb2ff"
-            ></sliding-ruler>
+            <!-- Draw density + Zoom point fed the retired gridline renderer;
+                 inert now, kept in the DOM (refs) but hidden. -->
+            <div hidden>
+                <label>Draw density</label>
+                <sliding-ruler
+                    id="densityRuler"
+                    min="4"
+                    max="45"
+                    value="17"
+                    height="50"
+                    visible-range="16"
+                    indicator-color="#7fb2ff"
+                ></sliding-ruler>
 
-            <label>Zoom point (tile px to split)</label>
-            <sliding-ruler
-                id="zoomRuler"
-                min="1"
-                max="160"
-                value="1"
-                height="50"
-                visible-range="24"
-                indicator-color="#7fb2ff"
-            ></sliding-ruler>
+                <label>Zoom point (tile px to split)</label>
+                <sliding-ruler
+                    id="zoomRuler"
+                    min="1"
+                    max="160"
+                    value="1"
+                    height="50"
+                    visible-range="24"
+                    indicator-color="#7fb2ff"
+                ></sliding-ruler>
+            </div>
 
             <!-- Density wash disabled for now (DENSITY_WASH_ON=false); kept in
                  the DOM so the controller's element refs stay valid. -->
@@ -333,7 +343,9 @@
                 ></sliding-ruler>
             </div>
 
-            <div class="toggles">
+            <!-- Skeleton/Texture toggled the retired gridline renderer; inert
+                 now, kept in the DOM (refs) but hidden. -->
+            <div class="toggles" hidden>
                 <label
                     ><input type="checkbox" id="showSkeleton" />
                     Skeleton</label
