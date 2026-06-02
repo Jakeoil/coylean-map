@@ -51,10 +51,16 @@ function makeGlyphCanvas(size, grid, d, r, onClick) {
     c.dataset.grid = grid;
     c.dataset.d = d;
     c.dataset.r = r;
-    if (onClick)
+    if (onClick) {
         c.addEventListener("mousedown", (e) => {
-            onClick(grid, d, r, cellIndexFromEvent(c, e));
+            if (e.button === 2) return; // right-click handled below
+            onClick(grid, d, r, cellIndexFromEvent(c, e), false);
         });
+        c.addEventListener("contextmenu", (e) => {
+            e.preventDefault(); // right-click erases the cell
+            onClick(grid, d, r, cellIndexFromEvent(c, e), true);
+        });
+    }
     return c;
 }
 
@@ -149,9 +155,10 @@ function fillRel(id, glyphs) {
     }
 }
 
-// paint handler shared by every editable glyph + the patch
-function onPaint(grid, d, r, idx) {
-    paintCell(grid, d, r, idx, state.color);
+// paint handler shared by every editable glyph + the patch; erase clears the
+// cell (sets it back to unpainted) regardless of the selected color.
+function onPaint(grid, d, r, idx, erase) {
+    paintCell(grid, d, r, idx, erase ? null : state.color);
     redraw();
 }
 
@@ -172,8 +179,8 @@ function redraw() {
     renderPatch($("patch"), PATCH);
 }
 
-// Paint a cell of the universe patch (click → section → code → cell).
-function paintPatch(e) {
+// Paint (or erase) a cell of the universe patch (click → section → code → cell).
+function paintPatch(e, erase) {
     const canvas = $("patch");
     const rect = canvas.getBoundingClientRect();
     const scale = canvas.width / rect.width;
@@ -186,7 +193,7 @@ function paintPatch(e) {
     const j = Math.min(3, Math.floor((x - sc * secPx) / cs));
     const i = Math.min(3, Math.floor((y - sr * secPx) / cs));
     const [d, r] = PATCH.codes[sr][sc];
-    onPaint("V", d, r, i * 4 + j);
+    onPaint("V", d, r, i * 4 + j, erase);
 }
 
 // ── IO ──
@@ -228,7 +235,14 @@ export function init() {
     buildPalette();
     buildColors();
     buildIO();
-    $("patch").addEventListener("mousedown", paintPatch);
+    $("patch").addEventListener("mousedown", (e) => {
+        if (e.button === 2) return;
+        paintPatch(e, false);
+    });
+    $("patch").addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        paintPatch(e, true);
+    });
     markColor();
     redraw();
 }

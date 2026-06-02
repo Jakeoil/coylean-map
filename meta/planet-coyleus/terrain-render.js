@@ -32,31 +32,40 @@ export function drawGlyphCells(ctx, x0, y0, size, cells, opts = {}) {
     if (opts.matrices) drawArrows(ctx, x0, y0, cs, opts.matrices);
 }
 
-// Faint arrows over the cells (same convention as glyphs/glyph-render drawGlyph).
+// Arrows over the cells (same convention as glyphs/glyph-render drawGlyph).
+// Drawn as a light casing + dark core so the v/h lines stay legible on any
+// biome fill, light or dark.
 function drawArrows(ctx, x0, y0, cs, m) {
     const { downMatrix, rightMatrix } = m;
     const px = (g) => g * cs;
-    ctx.strokeStyle = "rgba(20,22,28,0.5)";
-    ctx.lineWidth = Math.max(1, cs * 0.07);
-    ctx.lineCap = "round";
+    const segs = [];
     for (let y = 0; y <= NUM_CELLS; y++)
         for (let x = 0; x < NUM_CELLS; x++)
             if (downMatrix[y][x]) {
                 const cx = x0 + px(x + 1);
-                ctx.beginPath();
-                ctx.moveTo(cx, y0 + px(y));
-                ctx.lineTo(cx, y0 + px(y + 1));
-                ctx.stroke();
+                segs.push([cx, y0 + px(y), cx, y0 + px(y + 1)]);
             }
     for (let x = 0; x <= NUM_CELLS; x++)
         for (let y = 0; y < NUM_CELLS; y++)
             if (rightMatrix[x][y]) {
                 const cy = y0 + px(y + 1);
-                ctx.beginPath();
-                ctx.moveTo(x0 + px(x), cy);
-                ctx.lineTo(x0 + px(x + 1), cy);
-                ctx.stroke();
+                segs.push([x0 + px(x), cy, x0 + px(x + 1), cy]);
             }
+    if (!segs.length) return;
+    const core = Math.max(1.5, cs * 0.13);
+    ctx.lineCap = "round";
+    const pass = (color, width) => {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        for (const [ax, ay, bx, by] of segs) {
+            ctx.moveTo(ax, ay);
+            ctx.lineTo(bx, by);
+        }
+        ctx.stroke();
+    };
+    pass("rgba(242,244,249,0.55)", core + Math.max(1.8, cs * 0.13)); // casing
+    pass("rgba(10,12,16,0.95)", core); // core
 }
 
 // Render one glyph (grid, code) filling a canvas, with arrows + grid.
