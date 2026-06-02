@@ -158,9 +158,10 @@ const ARROW_MIN_PX = 22; // above this a section draws arrows; below, a swatch
 // sub-cell size) so emphasis fades with distance. alpha fades a line in by its
 // on-screen SPACING (2^p·sLocal): senior (wide) first, junior up as you zoom;
 // the Line-emphasis dial shifts that threshold. Tune to taste.
-const LW_BASE = 0.05, LW_SLOPE = 0.05, LW_CAP = 7;
-const REVEAL_LO = 2.4, REVEAL_RANGE = 2.6;
-const EMPH_GAIN = 1.6, EMPH_MID = 1.2; // Line-emphasis dial (lineScale) → reveal bias
+// `let` so the sidebar Tuning inputs can adjust them live.
+let LW_BASE = 0.05, LW_SLOPE = 0.05, LW_CAP = 7;
+let REVEAL_LO = 2.4, REVEAL_RANGE = 2.6;
+let EMPH_GAIN = 1.6, EMPH_MID = 1.2; // Line-emphasis dial (lineScale) → reveal bias
 // ── Density tier config ───────────────────────────────────────────────────────
 // Sub-pixel LOD: when cells are below TEXTURE_PX the lines go coarse and large
 // areas read blank. Fill them with a per-cage density wash — alpha ∝ the glyph's
@@ -1245,6 +1246,23 @@ gotoBtn.addEventListener("click", () => {
     const z = Number(gotoZ.value);
     goToCell(e, s, z);
 });
+
+// Live tuning inputs for the line-emphasis constants (dev knobs; reset on reload).
+for (const [id, set] of [
+    ["tuneLwBase", (v) => (LW_BASE = v)],
+    ["tuneLwSlope", (v) => (LW_SLOPE = v)],
+    ["tuneLwCap", (v) => (LW_CAP = v)],
+    ["tuneRevealLo", (v) => (REVEAL_LO = v)],
+    ["tuneRevealRange", (v) => (REVEAL_RANGE = v)],
+    ["tuneEmphGain", (v) => (EMPH_GAIN = v)],
+    ["tuneEmphMid", (v) => (EMPH_MID = v)],
+]) {
+    const el = document.getElementById(id);
+    el?.addEventListener("input", () => {
+        const v = Number(el.value);
+        if (Number.isFinite(v)) { set(v); requestRender(); }
+    });
+}
 
 // ── Shareable URL ─────────────────────────────────────────────────────────────
 const roundTo = (v, d) => Math.round(v * 10 ** d) / 10 ** d;
