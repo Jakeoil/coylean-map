@@ -166,6 +166,39 @@ Each phase is independently shippable and testable.
   coarsest lines fall below `lineMin`; **texture** is unaffected (it's the
   big-cell regime, well above both thresholds).
 
+## Coordinate budget — 32 bits per axis (i = 16, balanced)
+
+Each axis is a **32-bit fixed-point position** (signed ±2³¹ ≈ ±2.1 billion, safely
+inside the 2⁵³ integer ceiling). **Never multiply two axis coordinates** — a
+`row·col` product would reach 2⁶⁴ and lose precision; the descent keeps axes
+independent, so this holds. Split the 32 bits down the middle:
+
+- **OUTER — 16 bits — macro navigation ("which cell").**
+  - **E–W:** winding number + column-within-turn. With a turn of `T` columns,
+    `winds = 2¹⁶ / T` (T = 2⁸ → 256 winds; 2¹⁰ → 64). Keep the Division modest —
+    the *inner* bits, not a huge `D`, carry the fine detail.
+  - **N–S:** row toward the pole. 2¹⁶ rows reaches lat → 90° with room to spare
+    (Mercator saturates within a few hundred rows), so the **whole arctic is in
+    range cheaply**.
+- **INNER — 16 bits — micro zoom.** 16 substitution levels into a cell =
+  **65,536× linear magnification**.
+
+**Arctic ≈ zoom.** Approaching a pole shrinks cells by `cos(lat)`, so near-pole
+*detail* is spent from the **same INNER budget** as deep equatorial zoom — which
+is why the symmetric 16/16 serves both, with no N–S bias needed.
+
+**Why 2³² and not bigger — the `pri` cap.** `pri(n)` (2-adic valuation, capped at
+`DEFAULT_MAX_PRI = 32`) returns **32 only for column 0**, the ∞ branch axis (prime
+meridian / equator). For that sentinel to stay unique across the winding — so it
+never repeats and the globe is effectively unbounded — **no finite column may
+also reach pri 32**, i.e. none may be divisible by 2³². The 32-bit budget enforces
+exactly this: hold every column offset within ±2³² and finite columns top out at
+**pri 31**, leaving 32 to the axis alone. The column budget and the `pri ≤ 32` cap
+are the same uniqueness condition. **When calling `pri`, never exceed column 0's
+value (32).**
+
+Code target: globe `MAX_ORDER 40 → 32` (center 2³¹); Division kept small.
+
 ## Settled decisions
 
 1. **Reveal granularity** — **global / level-anchored.** One base fractional size
@@ -181,3 +214,7 @@ Each phase is independently shippable and testable.
    regime that matters is the thinnest visible line, `presence ≈ lineMin`.
 4. **Priority stagger is a wanted feature, not optional** — the V/H "one
    orientation at a time" reveal (Phase 3) is explicitly desired.
+5. **Coordinate budget = 32 bits/axis, split 16 outer / 16 inner** (balanced).
+   Outer = winds (E–W) / pole row (N–S); inner = 16 levels of cell zoom. Arctic
+   reach is cheap; arctic *detail* and deep zoom share the inner budget. See
+   *Coordinate budget* above.

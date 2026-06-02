@@ -131,11 +131,14 @@ let DENSITY_CELL_PX = 6; // target on-screen size of one density cage
 let DENSITY_BUDGET = 14000; // max cages/frame — coarsen the level to fit
 let DENSITY_ALPHA = 0.9; // alpha of the densest cage (17/17); 00 → 0
 // Finest order: 2^MAX_ORDER columns, centred → winding is effectively unbounded.
-// 2^40 columns gives room for both a fine cell scale (high Division → deep zoom)
-// AND hundreds of thousands of non-repeating turns. The cell source is instant
-// substitution descent (superglyphs/cell-descent.mjs) — no boundary seed, no
-// lazy build, just a few more lookups per cell at this depth.
-const MAX_ORDER = 40;
+// Capped at 32 (= DEFAULT_MAX_PRI): column offsets stay within ±2^32, so finite
+// columns top out at pri 31 and only the origin reaches the capped pri 32 — the
+// ∞ branch axis stays unique, so the winding never repeats. (At 40 the columns
+// past ±2^32 aliased onto pri 32 and collided with the axis.) Still 2^32 columns
+// = millions of non-repeating turns, with deep zoom carried by the inner cell
+// levels rather than a huge Division. See NOTES_zoom_crowding.md (Coordinate
+// budget). Cells are instant substitution descent (superglyphs/cell-descent.mjs).
+const MAX_ORDER = 32;
 // Render only when something changed; drainWork progress + interaction flip it.
 let needsRender = true;
 function requestRender() {
