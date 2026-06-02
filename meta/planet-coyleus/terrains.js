@@ -21,6 +21,7 @@ import {
     drawComposite,
     compositeHit,
     compositeSize,
+    setTheme,
 } from "./terrain-render.js";
 
 // Two map orders side by side — the same region one cage level apart.
@@ -34,7 +35,15 @@ const state = {
     curH: 1, // longitude anchor (0/1)
     curV: 1, // latitude anchor (0/1)
     seniorityH: false, // false = V, true = H
+    light: true, // light theme is the default
 };
+
+// Apply the active theme to both the CSS chrome (body class) and the canvas
+// neutrals (terrain-render). Caller redraws afterward.
+function applyTheme() {
+    document.body.classList.toggle("dark", !state.light);
+    setTheme(state.light);
+}
 
 // Maps depend on the orientation; recompute on any anchor/seniority change.
 let maps = [];
@@ -359,6 +368,15 @@ function buildIO() {
 }
 
 export function init() {
+    const themeToggle = $("theme-toggle");
+    themeToggle.checked = !state.light; // checked = dark
+    themeToggle.addEventListener("change", () => {
+        state.light = !themeToggle.checked;
+        applyTheme();
+        redraw();
+    });
+    applyTheme();
+
     buildPalette();
     buildColors();
     buildOrient();

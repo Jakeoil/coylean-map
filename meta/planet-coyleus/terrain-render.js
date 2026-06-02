@@ -4,9 +4,19 @@
 // glyph's 16 colored cells (optionally with faint arrows for legibility) and
 // the universe patch. Cell index is row-major over the 4×4 grid: idx = i*4 + j.
 
-import { EMPTY, cellsFor, matricesFor } from "./terrain-core.js";
+import { cellsFor, matricesFor } from "./terrain-core.js";
 
 const NUM_CELLS = 3; // interior reaction boxes; cell grid is 4×4
+
+// Theme-aware canvas neutrals (the chrome is CSS; these are drawn). Light is the
+// default; setTheme(false) switches to dark.
+let NEUTRAL = "#e2e4e9"; // unpainted cell fill
+let GAP_COLOR = "#cdd0d6"; // composite bar-lane background
+const BAR_COLOR = "#d8b56a"; // cage wall (gold reads on both themes)
+export function setTheme(isLight) {
+    NEUTRAL = isLight ? "#e2e4e9" : "#23262f";
+    GAP_COLOR = isLight ? "#cdd0d6" : "#0b0c10";
+}
 
 // Draw a 16-cell glyph into the box (x0,y0,size). Returns nothing; the caller
 // owns hit-testing (idx = floor(dy/cs)*4 + floor(dx/cs), cs = size/4).
@@ -14,7 +24,7 @@ export function drawGlyphCells(ctx, x0, y0, size, cells, opts = {}) {
     const cs = size / 4;
     for (let i = 0; i < 4; i++)
         for (let j = 0; j < 4; j++) {
-            ctx.fillStyle = cells[i * 4 + j] || EMPTY;
+            ctx.fillStyle = cells[i * 4 + j] || NEUTRAL;
             ctx.fillRect(x0 + j * cs, y0 + i * cs, cs + 0.6, cs + 0.6);
         }
     if (opts.grid) {
@@ -88,9 +98,6 @@ export function renderGlyph(canvas, grid, d, r) {
 // ── composites: substitution pair / translation square, with cage-wall bars ──
 // layout: { rows, cols, glyphPx, barPx, children:[{grid,d,r}], bars }.
 // children are row-major; a bar lane of width barPx sits between adjacent cells.
-const BAR_COLOR = "#d8b56a"; // cage wall (matches the focus accent)
-const GAP_COLOR = "#0b0c10";
-
 export function compositeSize(layout) {
     return {
         w: layout.cols * layout.glyphPx + (layout.cols - 1) * layout.barPx,
