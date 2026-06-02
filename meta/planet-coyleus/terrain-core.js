@@ -14,6 +14,8 @@ import {
     transformedPatternKey,
     computeGlyphMatrices,
     getWorkingAssignments,
+    applyAssignments,
+    glyphLetterAt,
     setOffset,
     computeMapModel,
     pairKey,
@@ -28,6 +30,21 @@ import { oklchHex } from "../4d/src/oklch-ramps.js";
 
 const V = Seniority.vertical();
 const H = Seniority.horizontal();
+
+// Build the letter + D4-operation model from the new scheme (= assignments.json,
+// "new v sideways / h upright"). Offset-independent, so once at load is enough.
+applyAssignments(true);
+
+// Operation alphabet: 0-3 rotations, then s_h s_v s_d1 s_d2 → - | \ / .
+const OP_SUFFIX = ["0", "1", "2", "3", "-", "|", "\\", "/"];
+
+// "F\\" / "P/" / "F2" … — the orbit letter a glyph carries plus its operation,
+// matching the V/H grids on glyphs/index.html (e.g. H(1,3) → "F2"). null off the
+// 12-orbit alphabet.
+export function letterTag(grid, d, r) {
+    const lt = glyphLetterAt(grid, d, r);
+    return lt ? lt[0] + OP_SUFFIX[lt[1]] : null;
+}
 
 // Unpainted cell color (neutral, reads as "unassigned").
 export const EMPTY = "#23262f";
@@ -257,11 +274,23 @@ export function mapPatch(order, seniorityH, curH, curV) {
     setOffset(curH, curV);
     const N = 1 << order;
     const m = computeMapModel(N, N, { seniority: seniorityH ? H : V });
+    // Cage-wall valuation at each interior section boundary: the wall west of
+    // section sc sits on cell line firstDarkCol + sc·SEC; its colPriority (2-adic
+    // valuation) is how outer the cage is → heavier line. Likewise rows.
+    const SEC = 4;
+    const vWalls = new Array(m.NSc).fill(0);
+    for (let sc = 1; sc < m.NSc; sc++)
+        vWalls[sc] = m.colPriority[m.firstDarkCol + sc * SEC] || 0;
+    const hWalls = new Array(m.NSr).fill(0);
+    for (let sr = 1; sr < m.NSr; sr++)
+        hWalls[sr] = m.rowPriority[m.firstDarkRow + sr * SEC] || 0;
     return {
         codes: m.secCodes,
         NSr: m.NSr,
         NSc: m.NSc,
         grid: seniorityH ? "H" : "V",
+        vWalls,
+        hWalls,
     };
 }
 

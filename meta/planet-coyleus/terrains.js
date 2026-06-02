@@ -7,6 +7,7 @@ import {
     LETTERS,
     TERRAINS,
     focusGlyph,
+    letterTag,
     substitutionOf,
     translationOf,
     mapPatch,
@@ -252,12 +253,14 @@ function transLayout(letter) {
 
 function rebuildPanels() {
     const f = focusGlyph(state.letter, state.seniorityH);
+    // Letter + operation as it appears on the V/H grids (0123/\-| ops).
+    const tag = letterTag(f.grid, f.d, f.r) || state.letter;
     const fc = makeGlyphCanvas(SIZES.focus, f.grid, f.d, f.r, onPaint);
     const fbox = $("focus");
     fbox.innerHTML = "";
     fbox.appendChild(fc);
-    renderGlyph(fc, f.grid, f.d, f.r);
-    $("focus-label").textContent = `${state.letter} · ${f.grid}${f.d}${f.r}`;
+    renderGlyph(fc, f.grid, f.d, f.r, tag);
+    $("focus-label").textContent = `${tag} · ${f.grid}${f.d}${f.r}`;
     $("subs-h2").textContent = state.seniorityH
         ? "Substitution · h→v (top / bottom)"
         : "Substitution · v→h (left | right)";

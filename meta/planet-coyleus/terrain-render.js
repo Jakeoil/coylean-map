@@ -10,12 +10,17 @@ const NUM_CELLS = 3; // interior reaction boxes; cell grid is 4×4
 
 // Theme-aware canvas neutrals (the chrome is CSS; these are drawn). Light is the
 // default; setTheme(false) switches to dark.
+let isLight = true; // light theme is the default
 let NEUTRAL = "#e2e4e9"; // unpainted cell fill
 let GAP_COLOR = "#cdd0d6"; // composite bar-lane background
-const BAR_COLOR = "#d8b56a"; // cage wall (gold reads on both themes)
-export function setTheme(isLight) {
-    NEUTRAL = isLight ? "#e2e4e9" : "#23262f";
-    GAP_COLOR = isLight ? "#cdd0d6" : "#0b0c10";
+let WALL_COLOR = "#454b57"; // map cage walls
+let BAR_COLOR = "#000000"; // substitution/translation bars (black on light)
+export function setTheme(light) {
+    isLight = light;
+    NEUTRAL = light ? "#e2e4e9" : "#23262f";
+    GAP_COLOR = light ? "#cdd0d6" : "#0b0c10";
+    WALL_COLOR = light ? "#3b414d" : "#aab2c0";
+    BAR_COLOR = light ? "#000000" : "#f2f4f9"; // black on light, white on dark
 }
 
 // Draw a 16-cell glyph into the box (x0,y0,size). Returns nothing; the caller
@@ -73,8 +78,13 @@ function drawArrows(ctx, x0, y0, cs, m) {
         }
         ctx.stroke();
     };
-    // Adapt to cell size: hairlines on tiny map cells, casing+core when big.
     const small = cs < 12;
+    if (!isLight) {
+        // dark mode: simple white lines, adaptive width
+        pass("rgba(244,246,250,0.95)", small ? Math.max(0.7, cs * 0.16) : Math.min(6, cs * 0.12));
+        return;
+    }
+    // light mode: dark lines — hairlines on tiny map cells, casing+core when big
     if (small) {
         pass("rgba(8,10,14,0.85)", Math.max(0.6, cs * 0.16));
     } else {
@@ -84,8 +94,9 @@ function drawArrows(ctx, x0, y0, cs, m) {
     }
 }
 
-// Render one glyph (grid, code) filling a canvas, with arrows + grid.
-export function renderGlyph(canvas, grid, d, r) {
+// Render one glyph (grid, code) filling a canvas, with arrows + grid. An
+// optional `label` (e.g. "F\\") is drawn as a corner overlay.
+export function renderGlyph(canvas, grid, d, r, label) {
     const ctx = canvas.getContext("2d");
     const size = canvas.width;
     ctx.clearRect(0, 0, size, size);
@@ -93,6 +104,20 @@ export function renderGlyph(canvas, grid, d, r) {
         grid: true,
         matrices: matricesFor(grid, d, r),
     });
+    if (label) drawLabel(ctx, size, label);
+}
+
+// Letter + operation tag, top-left, with a halo so it reads over any cell.
+function drawLabel(ctx, size, text) {
+    const fs = Math.max(13, size * 0.12);
+    ctx.font = `bold ${fs}px Menlo, Monaco, monospace`;
+    ctx.textBaseline = "top";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = Math.max(2, fs * 0.2);
+    ctx.strokeStyle = isLight ? "rgba(255,255,255,0.92)" : "rgba(0,0,0,0.92)";
+    ctx.strokeText(text, 5, 4);
+    ctx.fillStyle = isLight ? "#11141a" : "#f4f6fa";
+    ctx.fillText(text, 5, 4);
 }
 
 // ── composites: substitution pair / translation square, with cage-wall bars ──
@@ -177,4 +202,29 @@ export function renderPatch(canvas, patch, opts = {}) {
                 opts.lines ? { matrices: matricesFor(grid, d, r) } : {},
             );
         }
+    drawCageBars(ctx, patch, sec, size);
+}
+
+// Section-boundary cage walls, weighted by 2-adic valuation (more outer cage →
+// heavier), a little heavier than the glyph hairlines.
+function drawCageBars(ctx, patch, sec, size) {
+    const glyphLine = sec * 0.04; // ~the small-cell arrow hairline
+    const width = (p) =>
+        Math.min(sec * 0.42, glyphLine * (1.6 + 0.95 * Math.max(0, p - 2)));
+    ctx.strokeStyle = WALL_COLOR;
+    ctx.lineCap = "butt";
+    const bar = (x0, y0, x1, y1, p) => {
+        if (!p) return;
+        ctx.lineWidth = width(p);
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+        ctx.stroke();
+    };
+    if (patch.vWalls)
+        for (let sc = 1; sc < patch.NSc; sc++)
+            bar(sc * sec, 0, sc * sec, size, patch.vWalls[sc]);
+    if (patch.hWalls)
+        for (let sr = 1; sr < patch.NSr; sr++)
+            bar(0, sr * sec, size, sr * sec, patch.hWalls[sr]);
 }
