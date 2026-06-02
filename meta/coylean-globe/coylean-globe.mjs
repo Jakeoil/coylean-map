@@ -46,6 +46,10 @@ let density = 340;
 // Phase 2 — zoomPoint: the drawn tile size (px) at which the next finer level is
 // revealed globally. Raise it to split while tiles are large; 1 ≈ today's floor.
 let zoomPoint = 1;
+// Phase 3 — seniority stagger: the senior orientation (downs under V, rights
+// under H) reveals this many levels ahead of the junior, so zoom-in splits one
+// orientation then the other. 0.5 = the vertical/horizontal tie-break half-level.
+const STAGGER = 0.5;
 const showSkeletonCb = document.getElementById("showSkeleton");
 const showTextureCb = document.getElementById("showTexture");
 const latBtn = document.getElementById("latBtn");
@@ -636,8 +640,18 @@ function renderLines(lineScale, density, cols, rows, samp) {
     // cells double (a coherent split-into-four everywhere at once). It only ever
     // RAISES the floor above the density-driven minimum, so zoomPoint=1 keeps the
     // old look and higher values reveal later (split while tiles are larger).
-    const pMin = Math.max(0, Math.ceil(Math.log2(zoomPoint / cellArcPx())));
-    const floor = Math.max(minPriFloor(density), pMin);
+    //
+    // Phase 3: split the floor per orientation — downs ride the meridians, rights
+    // the parallels. The senior orientation (V → downs, H → rights) reveals at
+    // zoomPoint; the junior waits ×2^STAGGER (a higher effective zoomPoint), so
+    // zoom-in splits one orientation then the other, hand-drawing order.
+    const pMinAt = (zp) =>
+        Math.max(minPriFloor(density),
+            Math.max(0, Math.ceil(Math.log2(zp / cellArcPx()))));
+    const merSenior = !curSeniorityH; // V seniority → downs (meridians) lead
+    const floorM = pMinAt(zoomPoint * (merSenior ? 1 : 2 ** STAGGER));
+    const floorP = pMinAt(zoomPoint * (merSenior ? 2 ** STAGGER : 1));
+    const floor = Math.min(floorM, floorP);
     const skel = showSkeletonCb.checked;
     // Texture (the actual gapped arrows) is instant via descent, but it's PER-CELL
     // work, so only when cells are genuinely big (TEXTURE_PX). Skeleton otherwise.
@@ -671,7 +685,9 @@ function renderLines(lineScale, density, cols, rows, samp) {
         const rv = Math.min(p + 1, 12);
         const colThick = (0.22 + rv * 0.34) * lineScale;
         const colAlpha = Math.min(0.16 + rv * 0.07, 0.82);
-        for (const c of indicesAtLevel(p, hInitCol0, clo, chi, maxPri)) {
+        const cIdx = // downs reveal at floorM (Phase 3 stagger)
+            p >= floorM ? indicesAtLevel(p, hInitCol0, clo, chi, maxPri) : [];
+        for (const c of cIdx) {
             // Meridians carry the branch-cut age tint (violet new / red old).
             const cColor = meridianColor(c, cols.center, colAlpha);
             if (wantTex) {
@@ -688,10 +704,11 @@ function renderLines(lineScale, density, cols, rows, samp) {
         const rowThick = (0.2 + rv * 0.3) * lineScale;
         const rowAlpha = Math.min(0.14 + rv * 0.065, 0.76);
         const rColor = normalColor(rowAlpha);
-        // Parallels only for rows on screen (tight band) AND within the level's
-        // latitude band — near-pole rings of a fine level are crowded out.
-        if (tbLo > tbHi) continue;
-        for (const r of indicesAtLevel(p, vInitRow0, tbLo, tbHi, maxPri)) {
+        // Parallels: on-screen tight band ∩ the level's latitude band, and only
+        // at/under the parallel reveal floor (rights reveal at floorP — Phase 3).
+        const rIdx = p >= floorP && tbLo <= tbHi
+            ? indicesAtLevel(p, vInitRow0, tbLo, tbHi, maxPri) : [];
+        for (const r of rIdx) {
             if (wantTex) {
                 drawTextureParallel(r, clo, chi, rowThick, rColor, subSamp);
             } else if (skel) {

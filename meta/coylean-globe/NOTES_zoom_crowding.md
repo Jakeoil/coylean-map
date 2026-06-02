@@ -146,10 +146,12 @@ Each phase is independently shippable and testable.
   the too-small instances poleward. Knob: **Zoom point** dial (px), default 1
   (≈ old floor), raise to split while tiles are larger.
 
-- **Phase 3 — priority stagger (downs before rights for V).**
-  Shape `lineWeight` so the senior orientation outweighs the junior within a
-  level, so the two orientations cross `zoomPoint`/`lineMin` at slightly
-  different points — the hand-drawing reveal order.
+- **Phase 3 — priority stagger (downs before rights for V). *(done)*** The
+  reveal floor is split per orientation: downs ride the meridians (`floorM`),
+  rights the parallels (`floorP`). The senior orientation (V → downs, H → rights)
+  reveals at `zoomPoint`; the junior at `zoomPoint·2^STAGGER` (`STAGGER = 0.5`, the
+  V/H tie-break half-level). So on zoom-in the two split on alternating
+  half-doublings — one orientation, then the other, hand-drawing order.
 
 ### Mapping to current code (`coylean-globe.mjs`)
 
