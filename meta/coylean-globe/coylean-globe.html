@@ -351,6 +351,29 @@
                 pinch to zoom. Press <strong>0</strong> to reset orientation.
             </div>
 
+            <label>Go to cell — E / S offset from prime, zoom</label>
+            <div class="row">
+                <input
+                    id="gotoE"
+                    type="text"
+                    inputmode="numeric"
+                    placeholder="East"
+                />
+                <input
+                    id="gotoS"
+                    type="text"
+                    inputmode="numeric"
+                    placeholder="South"
+                />
+                <input
+                    id="gotoZ"
+                    type="text"
+                    inputmode="numeric"
+                    placeholder="zoom"
+                />
+            </div>
+            <button id="gotoBtn" type="button">Go</button>
+
             <label for="shareUrl">Shareable link</label>
             <input id="shareUrl" type="text" readonly />
             <button id="copyUrl" type="button">Copy link</button>

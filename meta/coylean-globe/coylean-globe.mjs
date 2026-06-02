@@ -61,6 +61,10 @@ const mapInfo = document.getElementById("mapInfo");
 const badge = document.getElementById("badge");
 const shareUrl = document.getElementById("shareUrl");
 const copyUrl = document.getElementById("copyUrl");
+const gotoE = document.getElementById("gotoE");
+const gotoS = document.getElementById("gotoS");
+const gotoZ = document.getElementById("gotoZ");
+const gotoBtn = document.getElementById("gotoBtn");
 
 // Division = columns per full turn (one circumference). Powers of two.
 for (let n = 3; n <= 20; n++) {
@@ -818,10 +822,15 @@ function updateHud(density) {
     badge.textContent =
         `E ${sgn(eastCols)} · S ${sgn(southRows)} cells from prime` +
         ` · τ ${tau.toFixed(2)} · ${tex} · z ${zoom.toFixed(2)}`;
+    // Fixed-point [16 outer | 16 inner] address of the centre cell (#2 spec):
+    // the absolute index split at bit 16 — outer = winds/pole base cell, inner =
+    // sub-cell. Type the E/S offsets above into Go-to to land back here.
+    const colIdx = src.axisCol + eastCols, rowIdx = src.axisRow + southRows;
+    const fp = (n) => `${Math.floor(n / 65536)}:${((n % 65536) + 65536) % 65536}`;
     mapInfo.textContent =
         `Unbounded centred universe, axis at (${src.axisCol}, ${src.axisRow}),` +
         ` maxPri ${src.maxPri}. One turn = ${src.division} columns.` +
-        ` Instant by descent — no build, no edge.`;
+        ` Centre cell [E ${fp(colIdx)} | S ${fp(rowIdx)}] (16|16).`;
 }
 
 // ── Interaction ───────────────────────────────────────────────────────────────
@@ -1028,6 +1037,26 @@ longBtn.addEventListener("click", () => {
 senBtn.addEventListener("click", () => {
     curSeniorityH = !curSeniorityH;
     rebuild();
+});
+
+// ── Jump-to-cell (#2 nav) ─────────────────────────────────────────────────────
+// Centre the view on the finest cell at (east, south) offset from the prime
+// axis, optionally at a zoom. Inverts the HUD readout: eastCols = -(rotY+π/2)/dLon
+// and southRows = -mercatorY(rotX)/dLon. east/south are full 32-bit cell offsets
+// (= winds·D + column, with the low 16 bits the inner sub-cell), so any of the
+// 2^32 cells is one jump away — no dragging through turns. rotX self-clamps to a
+// pole via latFromMercatorY's atan range.
+function goToCell(east, south, z) {
+    rotY = -Math.PI / 2 - east * dLon();
+    rotX = latFromMercatorY(-south * dLon());
+    if (Number.isFinite(z) && z > 0) setZoom(z);
+    else requestRender();
+}
+gotoBtn.addEventListener("click", () => {
+    const e = Math.trunc(Number(gotoE.value)) || 0;
+    const s = Math.trunc(Number(gotoS.value)) || 0;
+    const z = Number(gotoZ.value);
+    goToCell(e, s, z);
 });
 
 // ── Shareable URL ─────────────────────────────────────────────────────────────
