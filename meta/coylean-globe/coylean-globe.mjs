@@ -26,6 +26,14 @@ import {
     DEFAULT_MAX_PRI,
 } from "../../coylean-explorer/coylean-core.js";
 import { makeCellUniverse } from "../superglyphs/cell-descent.mjs";
+import { ORBIT_V, ORBIT_H, codeKey } from "../superglyphs/tests/rules.mjs";
+
+// Orbit hue per glyph (universe.html dive colouring): the glyph's orbit index
+// spun by the golden angle. Seniority picks the orbit table (V vs H).
+function orbitHue(code, senH) {
+    const tbl = senH ? ORBIT_H : ORBIT_V;
+    return ((tbl[codeKey(code)] ?? 0) * 137.508) % 360;
+}
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -72,10 +80,9 @@ for (let n = 3; n <= 20; n++) {
     const opt = document.createElement("option");
     opt.value = div;
     opt.textContent = `${div}  (2^${n} cols / turn)`;
-    // Default fine enough that zooming reveals deeper structure (at 64 there's
-    // nothing below the cell), but not so fine the zoomed-out view drags with
-    // thousands of meridian arcs. Higher = deeper dive, heavier zoom-out.
-    if (div === 512) opt.selected = true;
+    // The dive depth ≈ log2(D) − 4 section levels before the leaves, so default
+    // high enough for a real dive (2^14 → ~10 levels, ~262 k turns) yet finite.
+    if (div === 16384) opt.selected = true;
     divisionSelect.appendChild(opt);
 }
 
@@ -121,6 +128,13 @@ let lastPinchDistance = 0;
 // per-cell texture. Higher = texture only once cells are genuinely big (so the
 // dense zoomed-out view stays skeleton and fast).
 const TEXTURE_PX = 5;
+// ── Orbit-tile dive (universe.html on the sphere) ─────────────────────────────
+// As you zoom, the render depth climbs and glyph sections subdivide into four,
+// each filled with its orbit hue — so detail keeps EMERGING instead of cells just
+// magnifying. depth = MAX_ORDER − log2(TARGET_SECTION_PX / scale); a section at
+// depth d spans 2^(MAX_ORDER−d) finest cells. Drawn only below TEXTURE_PX (above
+// it the real arrows take over). See NOTES_zoom_crowding.md.
+const TARGET_SECTION_PX = 34; // on-screen size a section aims for
 // ── Density tier config ───────────────────────────────────────────────────────
 // Sub-pixel LOD: when cells are below TEXTURE_PX the lines go coarse and large
 // areas read blank. Fill them with a per-cage density wash — alpha ∝ the glyph's
@@ -780,6 +794,51 @@ function drawDensity(cols, rows) {
     }
 }
 
+// The dive: orbit-hue glyph tiles at a zoom-derived depth, subdividing into four
+// as you zoom in (universe.html ported to the sphere). Only below TEXTURE_PX —
+// closer in, renderLines' real arrows take over. The depth climbs with zoom, so
+// finer Coylean structure keeps emerging rather than cells just getting bigger.
+function renderSections(cols) {
+    const scale = cellArcPx(); // px per finest cell
+    if (scale >= TEXTURE_PX || scale <= 0) return; // close in, real arrows take over
+    const cu = src.cu;
+    if (typeof cu.glyphAtD !== "function") return; // stale module → skip, don't blank
+    const MO = cu.maxOrder;
+    // Depth from zoom; clamp so sections never span more than a fraction of a
+    // turn (coarse cap) and never finer than the descent's leaves.
+    const coarse = Math.max(cu.seedDepth, MO - Math.floor(Math.log2(src.division)) + 2);
+    let d = Math.round(MO - Math.log2(TARGET_SECTION_PX / scale));
+    d = Math.max(coarse, Math.min(cu.depth, d));
+    const cps = 2 ** (MO - d); // finest cells per section side
+    const senH = curSeniorityH;
+    const secPx = cps * scale; // a section's equatorial on-screen size
+
+    // Column window from colClip; row window bounded to the visible SCREEN in
+    // section units (NOT the texture-capped `rows`, which is a thin band at high
+    // Division). Per-tile culling drops the off-screen / back-facing rest.
+    const { clo, chi } = colClip(cols);
+    const c0 = Math.floor(clo / cps), c1 = Math.floor(chi / cps);
+    const seedRow = src.axisRow + 0.5 - mercatorYFromLat(rotX) / dLon();
+    const seedSec = Math.floor(seedRow / cps);
+    const halfSec = Math.min(600, Math.ceil(height / Math.max(secPx, 1)) + 2);
+    const r0 = Math.max(0, seedSec - halfSec), r1 = seedSec + halfSec;
+    for (let C = c0; C <= c1; C++) {
+        const lon = lonOf((C + 0.5) * cps);
+        for (let R = r0; R <= r1; R++) {
+            const code = cu.glyphAtD(R, C, d);
+            if (code[0] === 0 && code[1] === 0) continue; // empty glyph → bare
+            const [px, py, pz] = spherePoint(lon, latOf((R + 0.5) * cps));
+            const [x, y, z] = rotatePoint(px, py, pz);
+            if (z < -0.02) continue; // back face
+            const [sx, sy] = project(x, y, z);
+            const sz = cps * scale * (3 / (3 - z)) * 1.04; // device-px + perspective
+            if (sx < -sz || sx > width + sz || sy < -sz || sy > height + sz) continue;
+            ctx.fillStyle = `hsl(${orbitHue(code, senH)} 58% 52% / 0.72)`;
+            ctx.fillRect(sx - sz / 2, sy - sz / 2, sz, sz);
+        }
+    }
+}
+
 function draw() {
     if (!width || !height || !src) return;
 
@@ -804,6 +863,7 @@ function draw() {
     };
 
     if (DENSITY_WASH_ON) drawDensity(cols, rows);
+    renderSections(cols); // orbit-hue dive tiles (subdivide on zoom)
     renderLines(lineScale, density, cols, rows, samp);
 
     updateHud(density);

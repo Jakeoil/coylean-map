@@ -185,8 +185,8 @@ export function makeCellUniverse({
     }
 
     return {
-        glyphAt, downAt, rightAt, densityAt, densityMax: 17,
-        depth, seedDepth, seedNs: ns,
+        glyphAt, glyphAtD, downAt, rightAt, densityAt, densityMax: 17,
+        depth, seedDepth, seedNs: ns, maxOrder,
         center: 2 ** (maxOrder - 1), // internal-cell coordinate of the origin
     };
 }
