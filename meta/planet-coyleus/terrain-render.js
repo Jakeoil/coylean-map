@@ -201,7 +201,7 @@ function swatch(cells) {
     return `rgb(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)})`;
 }
 
-export function drawQuadrant(canvas, rung, view, hover) {
+export function drawQuadrant(canvas, rung, view, hover, selected) {
     const ctx = canvas.getContext("2d");
     const W = canvas.width;
     const Ht = canvas.height;
@@ -283,12 +283,43 @@ export function drawQuadrant(canvas, rung, view, hover) {
         ctx.stroke();
     }
 
-    // hover outline on the section under the cursor (interaction feedback)
-    if (hover) {
-        ctx.strokeStyle = isLight ? "rgba(176,125,18,0.95)" : "rgba(216,181,106,0.95)";
-        ctx.lineWidth = 2;
+    // selected cage (solid accent) + hover (faint), interaction feedback
+    if (selected) {
+        ctx.strokeStyle = isLight ? "#b07d12" : "#e0bd6e";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(Xs(selected.C) + 1.5, Ys(selected.R) + 1.5, secW - 3, secH - 3);
+    }
+    if (hover && (!selected || hover.R !== selected.R || hover.C !== selected.C)) {
+        ctx.strokeStyle = isLight ? "rgba(176,125,18,0.5)" : "rgba(216,181,106,0.5)";
+        ctx.lineWidth = 1.5;
         ctx.strokeRect(Xs(hover.C), Ys(hover.R), secW, secH);
     }
+}
+
+// The client-coordinate rect of a cage (section R,C) on the rung — for placing
+// the floating editor relative to the selected cage.
+export function cageClientRect(canvas, rung, view, R, C) {
+    if (!rung) return null;
+    const rect = canvas.getBoundingClientRect();
+    const sX = rect.width / canvas.width;
+    const sY = rect.height / canvas.height;
+    const { NSr, NSc, SEC } = rung;
+    const sx = (cx) =>
+        canvas.width / 2 + ((cx - rung.firstDarkCol) / (NSc * SEC) - view.cx) * view.z;
+    const sy = (cy) =>
+        canvas.height / 2 + ((cy - rung.firstDarkRow) / (NSr * SEC) - view.cy) * view.z;
+    const x = sx(rung.firstDarkCol + C * SEC + 1);
+    const y = sy(rung.firstDarkRow + R * SEC + 1);
+    const w = view.z / NSc;
+    const h = view.z / NSr;
+    return {
+        left: rect.left + x * sX,
+        top: rect.top + y * sY,
+        right: rect.left + (x + w) * sX,
+        bottom: rect.top + (y + h) * sY,
+        width: w * sX,
+        height: h * sY,
+    };
 }
 
 // Map a pointer event to { grid, d, r, R, C, idx } or null (outside the map).

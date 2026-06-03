@@ -28,14 +28,17 @@ import {
     compositeSize,
     drawQuadrant,
     quadrantHit,
+    cageClientRect,
     setTheme,
 } from "./terrain-render.js";
 
-const SIZES = { focus: 240, sub: 92, trans: 84, bar: 6 };
+const SIZES = { focus: 220, sub: 88, trans: 80, bar: 6 };
 
 const state = {
     letter: LETTERS[0],
-    member: null, // a specific glyph {grid,d,r} selected on the map (else the rep)
+    // cage cursor: a unit-square point {ux,uy} (the selected cage's centre). R,C
+    // are derived per rung, so the selection keeps its spatial place across orders.
+    cursor: null,
     color: TERRAINS[0].stops[2].hex, // a mid water stop to start
     curH: 1, // longitude anchor (0/1)
     curV: 1, // latitude anchor (0/1)
@@ -43,11 +46,28 @@ const state = {
     light: true, // light theme is the default
 };
 
-// The glyph shown in the focus editor: the map-selected member if it matches the
-// active seniority, else the current orbit's rep.
+// Cage cursor → (R,C) on a given rung (re-derives the row/col per order).
+function cursorRC(rung) {
+    return {
+        R: Math.max(0, Math.min(rung.NSr - 1, Math.floor(state.cursor.uy * rung.NSr))),
+        C: Math.max(0, Math.min(rung.NSc - 1, Math.floor(state.cursor.ux * rung.NSc))),
+    };
+}
+// The orbit letter of the glyph currently under the cursor.
+function letterAtCursor() {
+    if (!state.cursor || !lastRung) return null;
+    const { R, C } = cursorRC(lastRung);
+    const [d, r] = lastRung.codes[R][C];
+    return orbitLetterOf(lastRung.grid, d, r);
+}
+
+// The glyph shown in the editor: the cage under the cursor, else the orbit's rep.
 function focusGlyphNow() {
-    const g = state.seniorityH ? "H" : "V";
-    if (state.member && state.member.grid === g) return state.member;
+    if (state.cursor && lastRung) {
+        const { R, C } = cursorRC(lastRung);
+        const [d, r] = lastRung.codes[R][C];
+        return { grid: lastRung.grid, d, r };
+    }
     return focusGlyph(state.letter, state.seniorityH);
 }
 
@@ -227,7 +247,7 @@ function buildPalette() {
         wrap.append(c, tag);
         wrap.addEventListener("click", () => {
             state.letter = letter;
-            state.member = null; // orbit chosen → show its rep
+            state.cursor = null; // orbit chosen from the palette → show its rep
             showEditor();
             redraw();
         });
@@ -417,11 +437,15 @@ function rebuildPanels() {
     fbox.appendChild(fc);
     focusCanvas = fc;
     renderGlyph(fc, f.grid, f.d, f.r, tag);
-    $("focus-label").textContent = `${tag} · ${f.grid}${f.d}${f.r}`;
-    $("subs-h2").textContent = state.seniorityH
-        ? "Substitution · h→v (top / bottom)"
-        : "Substitution · v→h (left | right)";
-    $("trans-h2").textContent = "Translation · 4→1 (square + bars)";
+    // heading: tag · code · order/seniority · [cage row : col]
+    let head = `${tag} ${f.grid}${f.d}${f.r} ${rungLabel(curK < 0 ? 0 : curK)}`;
+    if (state.cursor && lastRung) {
+        const { R, C } = cursorRC(lastRung);
+        head += ` [r${R}:c${C}]`;
+    }
+    $("focus-label").textContent = head;
+    $("subs-h2").textContent = state.seniorityH ? "h→2v" : "v→2h";
+    $("trans-h2").textContent = state.seniorityH ? "h→4h" : "v→4v";
 
     subsLayoutCur = subLayout(f);
     transLayoutCur = transLayout(f);
@@ -477,7 +501,10 @@ function syncRung() {
     if (r.k !== curK) {
         curK = r.k;
         state.seniorityH = r.seniorityH;
-        state.member = null; // map context changed → drop the specific selection
+        // update lastRung to the new rung first, so the cursor re-derives its
+        // (R,C) on the new order and the panels read the right glyph.
+        lastRung = rungMap(r.order, r.seniorityH, state.curH, state.curV);
+        if (state.cursor) state.letter = letterAtCursor() || state.letter;
         refreshPanels();
         syncOrient();
         syncOrder();
@@ -488,7 +515,8 @@ function syncRung() {
 function renderMap() {
     const r = syncRung();
     lastRung = rungMap(r.order, r.seniorityH, state.curH, state.curV);
-    drawQuadrant($("quadrant"), lastRung, view, hover);
+    const sel = state.cursor ? cursorRC(lastRung) : null;
+    drawQuadrant($("quadrant"), lastRung, view, hover, sel);
     const tag = hover ? letterTag(hover.grid, hover.d, hover.r) : null;
     $("map-hud").textContent =
         `rung ${rungLabel(r.k)} · ${lastRung.NSr}×${lastRung.NSc} glyphs · ` +
@@ -572,36 +600,88 @@ function bindQuadrant() {
     window.addEventListener("mouseup", (e) => {
         if (drag && !drag.moved && lastRung) {
             const h = quadrantHit(canvas, lastRung, view, e);
-            if (h) selectGlyph(h.grid, h.d, h.r, e.clientX, e.clientY);
+            if (h) selectCage(h);
         }
         drag = null;
     });
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 
-// Clicking the map loads that glyph into the floating editor (its oriented
-// pattern + name + children). The panel pops up at the click, unless the click
-// is already under the parked panel (then it stays put). Painting happens in the
-// panel; every instance updates via redraw.
-function selectGlyph(grid, d, r, clientX, clientY) {
-    state.member = { grid, d, r };
-    const L = orbitLetterOf(grid, d, r);
+// Move the cage cursor to (R,C): loads that glyph into the editor, keeps it
+// on-screen, and re-places the floating panel relative to the cage.
+function setCursorRC(R, C) {
+    if (!lastRung) return;
+    R = Math.max(0, Math.min(lastRung.NSr - 1, R));
+    C = Math.max(0, Math.min(lastRung.NSc - 1, C));
+    state.cursor = { ux: (C + 0.5) / lastRung.NSc, uy: (R + 0.5) / lastRung.NSr };
+    const L = letterAtCursor();
     if (L) state.letter = L;
-    const p = $("editor-panel");
-    let move = clientX != null;
-    if (move && !p.hidden) {
-        const b = p.getBoundingClientRect();
-        const under =
-            clientX >= b.left && clientX <= b.right && clientY >= b.top && clientY <= b.bottom;
-        if (under) move = false;
-    }
-    if (move) {
-        editor.x = clientX + 14;
-        editor.y = clientY + 14;
-    }
+    ensureCageVisible(R, C);
     showEditor();
-    saveEditor();
+    placePanelForCage(R, C);
     redraw();
+}
+function selectCage(h) {
+    setCursorRC(h.R, h.C);
+}
+function moveCursor(dR, dC) {
+    if (!state.cursor || !lastRung) return;
+    const { R, C } = cursorRC(lastRung);
+    setCursorRC(R + dR, C + dC);
+}
+
+// Pan just enough to keep the selected cage on-screen (one-cage margin).
+function ensureCageVisible(R, C) {
+    const canvas = $("quadrant");
+    const ux = (C + 0.5) / lastRung.NSc;
+    const uy = (R + 0.5) / lastRung.NSr;
+    const halfW = canvas.width / 2 / view.z;
+    const halfH = canvas.height / 2 / view.z;
+    const mx = 1 / lastRung.NSc;
+    const my = 1 / lastRung.NSr;
+    if (ux < view.cx - halfW + mx) view.cx = ux + halfW - mx;
+    else if (ux > view.cx + halfW - mx) view.cx = ux - halfW + mx;
+    if (uy < view.cy - halfH + my) view.cy = uy + halfH - my;
+    else if (uy > view.cy + halfH - my) view.cy = uy - halfH + my;
+    clampView();
+}
+
+// Keep the panel out of the selected cage's way. Only nudge it when the cage's
+// closest-corner distance is under 2 cages (Pythagoras), and then just enough to
+// restore that clearance along ONE axis, away from the cage (never closer),
+// preferring to slide right.
+function placePanelForCage(R, C) {
+    const p = $("editor-panel");
+    const cr = cageClientRect($("quadrant"), lastRung, view, R, C);
+    if (!cr) return;
+    const cageW = cr.width;
+    const cageH = cr.height;
+    if (p.hidden) {
+        editor.x = cr.left + cageW; // first appearance: down-right of the cage
+        editor.y = cr.top + 2 * cageH;
+    } else {
+        const b = p.getBoundingClientRect();
+        const clear = cageW + cageH; // ≈ 2 cages
+        const sepX = Math.max(0, cr.left - b.right, b.left - cr.right);
+        const sepY = Math.max(0, cr.top - b.bottom, b.top - cr.bottom);
+        if (Math.hypot(sepX, sepY) < clear) {
+            const dirX = (cr.left + cr.right) / 2 <= (b.left + b.right) / 2 ? 1 : -1;
+            const dirY = (cr.top + cr.bottom) / 2 <= (b.top + b.bottom) / 2 ? 1 : -1;
+            const needX = Math.sqrt(Math.max(0, clear * clear - sepY * sepY)) - sepX;
+            const needY = Math.sqrt(Math.max(0, clear * clear - sepX * sepX)) - sepY;
+            if (dirX === 1) {
+                editor.x += needX; // slide right (natural)
+            } else if (needY <= needX) {
+                editor.y += dirY * needY;
+            } else {
+                editor.x += dirX * needX;
+            }
+        }
+    }
+    clampEditor();
+    p.style.left = editor.x + "px";
+    p.style.top = editor.y + "px";
+    saveEditor();
 }
 
 // ── IO ──
@@ -667,6 +747,21 @@ export function init() {
         if ((e.metaKey || e.ctrlKey) && e.key === "z") {
             e.preventDefault();
             if (undo()) redraw();
+            return;
+        }
+        const inField = /^(INPUT|TEXTAREA|SELECT)$/.test(
+            (e.target && e.target.tagName) || "",
+        );
+        if (inField || !state.cursor) return;
+        const moves = {
+            ArrowUp: [-1, 0],
+            ArrowDown: [1, 0],
+            ArrowLeft: [0, -1],
+            ArrowRight: [0, 1],
+        };
+        if (moves[e.key]) {
+            e.preventDefault();
+            moveCursor(moves[e.key][0], moves[e.key][1]);
         }
     });
     markColor();
