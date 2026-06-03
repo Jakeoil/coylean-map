@@ -232,6 +232,13 @@ function buildOrient() {
             state.curV ^= 1;
             orientChanged();
         }),
+        // Seniority is the V/H ladder: toggling jumps to the sibling rung
+        // (V_n ↔ H_n at the same order).
+        mk("senBtn", () => {
+            view.z = zoomForRung((curK < 0 ? rungForZoom(view.z) : curK) ^ 1);
+            clampView();
+            redraw();
+        }),
     );
     const label = el("div", "orient-label");
     label.id = "orientLabel";
@@ -248,6 +255,7 @@ function quadrantLabel() {
 function syncOrient() {
     $("longBtn").textContent = `Long ${state.curH}`;
     $("latBtn").textContent = `Lat ${state.curV}`;
+    $("senBtn").textContent = `Sen ${state.seniorityH ? "H" : "V"}`;
     $("orientLabel").textContent = `${quadrantLabel()} · ${
         state.seniorityH ? "H" : "V"
     }`;
