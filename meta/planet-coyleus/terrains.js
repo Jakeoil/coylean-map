@@ -39,6 +39,9 @@ const state = {
     // cage cursor: a unit-square point {ux,uy} (the selected cage's centre). R,C
     // are derived per rung, so the selection keeps its spatial place across orders.
     cursor: null,
+    // anonymous selection: a specific glyph {grid,d,r} with no map location
+    // (shift-right-click a child in the editor). Takes precedence over cursor.
+    member: null,
     color: TERRAINS[0].stops[2].hex, // a mid water stop to start
     curH: 1, // longitude anchor (0/1)
     curV: 1, // latitude anchor (0/1)
@@ -61,8 +64,10 @@ function letterAtCursor() {
     return orbitLetterOf(lastRung.grid, d, r);
 }
 
-// The glyph shown in the editor: the cage under the cursor, else the orbit's rep.
+// The glyph shown in the editor: an anonymous member if set, else the cage under
+// the cursor, else the orbit's rep.
 function focusGlyphNow() {
+    if (state.member) return state.member;
     if (state.cursor && lastRung) {
         const { R, C } = cursorRC(lastRung);
         const [d, r] = lastRung.codes[R][C];
@@ -216,9 +221,14 @@ function cellIndexFromEvent(canvas, e) {
 // ── paint-by-drag: hold to paint many cells (left) / erase (right) ──
 // `hit(e)` returns { grid, d, r, idx } or null for the canvas it's bound to.
 let painting = null; // { hit, erase, lastKey }
-function bindPaint(canvas, hit) {
+function bindPaint(canvas, hit, onSelect) {
     canvas.addEventListener("mousedown", (e) => {
         if (e.button !== 0 && e.button !== 2) return;
+        if (e.shiftKey && e.button === 2 && onSelect) {
+            const h = hit(e); // shift-right-click = select this glyph to edit
+            if (h) onSelect(h);
+            return;
+        }
         if (e.shiftKey && e.button === 0) {
             const h = hit(e); // shift-click = eyedropper
             if (h) pickColor(h);
@@ -228,6 +238,15 @@ function bindPaint(canvas, hit) {
         paintMove(e);
     });
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+}
+
+// Make a glyph the editor focus with no map location (anonymous).
+function selectMember(grid, d, r) {
+    state.member = { grid, d, r };
+    state.cursor = null;
+    const L = orbitLetterOf(grid, d, r);
+    if (L) state.letter = L;
+    redraw();
 }
 
 // Eyedropper: adopt the clicked cell's current color as the paint color (null →
@@ -277,6 +296,7 @@ function buildPalette() {
         wrap.addEventListener("click", () => {
             state.letter = letter;
             state.cursor = null; // orbit chosen from the palette → show its rep
+            state.member = null;
             showEditor();
             redraw();
         });
@@ -466,15 +486,22 @@ function rebuildPanels() {
     fbox.appendChild(fc);
     focusCanvas = fc;
     renderGlyph(fc, f.grid, f.d, f.r, tag);
-    // heading: tag · code · order/seniority · [cage row : col]
-    let head = `${tag} ${f.grid}${f.d}${f.r} ${rungLabel(curK < 0 ? 0 : curK)}`;
-    if (state.cursor && lastRung) {
-        const { R, C } = cursorRC(lastRung);
-        head += ` [r${R}:c${C}]`;
+    // heading: tag · code · order/seniority · [cage row : col] — or "—" if the
+    // focus is an anonymous member (shift-right-clicked child, no map location).
+    let head = `${tag} ${f.grid}${f.d}${f.r}`;
+    if (state.member) {
+        head += " —";
+    } else {
+        head += ` ${rungLabel(curK < 0 ? 0 : curK)}`;
+        if (state.cursor && lastRung) {
+            const { R, C } = cursorRC(lastRung);
+            head += ` [r${R}:c${C}]`;
+        }
     }
     $("focus-label").textContent = head;
-    $("subs-h2").textContent = state.seniorityH ? "h→2v" : "v→2h";
-    $("trans-h2").textContent = state.seniorityH ? "h→4h" : "v→4v";
+    const fH = f.grid === "H"; // titles follow the focus glyph's own seniority
+    $("subs-h2").textContent = fH ? "h→2v" : "v→2h";
+    $("trans-h2").textContent = fH ? "h→4h" : "v→4v";
 
     subsLayoutCur = subLayout(f);
     transLayoutCur = transLayout(f);
@@ -491,7 +518,11 @@ function buildComposite(boxId, layout) {
     canvas.height = h;
     canvas.style.width = w + "px";
     canvas.style.height = h + "px";
-    bindPaint(canvas, (e) => compositeHit(canvas, layout, e));
+    bindPaint(
+        canvas,
+        (e) => compositeHit(canvas, layout, e),
+        (h) => selectMember(h.grid, h.d, h.r),
+    );
     const box = $(boxId);
     box.innerHTML = "";
     box.appendChild(canvas);
@@ -644,6 +675,7 @@ function bindQuadrant() {
 // on-screen, and re-places the floating panel relative to the cage.
 function setCursorRC(R, C) {
     if (!lastRung) return;
+    state.member = null; // a map selection drops any anonymous one
     R = Math.max(0, Math.min(lastRung.NSr - 1, R));
     C = Math.max(0, Math.min(lastRung.NSc - 1, C));
     state.cursor = { ux: (C + 0.5) / lastRung.NSc, uy: (R + 0.5) / lastRung.NSr };
