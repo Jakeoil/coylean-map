@@ -234,11 +234,61 @@
                 display: none;
             }
 
-            /* stage */
-            #focus-label {
-                font-size: 0.8rem;
+            /* floating editor panel */
+            #editor-panel {
+                position: fixed;
+                z-index: 50;
+                background: var(--panel);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+            }
+            #editor-panel[hidden] {
+                display: none;
+            }
+            #editor-bar {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                padding: 6px 6px 6px 12px;
+                cursor: move;
+                user-select: none;
+                background: var(--panel-2);
+                border-bottom: 1px solid var(--border);
+                border-radius: 8px 8px 0 0;
+            }
+            #editor-bar #focus-label {
                 color: var(--accent);
-                margin-bottom: 6px;
+                font-size: 0.82rem;
+            }
+            .editor-controls {
+                display: flex;
+                gap: 2px;
+            }
+            .editor-controls button {
+                background: transparent;
+                border: none;
+                color: var(--muted);
+                cursor: pointer;
+                font-size: 0.9rem;
+                font-family: inherit;
+                line-height: 1;
+                padding: 3px 7px;
+                border-radius: 4px;
+            }
+            .editor-controls button:hover {
+                background: var(--border);
+                color: var(--ink);
+            }
+            #editor-body {
+                padding: 12px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            #editor-panel.collapsed #editor-body {
+                display: none;
             }
             #focus canvas {
                 border: 1px solid var(--border-2);
@@ -246,16 +296,9 @@
                 cursor: crosshair;
                 image-rendering: pixelated;
             }
-            .editor-row {
-                display: flex;
-                gap: 26px;
-                align-items: flex-start;
-                flex-wrap: wrap;
-                margin-bottom: 10px;
-            }
             .relatives {
                 display: flex;
-                gap: 30px;
+                gap: 22px;
             }
             #subs canvas,
             #trans canvas {
@@ -349,31 +392,40 @@
             </aside>
 
             <main class="stage">
-                <div class="editor-row">
-                    <div class="focus-col">
-                        <div id="focus-label"></div>
-                        <div id="focus"></div>
-                    </div>
-                    <div class="relatives">
-                        <div class="rel-group">
-                            <h2 id="subs-h2">Substitution · v→h (left | right)</h2>
-                            <div id="subs"></div>
-                        </div>
-                        <div class="rel-group">
-                            <h2 id="trans-h2">Translation · 4→1 (square + bars)</h2>
-                            <div id="trans"></div>
-                        </div>
-                    </div>
-                </div>
-
                 <h2>Quadrant</h2>
                 <div class="hint">
-                    scroll to zoom (walks the V/H ladder) · drag to pan · click
-                    to paint · right-click to erase
+                    scroll to zoom (walks the V/H ladder) · drag to pan · click a
+                    glyph to edit it
                 </div>
                 <div id="map-hud" class="hud"></div>
-                <canvas id="quadrant" width="700" height="700"></canvas>
+                <canvas id="quadrant" width="760" height="760"></canvas>
             </main>
+        </div>
+
+        <!-- floating, draggable editor: parent glyph + substitution + translation -->
+        <div id="editor-panel" hidden>
+            <div id="editor-bar">
+                <span id="focus-label"></span>
+                <span class="editor-controls">
+                    <button id="editor-collapse" type="button" title="collapse">
+                        ▾
+                    </button>
+                    <button id="editor-close" type="button" title="close">×</button>
+                </span>
+            </div>
+            <div id="editor-body">
+                <div id="focus"></div>
+                <div class="relatives">
+                    <div class="rel-group">
+                        <h2 id="subs-h2">Substitution · v→h (left | right)</h2>
+                        <div id="subs"></div>
+                    </div>
+                    <div class="rel-group">
+                        <h2 id="trans-h2">Translation · 4→1 (square + bars)</h2>
+                        <div id="trans"></div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <script type="module" src="./terrains.mjs"></script>

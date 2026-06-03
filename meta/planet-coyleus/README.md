@@ -228,13 +228,17 @@ relatives, ramps) → `terrain-render.js` (canvas) → `terrains.js` (controller
 every paint maps back to the orbit canonical so all occurrences and siblings
 update at once. **Undo** via button or ⌘/Ctrl-Z.
 
-**Editor gestures** (focus glyph + substitution/translation children):
-**drag** = paint cells, **right-drag** = erase, **shift-click** = eyedropper
-(adopt that cell's color). A paint-drag re-renders the canvases in place
-(`repaint`) so the dragged-on canvas isn't rebuilt mid-stroke. **The map is
-select-only**: a click loads that glyph into the editor — its oriented pattern,
-name (`letterTag`), and its own children — and painting in the editor updates
-every instance of the orbit on the map (colored fills under the line field).
+The editing cluster (focus glyph + substitution + translation) is a **floating,
+draggable panel** that **pops up at the map-click** (unless the click is already
+under it), with a title-bar drag handle, collapse, and close; its position +
+collapsed state persist in `localStorage`. The grouped layout transposes on V↔H.
+
+**Editor gestures**: **drag** = paint cells, **right-drag** = erase,
+**shift-click** = eyedropper (adopt that cell's color). A paint-drag re-renders
+the canvases in place (`repaint`) so the dragged-on canvas isn't rebuilt
+mid-stroke. **The map is select-only**: a click loads that glyph into the panel —
+its oriented pattern, name (`letterTag`), and its own children — and painting
+updates every instance of the orbit on the map (colored fills under the lines).
 
 The relatives render structurally: the **substitution** is the substitution
 pair with its bar — `left | right` (v→h) under V, `top / bottom` (h→v) under H;

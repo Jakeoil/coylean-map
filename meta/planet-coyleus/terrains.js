@@ -31,7 +31,7 @@ import {
     setTheme,
 } from "./terrain-render.js";
 
-const SIZES = { focus: 300, sub: 100, trans: 88, bar: 7 };
+const SIZES = { focus: 240, sub: 92, trans: 84, bar: 6 };
 
 const state = {
     letter: LETTERS[0],
@@ -72,6 +72,78 @@ function zoomForRung(k) {
 function applyTheme() {
     document.body.classList.toggle("dark", !state.light);
     setTheme(state.light);
+}
+
+// ── floating editor panel: position / drag / collapse / persist ──
+const EDITOR_KEY = "planet-coyleus.editor";
+const editor = (() => {
+    let saved = {};
+    try {
+        saved = JSON.parse(localStorage.getItem(EDITOR_KEY)) || {};
+    } catch (e) {
+        /* no storage */
+    }
+    return Object.assign({ x: null, y: null, collapsed: false }, saved);
+})();
+function saveEditor() {
+    try {
+        localStorage.setItem(EDITOR_KEY, JSON.stringify(editor));
+    } catch (e) {
+        /* no storage */
+    }
+}
+function clampEditor() {
+    editor.x = Math.max(4, Math.min((window.innerWidth || 1200) - 60, editor.x));
+    editor.y = Math.max(4, Math.min((window.innerHeight || 800) - 40, editor.y));
+}
+function placeEditor() {
+    const p = $("editor-panel");
+    if (editor.x == null) {
+        editor.x = Math.max(20, (window.innerWidth || 1200) - 440);
+        editor.y = 96;
+    }
+    clampEditor();
+    p.style.left = editor.x + "px";
+    p.style.top = editor.y + "px";
+    p.classList.toggle("collapsed", editor.collapsed);
+    $("editor-collapse").textContent = editor.collapsed ? "▸" : "▾";
+}
+function showEditor() {
+    $("editor-panel").hidden = false;
+    placeEditor();
+}
+function bindEditor() {
+    const bar = $("editor-bar");
+    let d = null;
+    bar.addEventListener("mousedown", (e) => {
+        if (e.target.closest && e.target.closest("button")) return;
+        d = { x: e.clientX, y: e.clientY, ex: editor.x, ey: editor.y };
+        e.preventDefault();
+    });
+    window.addEventListener("mousemove", (e) => {
+        if (!d) return;
+        editor.x = d.ex + (e.clientX - d.x);
+        editor.y = d.ey + (e.clientY - d.y);
+        clampEditor();
+        const p = $("editor-panel");
+        p.style.left = editor.x + "px";
+        p.style.top = editor.y + "px";
+    });
+    window.addEventListener("mouseup", () => {
+        if (d) {
+            d = null;
+            saveEditor();
+        }
+    });
+    $("editor-collapse").addEventListener("click", () => {
+        editor.collapsed = !editor.collapsed;
+        $("editor-panel").classList.toggle("collapsed", editor.collapsed);
+        $("editor-collapse").textContent = editor.collapsed ? "▸" : "▾";
+        saveEditor();
+    });
+    $("editor-close").addEventListener("click", () => {
+        $("editor-panel").hidden = true;
+    });
 }
 
 const $ = (id) => document.getElementById(id);
@@ -156,6 +228,7 @@ function buildPalette() {
         wrap.addEventListener("click", () => {
             state.letter = letter;
             state.member = null; // orbit chosen → show its rep
+            showEditor();
             redraw();
         });
         box.appendChild(wrap);
@@ -499,19 +572,35 @@ function bindQuadrant() {
     window.addEventListener("mouseup", (e) => {
         if (drag && !drag.moved && lastRung) {
             const h = quadrantHit(canvas, lastRung, view, e);
-            if (h) selectGlyph(h.grid, h.d, h.r); // select, don't paint
+            if (h) selectGlyph(h.grid, h.d, h.r, e.clientX, e.clientY);
         }
         drag = null;
     });
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 
-// Clicking the map loads that glyph into the editor (its oriented pattern + name
-// + children); painting happens there, and every instance updates via redraw.
-function selectGlyph(grid, d, r) {
+// Clicking the map loads that glyph into the floating editor (its oriented
+// pattern + name + children). The panel pops up at the click, unless the click
+// is already under the parked panel (then it stays put). Painting happens in the
+// panel; every instance updates via redraw.
+function selectGlyph(grid, d, r, clientX, clientY) {
     state.member = { grid, d, r };
     const L = orbitLetterOf(grid, d, r);
     if (L) state.letter = L;
+    const p = $("editor-panel");
+    let move = clientX != null;
+    if (move && !p.hidden) {
+        const b = p.getBoundingClientRect();
+        const under =
+            clientX >= b.left && clientX <= b.right && clientY >= b.top && clientY <= b.bottom;
+        if (under) move = false;
+    }
+    if (move) {
+        editor.x = clientX + 14;
+        editor.y = clientY + 14;
+    }
+    showEditor();
+    saveEditor();
     redraw();
 }
 
@@ -566,6 +655,7 @@ export function init() {
     buildOrder();
     buildIO();
     bindQuadrant();
+    bindEditor();
     // paint-drag across the editor canvases
     window.addEventListener("mousemove", (e) => {
         if (painting) paintMove(e);
@@ -582,4 +672,5 @@ export function init() {
     markColor();
     clampView();
     redraw();
+    showEditor(); // panel visible from the start at its remembered position
 }
