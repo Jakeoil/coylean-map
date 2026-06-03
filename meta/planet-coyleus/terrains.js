@@ -74,17 +74,46 @@ function focusGlyphNow() {
 // ── quadrant view: centre (cx,cy) in unit-square [0,1]², z = px per unit ──
 const view = { cx: 0.5, cy: 0.5, z: 640 };
 const TARGET = 42; // aimed-for section size (px) — picks the LOD rung
-let curK = -1; // current ladder rung index (so seniority changes are detected)
+let curK = -1; // the DISPLAYED ladder rung (decoupled from raw zoom by the clutch)
+let renderedK = -1; // last rung the panels were built for (change detection)
+let lastRoundL = null; // last rounded ladder position (for the shift clutch)
 let hover = null; // { grid, d, r, R, C, idx } under the cursor
 let lastRung = null; // last rendered rung data (for hit-testing)
 
-// Section area halves each half-step (one axis doubles), so the rung index is
-// ~2·log2(z/TARGET) − 4; inverse jumps the zoom onto a given rung.
-function rungForZoom(z) {
-    return Math.max(0, Math.min(LADDER_RUNGS - 1, Math.round(2 * Math.log2(z / TARGET) - 4)));
+const LADDER_LEASH = 2; // shift-clutch slack: one full order (= 2 rungs)
+const clampK = (k) => Math.max(0, Math.min(LADDER_RUNGS - 1, k));
+
+// Continuous ladder position from zoom (section area halves each half-step).
+function ladderPos() {
+    return 2 * Math.log2(view.z / TARGET) - 4;
 }
 function zoomForRung(k) {
     return TARGET * 2 ** ((k + 4) / 2);
+}
+
+// Update the displayed rung after a zoom. Without shift it snaps to the zoom,
+// re-syncing whenever a normal threshold is crossed. With shift the rung is held
+// — it lags the zoom on a one-order leash, sticky both ways — and that offset
+// persists until a no-shift threshold crossing corrects it.
+function updateRung(shiftHeld) {
+    const L = ladderPos();
+    const roundL = Math.round(L);
+    if (lastRoundL == null) {
+        curK = clampK(roundL);
+    } else if (shiftHeld) {
+        if (L > curK + LADDER_LEASH) curK = clampK(Math.round(L - LADDER_LEASH));
+        else if (L < curK - LADDER_LEASH) curK = clampK(Math.round(L + LADDER_LEASH));
+        // else hold the rung — the clutch slips
+    } else if (roundL !== lastRoundL) {
+        curK = clampK(roundL); // crossed a normal threshold → re-sync
+    }
+    lastRoundL = roundL;
+}
+// Jump the rung to k at its ideal zoom (Order / Sen buttons).
+function jumpToRung(k) {
+    curK = clampK(k);
+    view.z = zoomForRung(curK);
+    lastRoundL = Math.round(ladderPos());
 }
 
 // Apply the active theme to both the CSS chrome (body class) and the canvas
@@ -328,7 +357,7 @@ function buildOrient() {
         // Seniority is the V/H ladder: toggling jumps to the sibling rung
         // (V_n ↔ H_n at the same order).
         mk("senBtn", () => {
-            view.z = zoomForRung((curK < 0 ? rungForZoom(view.z) : curK) ^ 1);
+            jumpToRung(curK ^ 1);
             clampView();
             redraw();
         }),
@@ -369,7 +398,7 @@ function buildOrder() {
         b.dataset.k = k;
         b.textContent = rungLabel(k);
         b.addEventListener("click", () => {
-            view.z = zoomForRung(k);
+            jumpToRung(k);
             clampView();
             redraw();
         });
@@ -497,9 +526,9 @@ function refreshPanels() {
 // Resolve the current rung from the zoom; if it changed, the seniority flips —
 // update the panels (focus/relatives/palette all follow the rung).
 function syncRung() {
-    const r = rungAt(rungForZoom(view.z));
-    if (r.k !== curK) {
-        curK = r.k;
+    const r = rungAt(curK);
+    if (curK !== renderedK) {
+        renderedK = curK;
         state.seniorityH = r.seniorityH;
         // update lastRung to the new rung first, so the cursor re-derives its
         // (R,C) on the new order and the panels read the right glyph.
@@ -568,8 +597,12 @@ function bindQuadrant() {
         const my = (e.clientY - rect.top) * (canvas.height / rect.height);
         const uxAt = view.cx + (mx - canvas.width / 2) / view.z;
         const uyAt = view.cy + (my - canvas.height / 2) / view.z;
-        view.z *= Math.exp(-e.deltaY * 0.0016);
+        // Shift can remap the wheel to the X axis (macOS), so take whichever
+        // axis carries the scroll — otherwise shift+wheel never zooms.
+        const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+        view.z *= Math.exp(-delta * 0.0016);
         clampZoom();
+        updateRung(e.shiftKey); // shift slips the clutch (rung lags the zoom)
         view.cx = uxAt - (mx - canvas.width / 2) / view.z;
         view.cy = uyAt - (my - canvas.height / 2) / view.z;
         clampView();
@@ -766,6 +799,7 @@ export function init() {
     });
     markColor();
     clampView();
+    updateRung(false); // seed the displayed rung from the initial zoom
     redraw();
     showEditor(); // panel visible from the start at its remembered position
 }
