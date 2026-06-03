@@ -162,6 +162,32 @@
         }
         .heart-row { color: var(--rose); letter-spacing: .5em; font-size: 1.1rem; margin-top: 1.6rem; }
         .tiny { margin-top: 2.6rem; font-size: .95rem; font-style: italic; color: var(--rose-deep); opacity: .8; }
+
+        /* switchable 16×16 map overlay (additive — page is otherwise unchanged) */
+        .patch-toggle-input { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
+        .patch-overlay {
+            position: absolute;
+            top: 16px; left: 16px;
+            width: calc(100% - 32px);
+            height: auto;
+            opacity: 0;
+            transition: opacity .5s ease;
+            pointer-events: none;
+        }
+        .patch-toggle-input:checked ~ .patch-overlay { opacity: 1; }
+        .patch-toggle {
+            display: inline-block;
+            margin-top: 1.5rem;
+            font-family: 'Parisienne', cursive;
+            font-size: 1.35rem;
+            color: var(--rose-deep);
+            cursor: pointer;
+            user-select: none;
+            border-bottom: 1px dotted var(--rose);
+            padding-bottom: 1px;
+            transition: color .2s;
+        }
+        .patch-toggle:hover { color: var(--wine); }
     </style>
 </head>
 <body>
@@ -197,10 +223,15 @@
             <span class="corner bl">♥</span>
             <span class="corner br">♥</span>
             <div class="mat">
+                <input type="checkbox" id="patch-toggle" class="patch-toggle-input" />
                 <img src="coylean-quilt.MP.jpg"
                      alt="A handmade quilt of the Coylean map, sewn by my wife." />
+                <img src="coylean-quilt-overlay.png" class="patch-overlay"
+                     alt="The 16×16 Coylean map drawn over the quilt's patches." />
             </div>
         </figure>
+
+        <label for="patch-toggle" class="patch-toggle">show the 16×16 map ♥</label>
 
         <div class="dedication">
             <p class="lead">
