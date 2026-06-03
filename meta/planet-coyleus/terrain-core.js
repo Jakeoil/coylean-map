@@ -266,32 +266,55 @@ export function translationOf(letter, seniorityH) {
     };
 }
 
-// ── universe patch at a quadrant anchor + seniority, sectioned into glyphs ──
-// Anchor offsets curHInit (long) / curVInit (lat) ∈ {0,1} are the four quadrant
-// anchors (validated 12-orbit clean in test/quadrants.mjs). `order` → 2^order
-// cells per axis. Returns { codes, NSr, NSc, grid }.
-export function mapPatch(order, seniorityH, curH, curV) {
+// ── the quadrant map at a V/H ladder rung, sectioned into glyphs ──
+// A rung is (order, seniority). V_n is the 2ⁿ×2ⁿ square; H_n is the WIDE v→h
+// intermediate 2ⁿ×2ⁿ⁺¹ (columns doubled). Anchor offsets curHInit (long) /
+// curVInit (lat) ∈ {0,1} are the four quadrant anchors. Validated on-anchor &
+// paintable for every rung in test/ladder.mjs. Cached per (order,sen,h,v).
+const rungCache = new Map();
+export function rungMap(order, seniorityH, curH, curV) {
+    const ck = `${order},${seniorityH ? 1 : 0},${curH},${curV}`;
+    let cached = rungCache.get(ck);
+    if (cached) return cached;
     setOffset(curH, curV);
-    const N = 1 << order;
-    const m = computeMapModel(N, N, { seniority: seniorityH ? H : V });
-    // Cage-wall valuation at each interior section boundary: the wall west of
-    // section sc sits on cell line firstDarkCol + sc·SEC; its colPriority (2-adic
-    // valuation) is how outer the cage is → heavier line. Likewise rows.
-    const SEC = 4;
-    const vWalls = new Array(m.NSc).fill(0);
-    for (let sc = 1; sc < m.NSc; sc++)
-        vWalls[sc] = m.colPriority[m.firstDarkCol + sc * SEC] || 0;
-    const hWalls = new Array(m.NSr).fill(0);
-    for (let sr = 1; sr < m.NSr; sr++)
-        hWalls[sr] = m.rowPriority[m.firstDarkRow + sr * SEC] || 0;
-    return {
+    const Nr = 1 << order;
+    const Nc = seniorityH ? 1 << (order + 1) : 1 << order;
+    const m = computeMapModel(Nr, Nc, { seniority: seniorityH ? H : V });
+    // The Coylean map itself: the full down/right line field plus per-line 2-adic
+    // priority (→ line thickness; cage walls are just the high-priority lines).
+    // secCodes/NSr/NSc/grid stay for glyph hit-testing. firstDark* place the
+    // section lattice; Mr/Mc are the cell-grid dimensions.
+    cached = {
+        order,
+        seniorityH,
+        grid: seniorityH ? "H" : "V",
         codes: m.secCodes,
         NSr: m.NSr,
         NSc: m.NSc,
-        grid: seniorityH ? "H" : "V",
-        vWalls,
-        hWalls,
+        SEC: 4,
+        downMatrix: m.downMatrix,
+        rightMatrix: m.rightMatrix,
+        colPriority: m.colPriority,
+        rowPriority: m.rowPriority,
+        firstDarkCol: m.firstDarkCol,
+        firstDarkRow: m.firstDarkRow,
+        Mr: m.numRows,
+        Mc: m.numColumns,
     };
+    rungCache.set(ck, cached);
+    return cached;
+}
+
+// ── the V/H ladder: rung index k → (order, seniority), and labels ──
+export const LADDER_ORDER0 = 4; // k=0 is V4
+export const LADDER_RUNGS = 12; // V4,H4,V5,H5,…,V9,H9
+export function rungAt(k) {
+    const i = Math.max(0, Math.min(LADDER_RUNGS - 1, Math.round(k)));
+    return { k: i, order: LADDER_ORDER0 + (i >> 1), seniorityH: (i & 1) === 1 };
+}
+export function rungLabel(k) {
+    const r = rungAt(k);
+    return r.order + (r.seniorityH ? "h" : "");
 }
 
 // ── scheme IO ──

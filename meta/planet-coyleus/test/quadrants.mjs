@@ -15,7 +15,7 @@ import {
     focusGlyph,
     substitutionOf,
     translationOf,
-    mapPatch,
+    rungMap,
     paintCell,
 } from "../terrain-core.js";
 
@@ -36,7 +36,7 @@ const QUADS = [
 ];
 for (const senH of [false, true]) {
     for (const [h, v, name] of QUADS) {
-        const patch = mapPatch(6, senH, h, v);
+        const patch = rungMap(6, senH, h, v);
         let bad = 0;
         const letters = new Set();
         for (let sr = 0; sr < patch.NSr; sr++)

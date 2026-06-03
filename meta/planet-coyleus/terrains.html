@@ -258,28 +258,45 @@
                 cursor: crosshair;
                 image-rendering: pixelated;
             }
-            .maps {
-                display: flex;
-                gap: 20px;
-                flex-wrap: wrap;
-                align-items: flex-start;
+            #order {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 5px;
             }
-            .map-wrap {
-                display: flex;
-                flex-direction: column;
-            }
-            .map-label {
-                font-size: 0.72rem;
-                color: var(--muted-2);
-                margin-bottom: 5px;
-            }
-            .map canvas {
+            .rung-btn {
+                background: var(--panel-2);
                 border: 1px solid var(--border-2);
-                border-radius: 4px;
+                color: var(--chip-ink);
+                border-radius: 5px;
+                padding: 5px 0;
+                font-family: inherit;
+                font-size: 0.74rem;
+                cursor: pointer;
+            }
+            .rung-btn:hover {
+                background: var(--border);
+            }
+            .rung-btn.on {
+                border-color: var(--accent);
+                color: var(--accent);
+            }
+            .hud {
+                font-size: 0.72rem;
+                color: var(--muted);
+                margin-bottom: 6px;
+                min-height: 1em;
+                font-variant-numeric: tabular-nums;
+            }
+            #quadrant {
+                border: 1px solid var(--border-2);
+                border-radius: 6px;
                 cursor: crosshair;
-                image-rendering: pixelated;
-                width: 384px;
-                height: 384px;
+                display: block;
+                width: 700px;
+                height: 700px;
+                max-width: 100%;
+                touch-action: none;
+                background: var(--panel);
             }
             .hint {
                 font-size: 0.72rem;
@@ -298,8 +315,11 @@
                     Dark mode
                 </label>
 
-                <h2>Orientation — anchor (lat/long) &amp; seniority</h2>
+                <h2>Orientation — quadrant anchor</h2>
                 <div id="orient"></div>
+
+                <h2>Order — V/H ladder</h2>
+                <div id="order"></div>
 
                 <h2>Glyphs</h2>
                 <div id="palette"></div>
@@ -337,21 +357,13 @@
                     </div>
                 </div>
 
-                <h2>Universe patch</h2>
+                <h2>Quadrant</h2>
                 <div class="hint">
-                    anchor map, two orders · click to paint · right-click to
-                    erase
+                    scroll to zoom (walks the V/H ladder) · drag to pan · click
+                    to paint · right-click to erase
                 </div>
-                <div class="maps">
-                    <div class="map-wrap map">
-                        <span class="map-label" id="patch-label">order 6</span>
-                        <canvas id="patch" width="512" height="512"></canvas>
-                    </div>
-                    <div class="map-wrap map">
-                        <span class="map-label" id="patch2-label">order 7</span>
-                        <canvas id="patch2" width="512" height="512"></canvas>
-                    </div>
-                </div>
+                <div id="map-hud" class="hud"></div>
+                <canvas id="quadrant" width="700" height="700"></canvas>
             </main>
         </div>
 

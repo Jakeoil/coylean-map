@@ -79,17 +79,36 @@ canonicalCode: "d,r", cells: [16 hex] } } }`, where `<letter>` is the
 included — are never stored; they're derived by the orbit rules. Survives
 reloads, can be committed as named planets.
 
-## The map view — borrow from `superglyphs/universe`
+## The Quadrant map — one zoomable Coylean map, the V/H ladder is the zoom
 
-The zoomable planet is the same machine as `meta/superglyphs/universe.html` /
-`universe.mjs`: **O(order) address descent**, no propagation, LOD that draws
-real glyph detail when zoomed in and coarse swatches when zoomed out, signed
-centred ("faked") coordinates over a 0-based propagation grid. Here the LOD draws
-**colored cells** instead of arrows. Don't re-derive a map engine — lift that
-descent + LOD and swap the per-cell draw for a palette lookup. The four quadrants
-are all anchor offsets, so the whole default view qualifies for descent.
+The map is **one** pan/zoom canvas (`drawQuadrant`), modeled on
+`superglyphs/universe.html` but built on direct `computeMapModel` per rung (the
+palette alphabet closes at 12 orbits, so deep descent isn't needed — see
+`test/ladder.mjs`).
+
+- **Zoom walks the V/H ladder.** A rung is `(order, seniority)`: `V_n` (2ⁿ×2ⁿ
+  square), `H_n` (2ⁿ×2ⁿ⁺¹ wide, the v→h intermediate), `V_{n+1}`, … Each rung's
+  `NSr×NSc` section grid maps onto the same unit square `[0,1]²`, so a V glyph's
+  screen rect is exactly tiled by its 2 H children (left|right), then each by 2 V
+  grandchildren (top/bottom). The **alternating zoom falls out for free** — H
+  rungs draw half-width cells, the footprint stays square; no anisotropic code.
+  LOD picks the rung from zoom (`k ≈ 2·log2(z/TARGET) − 4`). The sidebar **Order**
+  list jumps to a rung.
+- **Seniority is the rung.** Crossing a half-step flips the global seniority, so
+  the focus / relatives / palette all follow the rung you're looking at. (The
+  `Sen` button folded into the ladder; Orientation is just the quadrant anchor.)
+- **The map is only the Coylean line field.** No cell fills, no swatches, no
+  separate cage-wall overlay — just the map's own down/right lines, each scaled by
+  its **2-adic priority** so the cage hierarchy reads as **various thicknesses**
+  (thin interior arrows → heavy cage walls; capped at p=6). Sub-pixel lines are
+  skipped, giving a natural LOD (zoomed out → only thick walls; zoomed in → full
+  arrow field). Coloring shows in the focus/relatives editors; **hover** maps a
+  cell to its glyph (HUD `letter+op` tag), **click**/right-click paint/erase that
+  orbit.
 
 ### The coarse-swatch constraint (turtles all the way down)
+
+(Relevant once colors fill the map; the current map is lines-only.)
 
 The map is a substitution fixed point, so **a colored cell at zoom _N_ is the
 coarse swatch of a whole colored glyph at zoom _N+1_** — which is itself 16
@@ -181,6 +200,11 @@ single painted canonical generates by D4.
 
 - **Which orbit → which biome.** No principled mapping yet; that's the point of
   exploring (cells start blank — you do the assignments).
+- **Zoom flips global seniority.** Crossing a half-step rung swaps focus /
+  relatives / palette V↔H. Intended (the tool tracks the rung), but if it reads
+  as jarring, the alternative is to flip seniority only on explicit Order clicks.
+- **Colors on the map.** The Quadrant is lines-only now; filling cells behind the
+  lines (the coarse-swatch constraint above) is a deferred option.
 
 ## Pointers
 
@@ -191,8 +215,9 @@ single painted canonical generates by D4.
 - Zoomable-map reference: `meta/superglyphs/universe.html` / `universe.mjs`.
 - OKLCH helper + ramp idiom: `meta/4d/src/oklch-ramps.js`, `meta/oklch.html`.
 - Node checks (Node-importable, no canvas): `test/` — `orbits-12.mjs` (12-key
-  palette shape), `cell-d4.mjs` (the verified 16-cell `CELL_PERM`), and
-  `quadrants.mjs` (four quadrant anchors × V/H all on-anchor & paintable). Keep
+  palette shape), `cell-d4.mjs` (the verified 16-cell `CELL_PERM`),
+  `quadrants.mjs` (four quadrant anchors × V/H on-anchor & paintable), and
+  `ladder.mjs` (every V/H ladder rung, incl. the wide-H intermediates). Keep
   new exploratory checks here.
 
 ## Prototype
@@ -208,19 +233,20 @@ with the button or ⌘/Ctrl-Z.
 The relatives render structurally: the **substitution** is the substitution
 pair with its bar — `left | right` (v→h) under V, `top / bottom` (h→v) under H;
 the **translation** is the 2×2 `NW NE / SW SE` square with its cage-wall bars
-(`vTop vBot hLeft hRight`, drawn in the accent color). Two **universe patches**
-sit side by side — order 6 and order 7, one cage level apart — both showing the
-v/h lines, so the self-similar zoom reads directly.
+(`vTop vBot hLeft hRight`). The focus glyph shows its **letter + operation**
+(`letterTag`, ops `0123/\-|`, e.g. `F/`, `H13 → F2`), matching the V/H grids on
+`glyphs/index.html`.
 
-**Orientation control** (sidebar, modeled on `coylean-globe`): `Long`/`Lat`
-toggle the anchor offset (curHInit/curVInit ∈ {0,1} — the four quadrant anchors
-**NW NE SW SE**), and `Sen` toggles **V/H seniority**. Changing seniority swaps
-the whole displayed glyph set (focus rep, relatives, palette swatches, maps) to
-that grid; the quadrant re-tiles the maps. The **color config is one shared
-palette** — keyed per orbit in the V-rep frame, with H glyphs derived — so it
-rides through every quadrant and seniority unchanged (validated: all four
-quadrants × both seniorities are on-anchor, every section paintable —
-`test/quadrants.mjs`).
+**Orientation** (sidebar): `Long`/`Lat` toggle the quadrant anchor
+(curHInit/curVInit ∈ {0,1} — **NW NE SW SE**); seniority is the **Order** ladder,
+not a button. The **color config is one shared palette** — keyed per orbit in the
+V-rep frame, H glyphs derived — so it rides through every quadrant and seniority
+unchanged (validated: all rungs × all quadrants on-anchor & paintable,
+`test/ladder.mjs`).
 
-Schemes save/load as JSON. The maps are finite patches for now; full zoomable
-`universe`-style descent is the later swap-in.
+**Theme**: light default, `Dark mode` checkbox; the CSS chrome is variables and
+the drawn canvas neutrals follow via `setTheme`. Schemes save/load as JSON;
+**undo** via button or ⌘/Ctrl-Z.
+
+The map is finite per-rung `computeMapModel`; address-descent (for orders far
+past where the palette repeats) remains a later option.

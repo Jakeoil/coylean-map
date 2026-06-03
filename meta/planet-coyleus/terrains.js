@@ -10,7 +10,10 @@ import {
     letterTag,
     substitutionOf,
     translationOf,
-    mapPatch,
+    rungMap,
+    rungAt,
+    rungLabel,
+    LADDER_RUNGS,
     paintCell,
     undo,
     serialize,
@@ -18,16 +21,14 @@ import {
 } from "./terrain-core.js";
 import {
     renderGlyph,
-    renderPatch,
     drawComposite,
     compositeHit,
     compositeSize,
+    drawQuadrant,
+    quadrantHit,
     setTheme,
 } from "./terrain-render.js";
 
-// Two map orders side by side — the same region one cage level apart.
-const MAP_ORDERS = [6, 7];
-const MAP_IDS = ["patch", "patch2"];
 const SIZES = { focus: 300, sub: 100, trans: 88, bar: 7 };
 
 const state = {
@@ -35,25 +36,31 @@ const state = {
     color: TERRAINS[0].stops[2].hex, // a mid water stop to start
     curH: 1, // longitude anchor (0/1)
     curV: 1, // latitude anchor (0/1)
-    seniorityH: false, // false = V, true = H
+    seniorityH: false, // follows the current map rung
     light: true, // light theme is the default
 };
+
+// ── quadrant view: centre (cx,cy) in unit-square [0,1]², z = px per unit ──
+const view = { cx: 0.5, cy: 0.5, z: 640 };
+const TARGET = 42; // aimed-for section size (px) — picks the LOD rung
+let curK = -1; // current ladder rung index (so seniority changes are detected)
+let hover = null; // { grid, d, r, R, C, idx } under the cursor
+let lastRung = null; // last rendered rung data (for hit-testing)
+
+// Section area halves each half-step (one axis doubles), so the rung index is
+// ~2·log2(z/TARGET) − 4; inverse jumps the zoom onto a given rung.
+function rungForZoom(z) {
+    return Math.max(0, Math.min(LADDER_RUNGS - 1, Math.round(2 * Math.log2(z / TARGET) - 4)));
+}
+function zoomForRung(k) {
+    return TARGET * 2 ** ((k + 4) / 2);
+}
 
 // Apply the active theme to both the CSS chrome (body class) and the canvas
 // neutrals (terrain-render). Caller redraws afterward.
 function applyTheme() {
     document.body.classList.toggle("dark", !state.light);
     setTheme(state.light);
-}
-
-// Maps depend on the orientation; recompute on any anchor/seniority change.
-let maps = [];
-function rebuildMaps() {
-    maps = MAP_ORDERS.map((order, i) => ({
-        id: MAP_IDS[i],
-        order,
-        patch: mapPatch(order, state.seniorityH, state.curH, state.curV),
-    }));
 }
 
 const $ = (id) => document.getElementById(id);
@@ -165,7 +172,7 @@ function markColor() {
     });
 }
 
-// ── sidebar: orientation (anchor lat/long + seniority), like coylean-globe ──
+// ── sidebar: orientation (the quadrant anchor; seniority is the ladder) ──
 function buildOrient() {
     const box = $("orient");
     box.innerHTML = "";
@@ -185,10 +192,6 @@ function buildOrient() {
             state.curV ^= 1;
             orientChanged();
         }),
-        mk("senBtn", () => {
-            state.seniorityH = !state.seniorityH;
-            orientChanged();
-        }),
     );
     const label = el("div", "orient-label");
     label.id = "orientLabel";
@@ -205,17 +208,37 @@ function quadrantLabel() {
 function syncOrient() {
     $("longBtn").textContent = `Long ${state.curH}`;
     $("latBtn").textContent = `Lat ${state.curV}`;
-    $("senBtn").textContent = `Sen ${state.seniorityH ? "H" : "V"}`;
     $("orientLabel").textContent = `${quadrantLabel()} · ${
         state.seniorityH ? "H" : "V"
-    } seniority`;
+    }`;
 }
 
-// Anchor or seniority changed: relabel, rebuild the maps, redraw everything.
+// Quadrant anchor changed: relabel and re-render the map (relatives unaffected).
 function orientChanged() {
     syncOrient();
-    rebuildMaps();
     redraw();
+}
+
+// ── sidebar: order — the V/H ladder; clicking a rung jumps the zoom there ──
+function buildOrder() {
+    const box = $("order");
+    box.innerHTML = "";
+    for (let k = 0; k < LADDER_RUNGS; k++) {
+        const b = el("button", "rung-btn");
+        b.dataset.k = k;
+        b.textContent = rungLabel(k);
+        b.addEventListener("click", () => {
+            view.z = zoomForRung(k);
+            clampView();
+            redraw();
+        });
+        box.appendChild(b);
+    }
+}
+function syncOrder() {
+    document.querySelectorAll("#order .rung-btn").forEach((b) => {
+        b.classList.toggle("on", +b.dataset.k === curK);
+    });
 }
 
 // ── main panels ──
@@ -304,35 +327,127 @@ function onPaint(grid, d, r, idx, erase) {
     redraw();
 }
 
-// ── full redraw ──
-function redraw() {
-    // highlight current orbit + refresh palette swatches (in active seniority)
+// Palette swatches + focus/relatives, in the active seniority.
+function refreshPanels() {
     document.querySelectorAll("#palette .swatch").forEach((s) => {
         s.classList.toggle("on", s.dataset.letter === state.letter);
         const g = focusGlyph(s.dataset.letter, state.seniorityH);
         renderGlyph(s.querySelector("canvas"), g.grid, g.d, g.r);
     });
-    rebuildPanels(); // draws focus + the two composites
-    for (const m of maps) {
-        renderPatch($(m.id), m.patch, { lines: true });
-        $(m.id + "-label").textContent = `order ${m.order} · ${quadrantLabel()}`;
-    }
+    rebuildPanels();
 }
 
-// Paint (or erase) a cell of a map (click → section → code → cell).
-function paintMap(patch, canvas, e, erase) {
-    const rect = canvas.getBoundingClientRect();
-    const scale = canvas.width / rect.width;
-    const x = (e.clientX - rect.left) * scale;
-    const y = (e.clientY - rect.top) * scale;
-    const secPx = canvas.width / patch.NSc;
-    const sc = Math.min(patch.NSc - 1, Math.floor(x / secPx));
-    const sr = Math.min(patch.NSr - 1, Math.floor(y / secPx));
-    const cs = secPx / 4;
-    const j = Math.min(3, Math.floor((x - sc * secPx) / cs));
-    const i = Math.min(3, Math.floor((y - sr * secPx) / cs));
-    const [d, r] = patch.codes[sr][sc];
-    onPaint("V", d, r, i * 4 + j, erase);
+// Resolve the current rung from the zoom; if it changed, the seniority flips —
+// update the panels (focus/relatives/palette all follow the rung).
+function syncRung() {
+    const r = rungAt(rungForZoom(view.z));
+    if (r.k !== curK) {
+        curK = r.k;
+        state.seniorityH = r.seniorityH;
+        refreshPanels();
+        syncOrient();
+        syncOrder();
+    }
+    return r;
+}
+
+function renderMap() {
+    const r = syncRung();
+    lastRung = rungMap(r.order, r.seniorityH, state.curH, state.curV);
+    drawQuadrant($("quadrant"), lastRung, view, hover);
+    const tag = hover ? letterTag(hover.grid, hover.d, hover.r) : null;
+    $("map-hud").textContent =
+        `rung ${rungLabel(r.k)} · ${lastRung.NSr}×${lastRung.NSc} glyphs · ` +
+        quadrantLabel() +
+        (hover ? ` · ${tag || "·"} (${hover.grid}${hover.d}${hover.r})` : "");
+}
+
+// Full refresh (after paint / orbit select / theme / quadrant change).
+function redraw() {
+    refreshPanels();
+    renderMap();
+}
+
+function clampZoom() {
+    view.z = Math.max(zoomForRung(0), Math.min(zoomForRung(LADDER_RUNGS - 1) * 1.5, view.z));
+}
+function clampView() {
+    clampZoom();
+    const canvas = $("quadrant");
+    const hw = canvas.width / 2 / view.z;
+    const hh = canvas.height / 2 / view.z;
+    view.cx = 2 * hw >= 1 ? 0.5 : Math.max(hw, Math.min(1 - hw, view.cx));
+    view.cy = 2 * hh >= 1 ? 0.5 : Math.max(hh, Math.min(1 - hh, view.cy));
+}
+
+// Coalesce hover/pan renders to one per frame.
+const raf =
+    typeof requestAnimationFrame !== "undefined"
+        ? requestAnimationFrame
+        : (f) => f();
+let rafPending = false;
+function scheduleMap() {
+    if (rafPending) return;
+    rafPending = true;
+    raf(() => {
+        rafPending = false;
+        renderMap();
+    });
+}
+
+// ── quadrant interaction: wheel zoom, drag pan, hover, click/right-click paint ──
+let drag = null;
+function bindQuadrant() {
+    const canvas = $("quadrant");
+    canvas.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+        const uxAt = view.cx + (mx - canvas.width / 2) / view.z;
+        const uyAt = view.cy + (my - canvas.height / 2) / view.z;
+        view.z *= Math.exp(-e.deltaY * 0.0016);
+        clampZoom();
+        view.cx = uxAt - (mx - canvas.width / 2) / view.z;
+        view.cy = uyAt - (my - canvas.height / 2) / view.z;
+        clampView();
+        scheduleMap();
+    }, { passive: false });
+
+    canvas.addEventListener("mousedown", (e) => {
+        if (e.button === 2) return;
+        drag = { x: e.clientX, y: e.clientY, cx: view.cx, cy: view.cy, moved: false };
+    });
+    const hoverKey = (h) => (h ? `${h.R},${h.C},${h.idx}` : "");
+    window.addEventListener("mousemove", (e) => {
+        const prev = hoverKey(hover);
+        if (lastRung) hover = quadrantHit(canvas, lastRung, view, e);
+        if (drag) {
+            const rect = canvas.getBoundingClientRect();
+            const sc = canvas.width / rect.width;
+            view.cx = drag.cx - ((e.clientX - drag.x) * sc) / view.z;
+            view.cy = drag.cy - ((e.clientY - drag.y) * sc) / view.z;
+            if (Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) > 3)
+                drag.moved = true;
+            clampView();
+            scheduleMap();
+        } else if (hoverKey(hover) !== prev) {
+            scheduleMap(); // only re-render when the hovered section changes
+        }
+    });
+    window.addEventListener("mouseup", (e) => {
+        if (drag && !drag.moved && lastRung) {
+            const h = quadrantHit(canvas, lastRung, view, e);
+            if (h) onPaint(h.grid, h.d, h.r, h.idx, false);
+        }
+        drag = null;
+    });
+    canvas.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        if (!lastRung) return;
+        const h = quadrantHit(canvas, lastRung, view, e);
+        if (h) onPaint(h.grid, h.d, h.r, h.idx, true);
+    });
 }
 
 // ── IO ──
@@ -383,19 +498,9 @@ export function init() {
     buildPalette();
     buildColors();
     buildOrient();
+    buildOrder();
     buildIO();
-    for (const id of MAP_IDS) {
-        const canvas = $(id);
-        const patchFor = () => maps.find((m) => m.id === id).patch;
-        canvas.addEventListener("mousedown", (e) => {
-            if (e.button === 2) return;
-            paintMap(patchFor(), canvas, e, false);
-        });
-        canvas.addEventListener("contextmenu", (e) => {
-            e.preventDefault();
-            paintMap(patchFor(), canvas, e, true);
-        });
-    }
+    bindQuadrant();
     window.addEventListener("keydown", (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === "z") {
             e.preventDefault();
@@ -403,6 +508,6 @@ export function init() {
         }
     });
     markColor();
-    rebuildMaps();
+    clampView();
     redraw();
 }
