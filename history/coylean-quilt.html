@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Coylean Quilt ♥</title>
+    <link rel="icon" type="image/png" href="../map-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Great+Vibes&family=Parisienne&display=swap"
+        rel="stylesheet" />
+    <style>
+        :root {
+            --rose: #d98aa6;
+            --rose-deep: #b85c7e;
+            --wine: #7a2f49;
+            --gold: #caa14a;
+            --gold-soft: #e8cf8e;
+            --cream: #fff8f1;
+            --ink: #5b3a44;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            min-height: 100vh;
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            color: var(--ink);
+            background:
+                radial-gradient(1200px 700px at 50% -10%, #ffe9f0 0%, transparent 60%),
+                radial-gradient(900px 600px at 100% 110%, #f3e6ff 0%, transparent 55%),
+                linear-gradient(160deg, #fff5f7 0%, #fbe7ee 45%, #f6dbe6 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2.5rem 1.25rem 5rem;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* ── floating hearts ── */
+        .hearts { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+        .hearts span {
+            position: absolute;
+            bottom: -8vh;
+            font-size: 1.4rem;
+            line-height: 1;
+            animation: floatUp linear infinite;
+            will-change: transform, opacity;
+        }
+        @keyframes floatUp {
+            0%   { transform: translateY(0) rotate(0deg) scale(1);    opacity: 0; }
+            12%  { opacity: var(--o, .55); }
+            88%  { opacity: var(--o, .55); }
+            100% { transform: translateY(-118vh) translateX(var(--sway, 30px)) rotate(40deg) scale(.9); opacity: 0; }
+        }
+
+        .wrap { position: relative; z-index: 1; width: 100%; max-width: 760px; display: flex; flex-direction: column; align-items: center; }
+
+        .crumb {
+            font-family: Georgia, serif;
+            font-size: 0.9rem;
+            color: var(--rose-deep);
+            margin-bottom: 1.6rem;
+            letter-spacing: .02em;
+        }
+        .crumb a { color: var(--rose-deep); text-decoration: none; border-bottom: 1px dotted var(--rose); }
+        .crumb a:hover { color: var(--wine); }
+
+        .eyebrow {
+            font-family: 'Parisienne', cursive;
+            font-size: 1.5rem;
+            color: var(--rose-deep);
+            margin-bottom: -0.4rem;
+        }
+        h1 {
+            font-family: 'Great Vibes', cursive;
+            font-weight: 400;
+            font-size: clamp(3rem, 9vw, 5.2rem);
+            line-height: 1.05;
+            color: var(--wine);
+            text-shadow: 0 2px 0 #fff, 0 6px 18px rgba(122, 47, 73, .25);
+            text-align: center;
+        }
+        .flourish {
+            display: flex; align-items: center; gap: .9rem;
+            color: var(--gold);
+            font-size: 1.1rem;
+            margin: 0.9rem 0 1.8rem;
+            letter-spacing: .35em;
+        }
+        .flourish::before, .flourish::after {
+            content: ""; height: 1px; width: clamp(40px, 16vw, 130px);
+            background: linear-gradient(90deg, transparent, var(--gold-soft), transparent);
+        }
+
+        /* ── the framed quilt ── */
+        .frame {
+            position: relative;
+            padding: 22px;
+            border-radius: 8px;
+            background:
+                linear-gradient(135deg, #d8b25f, #f3e1a6 25%, #c79b3f 55%, #efd998 80%, #c79b3f);
+            box-shadow:
+                0 28px 70px rgba(122, 47, 73, .35),
+                0 6px 18px rgba(122, 47, 73, .25),
+                inset 0 0 0 1px rgba(255,255,255,.45),
+                inset 0 0 0 6px rgba(160,120,40,.25);
+            animation: rise 1.1s cubic-bezier(.2,.7,.2,1) both;
+        }
+        @keyframes rise { from { opacity: 0; transform: translateY(22px) scale(.985); } to { opacity: 1; transform: none; } }
+
+        .mat {
+            position: relative;
+            padding: 16px;
+            background: var(--cream);
+            border: 2px dashed var(--rose);   /* a stitched seam */
+            box-shadow: inset 0 0 22px rgba(184, 92, 126, .12);
+        }
+        .mat img {
+            display: block;
+            width: 100%;
+            height: auto;
+            border: 1px solid rgba(122, 47, 73, .18);
+            box-shadow: 0 4px 14px rgba(0,0,0,.18);
+        }
+        /* corner hearts on the frame */
+        .corner {
+            position: absolute;
+            font-size: 1.5rem;
+            color: var(--rose-deep);
+            text-shadow: 0 1px 2px rgba(255,255,255,.7);
+            z-index: 2;
+        }
+        .corner.tl { top: -12px; left: -12px; transform: rotate(-18deg); }
+        .corner.tr { top: -12px; right: -12px; transform: rotate(18deg); }
+        .corner.bl { bottom: -12px; left: -12px; transform: rotate(18deg); }
+        .corner.br { bottom: -12px; right: -12px; transform: rotate(-18deg); }
+
+        /* ── dedication ── */
+        .dedication {
+            margin-top: 2.8rem;
+            max-width: 36rem;
+            text-align: center;
+            font-size: 1.3rem;
+            line-height: 1.85;
+        }
+        .dedication p { margin-bottom: 1rem; }
+        .dedication .lead::first-letter {
+            font-family: 'Great Vibes', cursive;
+            font-size: 3.1rem;
+            color: var(--rose-deep);
+            line-height: .8;
+            float: left;
+            padding: .15rem .35rem 0 0;
+        }
+        .signoff {
+            font-family: 'Parisienne', cursive;
+            font-size: 1.9rem;
+            color: var(--wine);
+            margin-top: 1.4rem;
+        }
+        .heart-row { color: var(--rose); letter-spacing: .5em; font-size: 1.1rem; margin-top: 1.6rem; }
+        .tiny { margin-top: 2.6rem; font-size: .95rem; font-style: italic; color: var(--rose-deep); opacity: .8; }
+    </style>
+</head>
+<body>
+    <div class="hearts" aria-hidden="true">
+        <span style="left:4%;  --o:.5;  --sway:40px;  font-size:1.1rem; animation-duration:15s; animation-delay:0s;   color:#e79ab4">♥</span>
+        <span style="left:11%; --o:.45; --sway:-30px; font-size:1.7rem; animation-duration:19s; animation-delay:3s;   color:#caa14a">♥</span>
+        <span style="left:18%; --o:.5;  --sway:50px;  font-size:.9rem;  animation-duration:13s; animation-delay:6s;   color:#d98aa6">❤</span>
+        <span style="left:26%; --o:.4;  --sway:-40px; font-size:1.4rem; animation-duration:21s; animation-delay:1.5s; color:#b85c7e">♥</span>
+        <span style="left:34%; --o:.5;  --sway:25px;  font-size:1.1rem; animation-duration:17s; animation-delay:8s;   color:#e8cf8e">✦</span>
+        <span style="left:42%; --o:.45; --sway:-50px; font-size:1.6rem; animation-duration:23s; animation-delay:4s;   color:#e79ab4">♥</span>
+        <span style="left:50%; --o:.5;  --sway:35px;  font-size:1rem;   animation-duration:14s; animation-delay:10s;  color:#d98aa6">❤</span>
+        <span style="left:58%; --o:.4;  --sway:-25px; font-size:1.5rem; animation-duration:20s; animation-delay:2s;   color:#caa14a">♥</span>
+        <span style="left:66%; --o:.5;  --sway:45px;  font-size:.95rem; animation-duration:16s; animation-delay:7s;   color:#b85c7e">✦</span>
+        <span style="left:74%; --o:.45; --sway:-45px; font-size:1.3rem; animation-duration:22s; animation-delay:5s;   color:#e79ab4">♥</span>
+        <span style="left:82%; --o:.5;  --sway:30px;  font-size:1.1rem; animation-duration:18s; animation-delay:11s;  color:#d98aa6">❤</span>
+        <span style="left:89%; --o:.4;  --sway:-35px; font-size:1.7rem; animation-duration:24s; animation-delay:1s;   color:#caa14a">♥</span>
+        <span style="left:95%; --o:.5;  --sway:40px;  font-size:1rem;   animation-duration:15s; animation-delay:9s;   color:#b85c7e">♥</span>
+    </div>
+
+    <div class="wrap">
+        <nav class="crumb">
+            <a href="../">Coylean&nbsp;Map</a> &nbsp;·&nbsp;
+            <a href="index.html">History</a> &nbsp;·&nbsp; The&nbsp;Quilt
+        </nav>
+
+        <div class="eyebrow">made with love</div>
+        <h1>The Coylean Quilt</h1>
+        <div class="flourish">♥&nbsp;&nbsp;&nbsp;&nbsp;❦&nbsp;&nbsp;&nbsp;&nbsp;♥</div>
+
+        <figure class="frame">
+            <span class="corner tl">♥</span>
+            <span class="corner tr">♥</span>
+            <span class="corner bl">♥</span>
+            <span class="corner br">♥</span>
+            <div class="mat">
+                <img src="coylean-quilt.MP.jpg"
+                     alt="A handmade quilt of the Coylean map, sewn by my wife." />
+            </div>
+        </figure>
+
+        <div class="dedication">
+            <p class="lead">
+                Stitched by hand, by my wife, and given to me as a complete
+                surprise — for (we&nbsp;think) my 50th birthday. She took the
+                Coylean map I&nbsp;have chased for so long and made it warm:
+                every patch a piece of the pattern, every seam a small act of
+                love.
+            </p>
+            <p>
+                It was a wonderful surprise, and it is one of my most treasured
+                things. A map you can wrap around yourself.
+            </p>
+            <div class="heart-row">♥ ❤ ♥ ❤ ♥</div>
+            <div class="signoff">Thank you, my love.</div>
+        </div>
+
+        <p class="tiny">For her — with all my heart.</p>
+    </div>
+</body>
+</html>
