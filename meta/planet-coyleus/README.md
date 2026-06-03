@@ -248,8 +248,9 @@ the **translation** is the 2×2 `NW NE / SW SE` square with its cage-wall bars
 `glyphs/index.html`.
 
 **Orientation** (sidebar): `Long`/`Lat` toggle the quadrant anchor
-(curHInit/curVInit ∈ {0,1} — **NW NE SW SE**); seniority is the **Order** ladder,
-not a button. The **color config is one shared palette** — keyed per orbit in the
+(curHInit/curVInit ∈ {0,1} — **NW NE SW SE**), and `Sen` toggles V/H seniority
+(it jumps to the sibling rung). The **color config is one shared palette** — keyed
+per orbit in the
 V-rep frame, H glyphs derived — so it rides through every quadrant and seniority
 unchanged (validated: all rungs × all quadrants on-anchor & paintable,
 `test/ladder.mjs`).
@@ -260,3 +261,53 @@ the drawn canvas neutrals follow via `setTheme`. Schemes save/load as JSON;
 
 The map is finite per-rung `computeMapModel`; address-descent (for orders far
 past where the palette repeats) remains a later option.
+
+## Controls — usage cheat-sheet
+
+**The Quadrant map** (it's select-only — you never paint *on* the map):
+
+- **Scroll / wheel** — zoom. The zoom auto-picks the V/H ladder rung, so cages
+  stay roughly the same on-screen size while the order changes under you.
+- **Shift + wheel** — the *clutch*: the rung **holds** while you over/under-zoom,
+  so you can magnify a rung (great for the skinny H glyphs). Slack is **~2 orders
+  zooming in / 1.5 out** (`LEASH_IN` / `LEASH_OUT`), then it lags by that much.
+  The offset **persists** until you zoom *without* shift across a normal
+  threshold. (On macOS shift remaps the wheel to the X axis — handled.)
+- **Drag** — pan.
+- **Click a cage** — select it; it loads into the floating editor.
+- **Hover** — highlights the cage; the HUD shows its `letter+op` tag.
+
+**Cage cursor (keyboard) + orientation flips:**
+
+- **Arrow keys** — move the selected cage ↑↓←→; the editor follows. R,C
+  re-derive per order, so the spot keeps its place across zoom/seniority.
+- **Arrow past row 0** (up) — flips **latitude** (N↔S: SE↔NE, SW↔NW); lands on
+  row 0, same column.
+- **Arrow past col 0** (left) — flips **longitude** (E↔W: SE↔SW, NE↔NW); lands on
+  col 0, same row. (Far edges just clamp; only the origin-side edges portal.)
+
+**Sidebar:**
+
+- **Order ladder** (`4 4h 5 5h … 9h`) — V_n / H_n half-steps; click a rung to jump
+  to it at its ideal zoom. The highlight tracks the *displayed* rung (incl. the
+  shift-clutch lag).
+- **Orientation** — `Long`/`Lat` toggle the quadrant (NW NE SW SE); `Sen` toggles
+  V/H seniority (jumps to the sibling rung). Same flips as the past-zero arrows.
+- **Glyphs** — click an orbit swatch to load its rep. **Paint** — pick a biome
+  stop; `erase` chip; `undo`. **Scheme** — name + save/load JSON + clear all.
+- **Dark mode** checkbox (light is default).
+
+**Floating editor** (focus glyph + its substitution + translation children):
+
+- Pops up at the map-click; **drag** the title bar to move it; **collapse** /
+  **close** buttons; position + collapsed state persist. It only nudges out of the
+  way when a selection crowds it ("how far > how close"), never trails the cursor.
+- Heading: `tag code rung [r:c]` (e.g. `J| H37 6h [r3:c0]`), or `—` when the
+  selection is anonymous.
+- **Drag** = paint cells · **right-drag** = erase · **shift-click** = eyedropper
+  (adopt that cell's color; empty cells are ignored) · **shift-right-click a
+  child** = make it the focus to edit (anonymous, no map location — keep going to
+  descend the genealogy).
+- Every paint maps back to the orbit canonical, so **all occurrences and siblings
+  update at once**, on the map and in the panels.
+- **Undo** — `undo` button or ⌘/Ctrl-Z.

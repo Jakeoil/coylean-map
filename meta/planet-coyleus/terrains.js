@@ -85,7 +85,10 @@ let lastRoundL = null; // last rounded ladder position (for the shift clutch)
 let hover = null; // { grid, d, r, R, C, idx } under the cursor
 let lastRung = null; // last rendered rung data (for hit-testing)
 
-const LADDER_LEASH = 2; // shift-clutch slack: one full order (= 2 rungs)
+// Shift-clutch slack, in rungs (one order = 2 rungs). Bigger when zooming IN, so
+// you can magnify a rung a lot (esp. the skinny H glyphs) before it re-tiles.
+const LEASH_IN = 4; // zoom-in: two full orders of over-zoom
+const LEASH_OUT = 3; // zoom-out: 1.5 orders
 const clampK = (k) => Math.max(0, Math.min(LADDER_RUNGS - 1, k));
 
 // Continuous ladder position from zoom (section area halves each half-step).
@@ -106,8 +109,8 @@ function updateRung(shiftHeld) {
     if (lastRoundL == null) {
         curK = clampK(roundL);
     } else if (shiftHeld) {
-        if (L > curK + LADDER_LEASH) curK = clampK(Math.round(L - LADDER_LEASH));
-        else if (L < curK - LADDER_LEASH) curK = clampK(Math.round(L + LADDER_LEASH));
+        if (L > curK + LEASH_IN) curK = clampK(Math.round(L - LEASH_IN));
+        else if (L < curK - LEASH_OUT) curK = clampK(Math.round(L + LEASH_OUT));
         // else hold the rung — the clutch slips
     } else if (roundL !== lastRoundL) {
         curK = clampK(roundL); // crossed a normal threshold → re-sync
@@ -397,12 +400,14 @@ function quadrantLabel() {
 }
 
 function syncOrient() {
-    $("longBtn").textContent = `Long ${state.curH}`;
-    $("latBtn").textContent = `Lat ${state.curV}`;
-    $("senBtn").textContent = `Sen ${state.seniorityH ? "H" : "V"}`;
-    $("orientLabel").textContent = `${quadrantLabel()} · ${
-        state.seniorityH ? "H" : "V"
-    }`;
+    const lab = (sym, val) =>
+        `<span class="osym">${sym}</span><span class="oval">${val}</span>`;
+    $("longBtn").innerHTML = lab("↔", state.curH);
+    $("latBtn").innerHTML = lab("↕", state.curV);
+    $("senBtn").innerHTML = lab("⤢", state.seniorityH ? "H" : "V");
+    // The quadrant label's letter order (SE vs ES) already encodes seniority, so
+    // no redundant "· H/V".
+    $("orientLabel").textContent = quadrantLabel();
 }
 
 // Quadrant anchor changed: relabel and re-render the map (relatives unaffected).
@@ -593,7 +598,10 @@ function redraw() {
 }
 
 function clampZoom() {
-    view.z = Math.max(zoomForRung(0), Math.min(zoomForRung(LADDER_RUNGS - 1) * 1.5, view.z));
+    view.z = Math.max(
+        zoomForRung(-LEASH_OUT),
+        Math.min(zoomForRung(LADDER_RUNGS - 1 + LEASH_IN), view.z),
+    );
 }
 function clampView() {
     clampZoom();

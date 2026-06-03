@@ -107,14 +107,27 @@
             }
             #orient .orient-btn {
                 flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
                 background: var(--panel-2);
                 border: 1px solid var(--border-2);
-                color: var(--chip-ink);
-                border-radius: 5px;
-                padding: 6px 4px;
+                color: var(--ink);
+                border-radius: 6px;
+                padding: 8px 4px;
                 font-family: inherit;
-                font-size: 0.74rem;
                 cursor: pointer;
+            }
+            #orient .orient-btn .osym {
+                font-size: 1.7rem;
+                font-weight: 700;
+                line-height: 1;
+            }
+            #orient .orient-btn .oval {
+                font-size: 1rem;
+                font-weight: 600;
+                color: var(--muted);
             }
             #orient .orient-btn:hover {
                 background: var(--border);
