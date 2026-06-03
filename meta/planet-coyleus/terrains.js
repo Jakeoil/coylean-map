@@ -249,10 +249,12 @@ function selectMember(grid, d, r) {
     redraw();
 }
 
-// Eyedropper: adopt the clicked cell's current color as the paint color (null →
-// the erase tool).
+// Eyedropper: adopt the clicked cell's color as the paint color. An empty cell
+// has no color to pick, so leave the current one (don't silently arm erase).
 function pickColor(h) {
-    state.color = cellsFor(h.grid, h.d, h.r)[h.idx] || null;
+    const c = cellsFor(h.grid, h.d, h.r)[h.idx];
+    if (!c) return;
+    state.color = c;
     markColor();
 }
 function paintMove(e) {
