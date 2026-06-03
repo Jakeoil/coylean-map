@@ -660,7 +660,30 @@ function selectCage(h) {
 function moveCursor(dR, dC) {
     if (!state.cursor || !lastRung) return;
     const { R, C } = cursorRC(lastRung);
-    setCursorRC(R + dR, C + dC);
+    const nR = R + dR;
+    const nC = C + dC;
+    // Scrolling past the origin-side (zero) edge flips the quadrant: past row 0
+    // flips latitude (N↔S), past col 0 flips longitude (E↔W). The cursor lands on
+    // the zero edge of the new quadrant, keeping its other coordinate. Far edges
+    // just clamp.
+    if (nR < 0) {
+        flipQuadrant("v");
+        setCursorRC(0, nC);
+    } else if (nC < 0) {
+        flipQuadrant("h");
+        setCursorRC(nR, 0);
+    } else {
+        setCursorRC(nR, nC);
+    }
+}
+
+// Flip the quadrant anchor on one axis and rebuild the map for it.
+function flipQuadrant(axis) {
+    if (axis === "v") state.curV ^= 1;
+    else state.curH ^= 1;
+    const r = rungAt(curK);
+    lastRung = rungMap(r.order, r.seniorityH, state.curH, state.curV);
+    syncOrient();
 }
 
 // Pan just enough to keep the selected cage on-screen (one-cage margin).
