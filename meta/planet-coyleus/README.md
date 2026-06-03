@@ -97,18 +97,17 @@ palette alphabet closes at 12 orbits, so deep descent isn't needed — see
 - **Seniority is the rung.** Crossing a half-step flips the global seniority, so
   the focus / relatives / palette all follow the rung you're looking at. (The
   `Sen` button folded into the ladder; Orientation is just the quadrant anchor.)
-- **The map is only the Coylean line field.** No cell fills, no swatches, no
-  separate cage-wall overlay — just the map's own down/right lines, each scaled by
+- **The map is the Coylean line field over colored terrain.** The lines are the
+  map's own down/right segments — no separate cage-wall overlay — each scaled by
   its **2-adic priority** so the cage hierarchy reads as **various thicknesses**
-  (thin interior arrows → heavy cage walls; capped at p=6). Sub-pixel lines are
-  skipped, giving a natural LOD (zoomed out → only thick walls; zoomed in → full
-  arrow field). Coloring shows in the focus/relatives editors; **hover** maps a
-  cell to its glyph (HUD `letter+op` tag), **click**/right-click paint/erase that
-  orbit.
+  (thin interior arrows → heavy cage walls; capped at p=6; sub-pixel lines skipped
+  for a natural LOD). Under them, each section's 16 cells are filled from the
+  palette (swatch-averaged when zoomed out), so painting shows on every instance.
+  The lines keep the glyph-render `+1` convention (the "perfect" map); the section
+  fills, hover square, and hit-testing are shifted +1 cell to align to it. **Hover**
+  outlines the glyph + HUD `letter+op` tag; **click selects** it into the editor.
 
 ### The coarse-swatch constraint (turtles all the way down)
-
-(Relevant once colors fill the map; the current map is lines-only.)
 
 The map is a substitution fixed point, so **a colored cell at zoom _N_ is the
 coarse swatch of a whole colored glyph at zoom _N+1_** — which is itself 16
@@ -225,10 +224,17 @@ single painted canonical generates by D4.
 `terrains.html` (→ `index.html`) is live, built on the verified math. Three-layer
 split like `glyphs/`: `terrain-core.js` (pure model — palette, `CELL_PERM`,
 relatives, ramps) → `terrain-render.js` (canvas) → `terrains.js` (controller) →
-`terrains.mjs` barrel. Start blank; pick a biome stop from the tray and click
-cells to paint — every paint maps back to the orbit canonical so all occurrences
-and siblings update at once. **Erase** with the chip or right-click; **undo**
-with the button or ⌘/Ctrl-Z.
+`terrains.mjs` barrel. Start blank; pick a biome stop from the tray and paint —
+every paint maps back to the orbit canonical so all occurrences and siblings
+update at once. **Undo** via button or ⌘/Ctrl-Z.
+
+**Editor gestures** (focus glyph + substitution/translation children):
+**drag** = paint cells, **right-drag** = erase, **shift-click** = eyedropper
+(adopt that cell's color). A paint-drag re-renders the canvases in place
+(`repaint`) so the dragged-on canvas isn't rebuilt mid-stroke. **The map is
+select-only**: a click loads that glyph into the editor — its oriented pattern,
+name (`letterTag`), and its own children — and painting in the editor updates
+every instance of the orbit on the map (colored fills under the line field).
 
 The relatives render structurally: the **substitution** is the substitution
 pair with its bar — `left | right` (v→h) under V, `top / bottom` (h→v) under H;

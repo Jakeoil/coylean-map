@@ -246,10 +246,16 @@
                 cursor: crosshair;
                 image-rendering: pixelated;
             }
+            .editor-row {
+                display: flex;
+                gap: 26px;
+                align-items: flex-start;
+                flex-wrap: wrap;
+                margin-bottom: 10px;
+            }
             .relatives {
                 display: flex;
                 gap: 30px;
-                margin-top: 16px;
             }
             #subs canvas,
             #trans canvas {
@@ -318,14 +324,14 @@
                 <h2>Orientation — quadrant anchor</h2>
                 <div id="orient"></div>
 
-                <h2>Order — V/H ladder</h2>
-                <div id="order"></div>
-
                 <h2>Glyphs</h2>
                 <div id="palette"></div>
 
                 <h2>Paint</h2>
                 <div id="colors"></div>
+
+                <h2>Order — V/H ladder</h2>
+                <div id="order"></div>
 
                 <h2>Scheme</h2>
                 <div id="io">
@@ -343,17 +349,20 @@
             </aside>
 
             <main class="stage">
-                <div id="focus-label"></div>
-                <div id="focus"></div>
-
-                <div class="relatives">
-                    <div class="rel-group">
-                        <h2 id="subs-h2">Substitution · v→h (left | right)</h2>
-                        <div id="subs"></div>
+                <div class="editor-row">
+                    <div class="focus-col">
+                        <div id="focus-label"></div>
+                        <div id="focus"></div>
                     </div>
-                    <div class="rel-group">
-                        <h2 id="trans-h2">Translation · 4→1 (square + bars)</h2>
-                        <div id="trans"></div>
+                    <div class="relatives">
+                        <div class="rel-group">
+                            <h2 id="subs-h2">Substitution · v→h (left | right)</h2>
+                            <div id="subs"></div>
+                        </div>
+                        <div class="rel-group">
+                            <h2 id="trans-h2">Translation · 4→1 (square + bars)</h2>
+                            <div id="trans"></div>
+                        </div>
                     </div>
                 </div>
 

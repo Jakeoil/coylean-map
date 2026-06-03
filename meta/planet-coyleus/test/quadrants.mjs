@@ -64,8 +64,8 @@ for (const senH of [false, true]) {
     for (const L of LETTERS) {
         const f = focusGlyph(L, senH);
         if (!f || f.d === undefined) continue;
-        const s = substitutionOf(L, senH);
-        const t = translationOf(L, senH);
+        const s = substitutionOf(f.grid, f.d, f.r);
+        const t = translationOf(f.grid, f.d, f.r);
         if (s.pair.length === 2) subOK++;
         if (t.children.length === 4) transOK++;
     }

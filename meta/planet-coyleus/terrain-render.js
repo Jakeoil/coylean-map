@@ -183,51 +183,87 @@ export function compositeHit(canvas, layout, e) {
 // view = { cx, cy, z }: (cx,cy) the centre in unit-square coords [0,1]², z = px
 // per unit. The section grid (NSr×NSc) maps onto the unit square, so cells span
 // 1/(NSc·SEC) × 1/(NSr·SEC) of it; H rungs (2× columns) draw half-width cells.
-// Only the map's own down/right lines are drawn — no fills, no overlays — each
+// The painted terrain (colored cells per section, so painting an orbit updates
+// every instance) with the map's own down/right line field on top — each line
 // scaled by its 2-adic priority, so the cage hierarchy reads as thicker lines.
+
+// Mean of a section's painted cells (sRGB) for the zoomed-out swatch LOD.
+function swatch(cells) {
+    let r = 0, g = 0, b = 0, n = 0;
+    for (const c of cells) {
+        if (!c) continue;
+        r += parseInt(c.slice(1, 3), 16);
+        g += parseInt(c.slice(3, 5), 16);
+        b += parseInt(c.slice(5, 7), 16);
+        n++;
+    }
+    if (!n) return NEUTRAL;
+    return `rgb(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)})`;
+}
+
 export function drawQuadrant(canvas, rung, view, hover) {
     const ctx = canvas.getContext("2d");
     const W = canvas.width;
     const Ht = canvas.height;
     ctx.fillStyle = MAP_BG;
     ctx.fillRect(0, 0, W, Ht);
-    const { NSr, NSc, SEC, downMatrix, rightMatrix, colPriority, rowPriority } = rung;
+    const { NSr, NSc, SEC, grid, downMatrix, rightMatrix, colPriority, rowPriority } = rung;
     const cellsX = NSc * SEC;
     const cellsY = NSr * SEC;
-    // cell-grid coordinate → screen
+    // cell-grid coordinate → screen; section-grid coordinate → screen
     const sx = (cx) => W / 2 + ((cx - rung.firstDarkCol) / cellsX - view.cx) * view.z;
     const sy = (cy) => Ht / 2 + ((cy - rung.firstDarkRow) / cellsY - view.cy) * view.z;
-    // visible cell range
+    // Section rect aligned to the line field: a glyph sits +1 cell into its cage.
+    const Xs = (C) => sx(rung.firstDarkCol + C * SEC + 1);
+    const Ys = (R) => sy(rung.firstDarkRow + R * SEC + 1);
+    const secW = view.z / NSc;
+    const secH = view.z / NSr;
     const uxL = view.cx - W / 2 / view.z;
     const uxR = view.cx + W / 2 / view.z;
     const uyT = view.cy - Ht / 2 / view.z;
     const uyB = view.cy + Ht / 2 / view.z;
+
+    // ── colored terrain (section fills) ──
+    const c0 = Math.max(0, Math.floor(uxL * NSc) - 1);
+    const c1 = Math.min(NSc - 1, Math.ceil(uxR * NSc) + 1);
+    const r0 = Math.max(0, Math.floor(uyT * NSr) - 1);
+    const r1 = Math.min(NSr - 1, Math.ceil(uyB * NSr) + 1);
+    const detail = Math.min(secW, secH) >= 24;
+    for (let R = r0; R <= r1; R++)
+        for (let C = c0; C <= c1; C++) {
+            const [d, r] = rung.codes[R][C];
+            const cells = cellsFor(grid, d, r);
+            if (detail) {
+                drawGlyphCells(ctx, Xs(C), Ys(R), secW, secH, cells, {});
+            } else {
+                ctx.fillStyle = swatch(cells);
+                ctx.fillRect(Xs(C), Ys(R), secW + 0.6, secH + 0.6);
+            }
+        }
+
+    // ── the Coylean line field on top (lines at cell coords; thickness ∝ priority) ──
     const x0 = Math.max(0, Math.floor(uxL * cellsX + rung.firstDarkCol) - 1);
     const x1 = Math.min(rung.Mc - 1, Math.ceil(uxR * cellsX + rung.firstDarkCol) + 1);
     const y0 = Math.max(0, Math.floor(uyT * cellsY + rung.firstDarkRow) - 1);
     const y1 = Math.min(rung.Mr - 1, Math.ceil(uyB * cellsY + rung.firstDarkRow) + 1);
-
     const cellPx = Math.min(view.z / cellsX, view.z / cellsY);
     const base = Math.max(0.4, cellPx * 0.12);
-    // Thickness grows with 2-adic priority (cage depth); capped so the few very
-    // high-priority lines near the prime-meridian axis don't blow up.
     const widthFor = (p) => base * (1 + 0.62 * Math.min(p, 6));
     ctx.strokeStyle = isLight ? "#15171c" : "#eef1f6";
     ctx.lineCap = "butt";
-    // group segments by width so we stroke each width once
     const byW = new Map();
-    const add = (w, x0_, y0_, x1_, y1_) => {
+    const add = (w, ax, ay, bx, by) => {
         if (w < 0.35) return; // sub-pixel → skip (natural LOD)
         const key = w.toFixed(2);
         let a = byW.get(key);
         if (!a) byW.set(key, (a = []));
-        a.push(x0_, y0_, x1_, y1_);
+        a.push(ax, ay, bx, by);
     };
     for (let y = y0; y <= y1; y++) {
         const dRow = downMatrix[y];
         for (let x = x0; x <= x1; x++) {
             if (dRow && dRow[x]) {
-                const X = sx(x + 1);
+                const X = sx(x + 1); // original (perfect) map convention
                 add(widthFor(colPriority[x] || 0), X, sy(y), X, sy(y + 1));
             }
             const rCol = rightMatrix[x];
@@ -246,28 +282,31 @@ export function drawQuadrant(canvas, rung, view, hover) {
         }
         ctx.stroke();
     }
+
     // hover outline on the section under the cursor (interaction feedback)
     if (hover) {
-        const hx = sx(rung.firstDarkCol + hover.C * SEC);
-        const hy = sy(rung.firstDarkRow + hover.R * SEC);
-        ctx.strokeStyle = isLight ? "rgba(176,125,18,0.9)" : "rgba(216,181,106,0.9)";
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(hx, hy, view.z / NSc, view.z / NSr);
+        ctx.strokeStyle = isLight ? "rgba(176,125,18,0.95)" : "rgba(216,181,106,0.95)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(Xs(hover.C), Ys(hover.R), secW, secH);
     }
 }
 
 // Map a pointer event to { grid, d, r, R, C, idx } or null (outside the map).
+// Sections sit +1 cell into their cage (matching the line field), so the unit
+// coordinate is shifted by one cell before flooring to a section.
 export function quadrantHit(canvas, rung, view, e) {
     const rect = canvas.getBoundingClientRect();
     const px = (e.clientX - rect.left) * (canvas.width / rect.width);
     const py = (e.clientY - rect.top) * (canvas.height / rect.height);
     const ux = view.cx + (px - canvas.width / 2) / view.z;
     const uy = view.cy + (py - canvas.height / 2) / view.z;
-    if (ux < 0 || ux >= 1 || uy < 0 || uy >= 1) return null;
-    const C = Math.min(rung.NSc - 1, Math.floor(ux * rung.NSc));
-    const R = Math.min(rung.NSr - 1, Math.floor(uy * rung.NSr));
+    const fx = (ux - 1 / (rung.NSc * rung.SEC)) * rung.NSc;
+    const fy = (uy - 1 / (rung.NSr * rung.SEC)) * rung.NSr;
+    const C = Math.floor(fx);
+    const R = Math.floor(fy);
+    if (C < 0 || C >= rung.NSc || R < 0 || R >= rung.NSr) return null;
     const [d, r] = rung.codes[R][C];
-    const j = Math.min(3, Math.floor((ux * rung.NSc - C) * 4));
-    const i = Math.min(3, Math.floor((uy * rung.NSr - R) * 4));
+    const j = Math.min(3, Math.max(0, Math.floor((fx - C) * 4)));
+    const i = Math.min(3, Math.max(0, Math.floor((fy - R) * 4)));
     return { grid: rung.grid, d, r, R, C, idx: i * 4 + j };
 }

@@ -6,8 +6,10 @@
 import {
     LETTERS,
     TERRAINS,
+    cellsFor,
     focusGlyph,
     letterTag,
+    orbitLetterOf,
     substitutionOf,
     translationOf,
     rungMap,
@@ -33,12 +35,21 @@ const SIZES = { focus: 300, sub: 100, trans: 88, bar: 7 };
 
 const state = {
     letter: LETTERS[0],
+    member: null, // a specific glyph {grid,d,r} selected on the map (else the rep)
     color: TERRAINS[0].stops[2].hex, // a mid water stop to start
     curH: 1, // longitude anchor (0/1)
     curV: 1, // latitude anchor (0/1)
     seniorityH: false, // follows the current map rung
     light: true, // light theme is the default
 };
+
+// The glyph shown in the focus editor: the map-selected member if it matches the
+// active seniority, else the current orbit's rep.
+function focusGlyphNow() {
+    const g = state.seniorityH ? "H" : "V";
+    if (state.member && state.member.grid === g) return state.member;
+    return focusGlyph(state.letter, state.seniorityH);
+}
 
 // ── quadrant view: centre (cx,cy) in unit-square [0,1]², z = px per unit ──
 const view = { cx: 0.5, cy: 0.5, z: 640 };
@@ -70,35 +81,63 @@ const el = (tag, cls) => {
     return e;
 };
 
-// Map a click on a glyph canvas to a 4×4 cell index (row-major).
+// A glyph canvas click → 4×4 cell index (row-major), or null if outside.
 function cellIndexFromEvent(canvas, e) {
     const rect = canvas.getBoundingClientRect();
     const scale = canvas.width / rect.width;
     const x = (e.clientX - rect.left) * scale;
     const y = (e.clientY - rect.top) * scale;
+    if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return null;
     const cs = canvas.width / 4;
-    const j = Math.min(3, Math.max(0, Math.floor(x / cs)));
-    const i = Math.min(3, Math.max(0, Math.floor(y / cs)));
-    return i * 4 + j;
+    return Math.min(3, Math.floor(y / cs)) * 4 + Math.min(3, Math.floor(x / cs));
 }
 
-function makeGlyphCanvas(size, grid, d, r, onClick) {
+// ── paint-by-drag: hold to paint many cells (left) / erase (right) ──
+// `hit(e)` returns { grid, d, r, idx } or null for the canvas it's bound to.
+let painting = null; // { hit, erase, lastKey }
+function bindPaint(canvas, hit) {
+    canvas.addEventListener("mousedown", (e) => {
+        if (e.button !== 0 && e.button !== 2) return;
+        if (e.shiftKey && e.button === 0) {
+            const h = hit(e); // shift-click = eyedropper
+            if (h) pickColor(h);
+            return;
+        }
+        painting = { hit, erase: e.button === 2, lastKey: "" };
+        paintMove(e);
+    });
+    canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+}
+
+// Eyedropper: adopt the clicked cell's current color as the paint color (null →
+// the erase tool).
+function pickColor(h) {
+    state.color = cellsFor(h.grid, h.d, h.r)[h.idx] || null;
+    markColor();
+}
+function paintMove(e) {
+    if (!painting) return;
+    const h = painting.hit(e);
+    if (!h) return;
+    const key = `${h.grid}${h.d}${h.r}:${h.idx}`;
+    if (key === painting.lastKey) return; // same cell — skip
+    painting.lastKey = key;
+    paintCell(h.grid, h.d, h.r, h.idx, painting.erase ? null : state.color);
+    repaint();
+}
+
+function makeGlyphCanvas(size, grid, d, r, editable) {
     const c = el("canvas", "glyph");
     c.width = c.height = size;
     c.style.width = c.style.height = size + "px";
     c.dataset.grid = grid;
     c.dataset.d = d;
     c.dataset.r = r;
-    if (onClick) {
-        c.addEventListener("mousedown", (e) => {
-            if (e.button === 2) return; // right-click handled below
-            onClick(grid, d, r, cellIndexFromEvent(c, e), false);
+    if (editable)
+        bindPaint(c, (e) => {
+            const idx = cellIndexFromEvent(c, e);
+            return idx == null ? null : { grid, d, r, idx };
         });
-        c.addEventListener("contextmenu", (e) => {
-            e.preventDefault(); // right-click erases the cell
-            onClick(grid, d, r, cellIndexFromEvent(c, e), true);
-        });
-    }
     return c;
 }
 
@@ -116,6 +155,7 @@ function buildPalette() {
         wrap.append(c, tag);
         wrap.addEventListener("click", () => {
             state.letter = letter;
+            state.member = null; // orbit chosen → show its rep
             redraw();
         });
         box.appendChild(wrap);
@@ -242,8 +282,8 @@ function syncOrder() {
 }
 
 // ── main panels ──
-function subLayout(letter) {
-    const m = substitutionOf(letter, state.seniorityH);
+function subLayout(f) {
+    const m = substitutionOf(f.grid, f.d, f.r);
     if (m.layout === "tb")
         return {
             rows: 2,
@@ -262,8 +302,8 @@ function subLayout(letter) {
         bars: { barV: m.bar },
     };
 }
-function transLayout(letter) {
-    const m = translationOf(letter, state.seniorityH);
+function transLayout(f) {
+    const m = translationOf(f.grid, f.d, f.r);
     return {
         rows: 2,
         cols: 2,
@@ -274,14 +314,27 @@ function transLayout(letter) {
     };
 }
 
+// Current editor canvases + layouts, kept so a paint-drag can re-render them in
+// place (no DOM rebuild, which would detach the canvas mid-drag).
+let focusCanvas = null;
+let subsCanvas = null;
+let transCanvas = null;
+let focusCur = null;
+let tagCur = "";
+let subsLayoutCur = null;
+let transLayoutCur = null;
+
 function rebuildPanels() {
-    const f = focusGlyph(state.letter, state.seniorityH);
+    const f = focusGlyphNow();
     // Letter + operation as it appears on the V/H grids (0123/\-| ops).
     const tag = letterTag(f.grid, f.d, f.r) || state.letter;
-    const fc = makeGlyphCanvas(SIZES.focus, f.grid, f.d, f.r, onPaint);
+    focusCur = f;
+    tagCur = tag;
+    const fc = makeGlyphCanvas(SIZES.focus, f.grid, f.d, f.r, true);
     const fbox = $("focus");
     fbox.innerHTML = "";
     fbox.appendChild(fc);
+    focusCanvas = fc;
     renderGlyph(fc, f.grid, f.d, f.r, tag);
     $("focus-label").textContent = `${tag} · ${f.grid}${f.d}${f.r}`;
     $("subs-h2").textContent = state.seniorityH
@@ -289,12 +342,14 @@ function rebuildPanels() {
         : "Substitution · v→h (left | right)";
     $("trans-h2").textContent = "Translation · 4→1 (square + bars)";
 
-    buildComposite("subs", subLayout(state.letter));
-    buildComposite("trans", transLayout(state.letter));
+    subsLayoutCur = subLayout(f);
+    transLayoutCur = transLayout(f);
+    subsCanvas = buildComposite("subs", subsLayoutCur);
+    transCanvas = buildComposite("trans", transLayoutCur);
 }
 
 // A composite relative (substitution pair / translation square) in one canvas,
-// with cage-wall bars and per-child cell hit-testing.
+// with cage-wall bars and per-child cell hit-testing. Returns the canvas.
 function buildComposite(boxId, layout) {
     const { w, h } = compositeSize(layout);
     const canvas = el("canvas", "glyph");
@@ -302,29 +357,26 @@ function buildComposite(boxId, layout) {
     canvas.height = h;
     canvas.style.width = w + "px";
     canvas.style.height = h + "px";
-    const fire = (e, erase) => {
-        const hit = compositeHit(canvas, layout, e);
-        if (hit) onPaint(hit.grid, hit.d, hit.r, hit.idx, erase);
-    };
-    canvas.addEventListener("mousedown", (e) => {
-        if (e.button === 2) return;
-        fire(e, false);
-    });
-    canvas.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        fire(e, true);
-    });
+    bindPaint(canvas, (e) => compositeHit(canvas, layout, e));
     const box = $(boxId);
     box.innerHTML = "";
     box.appendChild(canvas);
     drawComposite(canvas, layout);
+    return canvas;
 }
 
-// paint handler shared by every editable glyph + the patch; erase clears the
-// cell (sets it back to unpainted) regardless of the selected color.
-function onPaint(grid, d, r, idx, erase) {
-    paintCell(grid, d, r, idx, erase ? null : state.color);
-    redraw();
+// Re-render the editor canvases + palette swatches + map in place (used during a
+// paint-drag, so the canvases the drag is bound to are not recreated).
+function repaint() {
+    if (focusCanvas && focusCur)
+        renderGlyph(focusCanvas, focusCur.grid, focusCur.d, focusCur.r, tagCur);
+    if (subsCanvas) drawComposite(subsCanvas, subsLayoutCur);
+    if (transCanvas) drawComposite(transCanvas, transLayoutCur);
+    document.querySelectorAll("#palette .swatch").forEach((s) => {
+        const g = focusGlyph(s.dataset.letter, state.seniorityH);
+        renderGlyph(s.querySelector("canvas"), g.grid, g.d, g.r);
+    });
+    renderMap();
 }
 
 // Palette swatches + focus/relatives, in the active seniority.
@@ -344,6 +396,7 @@ function syncRung() {
     if (r.k !== curK) {
         curK = r.k;
         state.seniorityH = r.seniorityH;
+        state.member = null; // map context changed → drop the specific selection
         refreshPanels();
         syncOrient();
         syncOrder();
@@ -438,16 +491,20 @@ function bindQuadrant() {
     window.addEventListener("mouseup", (e) => {
         if (drag && !drag.moved && lastRung) {
             const h = quadrantHit(canvas, lastRung, view, e);
-            if (h) onPaint(h.grid, h.d, h.r, h.idx, false);
+            if (h) selectGlyph(h.grid, h.d, h.r); // select, don't paint
         }
         drag = null;
     });
-    canvas.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        if (!lastRung) return;
-        const h = quadrantHit(canvas, lastRung, view, e);
-        if (h) onPaint(h.grid, h.d, h.r, h.idx, true);
-    });
+    canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+}
+
+// Clicking the map loads that glyph into the editor (its oriented pattern + name
+// + children); painting happens there, and every instance updates via redraw.
+function selectGlyph(grid, d, r) {
+    state.member = { grid, d, r };
+    const L = orbitLetterOf(grid, d, r);
+    if (L) state.letter = L;
+    redraw();
 }
 
 // ── IO ──
@@ -501,6 +558,13 @@ export function init() {
     buildOrder();
     buildIO();
     bindQuadrant();
+    // paint-drag across the editor canvases
+    window.addEventListener("mousemove", (e) => {
+        if (painting) paintMove(e);
+    });
+    window.addEventListener("mouseup", () => {
+        painting = null;
+    });
     window.addEventListener("keydown", (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === "z") {
             e.preventDefault();

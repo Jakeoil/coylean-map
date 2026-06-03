@@ -237,31 +237,35 @@ export function focusGlyph(letter, seniorityH) {
     return { grid: seniorityH ? "H" : "V", d, r };
 }
 
-// Substitution of the active rep. Under V it is v→h: a left|right pair of H
-// glyphs with a vertical bar (layout "lr"). Under H it is h→v: a top/bottom pair
-// of V glyphs with a horizontal bar (layout "tb"). { pair:[{grid,d,r}×2], bar }.
-export function substitutionOf(letter, seniorityH) {
-    const [d, r] = repOf(letter, seniorityH);
+// The orbit letter a glyph carries (no operation suffix), or null off-alphabet.
+export function orbitLetterOf(grid, d, r) {
+    const lt = glyphLetterAt(grid, d, r);
+    return lt ? lt[0] : null;
+}
+
+// Substitution of a specific glyph (grid,d,r). A V glyph v→h: a left|right pair
+// of H glyphs with a vertical bar (layout "lr"). An H glyph h→v: a top/bottom
+// pair of V glyphs with a horizontal bar ("tb"). { pair:[{grid,d,r}×2], bar }.
+export function substitutionOf(g, d, r) {
+    const seniorityH = g === "H";
     const rule = (seniorityH ? H_TO_V : V_TO_H)[keyStr(d, r)];
-    const grid = seniorityH ? "V" : "H";
+    const childGrid = seniorityH ? "V" : "H";
     const layout = seniorityH ? "tb" : "lr";
     if (!rule) return { pair: [], bar: false, layout };
     return {
-        pair: rule.pair.map(([cd, cr]) => ({ grid, d: cd, r: cr })),
+        pair: rule.pair.map(([cd, cr]) => ({ grid: childGrid, d: cd, r: cr })),
         bar: !!rule.bar,
         layout,
     };
 }
 
-// 4→1 translation of the active rep: a 2×2 square (NW NE SW SE) with cage-wall
+// 4→1 translation of a specific glyph: a 2×2 square (NW NE SW SE) with cage-wall
 // bars. { children:[{grid,d,r}×4], bars:{vTop,vBot,hLeft,hRight} }.
-export function translationOf(letter, seniorityH) {
-    const [d, r] = repOf(letter, seniorityH);
-    const rule = (seniorityH ? TRANSLATION_H : TRANSLATION_V)[keyStr(d, r)];
-    const grid = seniorityH ? "H" : "V";
+export function translationOf(g, d, r) {
+    const rule = (g === "H" ? TRANSLATION_H : TRANSLATION_V)[keyStr(d, r)];
     if (!rule) return { children: [], bars: {} };
     return {
-        children: rule.children.map(([cd, cr]) => ({ grid, d: cd, r: cr })),
+        children: rule.children.map(([cd, cr]) => ({ grid: g, d: cd, r: cr })),
         bars: rule.bars,
     };
 }
