@@ -173,15 +173,19 @@
 
         /* switchable 16×16 map overlay (additive — page is otherwise unchanged) */
         .patch-toggle-input { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
-        .patch-overlay {
+        /* .mat img.patch-overlay beats .mat img so width/border actually apply.
+           Keep opacity in a low-specificity rule so the :checked toggle wins. */
+        .mat img.patch-overlay {
             position: absolute;
             top: 16px; left: 16px;
             width: calc(100% - 32px);
             height: auto;
-            opacity: 0;
+            border: none;
+            box-shadow: none;
             transition: opacity .5s ease;
             pointer-events: none;
         }
+        .patch-overlay { opacity: 0; }
         .patch-toggle-input:checked ~ .patch-overlay { opacity: 1; }
         .patch-toggle {
             display: inline-block;
