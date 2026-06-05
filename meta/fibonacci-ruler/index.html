@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Fibonacci Ruler — Coylean Meta</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family:
+                    "Segoe UI",
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: linear-gradient(
+                    135deg,
+                    #1a1a2e 0%,
+                    #16213e 50%,
+                    #0f3460 100%
+                );
+                color: #eee;
+                min-height: 100vh;
+                padding: 48px 24px;
+                line-height: 1.6;
+            }
+            main {
+                max-width: 760px;
+                margin: 0 auto;
+            }
+            h1 {
+                font-size: 2.4rem;
+                color: #e94560;
+                text-shadow: 0 0 20px rgba(233, 69, 96, 0.4);
+                margin-bottom: 8px;
+            }
+            h2 {
+                font-size: 1.4rem;
+                color: #e94560;
+                margin: 36px 0 12px;
+            }
+            .lede {
+                color: rgba(255, 255, 255, 0.7);
+                margin-bottom: 12px;
+                font-size: 1.05rem;
+            }
+            p {
+                color: rgba(255, 255, 255, 0.85);
+                margin-bottom: 14px;
+            }
+            .back {
+                display: inline-block;
+                margin-bottom: 24px;
+                color: #e94560;
+                text-decoration: none;
+                font-size: 0.9rem;
+            }
+            .back:hover {
+                text-decoration: underline;
+            }
+            code,
+            .mono {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                background: rgba(233, 69, 96, 0.12);
+                padding: 1px 6px;
+                border-radius: 4px;
+                font-size: 0.92em;
+                color: #ffd0d8;
+            }
+            .seq {
+                display: block;
+                background: rgba(0, 0, 0, 0.25);
+                border-left: 3px solid rgba(233, 69, 96, 0.6);
+                padding: 12px 16px;
+                margin: 4px 0 18px;
+                overflow-x: auto;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.92rem;
+                color: #ffd0d8;
+                white-space: pre;
+            }
+            ul {
+                margin: 0 0 16px 22px;
+                color: rgba(255, 255, 255, 0.85);
+            }
+            li {
+                margin-bottom: 8px;
+            }
+            .cta {
+                display: inline-block;
+                margin: 24px 0 8px;
+                padding: 14px 22px;
+                background: rgba(233, 69, 96, 0.12);
+                border: 2px solid rgba(233, 69, 96, 0.6);
+                border-radius: 10px;
+                color: #ffd0d8;
+                text-decoration: none;
+                font-weight: 600;
+                transition: all 0.2s;
+            }
+            .cta:hover {
+                background: rgba(233, 69, 96, 0.22);
+                border-color: #e94560;
+                color: #fff;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 15px rgba(233, 69, 96, 0.25);
+            }
+            .phi {
+                color: #ffd0d8;
+                font-style: italic;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <a class="back" href="../">← Meta</a>
+            <h1>Fibonacci Ruler</h1>
+            <p class="lede">
+                A non-dyadic priority function for the Coylean map — built from
+                Zeckendorf sums instead of powers of two.
+            </p>
+
+            <h2>The motivation</h2>
+            <p>
+                Every Coylean map is driven by a single
+                <strong>priority function</strong>. In the engine that function
+                is <code>pri(n)</code> — the
+                <strong>2-adic valuation</strong> of <code>n</code>, i.e. the
+                number of trailing zeros in its binary expansion. Plotted along a
+                line it is the classic <em>ruler sequence</em>, the tick marks of
+                a measuring rule:
+            </p>
+            <span class="seq">n :  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16
+ρ₂:  0  1  0  2  0  1  0  3  0  1  0  2  0  1  0  4</span>
+            <p>
+                This dyadic structure is <em>why</em> the map is binary
+                self-similar: high-priority gridlines fall on a period-2ᵏ
+                lattice, the substitution doubles, and everything tiles in
+                powers of two.
+            </p>
+            <p>
+                The question this folder explores: <strong>what if the ruler
+                weren't dyadic?</strong> Powers of two are only one positional
+                number system. Replace them with the
+                <strong>Fibonacci numbers</strong> and the
+                unique <strong>Zeckendorf representation</strong> — every
+                positive integer as a sum of non-consecutive Fibonacci numbers —
+                and we get a <em>fibonacci-adic</em> valuation: the index of the
+                <em>lowest</em> Fibonacci number in that sum. It is a ruler
+                sequence too, but a golden one:
+            </p>
+            <span class="seq">n :  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16
+ρ_F: 0  1  2  0  3  0  1  4  0  1  2  0  5  0  1  2</span>
+            <p>
+                Feeding <em>this</em> sequence into the propagation in place of
+                <code>pri(n)</code> should produce a Coylean map whose
+                self-similarity is governed by <span class="phi">φ</span> rather
+                than by 2 — a quasiperiodic, Fibonacci-tiled cousin of the
+                dyadic map.
+            </p>
+
+            <h2>Why Zeckendorf</h2>
+            <ul>
+                <li>
+                    <strong>It is a genuine positional system.</strong> Just as
+                    binary writes <code>n</code> over the basis
+                    <code>1,2,4,8,…</code>, Zeckendorf writes it over
+                    <code>1,2,3,5,8,13,…</code> — uniquely, with the single
+                    extra rule that no two adjacent Fibonacci digits are both 1.
+                </li>
+                <li>
+                    <strong>It has a "lowest digit," so it has a valuation.</strong>
+                    The 2-adic ruler reads the position of the lowest set bit.
+                    The Fibonacci ruler reads the position of the lowest
+                    Zeckendorf term — the direct analogue.
+                </li>
+                <li>
+                    <strong>It breaks the doubling.</strong> Gaps between
+                    high-priority ticks grow like Fibonacci numbers, so the
+                    induced lattice is non-periodic but exactly self-similar
+                    under the golden substitution.
+                </li>
+            </ul>
+
+            <h2>The construction</h2>
+            <p>
+                The companion page lays both systems out side by side: the
+                binary place-value decomposition that produces the dyadic ruler,
+                and the Zeckendorf decomposition that produces the Fibonacci
+                ruler. Type any <code>n</code> and watch both representations,
+                their lowest-term valuations, and the two ruler skylines build up
+                together.
+            </p>
+
+            <a class="cta" href="representations.html"
+                >Open the representation construction →</a
+            >
+
+            <h2>It runs both ways</h2>
+            <p>
+                The ruler is not one-sided. By the two's-complement trick — the
+                top place carries a negative weight, the way the high bit of an
+                8-bit word means −128 — the same valuation extends to the
+                <strong>negative integers</strong>. The valuation never reads the
+                sign, only the lowest set place, so
+                <strong>ρ(−k) = ρ(k)</strong>: the negatives mirror the
+                positives, with <strong>0</strong> the lone infinite-priority
+                spike at the center. For the Fibonacci ruler the negatives simply
+                replay the run that resumes <em>just after the biggest Fibonacci
+                number is hit</em> — a finite-width simulation of the infinite,
+                two-sided Fibonacci-adic ruler.
+            </p>
+
+            <a class="cta" href="negatives.html"
+                >See the ruler run both ways →</a
+            >
+
+            <h2>The ruler as a tiling</h2>
+            <p>
+                Both rulers also have a geometric face. Run the diagonal of an
+                S×S box and hang a block from each integer step, NE corner pinned
+                to the diagonal, sized by that step's priority. The dyadic ruler
+                tiles the triangle with <strong>2ⁿ × 2ⁿ squares</strong> (equal
+                halves — binary doubling); the Fibonacci ruler tiles it with
+                <strong>Fₙ × Fₙ₋₁ rectangles</strong> (unequal halves — the
+                Fibonacci recurrence), one color per priority. The interactive
+                charts grow with the maximum sum shown.
+            </p>
+
+            <a class="cta" href="tilings.html"
+                >Open the ruler tilings →</a
+            >
+        </main>
+    </body>
+</html>

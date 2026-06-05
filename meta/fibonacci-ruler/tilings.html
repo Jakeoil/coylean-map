@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Ruler Tilings — Fibonacci Ruler</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family:
+                    "Segoe UI",
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: linear-gradient(
+                    135deg,
+                    #1a1a2e 0%,
+                    #16213e 50%,
+                    #0f3460 100%
+                );
+                color: #eee;
+                min-height: 100vh;
+                padding: 40px 24px;
+                line-height: 1.6;
+            }
+            main {
+                max-width: 1040px;
+                margin: 0 auto;
+            }
+            h1 {
+                font-size: 2.1rem;
+                color: #e94560;
+                text-shadow: 0 0 20px rgba(233, 69, 96, 0.4);
+                margin-bottom: 6px;
+            }
+            h2 {
+                font-size: 1.3rem;
+                color: #e94560;
+                margin: 30px 0 10px;
+            }
+            .lede {
+                color: rgba(255, 255, 255, 0.7);
+                margin-bottom: 14px;
+            }
+            p {
+                color: rgba(255, 255, 255, 0.85);
+                margin-bottom: 14px;
+            }
+            .back {
+                display: inline-block;
+                margin-bottom: 20px;
+                color: #e94560;
+                text-decoration: none;
+                font-size: 0.9rem;
+            }
+            .back:hover {
+                text-decoration: underline;
+            }
+            code {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                background: rgba(233, 69, 96, 0.12);
+                padding: 1px 6px;
+                border-radius: 4px;
+                font-size: 0.92em;
+                color: #ffd0d8;
+            }
+            .controls {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                flex-wrap: wrap;
+                margin: 18px 0 24px;
+                padding: 14px 18px;
+                background: rgba(0, 0, 0, 0.22);
+                border: 1px solid rgba(233, 69, 96, 0.35);
+                border-radius: 10px;
+            }
+            .controls label {
+                font-size: 0.95rem;
+                color: rgba(255, 255, 255, 0.85);
+            }
+            input[type="range"] {
+                flex: 1;
+                min-width: 220px;
+                accent-color: #e94560;
+            }
+            .order {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                color: #ffd0d8;
+                font-size: 1rem;
+            }
+            .charts {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 22px;
+            }
+            @media (max-width: 880px) {
+                .charts {
+                    grid-template-columns: 1fr;
+                }
+            }
+            .chart {
+                background: rgba(22, 33, 62, 0.5);
+                border: 2px solid rgba(233, 69, 96, 0.4);
+                border-radius: 12px;
+                padding: 16px 18px 18px;
+            }
+            .chart h3 {
+                color: #e94560;
+                font-size: 1.1rem;
+                margin-bottom: 2px;
+            }
+            .chart .meta {
+                font-size: 0.85rem;
+                color: rgba(255, 255, 255, 0.6);
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                margin-bottom: 12px;
+            }
+            canvas {
+                width: 100%;
+                aspect-ratio: 1 / 1;
+                display: block;
+                border-radius: 6px;
+                background: #ededed;
+            }
+            .legend {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 7px;
+                margin-top: 12px;
+            }
+            .swatch {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.78rem;
+                color: rgba(255, 255, 255, 0.8);
+            }
+            .swatch i {
+                width: 14px;
+                height: 14px;
+                border-radius: 3px;
+                display: inline-block;
+                border: 1px solid rgba(0, 0, 0, 0.25);
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <a class="back" href="./">← Fibonacci Ruler</a>
+            <h1>The Ruler as a Tiling</h1>
+            <p class="lede">
+                Both rulers have a second life as a picture. Run the diagonal of
+                an S×S box and, at every integer step <em>k</em>, hang a block
+                down-and-left with its <strong>NE corner pinned to the
+                diagonal</strong>. Size the block by the priority of <em>k</em> —
+                its ruler value — and the whole lower-left triangle tiles
+                perfectly, one color per priority.
+            </p>
+
+            <h2>Two number systems, two block shapes</h2>
+            <p>
+                The shape of the blocks is exactly the difference between the two
+                systems:
+            </p>
+            <p>
+                <strong>Dyadic.</strong> A priority-<em>n</em> block is a
+                <code>2ⁿ × 2ⁿ</code> <strong>square</strong> — because
+                <code>2ⁿ⁺¹ = 2ⁿ + 2ⁿ</code>, the two halves are equal, so the
+                triangle splits into a square plus two identical half-triangles.
+                That equal split is the binary doubling that makes the dyadic map
+                self-similar in powers of two.
+            </p>
+            <p>
+                <strong>Fibonacci.</strong> A priority-<em>n</em> block is an
+                <code>Fₙ × Fₙ₋₁</code> <strong>rectangle</strong> — because
+                <code>Fₙ₊₁ = Fₙ + Fₙ₋₁</code> with the two parts
+                <em>unequal</em>, so the triangle splits into a rectangle plus a
+                larger sub-triangle (<code>Fₙ</code>) and a smaller one
+                (<code>Fₙ₋₁</code>). The Fibonacci recurrence <em>is</em> the
+                recursion of the figure.
+            </p>
+
+            <div class="controls">
+                <label>order n =</label>
+                <span class="order" id="orderLabel"></span>
+                <input id="slider" type="range" min="4" max="11" value="9" />
+                <label style="opacity: 0.7">(sets the maximum sum shown)</label>
+            </div>
+
+            <div class="charts">
+                <div class="chart">
+                    <h3>Dyadic — 2ⁿ squares</h3>
+                    <div class="meta" id="metaDy"></div>
+                    <canvas id="cvDy"></canvas>
+                    <div class="legend" id="legDy"></div>
+                </div>
+                <div class="chart">
+                    <h3>Fibonacci — Fₙ × Fₙ₋₁ rectangles</h3>
+                    <div class="meta" id="metaFib"></div>
+                    <canvas id="cvFib"></canvas>
+                    <div class="legend" id="legFib"></div>
+                </div>
+            </div>
+
+            <p style="margin-top: 22px">
+                Slide <code>n</code> to grow the maximum sum. Each new level adds
+                its own color and, with it, the next self-similar shell of the
+                tiling — the geometric face of swapping the priority function
+                from base two to base φ.
+            </p>
+        </main>
+
+        <script>
+            "use strict";
+
+            const FIB = [
+                1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987,
+                1597, 2584, 4181,
+            ];
+
+            function prevFib(s) {
+                const i = FIB.indexOf(s);
+                return i > 0 ? FIB[i - 1] : 1;
+            }
+            function fibLevel(v) {
+                return FIB.indexOf(v);
+            }
+            function powLevel(v) {
+                return Math.round(Math.log2(v));
+            }
+
+            // red (low priority) -> blue (high priority), bright greens between.
+            function colorFor(level, maxLevel) {
+                const h = maxLevel > 0 ? (level / maxLevel) * 240 : 0;
+                return "hsl(" + h + ", 80%, 55%)";
+            }
+
+            const CSS = 500; // css px per canvas side
+
+            function setup(canvas) {
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = CSS * dpr;
+                canvas.height = CSS * dpr;
+                const ctx = canvas.getContext("2d");
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx.clearRect(0, 0, CSS, CSS);
+                return ctx;
+            }
+
+            // kind: "dy" | "fib"
+            function drawTiling(ctx, S, kind, maxLevel) {
+                const scale = CSS / S;
+                const showText = scale * (kind === "dy" ? 1 : 2) > 5;
+
+                function block(bx, by, bw, bh, pri) {
+                    const x = bx * scale,
+                        y = by * scale,
+                        w = bw * scale,
+                        h = bh * scale;
+                    const lvl =
+                        kind === "dy" ? powLevel(pri) : fibLevel(pri);
+                    ctx.fillStyle = colorFor(lvl, maxLevel);
+                    ctx.fillRect(x, y, w, h);
+                    if (w > 2 && h > 2) {
+                        ctx.strokeStyle = "rgba(0,0,0,0.18)";
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+                    }
+                    if (showText && w >= 20 && h >= 15) {
+                        ctx.fillStyle = "rgba(8,14,55,0.9)";
+                        ctx.font =
+                            Math.min(h * 0.5, 16) +
+                            "px ui-monospace, Menlo, monospace";
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "middle";
+                        ctx.fillText(pri, x + w / 2, y + h / 2);
+                    }
+                }
+
+                function rec(tx, ty, s) {
+                    // A size-1 box is a diagonal half-cell. Drawing it as a
+                    // full unit square would straddle the diagonal (overshoot
+                    // into the upper-right triangle) — the colored rectangles
+                    // already tile everything strictly below the diagonal, so
+                    // there is nothing to draw here.
+                    if (s <= 1) return;
+                    let a, b;
+                    if (kind === "dy") {
+                        a = s / 2;
+                        b = s / 2;
+                    } else {
+                        a = prevFib(s);
+                        b = s - a;
+                    }
+                    // main block: NE corner on the diagonal at (tx+a, ty+a)
+                    block(tx, ty + a, a, b, a);
+                    rec(tx, ty, a); // upper-left sub-triangle, size a
+                    rec(tx + a, ty + a, b); // lower-right sub-triangle, size b
+                }
+
+                rec(0, 0, S);
+            }
+
+            function legend(hostId, values, maxLevel, levelOf) {
+                const host = document.getElementById(hostId);
+                host.innerHTML = "";
+                for (const v of values) {
+                    const s = document.createElement("span");
+                    s.className = "swatch";
+                    s.innerHTML =
+                        '<i style="background:' +
+                        colorFor(levelOf(v), maxLevel) +
+                        '"></i>' +
+                        v;
+                    host.appendChild(s);
+                }
+            }
+
+            const cvDy = document.getElementById("cvDy");
+            const cvFib = document.getElementById("cvFib");
+
+            function update(n) {
+                document.getElementById("orderLabel").textContent = n;
+
+                // ---- dyadic ----
+                const Sdy = Math.pow(2, n);
+                const maxLvlDy = n - 1; // top priority = 2^(n-1)
+                drawTiling(setup(cvDy), Sdy, "dy", maxLvlDy);
+                document.getElementById("metaDy").textContent =
+                    "box " + Sdy + "×" + Sdy + "   ·   max sum " + Sdy +
+                    "   ·   top priority " + Math.pow(2, n - 1);
+                const dyVals = [];
+                for (let i = 0; i <= maxLvlDy; i++) dyVals.push(Math.pow(2, i));
+                legend("legDy", dyVals, maxLvlDy, powLevel);
+
+                // ---- fibonacci ----
+                const Sfib = FIB[n];
+                const topFib = FIB[n - 1];
+                const maxLvlFib = fibLevel(topFib);
+                drawTiling(setup(cvFib), Sfib, "fib", maxLvlFib);
+                document.getElementById("metaFib").textContent =
+                    "box " + Sfib + "×" + Sfib + "   ·   max sum " + Sfib +
+                    "   ·   top priority " + topFib;
+                legend(
+                    "legFib",
+                    FIB.slice(0, maxLvlFib + 1),
+                    maxLvlFib,
+                    fibLevel
+                );
+            }
+
+            const slider = document.getElementById("slider");
+            slider.addEventListener("input", () => update(+slider.value));
+            update(+slider.value);
+        </script>
+    </body>
+</html>

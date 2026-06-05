@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Negative Ruler — Fibonacci Ruler</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family:
+                    "Segoe UI",
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: linear-gradient(
+                    135deg,
+                    #1a1a2e 0%,
+                    #16213e 50%,
+                    #0f3460 100%
+                );
+                color: #eee;
+                min-height: 100vh;
+                padding: 40px 24px;
+                line-height: 1.6;
+            }
+            main {
+                max-width: 880px;
+                margin: 0 auto;
+            }
+            h1 {
+                font-size: 2.1rem;
+                color: #e94560;
+                text-shadow: 0 0 20px rgba(233, 69, 96, 0.4);
+                margin-bottom: 6px;
+            }
+            h2 {
+                font-size: 1.35rem;
+                color: #e94560;
+                margin: 34px 0 10px;
+            }
+            .lede {
+                color: rgba(255, 255, 255, 0.7);
+                margin-bottom: 14px;
+            }
+            p {
+                color: rgba(255, 255, 255, 0.85);
+                margin-bottom: 14px;
+            }
+            .back {
+                display: inline-block;
+                margin-bottom: 20px;
+                color: #e94560;
+                text-decoration: none;
+                font-size: 0.9rem;
+            }
+            .back:hover {
+                text-decoration: underline;
+            }
+            code,
+            .mono {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                background: rgba(233, 69, 96, 0.12);
+                padding: 1px 6px;
+                border-radius: 4px;
+                font-size: 0.92em;
+                color: #ffd0d8;
+            }
+            .worked {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 18px;
+                margin: 14px 0 8px;
+            }
+            @media (max-width: 720px) {
+                .worked {
+                    grid-template-columns: 1fr;
+                }
+            }
+            .wbox {
+                background: rgba(22, 33, 62, 0.55);
+                border: 2px solid rgba(233, 69, 96, 0.45);
+                border-radius: 10px;
+                padding: 16px 18px;
+            }
+            .wbox h3 {
+                color: #e94560;
+                font-size: 1.05rem;
+                margin-bottom: 12px;
+            }
+            .bits {
+                display: flex;
+                gap: 5px;
+                margin-bottom: 12px;
+                flex-wrap: wrap;
+            }
+            .cell {
+                min-width: 48px;
+                text-align: center;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                border-radius: 6px;
+                padding: 5px 4px;
+                background: rgba(0, 0, 0, 0.25);
+            }
+            .cell .w {
+                font-size: 0.68rem;
+                color: rgba(255, 255, 255, 0.5);
+            }
+            .cell .b {
+                font-size: 1.05rem;
+                font-weight: 700;
+                color: rgba(255, 255, 255, 0.4);
+            }
+            .cell.on .b {
+                color: #ffd0d8;
+            }
+            .cell.on {
+                border-color: #e94560;
+                background: rgba(233, 69, 96, 0.18);
+            }
+            .cell.neg .w {
+                color: #ff8aa0;
+            }
+            .cell.low {
+                box-shadow: 0 0 0 2px #ffd0d8 inset;
+            }
+            .eq {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.9rem;
+                color: rgba(255, 255, 255, 0.85);
+                margin-bottom: 6px;
+            }
+            .eq b {
+                color: #ffd0d8;
+            }
+            .controls {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                flex-wrap: wrap;
+                margin: 18px 0 18px;
+                padding: 14px 16px;
+                background: rgba(0, 0, 0, 0.22);
+                border: 1px solid rgba(233, 69, 96, 0.35);
+                border-radius: 10px;
+            }
+            .controls label {
+                font-size: 0.92rem;
+                color: rgba(255, 255, 255, 0.85);
+            }
+            input[type="range"] {
+                flex: 1;
+                min-width: 160px;
+                accent-color: #e94560;
+            }
+            .twosky {
+                position: relative;
+                display: flex;
+                align-items: flex-end;
+                gap: 2px;
+                height: 150px;
+                padding: 10px 12px 0;
+                background: rgba(0, 0, 0, 0.25);
+                border-radius: 8px;
+                overflow-x: auto;
+            }
+            .tick {
+                flex: 0 0 auto;
+                width: 11px;
+                background: linear-gradient(
+                    180deg,
+                    #e94560,
+                    rgba(233, 69, 96, 0.35)
+                );
+                border-radius: 2px 2px 0 0;
+            }
+            .tick.zero {
+                background: linear-gradient(180deg, #fff, #ffd0d8);
+                width: 13px;
+            }
+            .axis {
+                display: flex;
+                justify-content: space-between;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.78rem;
+                color: rgba(255, 255, 255, 0.5);
+                margin-top: 4px;
+                padding: 0 12px;
+            }
+            .skywrap {
+                margin-bottom: 26px;
+            }
+            .skytitle {
+                color: #e94560;
+                font-size: 1rem;
+                margin: 0 0 6px;
+            }
+            .key {
+                font-size: 0.85rem;
+                color: rgba(255, 255, 255, 0.6);
+                margin-top: 4px;
+            }
+            ul {
+                margin: 0 0 16px 22px;
+                color: rgba(255, 255, 255, 0.85);
+            }
+            li {
+                margin-bottom: 8px;
+            }
+            .callout {
+                background: rgba(233, 69, 96, 0.1);
+                border-left: 3px solid #e94560;
+                border-radius: 0 8px 8px 0;
+                padding: 12px 16px;
+                margin: 6px 0 18px;
+                color: rgba(255, 255, 255, 0.9);
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <a class="back" href="./">← Fibonacci Ruler</a>
+            <h1>The Ruler Runs Both Ways</h1>
+            <p class="lede">
+                So far the ruler is one-sided — defined for <em>n</em> ≥ 1. But
+                it is secretly <strong>two-sided</strong>, with
+                <strong>0 as an infinite-priority spike at the center</strong>
+                and the negative integers mirroring the positive ones. The
+                bridge is the oldest trick in the book: two's complement.
+            </p>
+
+            <h2>The 8-bit picture</h2>
+            <p>
+                Read an 8-bit pattern the usual way and every place is a positive
+                power of two. Read it in <strong>two's complement</strong> and
+                the <em>top</em> place flips sign — the high bit is negative.
+                Same bits, new meaning. Take <code>10101010</code>:
+            </p>
+
+            <div class="worked">
+                <div class="wbox">
+                    <h3>Dyadic — high bit = −128</h3>
+                    <div class="bits" id="binBits"></div>
+                    <div class="eq" id="binEqU"></div>
+                    <div class="eq" id="binEqS"></div>
+                    <div class="eq">
+                        lowest set bit → ρ₂ = <b id="binRho"></b>
+                    </div>
+                </div>
+                <div class="wbox">
+                    <h3>Fibonacci — high place = −34</h3>
+                    <div class="bits" id="fibBits"></div>
+                    <div class="eq" id="fibEqU"></div>
+                    <div class="eq" id="fibEqS"></div>
+                    <div class="eq">
+                        lowest set place → ρ_F = <b id="fibRho"></b>
+                    </div>
+                </div>
+            </div>
+
+            <div class="callout">
+                The valuation never looks at the sign. It only reads the
+                <em>lowest</em> set place — and that place is untouched by which
+                weight at the top went negative. So the negatives inherit the
+                exact same ruler the positives have:
+                <strong>ρ(−k) = ρ(k)</strong>.
+            </div>
+
+            <h2>Counting backwards from zero</h2>
+            <p>
+                In a finite width the integers wrap into a cycle. Go up from 0
+                and you climb 1, 2, 3, …; go <em>down</em> from 0 and you fall
+                into the top of the cycle:
+            </p>
+            <ul>
+                <li>
+                    <strong>Dyadic.</strong> −1 is the all-ones word
+                    <code>…11111111</code>; −2 is <code>…11111110</code>; each
+                    step down is the two's-complement of the step up. Its lowest
+                    set bit — hence ρ₂ — mirrors the positive side exactly.
+                </li>
+                <li>
+                    <strong>Fibonacci.</strong> −1 begins right where the
+                    sequence resumes <em>just after the biggest Fibonacci number
+                    is hit</em>. Past <code>F_m</code> the ruler resets to
+                    <code>0, 1, 2, 0, 3, …</code> — and that resumed run
+                    <em>is</em> the negative axis, read backwards. (Verified: the
+                    block after <code>F₈ = 34</code> is bit-for-bit the base
+                    sequence <code>1, 2, 3, …</code>.)
+                </li>
+            </ul>
+            <p>
+                Either way <strong>0 is the lone infinity</strong>: in the 2-adic
+                / Fibonacci-adic limit it is infinitely divisible — no lowest
+                place at all — so its priority is unbounded while every other
+                cell, positive or negative, sits at a finite tick. The finite
+                width is just a simulation of that infinite, two-sided ruler.
+            </p>
+
+            <h2>The two-sided ruler</h2>
+            <p>
+                Here is the ruler drawn across zero. Notice the perfect mirror
+                symmetry and the white infinite spike pinned at the center.
+            </p>
+
+            <div class="controls">
+                <label>half-width N = <span id="nlabel" class="mono"></span></label>
+                <input id="slider" type="range" min="8" max="80" value="40" />
+            </div>
+
+            <div class="skywrap">
+                <div class="skytitle">Dyadic ρ₂ &nbsp;(−N … +N)</div>
+                <div class="twosky" id="skyBin"></div>
+                <div class="axis"><span id="binL"></span><span>0</span><span id="binR"></span></div>
+            </div>
+
+            <div class="skywrap">
+                <div class="skytitle">Fibonacci ρ_F &nbsp;(−N … +N)</div>
+                <div class="twosky" id="skyFib"></div>
+                <div class="axis"><span id="fibL"></span><span>0</span><span id="fibR"></span></div>
+                <div class="key">
+                    The center spike is 0 (infinite priority). Negatives are the
+                    mirror of positives — the run that resumes after the largest
+                    Fibonacci number.
+                </div>
+            </div>
+        </main>
+
+        <script>
+            "use strict";
+
+            // --- valuations (0-indexed lowest place) -----------------------
+
+            function rho2(k) {
+                // |k|; 0 -> Infinity (the center spike)
+                k = Math.abs(k);
+                if (k === 0) return Infinity;
+                let r = 0;
+                while ((k & 1) === 0) {
+                    r++;
+                    k >>= 1;
+                }
+                return r;
+            }
+
+            function fibsUpTo(n) {
+                const f = [1, 2];
+                while (f[f.length - 1] < Math.max(n, 1)) {
+                    f.push(f[f.length - 1] + f[f.length - 2]);
+                }
+                return f;
+            }
+
+            function rhoF(k) {
+                k = Math.abs(k);
+                if (k === 0) return Infinity;
+                const f = fibsUpTo(k);
+                let rem = k,
+                    low = 0;
+                for (let i = f.length - 1; i >= 0; i--) {
+                    if (f[i] <= rem) {
+                        rem -= f[i];
+                        low = i; // keep descending; last hit is the lowest place
+                    }
+                }
+                return low;
+            }
+
+            // --- worked example: 10101010 ----------------------------------
+
+            // pattern read high-place -> low-place
+            const PATTERN = [1, 0, 1, 0, 1, 0, 1, 0];
+
+            function renderWorked(hostId, eqU, eqS, rhoId, weights) {
+                const host = document.getElementById(hostId);
+                host.innerHTML = "";
+                // weights are low->high; pattern is high->low. align.
+                const hi2lo = weights.slice().reverse();
+                let lowIdx = -1;
+                for (let p = PATTERN.length - 1; p >= 0; p--) {
+                    if (PATTERN[p] === 1) lowIdx = p; // last (lowest) set, high->low
+                }
+                let unsigned = 0;
+                let signed = 0;
+                const posTerms = [];
+                const sgnTerms = [];
+                for (let p = 0; p < PATTERN.length; p++) {
+                    const isTop = p === 0; // leftmost = top place
+                    const wAbs = hi2lo[p];
+                    const wSgn = isTop ? -wAbs : wAbs;
+                    const cell = document.createElement("div");
+                    cell.className =
+                        "cell" +
+                        (PATTERN[p] ? " on" : "") +
+                        (isTop ? " neg" : "") +
+                        (p === lowIdx ? " low" : "");
+                    cell.innerHTML =
+                        '<div class="w">' +
+                        (isTop ? "−" : "") +
+                        wAbs +
+                        '</div><div class="b">' +
+                        PATTERN[p] +
+                        "</div>";
+                    host.appendChild(cell);
+                    if (PATTERN[p]) {
+                        unsigned += wAbs;
+                        signed += wSgn;
+                        posTerms.push(wAbs);
+                        sgnTerms.push((isTop ? "−" : "") + wAbs);
+                    }
+                }
+                document.getElementById(eqU).innerHTML =
+                    "unsigned&nbsp;= " + posTerms.join(" + ") + " = <b>" +
+                    unsigned + "</b>";
+                document.getElementById(eqS).innerHTML =
+                    "signed&nbsp;&nbsp;&nbsp;= " +
+                    sgnTerms.join(" + ").replace(/\+ −/g, "− ") +
+                    " = <b>" + signed + "</b>";
+                // lowest place value -> its index in low->high weights
+                const lowVal = hi2lo[lowIdx];
+                document.getElementById(rhoId).textContent =
+                    weights.indexOf(lowVal);
+            }
+
+            renderWorked(
+                "binBits",
+                "binEqU",
+                "binEqS",
+                "binRho",
+                [1, 2, 4, 8, 16, 32, 64, 128]
+            );
+            renderWorked(
+                "fibBits",
+                "fibEqU",
+                "fibEqS",
+                "fibRho",
+                [1, 2, 3, 5, 8, 13, 21, 34]
+            );
+
+            // --- two-sided skylines ----------------------------------------
+
+            function renderSky(hostId, fn, N) {
+                const host = document.getElementById(hostId);
+                host.innerHTML = "";
+                let peak = 1;
+                const vals = [];
+                for (let k = -N; k <= N; k++) {
+                    const v = fn(k);
+                    vals.push(v);
+                    if (isFinite(v) && v > peak) peak = v;
+                }
+                let idx = 0;
+                for (let k = -N; k <= N; k++) {
+                    const v = vals[idx++];
+                    const t = document.createElement("div");
+                    if (k === 0) {
+                        t.className = "tick zero";
+                        t.style.height = "100%";
+                        t.title = "0 — infinite priority";
+                    } else {
+                        t.className = "tick";
+                        t.style.height = 6 + (v / peak) * 120 + "px";
+                        t.title = "n=" + k + "  ρ=" + v;
+                    }
+                    host.appendChild(t);
+                }
+            }
+
+            function update(N) {
+                document.getElementById("nlabel").textContent = N;
+                renderSky("skyBin", rho2, N);
+                renderSky("skyFib", rhoF, N);
+                document.getElementById("binL").textContent = "−" + N;
+                document.getElementById("binR").textContent = "+" + N;
+                document.getElementById("fibL").textContent = "−" + N;
+                document.getElementById("fibR").textContent = "+" + N;
+            }
+
+            const slider = document.getElementById("slider");
+            slider.addEventListener("input", () => update(+slider.value));
+            update(40);
+        </script>
+    </body>
+</html>

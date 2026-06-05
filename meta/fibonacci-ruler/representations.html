@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Representations — Fibonacci Ruler</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family:
+                    "Segoe UI",
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: linear-gradient(
+                    135deg,
+                    #1a1a2e 0%,
+                    #16213e 50%,
+                    #0f3460 100%
+                );
+                color: #eee;
+                min-height: 100vh;
+                padding: 40px 24px;
+                line-height: 1.55;
+            }
+            main {
+                max-width: 880px;
+                margin: 0 auto;
+            }
+            h1 {
+                font-size: 2.1rem;
+                color: #e94560;
+                text-shadow: 0 0 20px rgba(233, 69, 96, 0.4);
+                margin-bottom: 6px;
+            }
+            .lede {
+                color: rgba(255, 255, 255, 0.7);
+                margin-bottom: 24px;
+            }
+            .back {
+                display: inline-block;
+                margin-bottom: 20px;
+                color: #e94560;
+                text-decoration: none;
+                font-size: 0.9rem;
+            }
+            .back:hover {
+                text-decoration: underline;
+            }
+            .controls {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                flex-wrap: wrap;
+                margin-bottom: 28px;
+                padding: 16px 18px;
+                background: rgba(0, 0, 0, 0.22);
+                border: 1px solid rgba(233, 69, 96, 0.35);
+                border-radius: 10px;
+            }
+            .controls label {
+                font-size: 0.95rem;
+                color: rgba(255, 255, 255, 0.85);
+            }
+            input[type="number"] {
+                width: 110px;
+                padding: 8px 10px;
+                font-size: 1rem;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                background: rgba(0, 0, 0, 0.35);
+                color: #ffd0d8;
+                border: 1px solid rgba(233, 69, 96, 0.5);
+                border-radius: 6px;
+            }
+            input[type="range"] {
+                flex: 1;
+                min-width: 160px;
+                accent-color: #e94560;
+            }
+            .panels {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 20px;
+            }
+            @media (max-width: 720px) {
+                .panels {
+                    grid-template-columns: 1fr;
+                }
+            }
+            .panel {
+                background: rgba(22, 33, 62, 0.55);
+                border: 2px solid rgba(233, 69, 96, 0.45);
+                border-radius: 10px;
+                padding: 18px 20px;
+            }
+            .panel h2 {
+                font-size: 1.2rem;
+                color: #e94560;
+                margin-bottom: 4px;
+            }
+            .panel .sub {
+                font-size: 0.85rem;
+                color: rgba(255, 255, 255, 0.6);
+                margin-bottom: 14px;
+            }
+            .digits {
+                display: flex;
+                gap: 6px;
+                flex-wrap: wrap;
+                margin-bottom: 14px;
+            }
+            .digit {
+                min-width: 46px;
+                text-align: center;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                border-radius: 6px;
+                padding: 6px 4px;
+                background: rgba(0, 0, 0, 0.25);
+            }
+            .digit .place {
+                font-size: 0.7rem;
+                color: rgba(255, 255, 255, 0.5);
+            }
+            .digit .bit {
+                font-size: 1.1rem;
+                font-weight: 700;
+                color: rgba(255, 255, 255, 0.4);
+            }
+            .digit.on {
+                border-color: #e94560;
+                background: rgba(233, 69, 96, 0.18);
+            }
+            .digit.on .bit {
+                color: #ffd0d8;
+            }
+            .digit.low {
+                box-shadow: 0 0 0 2px #ffd0d8 inset;
+            }
+            .sum {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.92rem;
+                color: rgba(255, 255, 255, 0.85);
+                margin-bottom: 12px;
+                word-break: break-word;
+            }
+            .val {
+                font-size: 0.95rem;
+                color: rgba(255, 255, 255, 0.85);
+            }
+            .val b {
+                color: #ffd0d8;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 1.1rem;
+            }
+            h3 {
+                color: #e94560;
+                font-size: 1.25rem;
+                margin: 34px 0 6px;
+            }
+            .skyline {
+                display: flex;
+                align-items: flex-end;
+                gap: 2px;
+                height: 130px;
+                padding: 10px 12px;
+                background: rgba(0, 0, 0, 0.25);
+                border-radius: 8px;
+                overflow-x: auto;
+            }
+            .tick {
+                flex: 0 0 auto;
+                width: 12px;
+                background: linear-gradient(
+                    180deg,
+                    #e94560,
+                    rgba(233, 69, 96, 0.35)
+                );
+                border-radius: 2px 2px 0 0;
+                position: relative;
+            }
+            .tick.cur {
+                background: linear-gradient(180deg, #fff, #ffd0d8);
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 12px;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.85rem;
+            }
+            th,
+            td {
+                padding: 6px 8px;
+                text-align: left;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            }
+            th {
+                color: #e94560;
+                font-size: 0.78rem;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+            td.n {
+                color: rgba(255, 255, 255, 0.6);
+            }
+            tr.cur td {
+                background: rgba(233, 69, 96, 0.14);
+            }
+            .rcell {
+                color: #ffd0d8;
+                font-weight: 700;
+            }
+            p.note {
+                color: rgba(255, 255, 255, 0.7);
+                font-size: 0.92rem;
+                margin: 10px 0 4px;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <a class="back" href="./">← Fibonacci Ruler</a>
+            <h1>Two Rulers, Side by Side</h1>
+            <p class="lede">
+                The dyadic ruler reads the lowest set bit of <em>n</em> in
+                binary. The Fibonacci ruler reads the lowest term of <em>n</em>
+                in its Zeckendorf sum. Same idea, two number systems.
+            </p>
+
+            <div class="controls">
+                <label for="n">n =</label>
+                <input id="n" type="number" min="1" max="2000" value="44" />
+                <input id="slider" type="range" min="1" max="120" value="44" />
+            </div>
+
+            <div class="panels">
+                <div class="panel">
+                    <h2>Dyadic — base 2</h2>
+                    <div class="sub">places 1, 2, 4, 8, 16, … (powers of 2)</div>
+                    <div class="digits" id="binDigits"></div>
+                    <div class="sum" id="binSum"></div>
+                    <div class="val">
+                        lowest power present →
+                        2-adic valuation ρ₂ = <b id="binRho"></b>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>Fibonacci — Zeckendorf</h2>
+                    <div class="sub">
+                        places 1, 2, 3, 5, 8, 13, … (no two adjacent)
+                    </div>
+                    <div class="digits" id="fibDigits"></div>
+                    <div class="sum" id="fibSum"></div>
+                    <div class="val">
+                        lowest Fibonacci present →
+                        fib-adic valuation ρ_F = <b id="fibRho"></b>
+                    </div>
+                </div>
+            </div>
+
+            <h3>Dyadic ruler skyline ρ₂(1…120)</h3>
+            <div class="skyline" id="skyBin"></div>
+
+            <h3>Fibonacci ruler skyline ρ_F(1…120)</h3>
+            <div class="skyline" id="skyFib"></div>
+
+            <h3>The table</h3>
+            <p class="note">
+                The two valuation columns are the candidate priority sequences.
+                Swap <code>ρ_F</code> in for <code>pri(n)</code> and the map goes
+                golden.
+            </p>
+            <table id="tbl">
+                <thead>
+                    <tr>
+                        <th>n</th>
+                        <th>binary</th>
+                        <th>ρ₂</th>
+                        <th>zeckendorf</th>
+                        <th>ρ_F</th>
+                    </tr>
+                </thead>
+                <tbody id="tblBody"></tbody>
+            </table>
+        </main>
+
+        <script>
+            "use strict";
+
+            // --- number-system primitives ----------------------------------
+
+            // Powers of two up to >= n.
+            function powersUpTo(n) {
+                const p = [1];
+                while (p[p.length - 1] * 2 <= Math.max(n, 1)) {
+                    p.push(p[p.length - 1] * 2);
+                }
+                return p;
+            }
+
+            // Zeckendorf Fibonacci basis: 1, 2, 3, 5, 8, ... up to >= n.
+            function fibsUpTo(n) {
+                const f = [1, 2];
+                while (f[f.length - 1] < Math.max(n, 1)) {
+                    f.push(f[f.length - 1] + f[f.length - 2]);
+                }
+                return f;
+            }
+
+            // Greedy place-value decomposition over an ascending basis.
+            // Returns a parallel array of 0/1 digits aligned to `basis`.
+            function decompose(n, basis) {
+                const digits = basis.map(() => 0);
+                let rem = n;
+                for (let i = basis.length - 1; i >= 0; i--) {
+                    if (basis[i] <= rem) {
+                        digits[i] = 1;
+                        rem -= basis[i];
+                    }
+                }
+                return digits;
+            }
+
+            // Index of the lowest set digit (the valuation). -1 if n == 0.
+            function lowestSet(digits) {
+                return digits.findIndex((d) => d === 1);
+            }
+
+            function rho2(n) {
+                return lowestSet(decompose(n, powersUpTo(n)));
+            }
+            function rhoF(n) {
+                return lowestSet(decompose(n, fibsUpTo(n)));
+            }
+
+            // --- rendering -------------------------------------------------
+
+            function renderDigits(host, basis, digits, low) {
+                host.innerHTML = "";
+                // high place on the left, low place on the right
+                for (let i = basis.length - 1; i >= 0; i--) {
+                    const d = document.createElement("div");
+                    d.className =
+                        "digit" +
+                        (digits[i] ? " on" : "") +
+                        (i === low ? " low" : "");
+                    d.innerHTML =
+                        '<div class="place">' +
+                        basis[i] +
+                        '</div><div class="bit">' +
+                        digits[i] +
+                        "</div>";
+                    host.appendChild(d);
+                }
+            }
+
+            function sumText(basis, digits) {
+                const terms = [];
+                for (let i = basis.length - 1; i >= 0; i--) {
+                    if (digits[i]) terms.push(basis[i]);
+                }
+                return terms.length ? terms.join(" + ") : "0";
+            }
+
+            function renderSkyline(host, fn, cur, max) {
+                host.innerHTML = "";
+                let peak = 1;
+                const vals = [];
+                for (let n = 1; n <= max; n++) {
+                    const v = fn(n);
+                    vals.push(v);
+                    if (v > peak) peak = v;
+                }
+                for (let n = 1; n <= max; n++) {
+                    const t = document.createElement("div");
+                    t.className = "tick" + (n === cur ? " cur" : "");
+                    const h = 6 + (vals[n - 1] / peak) * 100;
+                    t.style.height = h + "px";
+                    t.title = "n=" + n + "  ρ=" + vals[n - 1];
+                    host.appendChild(t);
+                }
+            }
+
+            function renderTable(cur) {
+                const body = document.getElementById("tblBody");
+                body.innerHTML = "";
+                for (let n = 1; n <= 24; n++) {
+                    const pb = powersUpTo(n);
+                    const fb = fibsUpTo(n);
+                    const db = decompose(n, pb);
+                    const df = decompose(n, fb);
+                    const tr = document.createElement("tr");
+                    if (n === cur) tr.className = "cur";
+                    tr.innerHTML =
+                        '<td class="n">' +
+                        n +
+                        "</td><td>" +
+                        n.toString(2) +
+                        '</td><td class="rcell">' +
+                        lowestSet(db) +
+                        "</td><td>" +
+                        sumText(fb, df) +
+                        '</td><td class="rcell">' +
+                        lowestSet(df) +
+                        "</td>";
+                    body.appendChild(tr);
+                }
+            }
+
+            const SKYMAX = 120;
+
+            function update(n) {
+                n = Math.max(1, Math.min(2000, Math.round(n)));
+                document.getElementById("n").value = n;
+                document.getElementById("slider").value = Math.min(n, 120);
+
+                const pb = powersUpTo(n);
+                const fb = fibsUpTo(n);
+                const db = decompose(n, pb);
+                const df = decompose(n, fb);
+                const lowB = lowestSet(db);
+                const lowF = lowestSet(df);
+
+                renderDigits(document.getElementById("binDigits"), pb, db, lowB);
+                renderDigits(document.getElementById("fibDigits"), fb, df, lowF);
+                document.getElementById("binSum").textContent =
+                    n + " = " + sumText(pb, db);
+                document.getElementById("fibSum").textContent =
+                    n + " = " + sumText(fb, df);
+                document.getElementById("binRho").textContent = lowB;
+                document.getElementById("fibRho").textContent = lowF;
+
+                renderSkyline(document.getElementById("skyBin"), rho2, n, SKYMAX);
+                renderSkyline(document.getElementById("skyFib"), rhoF, n, SKYMAX);
+                renderTable(n);
+            }
+
+            const nInput = document.getElementById("n");
+            const slider = document.getElementById("slider");
+            nInput.addEventListener("input", () => update(+nInput.value));
+            slider.addEventListener("input", () => update(+slider.value));
+
+            update(44);
+        </script>
+    </body>
+</html>
