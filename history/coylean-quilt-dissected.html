@@ -102,8 +102,9 @@
 
         /* dissection states (pure CSS radios) */
         .states { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
-        #st-seams:checked ~ .stack .overlay { opacity: .5; }
-        #st-map:checked   ~ .stack .overlay { opacity: 1; }
+        #st-seams:checked   ~ .stack .overlay         { opacity: .5; }
+        #st-map:checked     ~ .stack .overlay         { opacity: 1; }
+        #st-patches:checked ~ .stack .overlay-patches { opacity: 1; }
 
         .controls {
             display: flex;
@@ -125,9 +126,10 @@
         }
         .controls label:hover { color: var(--wine); }
         /* highlight the active state's label */
-        #st-photo:checked ~ .controls label[for="st-photo"],
-        #st-seams:checked ~ .controls label[for="st-seams"],
-        #st-map:checked   ~ .controls label[for="st-map"] {
+        #st-photo:checked   ~ .controls label[for="st-photo"],
+        #st-seams:checked   ~ .controls label[for="st-seams"],
+        #st-map:checked     ~ .controls label[for="st-map"],
+        #st-patches:checked ~ .controls label[for="st-patches"] {
             color: var(--wine);
             border-color: var(--gold);
             background: rgba(202, 161, 74, .12);
@@ -183,21 +185,25 @@
 
         <div class="plate">
             <!-- pure-CSS dissection state -->
-            <input type="radio" name="st" id="st-photo" class="states" checked />
-            <input type="radio" name="st" id="st-seams" class="states" />
-            <input type="radio" name="st" id="st-map"   class="states" />
+            <input type="radio" name="st" id="st-photo"   class="states" checked />
+            <input type="radio" name="st" id="st-seams"   class="states" />
+            <input type="radio" name="st" id="st-map"     class="states" />
+            <input type="radio" name="st" id="st-patches" class="states" />
 
             <div class="stack">
                 <img src="coylean-quilt-doc.png"
                      alt="The Coylean quilt, photographed flat and head-on." />
                 <img src="coylean-quilt-doc-overlay.png" class="overlay"
                      alt="The 16×16 Coylean map traced over the quilt's patches." />
+                <img src="coylean-quilt-doc-patches.png" class="overlay overlay-patches"
+                     alt="All 91 Coylean patches, each colored as its own rectangle." />
             </div>
 
             <div class="controls">
                 <label for="st-photo">just the quilt</label>
                 <label for="st-seams">trace the seams</label>
                 <label for="st-map">the whole map</label>
+                <label for="st-patches">every patch</label>
             </div>
         </div>
 
