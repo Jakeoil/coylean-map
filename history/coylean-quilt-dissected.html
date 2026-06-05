@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Quilt, Dissected ✦</title>
+    <link rel="icon" type="image/png" href="../map-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Great+Vibes&family=Parisienne&display=swap"
+        rel="stylesheet" />
+    <style>
+        :root {
+            --rose: #d98aa6;
+            --rose-deep: #b85c7e;
+            --wine: #7a2f49;
+            --gold: #caa14a;
+            --gold-soft: #e8cf8e;
+            --cream: #fff8f1;
+            --ink: #4a3640;
+            --paper: #f7f1ea;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            min-height: 100vh;
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            color: var(--ink);
+            background:
+                radial-gradient(1100px 650px at 50% -10%, #f3e7ef 0%, transparent 60%),
+                linear-gradient(165deg, #f7f1ea 0%, #efe6dc 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2.4rem 1.25rem 5rem;
+        }
+
+        .wrap { width: 100%; max-width: 820px; display: flex; flex-direction: column; align-items: center; }
+
+        .crumb {
+            font-family: Georgia, serif;
+            font-size: 0.9rem;
+            color: var(--rose-deep);
+            margin-bottom: 1.5rem;
+            letter-spacing: .02em;
+            align-self: flex-start;
+        }
+        .crumb a { color: var(--rose-deep); text-decoration: none; border-bottom: 1px dotted var(--rose); }
+        .crumb a:hover { color: var(--wine); }
+
+        .eyebrow {
+            font-family: 'Parisienne', cursive;
+            font-size: 1.4rem;
+            color: var(--rose-deep);
+            margin-bottom: -0.3rem;
+            text-align: center;
+        }
+        h1 {
+            font-family: 'Great Vibes', cursive;
+            font-weight: 400;
+            font-size: clamp(2.6rem, 8vw, 4.4rem);
+            line-height: 1.05;
+            color: var(--wine);
+            text-shadow: 0 2px 0 #fff, 0 6px 16px rgba(122, 47, 73, .18);
+            text-align: center;
+        }
+        .lede {
+            max-width: 40rem;
+            text-align: center;
+            font-size: 1.22rem;
+            line-height: 1.7;
+            margin: 1rem 0 1.8rem;
+        }
+        .lede code {
+            font-family: 'Cormorant Garamond', serif;
+            font-style: italic;
+            color: var(--wine);
+            font-size: 1.08em;
+        }
+
+        /* ── the plate ── */
+        .plate {
+            position: relative;
+            width: 100%;
+            padding: 14px;
+            background: var(--cream);
+            border-radius: 6px;
+            box-shadow:
+                0 22px 54px rgba(74, 54, 64, .22),
+                inset 0 0 0 1px rgba(202, 161, 74, .35);
+        }
+        .stack { position: relative; line-height: 0; border-radius: 3px; overflow: hidden; }
+        .stack img { display: block; width: 100%; height: auto; }
+        .overlay {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            opacity: 0;
+            transition: opacity .55s ease;
+            pointer-events: none;
+        }
+
+        /* dissection states (pure CSS radios) */
+        .states { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
+        #st-seams:checked ~ .stack .overlay { opacity: .5; }
+        #st-map:checked   ~ .stack .overlay { opacity: 1; }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            margin: 1.3rem 0 .2rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .controls label {
+            font-family: 'Parisienne', cursive;
+            font-size: 1.25rem;
+            color: var(--rose-deep);
+            cursor: pointer;
+            padding: 4px 16px;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            user-select: none;
+            transition: all .2s;
+        }
+        .controls label:hover { color: var(--wine); }
+        /* highlight the active state's label */
+        #st-photo:checked ~ .controls label[for="st-photo"],
+        #st-seams:checked ~ .controls label[for="st-seams"],
+        #st-map:checked   ~ .controls label[for="st-map"] {
+            color: var(--wine);
+            border-color: var(--gold);
+            background: rgba(202, 161, 74, .12);
+        }
+
+        .note {
+            max-width: 42rem;
+            text-align: center;
+            font-size: 1.08rem;
+            line-height: 1.7;
+            color: var(--ink);
+            margin-top: 1.8rem;
+            font-style: italic;
+        }
+        .note b { font-style: normal; color: var(--wine); }
+        .legend {
+            margin-top: 1.5rem;
+            font-size: 1rem;
+            color: var(--rose-deep);
+            text-align: center;
+            line-height: 1.7;
+        }
+        .legend span { white-space: nowrap; }
+        .tiny { margin-top: 2.4rem; font-size: .92rem; font-style: italic; color: var(--rose-deep); opacity: .8; text-align: center; }
+        .back { margin-top: 1.6rem; }
+        .back a {
+            font-family: 'Parisienne', cursive;
+            font-size: 1.4rem;
+            color: var(--wine);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--rose);
+        }
+        .back a:hover { color: var(--rose-deep); }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <nav class="crumb">
+            <a href="../">Coylean&nbsp;Map</a> &nbsp;·&nbsp;
+            <a href="index.html">History</a> &nbsp;·&nbsp;
+            <a href="coylean-quilt.html">The&nbsp;Quilt</a> &nbsp;·&nbsp; Dissected
+        </nav>
+
+        <div class="eyebrow">a closer look</div>
+        <h1>The Quilt, Dissected</h1>
+
+        <p class="lede">
+            Laid flat, the quilt is exactly a <code>16&times;16</code> canonical
+            Coylean square. Every patch is one of its rectangles — and the seams
+            between them are the map's own lines. Fade the overlay in to watch the
+            pattern surface.
+        </p>
+
+        <div class="plate">
+            <!-- pure-CSS dissection state -->
+            <input type="radio" name="st" id="st-photo" class="states" checked />
+            <input type="radio" name="st" id="st-seams" class="states" />
+            <input type="radio" name="st" id="st-map"   class="states" />
+
+            <div class="stack">
+                <img src="coylean-quilt-doc.png"
+                     alt="The Coylean quilt, photographed flat and head-on." />
+                <img src="coylean-quilt-doc-overlay.png" class="overlay"
+                     alt="The 16×16 Coylean map traced over the quilt's patches." />
+            </div>
+
+            <div class="controls">
+                <label for="st-photo">just the quilt</label>
+                <label for="st-seams">trace the seams</label>
+                <label for="st-map">the whole map</label>
+            </div>
+        </div>
+
+        <p class="note">
+            The cream lines are generated straight from the engine —
+            <b>fromUniverseExtents(north 1, west 1, south 16, east 16)</b>, the
+            clean interior square with the seed margin and result arrows removed.
+            Where a line drifts from a seam, that's the quilt's own handmade grace,
+            not the map's.
+        </p>
+
+        <p class="legend">
+            <span>◻ a single cell = one segment</span> &nbsp;·&nbsp;
+            <span>▭ bigger patches = merged rectangles</span> &nbsp;·&nbsp;
+            <span>the border frames the whole square</span>
+        </p>
+
+        <div class="back">
+            <a href="coylean-quilt.html">← back to the quilt ♥</a>
+        </div>
+
+        <p class="tiny">For her — every seam a small act of love.</p>
+    </div>
+</body>
+</html>
