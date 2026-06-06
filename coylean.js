@@ -99,8 +99,14 @@ document.getElementById("btn-scale-down").onclick = () => {
 // ── Navigation ──
 function startMap(c) {
     complexity = c;
-    scale = 4;
-    depth = 5;
+    if (c === COMPLEXITY_ELABORATE) {
+        scale = 6;
+        depth = 8;
+    } else {
+        scale = 4;
+        depth = 6;
+    }
+    // Start at the map's upper-left corner (no pan offset).
     anchorX = anchorY = 0;
     touchStartX = touchStartY = touchCurrX = touchCurrY = 0;
 
