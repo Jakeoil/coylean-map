@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>The Yellow Conduit — The Conduits</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            :root {
+                --yellow: #d4e157;
+                --yellow-deep: #aeb934;
+                --yellow-glow: rgba(212, 225, 87, 0.55);
+                --purple: #9575cd;
+                --blue: #4fc3f7;
+            }
+            body {
+                font-family:
+                    "Segoe UI",
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background:
+                    radial-gradient(
+                        1200px 600px at 70% -10%,
+                        rgba(212, 225, 87, 0.08),
+                        transparent 60%
+                    ),
+                    linear-gradient(
+                        135deg,
+                        #14140f 0%,
+                        #161b16 45%,
+                        #0e1a1a 100%
+                    );
+                color: #eee;
+                min-height: 100vh;
+                padding: 44px 24px 80px;
+                line-height: 1.6;
+            }
+            main {
+                max-width: 980px;
+                margin: 0 auto;
+            }
+            .back {
+                display: inline-block;
+                margin-bottom: 22px;
+                color: var(--yellow);
+                text-decoration: none;
+                font-size: 0.9rem;
+                opacity: 0.85;
+            }
+            .back:hover {
+                text-decoration: underline;
+            }
+            .kicker {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.78rem;
+                letter-spacing: 0.22em;
+                text-transform: uppercase;
+                color: rgba(212, 225, 87, 0.7);
+                margin-bottom: 8px;
+            }
+            h1 {
+                font-size: 2.6rem;
+                color: var(--yellow);
+                text-shadow: 0 0 26px var(--yellow-glow);
+                margin-bottom: 12px;
+                letter-spacing: 0.01em;
+            }
+            .lede {
+                color: rgba(255, 255, 255, 0.75);
+                max-width: 64ch;
+                margin-bottom: 30px;
+                font-size: 1.06rem;
+            }
+            .lede em {
+                color: var(--yellow);
+                font-style: normal;
+            }
+            .scene {
+                background: rgba(8, 12, 8, 0.55);
+                border: 1px solid rgba(212, 225, 87, 0.28);
+                border-radius: 14px;
+                padding: 18px;
+                box-shadow:
+                    inset 0 0 60px rgba(0, 0, 0, 0.4),
+                    0 8px 40px rgba(0, 0, 0, 0.35);
+            }
+            .field {
+                display: grid;
+                gap: 4px;
+                grid-template-columns: repeat(var(--cols), 1fr);
+            }
+            .cell {
+                aspect-ratio: 1 / 1;
+                border-radius: 5px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: clamp(0.5rem, 1.6vw, 1rem);
+                user-select: none;
+            }
+            /* the ground — white/green turtle-shell tiles, all the way down */
+            .ground {
+                background: linear-gradient(
+                    140deg,
+                    rgba(255, 255, 255, 0.05),
+                    rgba(120, 180, 120, 0.07)
+                );
+                border: 1px solid rgba(255, 255, 255, 0.05);
+                color: rgba(200, 230, 200, 0.22);
+            }
+            .ground.shell {
+                color: rgba(220, 245, 220, 0.32);
+            }
+            /* the yellow conduit — our limit; each one holds a mark */
+            .conduit {
+                background:
+                    radial-gradient(
+                        circle at 50% 35%,
+                        #f0f4a6,
+                        var(--yellow) 55%,
+                        var(--yellow-deep) 100%
+                    );
+                border: 1px solid #f4f7c2;
+                color: #2b3107;
+                font-weight: 700;
+                box-shadow:
+                    0 0 10px var(--yellow-glow),
+                    inset 0 0 6px rgba(255, 255, 255, 0.6);
+                cursor: default;
+                transition:
+                    transform 0.12s ease,
+                    box-shadow 0.12s ease;
+            }
+            .conduit:hover {
+                transform: scale(1.18);
+                z-index: 3;
+                box-shadow:
+                    0 0 22px var(--yellow),
+                    inset 0 0 8px rgba(255, 255, 255, 0.8);
+            }
+            .caption {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px 22px;
+                margin-top: 16px;
+                font-size: 0.86rem;
+                color: rgba(255, 255, 255, 0.6);
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+            }
+            .caption b {
+                color: var(--yellow);
+                font-weight: 600;
+            }
+            .strata-title {
+                margin: 42px 0 14px;
+                font-size: 1.3rem;
+                color: rgba(255, 255, 255, 0.85);
+            }
+            .strata-title span {
+                color: rgba(255, 255, 255, 0.45);
+                font-size: 0.92rem;
+                font-weight: 400;
+            }
+            .stratum {
+                position: relative;
+                border-radius: 12px;
+                padding: 22px 24px;
+                margin-bottom: 16px;
+                border: 1.5px dashed;
+                background: rgba(0, 0, 0, 0.25);
+                overflow: hidden;
+            }
+            .stratum::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                background-image: repeating-linear-gradient(
+                    45deg,
+                    transparent 0 14px,
+                    rgba(255, 255, 255, 0.018) 14px 28px
+                );
+                pointer-events: none;
+            }
+            .stratum h3 {
+                font-size: 1.15rem;
+                margin-bottom: 4px;
+            }
+            .stratum p {
+                font-size: 0.95rem;
+                color: rgba(255, 255, 255, 0.55);
+                max-width: 70ch;
+            }
+            .stratum .seal {
+                position: absolute;
+                top: 18px;
+                right: 22px;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.72rem;
+                letter-spacing: 0.16em;
+                text-transform: uppercase;
+                padding: 5px 11px;
+                border-radius: 999px;
+                border: 1px solid currentColor;
+                opacity: 0.7;
+            }
+            .stratum.purple {
+                border-color: rgba(149, 117, 205, 0.5);
+                color: var(--purple);
+            }
+            .stratum.blue {
+                border-color: rgba(79, 195, 247, 0.45);
+                color: var(--blue);
+            }
+            .stratum.blue {
+                margin-left: 28px;
+                opacity: 0.78;
+            }
+            .stratum p,
+            .stratum h3 {
+                position: relative;
+                z-index: 1;
+            }
+            .footnote {
+                margin-top: 36px;
+                font-size: 0.9rem;
+                color: rgba(255, 255, 255, 0.45);
+                font-style: italic;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <a class="back" href="../">← Meta</a>
+            <div class="kicker">Scene I · The Conduits</div>
+            <h1>The Yellow Conduit</h1>
+            <p class="lede">
+                We are down at a scale where the ground is turtle-shell on
+                turtle-shell, <em>turtles all the way down</em> — white and green
+                tile under tile, too fine to name. The first thing big enough to
+                read is the <em>yellow conduit</em>. It is our limit: the world
+                is rendered just coarsely enough that a single symbol or number
+                fits inside each conduit segment, and no finer. What runs below
+                it we have not reached yet.
+            </p>
+
+            <div class="scene">
+                <div class="field" id="field"></div>
+                <div class="caption">
+                    <span><b>yellow conduit</b> — our limit · one mark per
+                        segment</span>
+                    <span>ground — white/green turtle-shell, sub-resolution</span>
+                    <span><b id="count"></b> conduit segments charted</span>
+                </div>
+            </div>
+
+            <h2 class="strata-title">
+                Deeper strata <span>— room left for what we have not found</span>
+            </h2>
+
+            <div class="stratum purple">
+                <span class="seal">not yet found</span>
+                <h3>The Purple Waste Conduit</h3>
+                <p>
+                    One scale finer than the yellow. When we can resolve it, this
+                    is where the scene continues — the spent and the discarded
+                    routed away beneath the conduit floor. Reserved.
+                </p>
+            </div>
+
+            <div class="stratum blue">
+                <span class="seal">much later</span>
+                <h3>The Blue Waterway</h3>
+                <p>
+                    Far below, much later: the living water. A scene for a future
+                    descent, when the turtles go deeper still. Reserved.
+                </p>
+            </div>
+
+            <p class="footnote">
+                The conduits go down as far as the glyphs do — which is to say,
+                all the way.
+            </p>
+        </main>
+
+        <script>
+            "use strict";
+
+            const COLS = 20;
+            const ROWS = 11;
+            document
+                .getElementById("field")
+                .style.setProperty("--cols", COLS);
+
+            // marks carried by the yellow conduit: Fibonacci numbers + a few
+            // natural glyphs (turtles all the way down).
+            const MARKS = [
+                "1", "🐢", "2", "3", "🐞", "5", "✦", "8", "🐢", "13",
+                "⬡", "21", "§", "34", "🐞", "55", "~", "✦", "🐢", "89",
+            ];
+            const SHELLS = ["⬡", "◌", "·"];
+
+            // A meandering conduit: a single connected channel across the field.
+            const channel = new Set();
+            let prev = null;
+            for (let c = 0; c < COLS; c++) {
+                let r = Math.round(
+                    ROWS / 2 - 0.5 + 2.7 * Math.sin(c * 0.62 + 0.4)
+                );
+                r = Math.max(0, Math.min(ROWS - 1, r));
+                if (prev !== null) {
+                    const lo = Math.min(prev, r);
+                    const hi = Math.max(prev, r);
+                    for (let rr = lo; rr <= hi; rr++)
+                        channel.add((c - 1) + "," + rr); // riser on prev col
+                }
+                channel.add(c + "," + r);
+                prev = r;
+            }
+
+            const field = document.getElementById("field");
+            let mark = 0;
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const div = document.createElement("div");
+                    if (channel.has(c + "," + r)) {
+                        div.className = "cell conduit";
+                        div.textContent = MARKS[mark % MARKS.length];
+                        div.title =
+                            "yellow conduit · segment " +
+                            (mark + 1) +
+                            " · mark “" +
+                            MARKS[mark % MARKS.length] +
+                            "”";
+                        mark++;
+                    } else {
+                        const shell = (r * 31 + c * 17) % 7 === 0;
+                        div.className = "cell ground" + (shell ? " shell" : "");
+                        if (shell)
+                            div.textContent =
+                                SHELLS[(r + c) % SHELLS.length];
+                    }
+                    field.appendChild(div);
+                }
+            }
+            document.getElementById("count").textContent = mark;
+        </script>
+    </body>
+</html>
