@@ -66,6 +66,63 @@ glyphs/cages machinery:
   defined purely by an increasing `sides` array, so it works for powers of two,
   Fibonacci numbers, or any sequence.
 
+## Open notes / next steps
+
+### Proposed: a core `coyleanSquare(order)` factory
+
+The square is built so often (here, in `meta/toy-rendering`, in the glyph map
+work) that `coylean-core` should grow a one-call factory instead of every page
+repeating the `Universe.create({ northExtent: 1, westExtent: 1, … })` →
+`fromUniverseBoundary` dance. Sketch:
+
+```js
+Propagation.coyleanSquare({ order, ruler = "dyadic", seniority, direction });
+```
+
+- **`order` is enough.** The side is derived from the order and the ruler —
+  `2 ** order` for `"dyadic"`, `fib(order)` for `"fibi"` — so a square page only
+  ever names an order, never a raw side.
+- **`seniority`** and **`direction`** (the SE/SW/NE/NW anchor orientation, which
+  quadrant of the infinite map the square shows) are the only other knobs.
+
+**The trap — leave it out of v1.** A square is *anchored at the origin*: its
+left and top edges **are** the infinite-priority zero axes (column 0 / row 0).
+That is exactly what the `westExtent = northExtent = 1` context buys, giving the
+internal `hInitCol = vInitRow = 0`. So you **cannot** parameterise the factory by
+a free `hInitCol` / `vInitRow` location the way `Universe.create` allows: shifting
+the lattice offset slides the zero/infinity lines off the left edge and the
+result is no longer a square framed by its spine. Locating a square somewhere
+other than the origin (keeping the zero axis on-screen as a moving frame) is a
+real design problem — defer it. v1 takes `order` (+ `seniority`, `direction`)
+only; the offset stays pinned to the origin anchor.
+
+### Possible: a half-step (alternating V/H) ladder
+
+`meta/planet-coyleus` runs the ladder in **half-steps** — two rungs per order,
+`V_n` then `H_n`, seniority flipping between them, each half-step doubling one
+axis (the section area halves, not quarters). Smaller re-tile jumps, and it
+surfaces the V/H backslash dual. Bringing that here is **low-to-moderate
+effort**, because most of the machinery already fits:
+
+- **The renderer is ready.** `coylean-field.mjs` already computes `cellsX` and
+  `cellsY` independently, so a *rectangular* field (width ≠ height) maps onto the
+  unit square with no change — exactly how planet-coyleus draws half-width H
+  cells.
+- **The engine needs one generalisation.** Today a ladder rung is a scalar
+  `side`; a half-step rung is a `{ width, height, seniority }` descriptor. The
+  zoom math (`zoomForOrder` / `ladderPos`) should interpolate on the geometric
+  mean `√(width·height)` (the "scale") instead of `side` — a few lines in
+  `coylean-viewport.mjs`.
+- **The page builds rectangles.** `buildField` would alternate: square rung
+  `s × s` (seniority V), half rung `2s × s` (seniority H), next square `2s × 2s`,
+  … For **`fibi`** this is especially natural — the half-steps are exactly the
+  `Fₙ × Fₙ₋₁` golden rectangles already drawn in `tilings.html`, each step
+  multiplying the area by φ.
+
+Estimate: roughly half a day — the rung-descriptor change in the viewport plus
+the rectangular `buildField` in the page; no change to `coylean-field` or
+`coylean-core`.
+
 ## Files
 
 - `index.html` — the ruler's hub (motivation, Zeckendorf, the sub-pages).
