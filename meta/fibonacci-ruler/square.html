@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>The Coylean Square — Fibonacci Ruler</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family:
+                    "Segoe UI", system-ui, -apple-system, sans-serif;
+                background: linear-gradient(
+                    135deg,
+                    #1a1a2e 0%,
+                    #16213e 50%,
+                    #0f3460 100%
+                );
+                color: #eee;
+                min-height: 100vh;
+                padding: 48px 24px 64px;
+                line-height: 1.6;
+            }
+            main {
+                max-width: 760px;
+                margin: 0 auto;
+            }
+            .back {
+                display: inline-block;
+                margin-bottom: 24px;
+                color: #e94560;
+                text-decoration: none;
+                font-size: 0.9rem;
+            }
+            .back:hover {
+                text-decoration: underline;
+            }
+            h1 {
+                font-size: 2.2rem;
+                color: #e94560;
+                text-shadow: 0 0 20px rgba(233, 69, 96, 0.4);
+                margin-bottom: 8px;
+            }
+            .lede {
+                color: rgba(255, 255, 255, 0.75);
+                margin-bottom: 20px;
+            }
+            code {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                background: rgba(233, 69, 96, 0.12);
+                padding: 1px 6px;
+                border-radius: 4px;
+                font-size: 0.92em;
+                color: #ffd0d8;
+            }
+            .controls {
+                display: flex;
+                gap: 18px;
+                flex-wrap: wrap;
+                align-items: center;
+                margin-bottom: 14px;
+            }
+            .modes {
+                display: flex;
+                gap: 8px;
+            }
+            .modes button {
+                padding: 8px 16px;
+                font-size: 0.95rem;
+                border: 1px solid rgba(233, 69, 96, 0.55);
+                background: transparent;
+                color: #eee;
+                border-radius: 6px;
+                cursor: pointer;
+                font-family: inherit;
+                transition: all 0.15s;
+            }
+            .modes button:hover {
+                background: rgba(233, 69, 96, 0.18);
+            }
+            .modes button.active {
+                background: #e94560;
+                color: #fff;
+                border-color: #e94560;
+                font-weight: 600;
+            }
+            .ladder {
+                display: flex;
+                gap: 6px;
+                flex-wrap: wrap;
+                margin-left: auto;
+            }
+            .ladder .rung {
+                padding: 6px 10px;
+                font-size: 0.82rem;
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                background: rgba(255, 255, 255, 0.04);
+                color: rgba(255, 255, 255, 0.8);
+                border-radius: 5px;
+                cursor: pointer;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                transition: all 0.12s;
+            }
+            .ladder .rung:hover {
+                border-color: rgba(233, 69, 96, 0.6);
+            }
+            .ladder .rung.on {
+                background: rgba(233, 69, 96, 0.85);
+                color: #fff;
+                border-color: #e94560;
+            }
+            .frame {
+                background: #0c1430;
+                border: 1px solid rgba(233, 69, 96, 0.3);
+                border-radius: 10px;
+                padding: 10px;
+                display: flex;
+                justify-content: center;
+                line-height: 0;
+            }
+            #map {
+                cursor: grab;
+                border-radius: 4px;
+            }
+            #map:active {
+                cursor: grabbing;
+            }
+            .meta {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                gap: 16px;
+                margin-top: 12px;
+            }
+            .orderlabel {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.85rem;
+                color: #ffd0d8;
+            }
+            .hint {
+                font-size: 0.82rem;
+                color: rgba(255, 255, 255, 0.5);
+            }
+            .caption {
+                color: rgba(255, 255, 255, 0.72);
+                font-size: 0.95rem;
+                margin-top: 14px;
+                min-height: 3em;
+                line-height: 1.5;
+            }
+            kbd {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                background: rgba(255, 255, 255, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.22);
+                border-bottom-width: 2px;
+                border-radius: 4px;
+                padding: 0 5px;
+                font-size: 0.85em;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <a class="back" href="./">← Fibonacci Ruler</a>
+            <h1>The Coylean Square</h1>
+            <p class="lede">
+                The ruler made into a map. This is a <em>proper</em> Coylean
+                square — one cell of north/west context reseeded through
+                <code>Propagation.fromUniverseBoundary</code>, so it is the
+                genuine SE patch of an infinite map, not a boundary-clipped
+                grid. Each line's <strong>thickness is its priority</strong>, so
+                the ruler's skeleton is visible: switch the
+                <strong>ruler</strong> and watch it move from powers of two to
+                Fibonacci numbers. The trailing result lines are suppressed.
+            </p>
+
+            <div class="controls">
+                <div class="modes">
+                    <button data-ruler="dyadic" class="active">Dyadic</button>
+                    <button data-ruler="fibi">Fibonacci</button>
+                </div>
+                <div class="ladder" id="ladder"></div>
+            </div>
+
+            <div class="frame">
+                <canvas id="map"></canvas>
+            </div>
+
+            <div class="meta">
+                <span class="orderlabel" id="orderlabel"></span>
+                <span class="hint">
+                    scroll to zoom · drag to pan · hold
+                    <kbd>shift</kbd> while zooming to hold the subdivision
+                </span>
+            </div>
+
+            <p class="caption" id="caption"></p>
+        </main>
+
+        <script type="module" src="./square.mjs"></script>
+    </body>
+</html>

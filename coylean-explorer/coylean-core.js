@@ -69,6 +69,63 @@ export function priLoop(n, maxPri = DEFAULT_MAX_PRI) {
 }
 
 /**
+ * Fibonacci-adic (Zeckendorf) valuation of n — the Fibonacci-ruler
+ * stand-in for pri(). Where pri() reads the lowest set bit of n in base 2,
+ * fibiPri() reads the lowest term of n's Zeckendorf representation (the
+ * unique sum of non-consecutive Fibonacci numbers 1,2,3,5,8,13,…) and
+ * returns that term's index. So the high-priority gridlines fall on
+ * Fibonacci-spaced ticks instead of powers of two.
+ *
+ *   fibiPri(1..8) = 0,1,2,0,3,0,1,4   (cf. pri(1..8) = 0,1,0,2,0,1,0,3)
+ *
+ * 0 is the infinite-priority origin axis (returns maxPri, the dyadic
+ * convention). The valuation is sign-independent, so negatives mirror the
+ * positives (fibiPri(-n) === fibiPri(n)). maxPri clamps the result, matching
+ * pri()'s signature so the two are drop-in interchangeable as the ruler.
+ *
+ * See meta/fibonacci-ruler/ for the worldbuilding and meta/fibonacci/ for the
+ * square demo that switches between this and pri().
+ */
+export function fibiPri(n, maxPri = DEFAULT_MAX_PRI) {
+    if (n === 0) return maxPri;
+    if (n < 0) n = -n;
+    // Zeckendorf basis 1, 2, 3, 5, 8, … grown just past n.
+    let a = 1;
+    let b = 2;
+    const basis = [a, b];
+    while (b <= n) {
+        const c = a + b;
+        a = b;
+        b = c;
+        basis.push(b);
+    }
+    // Greedy decomposition, high term → low. The last index we take is the
+    // lowest set Zeckendorf digit — the valuation.
+    let rem = n;
+    let low = maxPri;
+    for (let i = basis.length - 1; i >= 0; i--) {
+        if (basis[i] <= rem) {
+            rem -= basis[i];
+            low = i;
+        }
+    }
+    return Math.min(low, maxPri);
+}
+
+/**
+ * The selectable priority rulers. A Propagation / Universe takes a
+ * `ruler: "dyadic" | "fibi"` option (default "dyadic", so existing callers
+ * are untouched); it is resolved to one of these (n, maxPri) → priority
+ * functions. A function may also be passed directly for a custom ruler.
+ */
+export const RULERS = { dyadic: pri, fibi: fibiPri };
+
+export function resolveRuler(ruler) {
+    if (typeof ruler === "function") return ruler;
+    return RULERS[ruler] ?? pri;
+}
+
+/**
  * Debug-friendly array types.
  * Row prints vertical arrows:   "|" = present, "o" = absent
  * Col prints horizontal arrows: "-" = present, "o" = absent
@@ -294,6 +351,11 @@ export function createRightMatrix(numColumns) {
  *   other axis: ~2^(m+2) cells, m = min(maxLatPri, maxLongPri) (see the
  *   CEILING note above). Omit it and longitude uses maxPri (default or set),
  *   unchanged from the original behaviour. See meta/big-map/period-analysis.md.
+ * @param {"dyadic"|"fibi"|function} [options.ruler]
+ *   Priority ruler used for both axes. "dyadic" (default) uses the 2-adic
+ *   pri(); "fibi" uses the Fibonacci-adic fibiPri(); a function is used
+ *   as a custom (n, maxPri) → priority. Defaults to "dyadic", so callers
+ *   that omit it run exactly as before.
  * @param {boolean[]} [options.initDown]
  *   Top-row down inputs (length = numColumns). Defaults to all-true.
  * @param {boolean[]} [options.initRight]
@@ -338,6 +400,7 @@ export class Propagation {
         maxPri = DEFAULT_MAX_PRI,
         maxLatPri = maxPri,
         maxLongPri = maxPri,
+        ruler = "dyadic",
         initDown,
         initRight,
     }) {
@@ -357,14 +420,18 @@ export class Propagation {
         this.maxPri = maxPri;
         this.maxLatPri = maxLatPri;
         this.maxLongPri = maxLongPri;
+        this.ruler = ruler;
+        // The priority ruler: dyadic pri() by default, swappable for the
+        // Fibonacci-adic fibiPri() (or any custom fn) via the `ruler` option.
+        const priFn = resolveRuler(ruler);
         // longitude (E–W) priority varies across columns via hInitCol;
         // latitude (N–S) priority varies down rows via vInitRow. Each axis
         // takes its own ceiling so one can cycle while the other runs on.
         this.colPriority = [...Array(numColumns)].map((_, i) =>
-            pri(i + hInitCol, maxLongPri),
+            priFn(i + hInitCol, maxLongPri),
         );
         this.rowPriority = [...Array(numRows)].map((_, j) =>
-            pri(j + vInitRow, maxLatPri),
+            priFn(j + vInitRow, maxLatPri),
         );
 
         const downMatrix = createDownMatrix(numRows);
@@ -526,6 +593,7 @@ export class Propagation {
             maxPri: opts.maxPri ?? anyQuad.maxPri,
             maxLatPri: opts.maxLatPri ?? anyQuad.maxLatPri,
             maxLongPri: opts.maxLongPri ?? anyQuad.maxLongPri,
+            ruler: opts.ruler ?? anyQuad.ruler ?? "dyadic",
             initDown,
             initRight,
         });
@@ -593,6 +661,7 @@ export class Propagation {
         maxPri = DEFAULT_MAX_PRI,
         maxLatPri = maxPri,
         maxLongPri = maxPri,
+        ruler = "dyadic",
         westInitDown,
         eastInitDown,
         northInitRight,
@@ -605,6 +674,7 @@ export class Propagation {
         if (northExtent + southExtent === 0 || westExtent + eastExtent === 0) {
             throw new Error("Universe must contain at least one quadrant");
         }
+        const priFn = resolveRuler(ruler);
 
         // A quadrant exists iff both its bounding extents are non-zero —
         // identical to createUniverseExtents' null-suppression.
@@ -634,12 +704,12 @@ export class Propagation {
         const edges = (numRows, numColumns, hq, vq, topDown, leftRight) => {
             const colPri = [];
             for (let i = 0; i < numColumns; i++) {
-                colPri.push(pri(i + hq, maxLongPri));
+                colPri.push(priFn(i + hq, maxLongPri));
             }
             const down = topDown.slice(0, numColumns);
             const resultRight = [];
             for (let j = 0; j < numRows; j++) {
-                const rPri = pri(j + vq, maxLatPri);
+                const rPri = priFn(j + vq, maxLatPri);
                 let right = leftRight[j];
                 for (let i = 0; i < numColumns; i++) {
                     const [d, r] = reactionFromPriority(
@@ -694,6 +764,7 @@ export class Propagation {
             maxPri,
             maxLatPri,
             maxLongPri,
+            ruler,
         };
     }
 }
@@ -1111,6 +1182,8 @@ export class Universe {
      * @param {number} [options.maxLatPri]   N–S ceiling; defaults to maxPri
      * @param {number} [options.maxLongPri]  E–W ceiling; defaults to maxPri.
      *   Lower it so the quadrant seeds (and thus the integrated map) wrap E–W.
+     * @param {"dyadic"|"fibi"|function} [options.ruler]  priority ruler for the
+     *   four quadrants; "dyadic" (default) or "fibi". See {@link Propagation}.
      * @param {boolean[]} [options.westInitDown]   length westExtent  — shared by NW & SW
      * @param {boolean[]} [options.eastInitDown]   length eastExtent  — shared by NE & SE
      * @param {boolean[]} [options.northInitRight] length northExtent — shared by NW & NE
@@ -1128,6 +1201,7 @@ export class Universe {
         maxPri = DEFAULT_MAX_PRI,
         maxLatPri = maxPri,
         maxLongPri = maxPri,
+        ruler = "dyadic",
         westInitDown,
         eastInitDown,
         northInitRight,
@@ -1144,6 +1218,7 @@ export class Universe {
                 maxPri,
                 maxLatPri,
                 maxLongPri,
+                ruler,
                 initDown,
                 initRight,
             });
