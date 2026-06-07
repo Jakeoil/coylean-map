@@ -150,6 +150,21 @@ it does (tell me)."*
 orientation, or *shows the stub with the corrected letter*. Three buttons +
 their status, leaf/cream motif, no quadrant-label panel.
 
+**Status: Phase 2 DONE.** `ORI = {h, v, senH}`; each toggle is a D4 generator
+(longitude→`s_v`, latitude→`s_h`, seniority→`s_d1`) composed via `d4Compose`
+into a net element (`netOrient`) — the eight toggle combos cover all eight D4
+orientations. Applied as a single canvas transform (`orientWrap`, using the
+compound-glyphs `D4M` table) about the tile centre of the **hero only**; the
+twelve thumbnails stay native. The whole info area recomputes under the current
+orientation: `currentDesignation` matches the transformed pattern key
+(`computePattern` + `transformedPatternKey`) back to its member, so the **code
+flips Vdr↔Hdr** (reflections stay V; `r/r³/s_d1/s_d2` land in H, the backslash
+dual) **and the letter-transform (e.g. `F\`)** are both correct; the badge draws
+that member's own orientation. Buttons sit in the hero-meta box,
+right-aligned, leaf motif, status on each. *Note: the hero stub's centred
+watermark letter mirrors under reflections (it's part of the reoriented
+creature); the badge always shows the readable oriented letter.*
+
 ### Phase 3 — Splits & ancestry (stretch, from terrains)
 The richest direction. Using `terrain-core.splitGlyph`, let the selected glyph
 **split** in place: its 2×2 of children grow out of it (turtles all the way

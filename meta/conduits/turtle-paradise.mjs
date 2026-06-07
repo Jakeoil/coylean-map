@@ -20,7 +20,10 @@ import { TURTLE_PARADISE } from "./turtle-paradise-data.js";
 import { Seniority } from "../../coylean-explorer/coylean-core.js";
 import {
     computeGlyphMatrices,
+    computePattern,
+    transformedPatternKey,
     glyphLetterAt,
+    d4Compose,
     setWorkingAssignments,
     applyAssignments,
 } from "../../glyphs/glyph-core.js";
@@ -35,6 +38,20 @@ const D4M = [
 ];
 let babyBlocks = null; // loaded async
 let lettersReady = false; // assignments built → glyphLetterAt resolves orient.
+
+// Phase 2 — orientation triplet. Each button applies a D4 reflection to the
+// SELECTED glyph (the hero) only; the twelve in the collection stay native.
+//   ↔ longitude → s_v (E/W mirror)   ↕ latitude → s_h (N/S flip)
+//   ⤢ seniority → s_d1 (transpose / backslash dual)
+const ORI = { h: 0, v: 0, senH: false };
+const D4_LONG = 5, D4_LAT = 4, D4_TRANSPOSE = 6; // s_v, s_h, s_d1
+function netOrient() {
+    let n = 0;
+    if (ORI.h) n = d4Compose(D4_LONG, n);
+    if (ORI.v) n = d4Compose(D4_LAT, n);
+    if (ORI.senH) n = d4Compose(D4_TRANSPOSE, n);
+    return n;
+}
 
 // ── The catalog ────────────────────────────────────────────────────────────
 // Entry 1 is the sketch (the F glyph). The engine entries are the lettered
@@ -121,13 +138,14 @@ function withLife(ctx, t, phase, cx, cy, fn) {
 }
 
 // ── Sketch tile: replay the baked excalidraw shapes, alive ─────────────────
-function drawSketch(ctx, W, H, entry, t, phase) {
+function drawSketch(ctx, W, H, entry, t, phase, orient = 0) {
     const data = entry.data;
     const pad = 26;
     const s = Math.min((W - 2 * pad) / data.w, (H - 2 * pad) / data.h);
     const ox = (W - data.w * s) / 2;
     const oy = (H - data.h * s) / 2;
 
+    orientWrap(ctx, W, H, orient, () => {
     // cream ground framed to the artwork (the hero band is wide; the sketch is
     // portrait — flooding the whole tile would look empty)
     const fr = 14;
@@ -180,6 +198,7 @@ function drawSketch(ctx, W, H, entry, t, phase) {
         }
         ctx.restore();
     });
+    });
 }
 
 // ── Engine tile: the real glyph in the turtle palette, alive ───────────────
@@ -197,7 +216,7 @@ function glyphMatrices(entry) {
 // big hero and the small thumbnails.
 const STUB_FRAC = 0.56;
 
-function drawEngine(ctx, W, H, entry, t, phase) {
+function drawEngine(ctx, W, H, entry, t, phase, orient = 0) {
     const { downMatrix, rightMatrix } = glyphMatrices(entry);
     const span = NC + 1; // grid positions 0..NC, plus the exit ring
     const block = Math.min(W, H) * STUB_FRAC;
@@ -206,10 +225,11 @@ function drawEngine(ctx, W, H, entry, t, phase) {
     const gy = (H - cell * span) / 2;
     const px = (g) => g * cell;
 
-    ctx.fillStyle = GROUND;
+    ctx.fillStyle = GROUND; // the tile ground stays put
     roundRect(ctx, 8, 8, W - 16, H - 16, 16);
     ctx.fill();
 
+    orientWrap(ctx, W, H, orient, () =>
     withLife(ctx, t, phase, W / 2, H / 2, () => {
         ctx.save();
         ctx.translate(gx, gy);
@@ -283,18 +303,69 @@ function drawEngine(ctx, W, H, entry, t, phase) {
             drawEye(px(span), px(i + 1), rightMatrix[NC][i], k++);
         }
         ctx.restore();
-    });
+    }));
 }
 
-// The glyph's letter + D4 orientation, from the engine — used by the info-area
-// badge. When Phase 2's orientation triplet lands, the d4 index it chooses
-// drives the badge (and the stub) here.
-function glyphOrient(entry) {
+// Wrap a drawing in a D4 orientation about the tile centre (identity = no-op).
+function orientWrap(ctx, W, H, orient, fn) {
+    if (!orient) return fn();
+    const m = D4M[orient] || D4M[0];
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.transform(m[0], m[1], m[2], m[3], 0, 0);
+    ctx.translate(-W / 2, -H / 2);
+    fn();
+    ctx.restore();
+}
+
+// ── The displayed designation, recomputed under the current orientation ────
+// The triplet applies a visual D4 element (netOrient) to the selected V glyph.
+// Reflections (e/s_v/s_h/r²) stay in the V grid; the grid-swapping elements
+// (r/r³/s_d1/s_d2) land in the H grid (the backslash dual). We find the member
+// the transform produces by matching its pattern key, then read the engine's
+// own letter + orientation for it — so the code (Vdr/Hdr) AND the letter+suffix
+// (e.g. F\) are always correct. SYM mirrors compound-glyphs' transform symbols.
+const SYM = ["0", "1", "2", "3", "h", "v", "\\", "/"];
+const GRID_SWAP = new Set([1, 3, 6, 7]);
+let revMapV = null, revMapH = null;
+function buildRevMaps() {
+    const build = (sen) => {
+        const m = new Map();
+        for (let d = 0; d < 8; d++)
+            for (let r = 0; r < 8; r++) {
+                const p = computePattern(d, r, sen);
+                m.set(transformedPatternKey(p.v, p.h, 0), d + "," + r);
+            }
+        return m;
+    };
+    revMapV = build(Seniority.vertical());
+    revMapH = build(Seniority.horizontal());
+}
+
+// → { code, sym, letter, d4 } for the entry under the current orientation.
+function currentDesignation(entry) {
+    const net = netOrient();
+    // pre-load fallback: the entry's stored designation
+    let out = { code: entry.code, sym: entry.sym, letter: entry.letter, d4: net };
     if (lettersReady && entry.dc != null) {
-        const ft = glyphLetterAt("V", entry.dc, entry.rc);
-        if (ft) return ft; // [letter, d4Index]
+        if (!revMapV) buildRevMaps();
+        const base = computePattern(entry.dc, entry.rc, Seniority.vertical());
+        const key = transformedPatternKey(base.v, base.h, net);
+        const grid = GRID_SWAP.has(net) ? "H" : "V";
+        const code = (grid === "H" ? revMapH : revMapV).get(key);
+        if (code) {
+            const [d, r] = code.split(",").map(Number);
+            const ft = glyphLetterAt(grid, d, r);
+            if (ft)
+                out = {
+                    code: grid + "" + d + "" + r,
+                    sym: ft[0] + (SYM[ft[1]] || ""),
+                    letter: ft[0],
+                    d4: ft[1],
+                };
+        }
     }
-    return [entry.letter, 0];
+    return out;
 }
 
 const drawFor = (entry) => (entry.kind === "sketch" ? drawSketch : drawEngine);
@@ -353,7 +424,7 @@ CATALOG.forEach(makeThumb);
 // block (same drawDirect approach as compound-glyphs), over the gradient chip.
 // Oriented-font fallback until the blocks SVG loads.
 function renderBadge() {
-    const e = CATALOG[selected];
+    const dsg = currentDesignation(CATALOG[selected]);
     const dpr = window.devicePixelRatio || 1;
     const w = heroBadge.clientWidth || 48, h = heroBadge.clientHeight || 48;
     heroBadge.width = w * dpr;
@@ -361,16 +432,15 @@ function renderBadge() {
     const b = heroBadge.getContext("2d");
     b.setTransform(dpr, 0, 0, dpr, 0, 0);
     b.clearRect(0, 0, w, h);
-    const [letter, d4] = glyphOrient(e);
     const size = Math.min(w, h) * 0.82;
     if (babyBlocks) {
-        babyBlocks.drawDirect(b, letter, w / 2, h / 2, size, {
-            transform: D4B[d4] || "e",
+        babyBlocks.drawDirect(b, dsg.letter, w / 2, h / 2, size, {
+            transform: D4B[dsg.d4] || "e",
             outline: false,
             color: "#14210f",
         });
     } else {
-        const m = D4M[d4] || D4M[0];
+        const m = D4M[dsg.d4] || D4M[0];
         b.save();
         b.translate(w / 2, h / 2);
         b.transform(m[0], m[1], m[2], m[3], 0, 0);
@@ -378,17 +448,47 @@ function renderBadge() {
         b.font = "700 " + size * 0.9 + "px Monaco, Menlo, monospace";
         b.textAlign = "center";
         b.textBaseline = "middle";
-        b.fillText(letter, 0, 0);
+        b.fillText(dsg.letter, 0, 0);
         b.restore();
     }
 }
 
-function syncHeroMeta() {
-    const e = CATALOG[selected];
-    renderBadge();
-    heroTitle.textContent = e.title;
-    heroSub.innerHTML = "<code>" + e.code + "</code> · " + e.sym;
+// The code (Vdr/Hdr) + letter-transform (e.g. F\) for the current orientation.
+function updateSub() {
+    const dsg = currentDesignation(CATALOG[selected]);
+    heroSub.innerHTML = "<code>" + dsg.code + "</code> · " + dsg.sym;
 }
+
+function syncHeroMeta() {
+    renderBadge();
+    heroTitle.textContent = CATALOG[selected].title;
+    updateSub();
+}
+
+// ── Orientation triplet — three buttons + status, re-orients the hero ──────
+const longBtn = document.getElementById("longBtn");
+const latBtn = document.getElementById("latBtn");
+const senBtn = document.getElementById("senBtn");
+const oSym = (sym, val) =>
+    '<span class="osym">' + sym + '</span><span class="oval">' + val +
+    "</span>";
+function syncOrient() {
+    longBtn.innerHTML = oSym("↔", ORI.h);
+    latBtn.innerHTML = oSym("↕", ORI.v);
+    senBtn.innerHTML = oSym("⤢", ORI.senH ? "H" : "V");
+}
+function orientChanged() {
+    syncOrient();
+    renderBadge(); // the hero re-renders in the loop; the badge needs a nudge
+    updateSub(); // the Vdr/Hdr code + letter-transform follow the orientation
+}
+function buildOrient() {
+    longBtn.onclick = () => { ORI.h ^= 1; orientChanged(); };
+    latBtn.onclick = () => { ORI.v ^= 1; orientChanged(); };
+    senBtn.onclick = () => { ORI.senH = !ORI.senH; orientChanged(); };
+    syncOrient();
+}
+buildOrient();
 function select(idx) {
     if (idx === selected) return;
     selected = idx;
@@ -440,6 +540,7 @@ async function loadAssets() {
             applyAssignments(true);
             lettersReady = true; // glyphLetterAt now resolves orientation
             renderBadge(); // badge can now orient correctly
+            updateSub(); // and the Vdr/Hdr + letter-transform resolve
         }
     } catch (e) {
         console.warn("turtle-paradise: assignments load failed", e);
@@ -462,7 +563,7 @@ function frame(ts) {
     heroCtx.clearRect(0, 0, heroW, heroH);
     heroCtx.globalAlpha = heroFadeT;
     const he = CATALOG[selected];
-    drawFor(he)(heroCtx, heroW, heroH, he, t, heroPhase);
+    drawFor(he)(heroCtx, heroW, heroH, he, t, heroPhase, netOrient());
     heroCtx.globalAlpha = 1;
     requestAnimationFrame(frame);
 }
