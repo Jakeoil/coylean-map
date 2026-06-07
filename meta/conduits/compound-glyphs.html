@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Compound Glyphs — The Conduits</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family:
+                    "Segoe UI",
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background:
+                    radial-gradient(
+                        900px 460px at 60% -10%,
+                        rgba(216, 226, 58, 0.12),
+                        transparent 60%
+                    ),
+                    linear-gradient(135deg, #14160c 0%, #171a10 55%, #120f18 100%);
+                color: #eee;
+                min-height: 100vh;
+                padding: 36px 20px 70px;
+                line-height: 1.55;
+            }
+            main {
+                max-width: 960px;
+                margin: 0 auto;
+            }
+            .back {
+                display: inline-block;
+                margin-bottom: 14px;
+                color: #cdd84a;
+                text-decoration: none;
+                font-size: 0.9rem;
+                opacity: 0.85;
+            }
+            .back:hover {
+                text-decoration: underline;
+            }
+            .kicker {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.76rem;
+                letter-spacing: 0.22em;
+                text-transform: uppercase;
+                color: rgba(216, 226, 58, 0.7);
+                margin-bottom: 6px;
+            }
+            h1 {
+                font-size: 2.3rem;
+                color: #e6ef8a;
+                text-shadow: 0 0 24px rgba(216, 226, 58, 0.3);
+                margin-bottom: 10px;
+            }
+            .lede {
+                color: rgba(255, 255, 255, 0.72);
+                max-width: 70ch;
+                margin-bottom: 16px;
+            }
+            .lede em {
+                font-style: normal;
+                color: #cdd84a;
+            }
+            .legend {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px 18px;
+                margin-bottom: 16px;
+                font-size: 0.86rem;
+                color: rgba(255, 255, 255, 0.75);
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+            }
+            .legend span {
+                display: inline-flex;
+                align-items: center;
+                gap: 7px;
+            }
+            .legend i {
+                width: 22px;
+                height: 4px;
+                border-radius: 2px;
+                display: inline-block;
+            }
+            .stage {
+                position: relative;
+                border-radius: 14px;
+                overflow: hidden;
+                background: #191b07;
+                box-shadow: 0 10px 50px rgba(0, 0, 0, 0.45);
+            }
+            canvas {
+                display: block;
+                width: 100%;
+                aspect-ratio: 16 / 10;
+                touch-action: none;
+            }
+            .readout {
+                margin-top: 14px;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.9rem;
+                color: rgba(255, 255, 255, 0.7);
+                min-height: 1.4em;
+            }
+            .readout b {
+                color: #e6ef8a;
+            }
+            .note {
+                margin-top: 18px;
+                font-size: 0.92rem;
+                color: rgba(255, 255, 255, 0.55);
+            }
+            .note code {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                color: #cdd84a;
+            }
+            .legend b {
+                color: #e7dcff;
+            }
+            .controls {
+                display: flex;
+                gap: 14px;
+                align-items: center;
+                flex-wrap: wrap;
+                margin-bottom: 14px;
+            }
+            .controls button {
+                font: inherit;
+                font-size: 0.92rem;
+                padding: 9px 16px;
+                border-radius: 10px;
+                border: 1.5px solid rgba(216, 226, 58, 0.5);
+                background: rgba(216, 226, 58, 0.1);
+                color: #e6ef8a;
+                cursor: pointer;
+            }
+            .controls button:hover {
+                background: rgba(216, 226, 58, 0.22);
+            }
+            .toggle {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 0.9rem;
+                color: #e6ef8a;
+                cursor: pointer;
+            }
+            .hint {
+                font-size: 0.84rem;
+                color: rgba(255, 255, 255, 0.5);
+            }
+            .stage canvas {
+                cursor: grab;
+            }
+            .stage canvas:active {
+                cursor: grabbing;
+            }
+
+            /* intro: text block on the left, orientation card on the right */
+            .intro {
+                display: flex;
+                gap: 22px;
+                align-items: flex-start;
+                margin-bottom: 16px;
+                flex-wrap: wrap;
+            }
+            .intro .lede {
+                flex: 1 1 380px;
+                margin-bottom: 0;
+            }
+            .orient-card {
+                flex: 0 0 216px;
+                background: rgba(216, 226, 58, 0.06);
+                border: 1px solid rgba(216, 226, 58, 0.25);
+                border-radius: 12px;
+                padding: 13px 14px 15px;
+            }
+            .orient-card h2 {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.72rem;
+                letter-spacing: 0.16em;
+                text-transform: uppercase;
+                font-weight: 600;
+                color: rgba(216, 226, 58, 0.8);
+                margin-bottom: 11px;
+            }
+            .orient-btns {
+                display: flex;
+                gap: 6px;
+                margin-bottom: 10px;
+            }
+            .orient-btn {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 3px;
+                background: rgba(255, 255, 255, 0.04);
+                border: 1px solid rgba(216, 226, 58, 0.3);
+                color: #e6ef8a;
+                border-radius: 8px;
+                padding: 9px 4px;
+                font: inherit;
+                cursor: pointer;
+            }
+            .orient-btn:hover {
+                background: rgba(216, 226, 58, 0.18);
+                border-color: rgba(216, 226, 58, 0.55);
+            }
+            .orient-btn .osym {
+                font-size: 1.5rem;
+                font-weight: 700;
+                line-height: 1;
+            }
+            .orient-btn .oval {
+                font-size: 0.9rem;
+                font-weight: 600;
+                color: rgba(255, 255, 255, 0.6);
+            }
+            .orient-label {
+                text-align: center;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 1.1rem;
+                letter-spacing: 0.12em;
+                color: #cdd84a;
+            }
+            .orient-sub {
+                text-align: center;
+                font-size: 0.7rem;
+                color: rgba(255, 255, 255, 0.42);
+                margin-top: 3px;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <a class="back" href="./">← The Conduits</a>
+            <div class="kicker">The Conduits · a colony</div>
+            <h1>Compound Glyphs</h1>
+            <div class="intro">
+                <p class="lede">
+                    The real Coylean map on the anchor point (1/1), where the
+                    glyph letters are a mnemonic. Each glyph carries a
+                    <em>baby-block letter</em> — just the letter part, no border,
+                    in black, at the glyph’s own <em>orientation</em> (the blocks
+                    were chosen partly for their rough match to the line
+                    pattern). The letters are tiny: <em>zoom in</em> to read
+                    them. Where neighbors share an edge with <em>no bar</em>,
+                    they fuse into one rectangle — a <em>compound glyph</em>,
+                    faintly tinted; the rectangle your eye picks out scanning a
+                    map.
+                </p>
+                <aside class="orient-card">
+                    <h2>Orientation</h2>
+                    <div class="orient-btns">
+                        <button class="orient-btn" id="longBtn"
+                            title="longitude — east / west anchor"></button>
+                        <button class="orient-btn" id="latBtn"
+                            title="latitude — north / south anchor"></button>
+                        <button class="orient-btn" id="senBtn"
+                            title="seniority — V / H tie-break (both show squares)"
+                        ></button>
+                    </div>
+                    <div class="orient-label" id="orientLabel"></div>
+                    <div class="orient-sub">anchor · seniority</div>
+                </aside>
+            </div>
+
+            <div class="controls">
+                <button id="reset">Reset view</button>
+                <label class="toggle">
+                    <input type="checkbox" id="labels-toggle" checked />
+                    Letters
+                </label>
+                <span class="hint"
+                    >scroll / pinch to zoom · drag to pan · the block letters
+                    surface as you magnify</span
+                >
+            </div>
+
+            <div class="stage">
+                <canvas id="cv"></canvas>
+            </div>
+            <div class="readout" id="readout">click a rectangle to name it</div>
+
+            <p class="note">
+                Real data: map from <code>computeMapModel</code>
+                (<code>fromUniverseBoundary</code>); letters resolved per section
+                via <code>assignments-complete.json</code> →
+                <code>glyphLetterAt</code> → <code>[letter, d4Index]</code>, drawn
+                as the baby-block <em>letter part</em>
+                (<code>drawDirect</code>, <code>outline:false</code>) at the
+                mapped orientation. Color is reserved for compound membership.
+            </p>
+        </main>
+
+        <script type="module" src="./compound-glyphs.mjs"></script>
+    </body>
+</html>
