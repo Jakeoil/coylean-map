@@ -18,7 +18,23 @@
 
 import { TURTLE_PARADISE } from "./turtle-paradise-data.js";
 import { Seniority } from "../../coylean-explorer/coylean-core.js";
-import { computeGlyphMatrices } from "../../glyphs/glyph-core.js";
+import {
+    computeGlyphMatrices,
+    glyphLetterAt,
+    setWorkingAssignments,
+    applyAssignments,
+} from "../../glyphs/glyph-core.js";
+import { BabyBlocks } from "../../baby-blocks/baby-blocks.js";
+
+// engine d4Index → baby-block transform name (verified, per compound-glyphs)
+const D4B = ["e", "r", "r2", "r3", "sh", "sv", "d", "d'"];
+// engine d4Index → 2×2 matrix, for the plain-font fallback before blocks load
+const D4M = [
+    [1, 0, 0, 1], [0, 1, -1, 0], [-1, 0, 0, -1], [0, -1, 1, 0],
+    [1, 0, 0, -1], [-1, 0, 0, 1], [0, 1, 1, 0], [0, -1, -1, 0],
+];
+let babyBlocks = null; // loaded async
+let lettersReady = false; // assignments built → glyphLetterAt resolves orient.
 
 // ── The catalog ────────────────────────────────────────────────────────────
 // Entry 1 is the sketch (the F glyph). The engine entries are the lettered
@@ -29,6 +45,8 @@ const CATALOG = [
         letter: "F",
         code: "V77",
         sym: "F\\",
+        dc: 7, // F = V77, so its orientation resolves like the engine stubs
+        rc: 7,
         title: "Turtle Paradise",
         blurb: "this map is an example of the elaborate rendering",
         featured: true,
@@ -174,11 +192,16 @@ function glyphMatrices(entry) {
     return m;
 }
 
+// The stub glyph is sized to a centred block (a fraction of the smaller side),
+// so it is never larger than the future "monster" — and matches between the
+// big hero and the small thumbnails.
+const STUB_FRAC = 0.56;
+
 function drawEngine(ctx, W, H, entry, t, phase) {
     const { downMatrix, rightMatrix } = glyphMatrices(entry);
-    const pad = 30;
     const span = NC + 1; // grid positions 0..NC, plus the exit ring
-    const cell = Math.min(W - 2 * pad, H - 2 * pad) / span;
+    const block = Math.min(W, H) * STUB_FRAC;
+    const cell = block / span;
     const gx = (W - cell * span) / 2;
     const gy = (H - cell * span) / 2;
     const px = (g) => g * cell;
@@ -196,7 +219,7 @@ function drawEngine(ctx, W, H, entry, t, phase) {
         roundRect(ctx, px(0.5), px(0.5), px(NC), px(NC), cell * 0.5);
         ctx.fill();
 
-        // translucent letter watermark
+        // the glyph's letter, centred where it belongs (a faint watermark)
         ctx.save();
         ctx.fillStyle = YELLOW_DEEP + "33";
         ctx.font = "bold " + cell * 2.4 + "px Monaco, Menlo, monospace";
@@ -263,73 +286,184 @@ function drawEngine(ctx, W, H, entry, t, phase) {
     });
 }
 
-// ── Build the catalog DOM ──────────────────────────────────────────────────
-const grid = document.getElementById("catalog");
-const tiles = [];
+// The glyph's letter + D4 orientation, from the engine — used by the info-area
+// badge. When Phase 2's orientation triplet lands, the d4 index it chooses
+// drives the badge (and the stub) here.
+function glyphOrient(entry) {
+    if (lettersReady && entry.dc != null) {
+        const ft = glyphLetterAt("V", entry.dc, entry.rc);
+        if (ft) return ft; // [letter, d4Index]
+    }
+    return [entry.letter, 0];
+}
 
-function makeTile(entry, idx) {
-    const card = document.createElement("article");
-    card.className = "card" + (entry.featured ? " featured" : "");
+const drawFor = (entry) => (entry.kind === "sketch" ? drawSketch : drawEngine);
+
+// ── The hero (selected glyph) + the strip of twelve thumbnails ─────────────
+const strip = document.getElementById("strip");
+const heroCanvas = document.getElementById("heroCanvas");
+const heroStage = heroCanvas.parentElement;
+const heroCtx = heroCanvas.getContext("2d");
+const heroBadge = document.getElementById("heroBadge");
+const heroTitle = document.getElementById("heroTitle");
+const heroSub = document.getElementById("heroSub");
+
+let selected = 0; // default: F (entry 0)
+let heroFadeT = 1; // 1 = fully shown; resets to 0 on select for a soft fade-in
+let heroW = 0, heroH = 0;
+const heroPhase = 0.4;
+
+const thumbs = [];
+function makeThumb(entry, idx) {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "thumb" + (idx === selected ? " selected" : "");
 
     const stage = document.createElement("div");
-    stage.className = "tile-stage";
+    stage.className = "thumb-stage";
     const canvas = document.createElement("canvas");
     stage.appendChild(canvas);
 
-    const meta = document.createElement("div");
-    meta.className = "meta";
-    meta.innerHTML =
-        '<span class="badge">' +
-        entry.letter +
-        "</span>" +
-        '<div class="meta-text"><div class="title">' +
-        entry.title +
-        '</div><div class="sub"><code>' +
-        entry.code +
-        "</code> · " +
-        entry.sym +
-        "</div></div>";
+    const label = document.createElement("div");
+    label.className = "thumb-label";
+    label.innerHTML =
+        '<span class="tl">' + entry.letter + "</span>" +
+        '<span class="tc">' + entry.code + "</span>";
 
     card.appendChild(stage);
-    card.appendChild(meta);
-    grid.appendChild(card);
+    card.appendChild(label);
+    card.addEventListener("click", () => select(idx));
+    strip.appendChild(card);
 
-    const ctx = canvas.getContext("2d");
-    tiles.push({
+    thumbs.push({
         entry,
-        canvas,
-        ctx,
+        card,
         stage,
+        canvas,
+        ctx: canvas.getContext("2d"),
         phase: idx * 1.7,
-        draw: entry.kind === "sketch" ? drawSketch : drawEngine,
+        // the collection is uniform: every thumbnail is the glyph STUB (even F,
+        // which is V77) — the sketch image only appears in the hero.
+        draw: drawEngine,
     });
 }
-CATALOG.forEach(makeTile);
+CATALOG.forEach(makeThumb);
 
-// ── Sizing (DPR-aware) ─────────────────────────────────────────────────────
-function sizeTiles() {
+// The info-area badge: the selected glyph's letter as a properly oriented baby
+// block (same drawDirect approach as compound-glyphs), over the gradient chip.
+// Oriented-font fallback until the blocks SVG loads.
+function renderBadge() {
+    const e = CATALOG[selected];
     const dpr = window.devicePixelRatio || 1;
-    for (const tile of tiles) {
-        const w = tile.stage.clientWidth;
-        const h = tile.stage.clientHeight;
-        tile.canvas.width = w * dpr;
-        tile.canvas.height = h * dpr;
-        tile.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        tile.cssW = w;
-        tile.cssH = h;
+    const w = heroBadge.clientWidth || 48, h = heroBadge.clientHeight || 48;
+    heroBadge.width = w * dpr;
+    heroBadge.height = h * dpr;
+    const b = heroBadge.getContext("2d");
+    b.setTransform(dpr, 0, 0, dpr, 0, 0);
+    b.clearRect(0, 0, w, h);
+    const [letter, d4] = glyphOrient(e);
+    const size = Math.min(w, h) * 0.82;
+    if (babyBlocks) {
+        babyBlocks.drawDirect(b, letter, w / 2, h / 2, size, {
+            transform: D4B[d4] || "e",
+            outline: false,
+            color: "#14210f",
+        });
+    } else {
+        const m = D4M[d4] || D4M[0];
+        b.save();
+        b.translate(w / 2, h / 2);
+        b.transform(m[0], m[1], m[2], m[3], 0, 0);
+        b.fillStyle = "#14210f";
+        b.font = "700 " + size * 0.9 + "px Monaco, Menlo, monospace";
+        b.textAlign = "center";
+        b.textBaseline = "middle";
+        b.fillText(letter, 0, 0);
+        b.restore();
     }
 }
-sizeTiles();
-window.addEventListener("resize", sizeTiles);
 
-// ── One shared breathing loop ──────────────────────────────────────────────
+function syncHeroMeta() {
+    const e = CATALOG[selected];
+    renderBadge();
+    heroTitle.textContent = e.title;
+    heroSub.innerHTML = "<code>" + e.code + "</code> · " + e.sym;
+}
+function select(idx) {
+    if (idx === selected) return;
+    selected = idx;
+    heroFadeT = 0; // soft fade-in of the newly selected hero
+    thumbs.forEach((tm, i) =>
+        tm.card.classList.toggle("selected", i === selected));
+    syncHeroMeta();
+}
+syncHeroMeta();
+
+// ── Sizing (DPR-aware) ─────────────────────────────────────────────────────
+function sizeCanvas(canvas, ctx, stage) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = stage.clientWidth, h = stage.clientHeight;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return [w, h];
+}
+function sizeAll() {
+    [heroW, heroH] = sizeCanvas(heroCanvas, heroCtx, heroStage);
+    for (const tm of thumbs)
+        [tm.cssW, tm.cssH] = sizeCanvas(tm.canvas, tm.ctx, tm.stage);
+    renderThumbs();
+    renderBadge();
+}
+
+// The twelve are STATIC stubs — drawn once at the rest pose (t = 0, phase = 0);
+// the only thing that changes on select is the highlight. (Re-rendered on
+// resize and when the letters / baby blocks finish loading.)
+function renderThumbs() {
+    for (const tm of thumbs) {
+        tm.ctx.clearRect(0, 0, tm.cssW, tm.cssH);
+        tm.draw(tm.ctx, tm.cssW, tm.cssH, tm.entry, 0, 0);
+    }
+}
+sizeAll();
+window.addEventListener("resize", sizeAll);
+
+// ── Load the letters' orientation + the baby blocks (then restamp stubs) ───
+async function loadAssets() {
+    try {
+        const res = await fetch("../../glyphs/assignments.json", {
+            cache: "no-store",
+        });
+        const data = await res.json();
+        if (data && data.assignments) {
+            setWorkingAssignments(data.assignments);
+            applyAssignments(true);
+            lettersReady = true; // glyphLetterAt now resolves orientation
+            renderBadge(); // badge can now orient correctly
+        }
+    } catch (e) {
+        console.warn("turtle-paradise: assignments load failed", e);
+    }
+    try {
+        babyBlocks = await BabyBlocks.load(
+            "../../baby-blocks/AlphabetBlocks.svg",
+        );
+        renderBadge(); // badge upgrades from font fallback to the baby block
+    } catch (e) {
+        console.warn("turtle-paradise: baby blocks load failed", e);
+    }
+}
+loadAssets();
+
+// ── The hero animates; the thumbnails stay still ───────────────────────────
 function frame(ts) {
     const t = ts / 1000;
-    for (const tile of tiles) {
-        const { ctx, cssW, cssH } = tile;
-        ctx.clearRect(0, 0, cssW, cssH);
-        tile.draw(ctx, cssW, cssH, tile.entry, t, tile.phase);
-    }
+    if (heroFadeT < 1) heroFadeT = Math.min(1, heroFadeT + 0.06);
+    heroCtx.clearRect(0, 0, heroW, heroH);
+    heroCtx.globalAlpha = heroFadeT;
+    const he = CATALOG[selected];
+    drawFor(he)(heroCtx, heroW, heroH, he, t, heroPhase);
+    heroCtx.globalAlpha = 1;
     requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
