@@ -24,8 +24,18 @@ function and watching the map change.
    south and east, then call `Propagation.fromUniverseBoundary`. That reseeds a
    fresh SE-flowing propagation whose interior `side × side` SE block is the
    genuine SE patch of an infinite Coylean map. When rendering we **suppress the
-   result lines** — the trailing `downs`/`rights` past the last cell — and the
-   one-cell N/W seed margin.
+   result rows** — and the one-cell N/W seed margin.
+
+   **The result rows are a render option.** They are the *last row of
+   `downMatrix`* (`resultDown`) and the *last column of `rightMatrix`*
+   (`resultRight`) — the out-arrows the propagation hands to whatever lies past
+   the square's far (S/E) edge. **Suppressing them caps the square shut**, a
+   closed self-contained tile; **showing them lets the spine poke out** the
+   bottom/right, the square visibly continuing into the next tile. Either is a
+   legitimate Coylean square — it is a custom toggle, not a fixed rule.
+   (`meta/conduits` Descent, the *elaborate* square, exposes it as a **result
+   rows** checkbox; in the elaborate render the result rows are reached as the
+   `down_out` of the last row and the `right_out` of the last column.)
 
 3. **Line weight = priority.** Each segment is drawn heavier on a higher-priority
    gridline, so the dyadic square shows a power-of-two skeleton and the
@@ -84,6 +94,10 @@ Propagation.coyleanSquare({ order, ruler = "dyadic", seniority, direction });
   ever names an order, never a raw side.
 - **`seniority`** and **`direction`** (the SE/SW/NE/NW anchor orientation, which
   quadrant of the infinite map the square shows) are the only other knobs.
+- The factory just returns the propagation; **showing or suppressing the result
+  rows** (the trailing `resultDown` row / `resultRight` column — see §2) is a
+  *render* choice, so it stays a flag on the renderer / page (e.g. Descent's
+  **result rows** checkbox), not a parameter of `coyleanSquare`.
 
 **The trap — leave it out of v1.** A square is *anchored at the origin*: its
 left and top edges **are** the infinite-priority zero axes (column 0 / row 0).

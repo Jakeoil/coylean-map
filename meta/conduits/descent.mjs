@@ -54,6 +54,11 @@ const southExtent = Math.ceil(MAPH / SCALE) + 8;
 
 let mode = "square"; // "square" (canonical) | "patch" (old infinite render)
 
+// Show the square's RESULT rows — the last down/right matrix line leaving the
+// far edge. On = spine pokes out (open, continues into the next tile); off =
+// capped, a closed square. Square mode only.
+let showResult = true;
+
 // Orientation (anchor quadrant + seniority), mirroring compound-glyphs. The
 // map re-integrates on each toggle. Defaults = the clean 1/1 / vertical baseline.
 const orient = { curH: 1, curV: 1, senH: false };
@@ -225,6 +230,12 @@ const ground = () => (day ? "#ffffff" : "#0a0d0a");
 // [0..side]: col 0 / row 0 are the LEFT and TOP ∞ bars (priority order+1) that
 // frame the square; [1..side] is the interior. Always the classic shell
 // coylean.js coloring (green frames, rainbow innards).
+//
+// The RESULT rows — the last row of downMatrix (resultDown) and last column of
+// rightMatrix (resultRight) — are the out-arrows leaving the far (S/E) edge,
+// reached as down_out at j = sqN and right_out at i = sqN. Showing them lets the
+// spine trunks poke out the bottom/right (the square continuing into the next
+// tile); hiding them caps the spine for a closed, self-contained square.
 function makeSquareBitmap(depth) {
     const off = document.createElement("canvas");
     off.width = Math.max(1, Math.round(bmpW));
@@ -240,11 +251,16 @@ function makeSquareBitmap(depth) {
         let x = 0;
         for (let i = 0; i <= sqN; i++) {
             const dPri = colPriority[i];
+            // suppress the result row/col (last down/right matrix line) unless shown
+            const dOut = !showResult && j === sqN
+                ? false : downMatrix[j + 1][i];
+            const rOut = !showResult && i === sqN
+                ? false : rightMatrix[i + 1][j];
             x += renderComplex(
                 g, x, y,
                 downMatrix[j][i], dPri,
                 rightMatrix[i][j], rPri,
-                downMatrix[j + 1][i], rightMatrix[i + 1][j],
+                dOut, rOut,
                 depth, top
             );
         }
@@ -508,6 +524,17 @@ if (oldToggle) {
     oldToggle.addEventListener("change", () =>
         setMode(oldToggle.checked ? "patch" : "square")
     );
+}
+
+// Result-rows toggle (square only): show/hide the trailing down/right result
+// line at the far edge.
+const resultToggle = document.getElementById("resultrows");
+if (resultToggle) {
+    resultToggle.checked = showResult;
+    resultToggle.addEventListener("change", () => {
+        showResult = resultToggle.checked;
+        if (mode === "square") regen();
+    });
 }
 
 const dayBtn = document.getElementById("daynight");
