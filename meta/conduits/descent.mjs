@@ -1,19 +1,20 @@
 "use strict";
 
-// The living descent: a real canonical Coylean SQUARE drawn in the draw map's
-// "elaborate" style (priority-width nested rectangles, color-coded by depth).
-// A SQUARE of order n is SYMMETRIC — its tallest trunk (priority n) sits in the
-// MIDDLE and splits the square into a 2×2 of order-(n−1) squares, all the way
-// down — so the side is the CENTERED window of 2^(n+1)−1 cells (see sqSide), not
-// the 2^n LEFT HALF. It is integrated from a unit N/W seed (fromUniverseExtents)
-// and the interior [1..N]×[1..N] is rendered with the seed margin (row/col 0)
-// suppressed, then framed by a BAR coloured by the order. With the trunk centered
-// the high-priority vertical pokes past the top horizontal, as Jake's squares do.
-// The ladder picks the order; depth is the elaborate-nesting knob; the
-// orientation card re-anchors.
+// The living descent: a genuine Coylean SQUARE drawn in the draw map's
+// "elaborate" style (priority-width nested rectangles, color-coded by depth) —
+// the same square meta/fibonacci-ruler draws, only elaborate. A square of order
+// n has side 2^n and is ANCHORED AT THE ORIGIN: a unit N/W seed against side to
+// the S/E, reseeded by fromUniverseBoundary, rendered over the interior
+// [1..side] SE block (seed margin + result lines excluded). Its left/top edges
+// are the zero/∞ axes and the dominant priority-n spine lands on the far edge,
+// so it reads as a closed, self-similar tile. The ladder picks the order; depth
+// is the elaborate-nesting knob; seniority flips the V/H tie-break; the "order
+// colours" toggle swaps the classic shell coloring for per-priority frames.
 //
 // A checkbox swaps in the OLD render — the boundary-seeded INFINITE patch
-// (fromUniverseBoundary) drawn the same elaborate way — as a reference.
+// (fromUniverseBoundary) in the same elaborate dress — as a reference. The
+// elaborate renderComplex is the IMMUTABLE core (faithful to coylean.js); both
+// modes share it, the square via the { shade } hook.
 import {
     Universe,
     Propagation,
@@ -37,9 +38,12 @@ const orderColor = (o) =>
 
 const SCALE = 6;
 const MIN_DEPTH = 1;
-const ORDER_MIN = 0; // the trivial seed-point square (a single green box)
-const ORDER_MAX = 7; // 2^8 − 1 = 255 cells/side centered window — the ceiling
-const BAR = SCALE * 2; // thickness of the order frame in square mode
+// Order = the square's side via the dyadic ladder side = 2^order, matching
+// meta/fibonacci-ruler (sides 4·8·16·32·64·128). A square's high-priority spine
+// has to land on its far edge for it to read as a closed, self-similar tile, so
+// the side is a power of two and the order is its log.
+const ORDER_MIN = 2; // side 4 — the smallest square that reads as a tile
+const ORDER_MAX = 7; // side 128 — the ceiling (~1.5k px natural)
 
 // Old-render (infinite patch) constants — the reference mode.
 const MAPW = 1800;
@@ -49,6 +53,13 @@ const eastExtent = Math.ceil(MAPW / SCALE) + 8;
 const southExtent = Math.ceil(MAPH / SCALE) + 8;
 
 let mode = "square"; // "square" (canonical) | "patch" (old infinite render)
+
+// Square ring colours: "shell" = the classic coylean.js elaborate (green frames,
+// rainbow innards, COLOR_LIST[i % len]); "order" = priority-indexed (each
+// trunk's outer ring is its priority's colour, so order n frames in
+// COLOR_LIST[n−1]) — the look of Jake's green/yellow/purple/blue reference
+// squares. A checkbox flips it; the old-render is always classic shell.
+let sqShade = "shell";
 
 // Orientation (anchor quadrant + seniority), mirroring compound-glyphs. The
 // map re-integrates on each toggle. Defaults = the clean 1/1 / vertical baseline.
@@ -134,34 +145,36 @@ function renderComplex(
 
 // ── The active map's matrices + bitmap size, rebuilt on any change ─────────
 let downMatrix, rightMatrix, colPriority, rowPriority, numRows, numColumns;
-let sqN = 1; // side in cells (square mode) — the CENTERED window, see sqSide
+let sqN = 1; // the square's side in cells (square mode) — see sqSide
 let bmpW = SCALE, bmpH = SCALE; // natural pixel size of the active bitmap
 
-// A Coylean SQUARE of order n is symmetric: its dominant priority-n trunk sits
-// in the MIDDLE (the cream cross at order 2, purple at order 3 …), splitting the
-// square into a 2×2 of order-(n−1) squares — turtles all the way down. The
-// 2-adic priority of cell k is pri(k); a window CENTERED on a peak (k = 2^n,
-// pri = n) needs 2^n−1 cells either side, so the side is 2^(n+1)−1 cells with
-// priorities [0,1,0,2,0,1,0,…,n,…,0,1,0]. (The old code took only 2^n cells —
-// the LEFT HALF — which jammed the peak against the right edge, so nothing was
-// centered and the high-priority vertical never poked past the top horizontal.)
-const sqSide = (n) => Math.max(1, 2 ** (n + 1) - 1);
+// The genuine Coylean square (per meta/fibonacci-ruler): its side is a power of
+// two, side = 2^order, and it is ANCHORED AT THE ORIGIN — its left/top edges are
+// the infinite-priority zero axes, with the dominant priority-`order` spine
+// landing on the far edge so it reads as a closed, self-similar tile. (NOT a
+// centered window, and NOT a hand-rolled all-true grid.)
+const sqSide = (n) => Math.max(1, 2 ** n);
 
-// Integrate the order-n canonical square under the current orientation. cells
-// 1..sqSide(n) of the clean SE map are the centered window (col 0 is the
-// suppressed seed margin); colPriority[i] = pri(i) since hInitCol = 1−westExtent.
+// Build the order-n square: one cell of N/W context, the full side to the S/E,
+// reseeded by fromUniverseBoundary. The interior side×side SE block is the
+// genuine SE patch; the one-cell seed margin (row/col 0) and the trailing result
+// lines are excluded by rendering only [1..side]. Origin-anchored, so the
+// orientation card's E/W·N/S offset does NOT apply here (it would slide the
+// spine off the edge — the README "trap"); only seniority does.
 function integrateSquare(n) {
-    const N = sqSide(n);
-    return Propagation.fromUniverseExtents({
+    const side = sqSide(n);
+    const maxPri = Math.max(1, n);
+    const u = Universe.create({
         northExtent: 1,
         westExtent: 1,
-        southExtent: N,
-        eastExtent: N,
-        maxPri: Math.max(1, n),
+        southExtent: side,
+        eastExtent: side,
+        hInitCol: 1,
+        vInitRow: 1,
+        maxPri,
         seniority: seniorityNow(),
-        hInitCol: orient.curH,
-        vInitRow: orient.curV,
     });
+    return Propagation.fromUniverseBoundary(u, { maxPri });
 }
 
 // Pixel size of the interior [1..N] (priority-0 cells contribute width 0).
@@ -179,9 +192,7 @@ function buildSquare() {
     ({ downMatrix, rightMatrix, colPriority, rowPriority, numRows, numColumns } =
         p);
     sqN = sqSide(order);
-    const [w, h] = squarePx(p, sqN);
-    bmpW = w + 2 * BAR; // room for the order frame
-    bmpH = h + 2 * BAR;
+    [bmpW, bmpH] = squarePx(p, sqN);
 }
 
 // The OLD render: the boundary-seeded INFINITE patch (fromUniverseBoundary).
@@ -212,11 +223,16 @@ function buildActive() {
 let day = true;
 const ground = () => (day ? "#ffffff" : "#0a0d0a");
 
-// Canonical square: interior [1..N]×[1..N] framed by an order-coloured bar.
-// The square opts the elaborate core into priority-indexed ring colours so the
-// dominant trunk's outer ring is the ORDER colour (cyan→purple→cream→green),
-// matching Jake's reference squares — without altering the elaborate map.
+// Order-indexed shading: each trunk's outer ring is its priority's colour, so
+// the dominant priority-`order` spine frames in the order colour
+// (cyan→purple→cream→green) — Jake's reference-square look. Passed as the
+// elaborate core's { shade } hook; with sqShade = "shell" we pass nothing and
+// the core draws its classic coylean.js green-frames-rainbow-innards default.
 const SQUARE_SHADE = (i, pri) => ringColor(pri, i);
+
+// The genuine origin-anchored SE-block square, drawn elaborate. No frame bar —
+// the square IS its own spine; the trailing seed margin / result lines are
+// already excluded by rendering only the interior [1..side].
 function makeSquareBitmap(depth) {
     const off = document.createElement("canvas");
     off.width = Math.max(1, Math.round(bmpW));
@@ -225,19 +241,11 @@ function makeSquareBitmap(depth) {
     g.fillStyle = ground();
     g.fillRect(0, 0, off.width, off.height);
 
-    // the order bar all around — its colour gives away the order
-    g.fillStyle = orderColor(order);
-    g.fillRect(0, 0, off.width, off.height);
-    g.fillStyle = ground();
-    g.fillRect(BAR, BAR, off.width - 2 * BAR, off.height - 2 * BAR);
-
-    // order 0 is the trivial seed-point square: a single green box in its frame.
-    if (order === 0) return off;
-
-    let y = BAR;
+    const opts = sqShade === "order" ? { shade: SQUARE_SHADE } : undefined;
+    let y = 0;
     for (let j = 1; j <= sqN; j++) {
         const rPri = rowPriority[j];
-        let x = BAR;
+        let x = 0;
         for (let i = 1; i <= sqN; i++) {
             const dPri = colPriority[i];
             x += renderComplex(
@@ -245,7 +253,7 @@ function makeSquareBitmap(depth) {
                 downMatrix[j][i], dPri,
                 rightMatrix[i][j], rPri,
                 downMatrix[j + 1][i], rightMatrix[i + 1][j],
-                depth, order, { shade: SQUARE_SHADE }
+                depth, order, opts
             );
         }
         y += SCALE * rPri * 2;
@@ -298,7 +306,7 @@ function fittingOrder() {
     let best = ORDER_MIN;
     for (let n = ORDER_MIN + 1; n <= ORDER_MAX; n++) {
         const [w, h] = squarePx(integrateSquare(n), sqSide(n));
-        if (Math.max(w, h) + 2 * BAR <= stage) best = n;
+        if (Math.max(w, h) <= stage) best = n;
         else break;
     }
     return best;
@@ -410,7 +418,7 @@ function buildOrient() {
 }
 buildOrient();
 
-// ── Ladder card: the order meter, rungs coloured by the order BAR palette ──
+// ── Ladder card: the order meter, rungs coloured by the order palette ──
 // Rung o is boxed in orderColor(o) = COLOR_LIST[o−1] (1 green · 2 yellow ·
 // 3 purple · 4 blue …) — the colour the square's frame takes at that order.
 // Order = the canonical
@@ -508,6 +516,17 @@ if (oldToggle) {
     oldToggle.addEventListener("change", () =>
         setMode(oldToggle.checked ? "patch" : "square")
     );
+}
+
+// Square ring-colour toggle: classic shell (off) ↔ order-indexed (on). Only the
+// square uses it; the old-render is always the classic elaborate.
+const shadeToggle = document.getElementById("shadeorder");
+if (shadeToggle) {
+    shadeToggle.checked = sqShade === "order";
+    shadeToggle.addEventListener("change", () => {
+        sqShade = shadeToggle.checked ? "order" : "shell";
+        if (mode === "square") regen();
+    });
 }
 
 const dayBtn = document.getElementById("daynight");
