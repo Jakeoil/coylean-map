@@ -28,6 +28,8 @@ import {
     applyAssignments,
 } from "../../glyphs/glyph-core.js";
 import { BabyBlocks } from "../../baby-blocks/baby-blocks.js";
+import { translationOf } from "../planet-coyleus/terrain-core.js";
+import { elabGlyphInto } from "./elaborate-glyph.js";
 
 // engine d4Index → baby-block transform name (verified, per compound-glyphs)
 const D4B = ["e", "r", "r2", "r3", "sh", "sv", "d", "d'"];
@@ -345,8 +347,11 @@ function buildRevMaps() {
 // → { code, sym, letter, d4 } for the entry under the current orientation.
 function currentDesignation(entry) {
     const net = netOrient();
-    // pre-load fallback: the entry's stored designation
-    let out = { code: entry.code, sym: entry.sym, letter: entry.letter, d4: net };
+    // pre-load fallback: the entry's stored designation (native V glyph)
+    let out = {
+        code: entry.code, sym: entry.sym, letter: entry.letter, d4: net,
+        grid: "V", d: entry.dc, r: entry.rc,
+    };
     if (lettersReady && entry.dc != null) {
         if (!revMapV) buildRevMaps();
         const base = computePattern(entry.dc, entry.rc, Seniority.vertical());
@@ -362,10 +367,41 @@ function currentDesignation(entry) {
                     sym: ft[0] + (SYM[ft[1]] || ""),
                     letter: ft[0],
                     d4: ft[1],
+                    grid, d, r,
                 };
         }
     }
     return out;
+}
+
+// ── Elaborate "monster" — the 2×2 split children, descent style ────────────
+// The sealed elaborate glyph renderer lives in elaborate-glyph.js (shared with
+// the life-cycle page). The monster = the selected glyph's 2×2 split children
+// (a 4-glyph Coylean map, NW NE SW SE from translationOf). Falls
+// back to the single glyph where the translation isn't defined.
+function drawElaborate(ctx, W, H, grid, d, r, t, phase) {
+    ctx.fillStyle = GROUND; // tile ground stays put
+    roundRect(ctx, 8, 8, W - 16, H - 16, 16);
+    ctx.fill();
+
+    withLife(ctx, t, phase, W / 2, H / 2, () => {
+        const kids = translationOf(grid, d, r).children;
+        if (kids.length === 4) {
+            const block = Math.min(W, H) * 0.82;
+            const cell = block / 2;
+            const ox = (W - block) / 2, oy = (H - block) / 2;
+            const pos = [[0, 0], [1, 0], [0, 1], [1, 1]]; // NW NE SW SE
+            for (let i = 0; i < 4; i++) {
+                const c = kids[i];
+                elabGlyphInto(ctx, ox + pos[i][0] * cell, oy + pos[i][1] * cell,
+                    cell, c.grid, c.d, c.r);
+            }
+        } else {
+            const size = Math.min(W, H) * 0.62;
+            elabGlyphInto(ctx, (W - size) / 2, (H - size) / 2, size,
+                grid, d, r);
+        }
+    });
 }
 
 const drawFor = (entry) => (entry.kind === "sketch" ? drawSketch : drawEngine);
@@ -383,6 +419,7 @@ let selected = 0; // default: F (entry 0)
 let heroFadeT = 1; // 1 = fully shown; resets to 0 on select for a soft fade-in
 let heroW = 0, heroH = 0;
 const heroPhase = 0.4;
+let elaborate = false; // hero shows the elaborate sealed glyph instead of stub
 
 const thumbs = [];
 function makeThumb(entry, idx) {
@@ -489,6 +526,16 @@ function buildOrient() {
     syncOrient();
 }
 buildOrient();
+
+// view toggle: stub/monster ⇄ elaborate sealed glyph
+const elabBtn = document.getElementById("elabBtn");
+if (elabBtn) {
+    elabBtn.onclick = () => {
+        elaborate = !elaborate;
+        elabBtn.classList.toggle("on", elaborate);
+        elabBtn.textContent = elaborate ? "✦ elaborate" : "○ elaborate";
+    };
+}
 function select(idx) {
     if (idx === selected) return;
     selected = idx;
@@ -563,7 +610,13 @@ function frame(ts) {
     heroCtx.clearRect(0, 0, heroW, heroH);
     heroCtx.globalAlpha = heroFadeT;
     const he = CATALOG[selected];
-    drawFor(he)(heroCtx, heroW, heroH, he, t, heroPhase, netOrient());
+    if (elaborate) {
+        const dsg = currentDesignation(he); // the displayed (oriented) member
+        drawElaborate(heroCtx, heroW, heroH, dsg.grid, dsg.d, dsg.r, t,
+            heroPhase);
+    } else {
+        drawFor(he)(heroCtx, heroW, heroH, he, t, heroPhase, netOrient());
+    }
     heroCtx.globalAlpha = 1;
     requestAnimationFrame(frame);
 }

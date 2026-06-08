@@ -14,6 +14,10 @@ art is a skin over it.
 | `compound-glyphs.html` / `.mjs` | The real lettered map at anchor 1/1. Baby-block letters at each glyph's D4 orientation; no-bar neighbors fuse into *compound* rectangles. Has the **orientation card** (anchor quadrant + V/H seniority) — both seniorities show the square compounds. |
 | `turtle-paradise.html` / `.mjs` + `turtle-paradise-data.js` | **Turtle Paradise** — a living catalog of glyphs (see below). |
 | `turtle paradise.md` | The source Excalidraw sketch (Obsidian) that inspired the living glyphs. Baked to `turtle-paradise-data.js`. |
+| `life-cycle.html` / `.mjs` | **The Life Cycle** — the recursive cycle of growth (below). |
+| `life-cycle.md` | The Excalidraw storyboard for the life cycle (day/night, the detailed 13×13 closed glyph, the growth column). Baked to `life-cycle-data.js`. |
+| `life-cycle-data.js` | The baked storyboard shapes (114 elements). |
+| `elaborate-glyph.js` | Shared pure renderer for the sealed elaborate glyph (`elabCell` / `elabGlyphInto`, palette `ELAB`). Used by the turtle-paradise hero (the "monster") — no reinvented wheel. |
 
 ---
 
@@ -173,6 +177,28 @@ to the **ancestor** — is the same machinery run backward. This is where Paradi
 meets the substitution recursion that makes the whole project tick. Lift the
 proven logic from `planet-coyleus/terrains`; don't reinvent it.
 
+### Elaborate "monster" — the 2×2 split children (alternative hero, first pass)
+A toggle (`○/✦ elaborate`, the `elaborate` flag) swaps the hero from the
+stub/sketch to the **monster**: the selected glyph's **2×2 split children** (a
+4-glyph Coylean map, NW NE SW SE), from `terrain-core.translationOf`. Each child
+is drawn as a sealed elaborate glyph (`elabGlyphInto` → `elabCell`, ported from
+`descent.mjs`'s `renderComplex`), nested rectangles coloured **purple → yellow →
+green → pink** (`ELAB`). It renders the currently displayed (oriented) member
+from `currentDesignation` (`grid, d, r`), so it follows the orientation triplet
+and seniority; falls back to a single glyph where the translation isn't defined.
+
+**SEALED** = the four perimeter bars of each child are forced on (a cage with 4
+bars), per Jake: the glyph "contains part of its bar." Open/compound sides are
+future work (Phases 4 & 5).
+
+**Still pending — Jake's exact colour/geometry rule (he was mid-explanation):**
+a single closed glyph is **13×13** with a **5×5 meaty interior** (cage = 4 units
+per side); colour = **priority** — **pink = p0, yellow = p1**, green = p2,
+violet = p3 (violet = cage wall). The closed-glyph cross-section he gave:
+`V,Y,G,P,G,P,G,Y,G,P,G,P,G,Y,V`. The current first pass uses the simpler
+`renderComplex` 4-shell nesting per child; refit it to the 13×13 priority-ring
+layout once the rule is confirmed.
+
 ### Phases 4 & 5 — Open (compound) sides on the hero
 A hero glyph can be a *member* of a **compound** (a no-bar neighbor fusion — see
 `compound-glyphs`). The hero will eventually show its **open sides**: every edge
@@ -181,6 +207,19 @@ side), so you can see how the creature would join its neighbors into a larger
 rectangle. **Phase 4** = detect & show *which* sides are open; **Phase 5** =
 render the fusion option on the edge. Pull the no-bar adjacency logic from
 `compound-glyphs.mjs` (`vBar` / `hBar`, `findFaces`).
+
+## The Life Cycle (`life-cycle.html` / `.mjs`) — DONE, first pass
+
+**Jake's actual storyboard (`life-cycle.md`), baked and brought to life** — not
+an engine recreation. The 114 Excalidraw shapes are baked to `life-cycle-data.js`
+(no runtime LZ-String) and replayed faithfully (`drawFigure`: rectangles,
+the arrow, the `1`/`day`/`night` text), with a gentle **breathing idle** and a
+soft **day↔night** ground wash. No shapes are added or moved — the drawing is
+the drawing. (Re-bake the same way as `turtle-paradise-data.js`.)
+
+*Earlier engine version (recursive `translationOf` growth) was replaced when
+Jake clarified he wanted the actual drawn figure animated. The split-recursion
+idea still lives in Phase 3 and the `translationOf`-based monster.*
 
 ## Life modes (future — the breathing has depth)
 

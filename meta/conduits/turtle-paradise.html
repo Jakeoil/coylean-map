@@ -219,9 +219,36 @@
                 font-size: 1.55rem;
             }
 
+            /* view toggle: stub/monster ⇄ elaborate sealed glyph */
+            .elab-btn {
+                margin-left: auto;
+                align-self: center;
+                padding: 8px 12px;
+                border-radius: 9px;
+                border: 1px solid rgba(151, 117, 250, 0.4);
+                background: rgba(151, 117, 250, 0.08);
+                color: #d8ccff;
+                font: inherit;
+                font-size: 0.82rem;
+                cursor: pointer;
+                white-space: nowrap;
+                transition:
+                    background 0.15s,
+                    border-color 0.15s;
+            }
+            .elab-btn:hover {
+                background: rgba(151, 117, 250, 0.2);
+                border-color: #9775fa;
+            }
+            .elab-btn.on {
+                background: rgba(151, 117, 250, 0.28);
+                border-color: #9775fa;
+                color: #fff;
+            }
+
             /* orientation triplet (leaf motif) — re-orients the hero glyph */
             .orient {
-                margin-left: auto;
+                margin-left: 10px;
                 display: flex;
                 gap: 6px;
             }
@@ -364,6 +391,10 @@
                         <div class="title" id="heroTitle"></div>
                         <div class="sub" id="heroSub"></div>
                     </div>
+                    <button class="elab-btn" id="elabBtn"
+                        title="show the elaborate sealed glyph (descent style)">
+                        ○ elaborate
+                    </button>
                     <div class="orient" id="orient">
                         <button class="obtn" id="longBtn"
                             title="longitude — mirror E/W"></button>

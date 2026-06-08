@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>The Life Cycle — The Conduits</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            :root {
+                --green: #b2f2bb;
+                --green-deep: #2f9e44;
+                --pink: #ffc9c9;
+                --violet: #9775fa;
+            }
+            body {
+                font-family:
+                    "Segoe UI",
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background:
+                    radial-gradient(
+                        1000px 520px at 65% -10%,
+                        rgba(151, 117, 250, 0.12),
+                        transparent 60%
+                    ),
+                    linear-gradient(150deg, #0d130d 0%, #11160f 55%, #0c1414 100%);
+                color: #e9efe6;
+                min-height: 100vh;
+                padding: 40px 22px 80px;
+                line-height: 1.55;
+            }
+            main {
+                max-width: 920px;
+                margin: 0 auto;
+            }
+            .back {
+                display: inline-block;
+                margin-bottom: 18px;
+                color: var(--green);
+                text-decoration: none;
+                font-size: 0.9rem;
+                opacity: 0.85;
+            }
+            .back:hover {
+                text-decoration: underline;
+            }
+            .kicker {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.76rem;
+                letter-spacing: 0.22em;
+                text-transform: uppercase;
+                color: rgba(178, 242, 187, 0.7);
+                margin-bottom: 6px;
+            }
+            h1 {
+                font-size: 2.3rem;
+                color: #cfe8cf;
+                text-shadow: 0 0 24px rgba(151, 117, 250, 0.35);
+                margin-bottom: 10px;
+            }
+            .lede {
+                color: rgba(255, 255, 255, 0.72);
+                max-width: 66ch;
+                margin-bottom: 22px;
+            }
+            .lede em {
+                color: #c9b6f5;
+                font-style: normal;
+            }
+            .stage {
+                position: relative;
+                border-radius: 14px;
+                overflow: hidden;
+                border: 1px solid rgba(151, 117, 250, 0.25);
+                box-shadow:
+                    inset 0 0 80px rgba(0, 0, 0, 0.45),
+                    0 10px 50px rgba(0, 0, 0, 0.4);
+                background: #0a0f0b;
+            }
+            canvas {
+                display: block;
+                width: 100%;
+                aspect-ratio: 3 / 4;
+            }
+            .hud {
+                position: absolute;
+                left: 14px;
+                bottom: 12px;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.82rem;
+                color: rgba(235, 240, 235, 0.9);
+                background: rgba(0, 0, 0, 0.4);
+                padding: 6px 12px;
+                border-radius: 8px;
+                pointer-events: none;
+                backdrop-filter: blur(3px);
+            }
+            .controls {
+                display: flex;
+                gap: 12px;
+                align-items: center;
+                flex-wrap: wrap;
+                margin-top: 16px;
+            }
+            #picker {
+                display: flex;
+                gap: 6px;
+                flex-wrap: wrap;
+            }
+            .pick {
+                width: 34px;
+                height: 34px;
+                border-radius: 8px;
+                border: 1px solid rgba(178, 242, 187, 0.3);
+                background: rgba(255, 255, 255, 0.04);
+                color: #d6efd6;
+                font: 700 1rem "Monaco", Menlo, monospace;
+                cursor: pointer;
+                transition:
+                    background 0.15s,
+                    border-color 0.15s;
+            }
+            .pick:hover {
+                background: rgba(178, 242, 187, 0.18);
+            }
+            .pick.on {
+                background: linear-gradient(135deg, var(--violet), var(--green));
+                color: #14210f;
+                border-color: var(--green);
+            }
+            button#play {
+                font: inherit;
+                font-size: 0.9rem;
+                padding: 9px 16px;
+                border-radius: 10px;
+                border: 1.5px solid rgba(151, 117, 250, 0.5);
+                background: rgba(151, 117, 250, 0.1);
+                color: #d8ccff;
+                cursor: pointer;
+            }
+            button#play:hover {
+                background: rgba(151, 117, 250, 0.22);
+            }
+            input#scrub {
+                flex: 1;
+                min-width: 160px;
+                accent-color: var(--violet);
+            }
+            input#scrub:disabled {
+                opacity: 0.4;
+            }
+            .note {
+                margin-top: 20px;
+                font-size: 0.92rem;
+                color: rgba(255, 255, 255, 0.55);
+            }
+            .note code {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                color: #c9b6f5;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <a class="back" href="./">← The Conduits</a>
+            <div class="kicker">The Conduits · a recursive cycle of growth</div>
+            <h1>The Life Cycle</h1>
+            <p class="lede">
+                The <em>recursive cycle of growth</em>, as drawn — the actual
+                storyboard from <code>life-cycle.md</code>, brought to life. A
+                glyph grows and splits into its children, <em>turtles all the
+                way down</em>, across <em>day</em> and <em>night</em>. The figure
+                breathes; the ground washes from day to dusk and back.
+            </p>
+
+            <div class="stage">
+                <canvas id="cv"></canvas>
+                <div class="hud" id="hud"></div>
+            </div>
+
+            <div class="controls">
+                <button id="play">❚❚ Pause</button>
+            </div>
+
+            <p class="note">
+                The drawn figure, baked from the Excalidraw storyboard
+                <code>life-cycle.md</code> into
+                <code>life-cycle-data.js</code> (no runtime decompression) and
+                replayed with a breathing idle — no shapes added or moved.
+            </p>
+        </main>
+
+        <script type="module" src="./life-cycle.mjs"></script>
+    </body>
+</html>
