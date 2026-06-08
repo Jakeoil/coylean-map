@@ -10,7 +10,7 @@ art is a skin over it.
 | Page | What it is |
 | --- | --- |
 | `index.html` | **The Yellow Conduit** — the scene hub. Links to the others. |
-| `descent.html` / `.mjs` | **Descent** — the map in the draw map's *elaborate* dress: every cell a nest of priority-sized rectangles, color-coded by depth (the 19-step `COLOR_LIST`, verbatim from `coylean.js`). Free zoom/pan, depth + priority dials, day/night. **This is where the living-glyph colors come from.** |
+| `descent.html` / `.mjs` | **Descent** — a real **canonical Coylean square** in the draw map's *elaborate* dress: every cell a nest of priority-sized rectangles, color-coded by depth (the 19-step `COLOR_LIST`, verbatim from `coylean.js`). Built with `Propagation.fromUniverseExtents` (unit N/W seed × extent `N = 2ⁿ`), rendered over the interior `[1..N]` with the seed margin + result downs/rights suppressed. The **ladder card** sets the *order* `n` (side 2ⁿ+1, top priority `n`); each rung is boxed in its depth color. The **orientation card** re-anchors it (E/W · N/S · V/H seniority). Plus a depth dial (nested-shell detail), free zoom/pan, day/night. **This is where the living-glyph colors come from.** |
 | `compound-glyphs.html` / `.mjs` | The real lettered map at anchor 1/1. Baby-block letters at each glyph's D4 orientation; no-bar neighbors fuse into *compound* rectangles. Has the **orientation card** (anchor quadrant + V/H seniority) — both seniorities show the square compounds. |
 | `turtle-paradise.html` / `.mjs` + `turtle-paradise-data.js` | **Turtle Paradise** — a living catalog of glyphs (see below). |
 | `turtle paradise.md` | The source Excalidraw sketch (Obsidian) that inspired the living glyphs. Baked to `turtle-paradise-data.js`. |

@@ -1,10 +1,19 @@
 "use strict";
 
-// The living descent: the real Coylean engine drawn in the draw map's
+// The living descent: a real canonical Coylean SQUARE drawn in the draw map's
 // "elaborate" style (priority-width nested rectangles, color-coded by depth).
-// The math comes from coylean-core's boundary-seeded Propagation — NOT a
-// hand-rolled seed — per the house rule that fromUniverseBoundary is the only
-// coherent map. Zoom/pan are free navigation; depth is a separate knob.
+// A SQUARE of order n is SYMMETRIC — its tallest trunk (priority n) sits in the
+// MIDDLE and splits the square into a 2×2 of order-(n−1) squares, all the way
+// down — so the side is the CENTERED window of 2^(n+1)−1 cells (see sqSide), not
+// the 2^n LEFT HALF. It is integrated from a unit N/W seed (fromUniverseExtents)
+// and the interior [1..N]×[1..N] is rendered with the seed margin (row/col 0)
+// suppressed, then framed by a BAR coloured by the order. With the trunk centered
+// the high-priority vertical pokes past the top horizontal, as Jake's squares do.
+// The ladder picks the order; depth is the elaborate-nesting knob; the
+// orientation card re-anchors.
+//
+// A checkbox swaps in the OLD render — the boundary-seeded INFINITE patch
+// (fromUniverseBoundary) drawn the same elaborate way — as a reference.
 import {
     Universe,
     Propagation,
@@ -12,7 +21,8 @@ import {
 } from "../../coylean-explorer/coylean-core.js";
 import { SlidingRuler } from "../sliding-ruler/volume-ruler-control/sliding-ruler.js";
 
-// The 19-color depth palette, verbatim from coylean.js (elaborate mode).
+// The 19-color depth palette, verbatim from coylean.js (elaborate mode). Index
+// = shell: 0 outermost. Low depth shows only the inner (warm/bright) shells.
 const COLOR_LIST = [
     "#8FBC8F", "#FFEBCD", "#8A2BE2", "#00FFFF", "#DEB887",
     "#FAEBD7", "#FF7F50", "#F0FFFF", "#FF1493", "#8FBC8F",
@@ -20,39 +30,71 @@ const COLOR_LIST = [
     "#A52A2A", "#FF00FF", "#40E0D0", "#FF00FF",
 ];
 
+// The order's colour = COLOR_LIST[order − 1]: order 1 green, 2 cream/yellow,
+// 3 purple, 4 blue/cyan, … — what the bar all around and the ladder rungs use.
+const orderColor = (o) =>
+    COLOR_LIST[Math.max(0, o - 1) % COLOR_LIST.length];
+
+const SCALE = 6;
+const MIN_DEPTH = 1;
+const ORDER_MIN = 0; // the trivial seed-point square (a single green box)
+const ORDER_MAX = 7; // 2^8 − 1 = 255 cells/side centered window — the ceiling
+const BAR = SCALE * 2; // thickness of the order frame in square mode
+
+// Old-render (infinite patch) constants — the reference mode.
 const MAPW = 1800;
 const MAPH = 1350;
-const SCALE = 6;
-const MIN_DEPTH = 2;
-const MAX_DEPTH = 12;
-const PRI_MIN = 3;
-const PRI_MAX = 12;
+const PATCH_MAXP = 9;
+const eastExtent = Math.ceil(MAPW / SCALE) + 8;
+const southExtent = Math.ceil(MAPH / SCALE) + 8;
 
-// priCap = the priority ceiling (engine maxPri). Lowering it clamps the tallest
-// high-priority lines and makes the lattice periodic — useful when you've
-// zoomed into a local region and the giant trunks would otherwise dominate.
-let priCap = 10;
+let mode = "square"; // "square" (canonical) | "patch" (old infinite render)
 
-// ── Elaborate cell renderer, ported from coylean.js renderComplex ─────────
-// Each cell is a priority-sized rectangle (width/height = priority·2·scale),
-// placed at the running offset of accumulated cell widths. Driven by the
-// engine's arrow matrices + priorities. down/right = IN arrows (from N / W),
-// down_out/right_out = OUT arrows (to S / E).
+// Orientation (anchor quadrant + seniority), mirroring compound-glyphs. The
+// map re-integrates on each toggle. Defaults = the clean 1/1 / vertical baseline.
+const orient = { curH: 1, curV: 1, senH: false };
+const seniorityNow = () =>
+    orient.senH ? Seniority.horizontal() : Seniority.vertical();
+
+// ── Elaborate cell renderer — the IMMUTABLE core, ported from coylean.js ───
+// This is the elaborate-mode algorithm verbatim from the index draw map
+// (coylean.js renderComplex); the Descent / old-render is a port of it. DO NOT
+// fold render variants into it. Each cell is a priority-sized rectangle
+// (width/height = priority·2·scale), placed at the running offset of
+// accumulated cell widths, driven by the engine's arrow matrices + priorities.
+// down/right = IN arrows (from N / W), down_out/right_out = OUT arrows (to S /
+// E). `top` is the shell ceiling (PATCH_MAXP, playing coylean.js's maxPri);
+// shell i draws only while `i > top - depth - 2`, so LOW depth shows just the
+// inner colourful shells of the big trunks (small cells vanish) and raising
+// depth fills outward to the green frames.
+//
+// Colour is the coylean.js default: ONE shell colour COLOR_LIST[i % len] per
+// ring i (shell index from the outside), shared by the vertical and horizontal
+// arms — green frames with rainbow innards. A caller may pass a trailing
+// `{ shade }` hook (shade(i, pri) → colour) to recolour per arm WITHOUT
+// touching this core; the canonical square mode uses it for priority-indexed
+// rings (see ringColor) so its colours can't bleed back into the elaborate map.
+const ringColor = (pri, i) =>
+    COLOR_LIST[Math.max(0, pri - 1 - i) % COLOR_LIST.length];
+
+const SHELL_SHADE = (i) => COLOR_LIST[i % COLOR_LIST.length]; // coylean.js
+
 function renderComplex(
     g, x_place, y_place, down, downPri, right, rightPri,
-    down_out, right_out, depth
+    down_out, right_out, depth, top, opts = {}
 ) {
+    const shade = opts.shade || SHELL_SHADE;
     const width = downPri * 2;
     const height = rightPri * 2;
     const x_width = SCALE * width;
-    for (let i = 0; i < priCap; i++) {
+    for (let i = 0; i < top; i++) {
         let work_done = true;
-        if (i > priCap - depth - 2) {
+        if (i > top - depth - 2) {
             work_done = false;
-            g.fillStyle = COLOR_LIST[i % COLOR_LIST.length];
             const w = width - 2 * i - 1;
             const h = height - 2 * i - 1;
             if (w > 0) {
+                g.fillStyle = shade(i, downPri); // vertical arm
                 if (down) {
                     if (down_out) {
                         g.fillRect(x_place + SCALE * (i + 1), y_place,
@@ -69,6 +111,7 @@ function renderComplex(
                 work_done = true;
             }
             if (h > 0) {
+                g.fillStyle = shade(i, rightPri); // horizontal arm
                 if (right) {
                     if (right_out) {
                         g.fillRect(x_place, y_place + SCALE * (i + 1),
@@ -89,33 +132,129 @@ function renderComplex(
     return x_width;
 }
 
-// ── The coherent map, rebuilt when the priority cap changes (a few ms) ────
-const eastExtent = Math.ceil(MAPW / SCALE) + 8;
-const southExtent = Math.ceil(MAPH / SCALE) + 8;
+// ── The active map's matrices + bitmap size, rebuilt on any change ─────────
 let downMatrix, rightMatrix, colPriority, rowPriority, numRows, numColumns;
-function rebuildMap() {
+let sqN = 1; // side in cells (square mode) — the CENTERED window, see sqSide
+let bmpW = SCALE, bmpH = SCALE; // natural pixel size of the active bitmap
+
+// A Coylean SQUARE of order n is symmetric: its dominant priority-n trunk sits
+// in the MIDDLE (the cream cross at order 2, purple at order 3 …), splitting the
+// square into a 2×2 of order-(n−1) squares — turtles all the way down. The
+// 2-adic priority of cell k is pri(k); a window CENTERED on a peak (k = 2^n,
+// pri = n) needs 2^n−1 cells either side, so the side is 2^(n+1)−1 cells with
+// priorities [0,1,0,2,0,1,0,…,n,…,0,1,0]. (The old code took only 2^n cells —
+// the LEFT HALF — which jammed the peak against the right edge, so nothing was
+// centered and the high-priority vertical never poked past the top horizontal.)
+const sqSide = (n) => Math.max(1, 2 ** (n + 1) - 1);
+
+// Integrate the order-n canonical square under the current orientation. cells
+// 1..sqSide(n) of the clean SE map are the centered window (col 0 is the
+// suppressed seed margin); colPriority[i] = pri(i) since hInitCol = 1−westExtent.
+function integrateSquare(n) {
+    const N = sqSide(n);
+    return Propagation.fromUniverseExtents({
+        northExtent: 1,
+        westExtent: 1,
+        southExtent: N,
+        eastExtent: N,
+        maxPri: Math.max(1, n),
+        seniority: seniorityNow(),
+        hInitCol: orient.curH,
+        vInitRow: orient.curV,
+    });
+}
+
+// Pixel size of the interior [1..N] (priority-0 cells contribute width 0).
+function squarePx(p, N) {
+    let w = 0, h = 0;
+    for (let i = 1; i <= N; i++) w += p.colPriority[i] * 2;
+    for (let j = 1; j <= N; j++) h += p.rowPriority[j] * 2;
+    return [Math.max(SCALE, SCALE * w), Math.max(SCALE, SCALE * h)];
+}
+
+let order = ORDER_MIN; // set to the fitting default once the canvas exists
+
+function buildSquare() {
+    const p = integrateSquare(order);
+    ({ downMatrix, rightMatrix, colPriority, rowPriority, numRows, numColumns } =
+        p);
+    sqN = sqSide(order);
+    const [w, h] = squarePx(p, sqN);
+    bmpW = w + 2 * BAR; // room for the order frame
+    bmpH = h + 2 * BAR;
+}
+
+// The OLD render: the boundary-seeded INFINITE patch (fromUniverseBoundary).
+function buildPatch() {
     const u = Universe.create({
         northExtent: 1,
         westExtent: 1,
         eastExtent,
         southExtent,
-        hInitCol: 1,
-        vInitRow: 1,
-        maxPri: priCap,
-        seniority: Seniority.vertical(),
+        hInitCol: orient.curH,
+        vInitRow: orient.curV,
+        maxPri: PATCH_MAXP,
+        seniority: seniorityNow(),
     });
     ({ downMatrix, rightMatrix, colPriority, rowPriority, numRows, numColumns } =
-        Propagation.fromUniverseBoundary(u, { maxPri: priCap }));
+        Propagation.fromUniverseBoundary(u, { maxPri: PATCH_MAXP }));
+    bmpW = MAPW;
+    bmpH = MAPH;
 }
-rebuildMap();
+
+function buildActive() {
+    if (mode === "square") buildSquare();
+    else buildPatch();
+}
 
 // Day mode = cheerful white ground like the draw map's original; night = the
 // dark ground the depth colors glow against.
 let day = true;
 const ground = () => (day ? "#ffffff" : "#0a0d0a");
 
-// Render the whole map at a given depth into a fresh offscreen bitmap.
-function makeBitmap(depth) {
+// Canonical square: interior [1..N]×[1..N] framed by an order-coloured bar.
+// The square opts the elaborate core into priority-indexed ring colours so the
+// dominant trunk's outer ring is the ORDER colour (cyan→purple→cream→green),
+// matching Jake's reference squares — without altering the elaborate map.
+const SQUARE_SHADE = (i, pri) => ringColor(pri, i);
+function makeSquareBitmap(depth) {
+    const off = document.createElement("canvas");
+    off.width = Math.max(1, Math.round(bmpW));
+    off.height = Math.max(1, Math.round(bmpH));
+    const g = off.getContext("2d");
+    g.fillStyle = ground();
+    g.fillRect(0, 0, off.width, off.height);
+
+    // the order bar all around — its colour gives away the order
+    g.fillStyle = orderColor(order);
+    g.fillRect(0, 0, off.width, off.height);
+    g.fillStyle = ground();
+    g.fillRect(BAR, BAR, off.width - 2 * BAR, off.height - 2 * BAR);
+
+    // order 0 is the trivial seed-point square: a single green box in its frame.
+    if (order === 0) return off;
+
+    let y = BAR;
+    for (let j = 1; j <= sqN; j++) {
+        const rPri = rowPriority[j];
+        let x = BAR;
+        for (let i = 1; i <= sqN; i++) {
+            const dPri = colPriority[i];
+            x += renderComplex(
+                g, x, y,
+                downMatrix[j][i], dPri,
+                rightMatrix[i][j], rPri,
+                downMatrix[j + 1][i], rightMatrix[i + 1][j],
+                depth, order, { shade: SQUARE_SHADE }
+            );
+        }
+        y += SCALE * rPri * 2;
+    }
+    return off;
+}
+
+// Old render: the whole infinite patch, clipped to MAPW×MAPH.
+function makePatchBitmap(depth) {
     const off = document.createElement("canvas");
     off.width = MAPW;
     off.height = MAPH;
@@ -134,7 +273,7 @@ function makeBitmap(depth) {
                 downMatrix[j][i], dPri,
                 rightMatrix[i][j], rPri,
                 downMatrix[j + 1][i], rightMatrix[i + 1][j],
-                depth
+                depth, PATCH_MAXP
             );
         }
         y += SCALE * rPri * 2;
@@ -142,14 +281,36 @@ function makeBitmap(depth) {
     return off;
 }
 
+function makeBitmap(depth) {
+    return mode === "square" ? makeSquareBitmap(depth) : makePatchBitmap(depth);
+}
+
 // ── Camera (free zoom + pan) and depth knob ───────────────────────────────
 const cv = document.getElementById("cv");
 const ctx = cv.getContext("2d");
 const hud = document.getElementById("hud");
 const depthCanvas = document.getElementById("depthRuler");
-const priCanvas = document.getElementById("priRuler");
 
-let depth = MIN_DEPTH;
+// Default order = the largest whose natural square fits the canvas at base
+// SCALE (so it shows ~1:1); the ladder climbs above it (zoom out) or below.
+function fittingOrder() {
+    const stage = Math.min(cv.clientWidth || 800, cv.clientHeight || 600);
+    let best = ORDER_MIN;
+    for (let n = ORDER_MIN + 1; n <= ORDER_MAX; n++) {
+        const [w, h] = squarePx(integrateSquare(n), sqSide(n));
+        if (Math.max(w, h) + 2 * BAR <= stage) best = n;
+        else break;
+    }
+    return best;
+}
+order = fittingOrder();
+// Full nest by default: every ring draws, so each trunk shows its whole
+// colour stack (order colour outside → green → white), as in the references.
+// Lowering depth peels the OUTER (order-colour) rings, revealing the green
+// core. top of the gate = the order, so depth = order shows everything.
+let depth = Math.max(MIN_DEPTH, order);
+buildActive();
+
 let cur = makeBitmap(depth);
 let prev = null;
 let fadeT = 1; // 1 = fully showing cur
@@ -162,37 +323,146 @@ function sizeCanvas() {
     cv.width = cv.clientWidth * dpr;
     cv.height = cv.clientHeight * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    fitS = Math.min(cv.clientWidth / MAPW, cv.clientHeight / MAPH);
+    fitS = Math.min(cv.clientWidth / bmpW, cv.clientHeight / bmpH);
 }
 function fitView() {
     sizeCanvas();
     vs = fitS;
-    vx = (cv.clientWidth - MAPW * vs) / 2;
-    vy = (cv.clientHeight - MAPH * vs) / 2;
+    vx = (cv.clientWidth - bmpW * vs) / 2;
+    vy = (cv.clientHeight - bmpH * vs) / 2;
 }
 fitView();
 window.addEventListener("resize", fitView);
 
+// Re-render the bitmap (depth changed), crossfading from the old one.
 function regen() {
     prev = cur;
     fadeT = 0;
     cur = makeBitmap(depth);
 }
 
-// Two SlidingRuler knobs, each value labeled on its dial, independent of the
-// camera. depth = how many nested shells show; priority = the high-line cap.
-// Colors are baked at construction, so both are rebuilt on day/night toggle.
+// Re-render with no crossfade (size changed — the two bitmaps differ in size).
+function hardRegen() {
+    prev = null;
+    fadeT = 1;
+    cur = makeBitmap(depth);
+}
+
+// Re-integrate at the same size (orientation changed); keep the camera.
+function rebuildOrientation() {
+    buildActive();
+    syncOrient();
+    if (mode === "patch") regen();
+    else { fitView(); hardRegen(); }
+}
+
+// Re-integrate at a new order; the square changes size, re-fit and skip fade.
+function setOrder(n) {
+    if (n === order) return;
+    order = n;
+    depth = Math.max(MIN_DEPTH, order); // full nest for the new square
+    if (mode === "square") buildActive();
+    buildRulers(); // depth ruler tops out at the new order
+    syncLadder();
+    if (mode === "square") { fitView(); hardRegen(); }
+}
+
+function setMode(m) {
+    if (m === mode) return;
+    mode = m;
+    depth = mode === "square" ? Math.max(MIN_DEPTH, order) : PATCH_MAXP;
+    buildActive();
+    buildRulers();
+    syncLadder();
+    fitView();
+    hardRegen();
+}
+
+// ── Orientation card (anchor quadrant + seniority), per compound-glyphs ────
+const orientSym = (sym, val) =>
+    `<span class="osym">${sym}</span><span class="oval">${val}</span>`;
+function quadrantLabel() {
+    const ns = orient.curV === 1 ? "S" : "N";
+    const ew = orient.curH === 1 ? "E" : "W";
+    // letter order encodes seniority: V → NS-first, H → EW-first
+    return orient.senH ? ew + ns : ns + ew;
+}
+function syncOrient() {
+    const set = (id, html) => {
+        const e = document.getElementById(id);
+        if (e) e.innerHTML = html;
+    };
+    set("longBtn", orientSym("↔", orient.curH));
+    set("latBtn", orientSym("↕", orient.curV));
+    set("senBtn", orientSym("⤢", orient.senH ? "H" : "V"));
+    const lab = document.getElementById("orientLabel");
+    if (lab) lab.textContent = quadrantLabel();
+}
+function buildOrient() {
+    const wire = (id, fn) => {
+        const e = document.getElementById(id);
+        if (e) e.onclick = fn;
+    };
+    wire("longBtn", () => { orient.curH ^= 1; rebuildOrientation(); });
+    wire("latBtn", () => { orient.curV ^= 1; rebuildOrientation(); });
+    wire("senBtn", () => { orient.senH = !orient.senH; rebuildOrientation(); });
+    syncOrient();
+}
+buildOrient();
+
+// ── Ladder card: the order meter, rungs coloured by the order BAR palette ──
+// Rung o is boxed in orderColor(o) = COLOR_LIST[o−1] (1 green · 2 yellow ·
+// 3 purple · 4 blue …) — the colour the square's frame takes at that order.
+// Order = the canonical
+// square's order: side 2^o + 1, tallest trunk priority o. Click a rung to
+// resize the square. (In patch mode the ladder is disabled.)
+const ladderEl = document.getElementById("ladder");
+const orderLabel = document.getElementById("orderLabel");
+function syncLadder() {
+    ladderEl.classList.toggle("disabled", mode !== "square");
+    for (const b of ladderEl.children) {
+        const o = +b.dataset.order;
+        b.classList.toggle("on", o <= order); // lit up to the current order
+        b.classList.toggle("cur", o === order);
+    }
+    if (orderLabel)
+        orderLabel.textContent = mode === "square" ? String(order) : "—";
+}
+function buildLadder() {
+    ladderEl.innerHTML = "";
+    // top rung = highest order (you climb UP to bigger squares)
+    for (let o = ORDER_MAX; o >= ORDER_MIN; o--) {
+        const b = document.createElement("button");
+        b.className = "rung";
+        b.dataset.order = String(o);
+        b.style.setProperty("--c", orderColor(o));
+        b.title = "order " + o + " · " + sqSide(o) + "² square";
+        const box = document.createElement("span");
+        box.className = "rung-box";
+        const num = document.createElement("span");
+        num.className = "rung-num";
+        num.textContent = String(o);
+        b.append(box, num);
+        b.onclick = () => { if (mode === "square") setOrder(o); };
+        ladderEl.append(b);
+    }
+    syncLadder();
+}
+buildLadder();
+
+// One SlidingRuler knob: depth = how many nested shells show (from the inside
+// out). Its max tracks the shell ceiling (order in square mode, PATCH_MAXP in
+// patch). Colors are baked at construction, so it's rebuilt on every change.
 const labelsFor = (lo, hi) => {
     const m = {};
     for (let v = lo; v <= hi; v++) m[v] = String(v);
     return m;
 };
-const DEPTH_LABELS = labelsFor(MIN_DEPTH, MAX_DEPTH);
-const PRI_LABELS = labelsFor(PRI_MIN, PRI_MAX);
 
 let depthRuler = null;
-let priRuler = null;
 function buildRulers() {
+    const maxDepth = mode === "square" ? Math.max(MIN_DEPTH, order) : PATCH_MAXP;
+    if (depth > maxDepth) depth = maxDepth;
     const pal = day
         ? {
               bgColor: "#eef5ea",
@@ -215,30 +485,14 @@ function buildRulers() {
     if (depthRuler) depthRuler.destroy();
     depthRuler = new SlidingRuler(depthCanvas, {
         min: MIN_DEPTH,
-        max: MAX_DEPTH,
+        max: maxDepth,
         value: depth,
-        visibleRange: MAX_DEPTH - MIN_DEPTH + 2,
+        visibleRange: maxDepth - MIN_DEPTH + 2,
         height: 54,
-        labels: DEPTH_LABELS,
+        labels: labelsFor(MIN_DEPTH, maxDepth),
         onChange: (v) => {
             if (v === depth) return;
             depth = v;
-            regen();
-        },
-        ...pal,
-    });
-    if (priRuler) priRuler.destroy();
-    priRuler = new SlidingRuler(priCanvas, {
-        min: PRI_MIN,
-        max: PRI_MAX,
-        value: priCap,
-        visibleRange: PRI_MAX - PRI_MIN + 2,
-        height: 54,
-        labels: PRI_LABELS,
-        onChange: (v) => {
-            if (v === priCap) return;
-            priCap = v;
-            rebuildMap(); // re-derive with the new high-line cap
             regen();
         },
         ...pal,
@@ -248,6 +502,14 @@ buildRulers();
 
 document.getElementById("reset").onclick = fitView;
 
+const oldToggle = document.getElementById("oldrender");
+if (oldToggle) {
+    oldToggle.checked = mode === "patch";
+    oldToggle.addEventListener("change", () =>
+        setMode(oldToggle.checked ? "patch" : "square")
+    );
+}
+
 const dayBtn = document.getElementById("daynight");
 dayBtn.onclick = () => {
     day = !day;
@@ -255,10 +517,7 @@ dayBtn.onclick = () => {
     document.body.classList.toggle("night", !day);
     dayBtn.textContent = day ? "☾ Night" : "☀ Day";
     buildRulers(); // recolor the dials to match
-    // rebuild the map without crossfade so the two grounds don't blend
-    prev = null;
-    fadeT = 1;
-    cur = makeBitmap(depth);
+    hardRegen(); // rebuild without crossfade so the two grounds don't blend
 };
 
 // ── Pointer pan + pinch, wheel zoom ───────────────────────────────────────
@@ -339,7 +598,7 @@ function frame(ts) {
     if (fadeT < 1) fadeT = Math.min(1, fadeT + 0.05);
     const blit = (bmp, alpha) => {
         ctx.globalAlpha = alpha;
-        ctx.drawImage(bmp, dx, dy, MAPW * ds, MAPH * ds);
+        ctx.drawImage(bmp, dx, dy, bmpW * ds, bmpH * ds);
         ctx.globalAlpha = 1;
     };
     if (prev && fadeT < 1) blit(prev, 1 - fadeT);
@@ -369,9 +628,10 @@ function frame(ts) {
     }
 
     hud.textContent =
-        "generation " + (depth - MIN_DEPTH + 1) +
+        (mode === "square"
+            ? "order " + order + "   ·   " + sqSide(order) + "² square"
+            : "old render · infinite patch") +
         "   ·   depth " + depth +
-        "   ·   priority ≤ " + priCap +
         "   ·   zoom " + (vs / fitS).toFixed(2) + "×";
 
     requestAnimationFrame(frame);
