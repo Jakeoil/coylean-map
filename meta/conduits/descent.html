@@ -475,12 +475,12 @@
                     A <em>Coylean square</em> in its <em>elaborate</em> dress —
                     every cell a nest of rectangles, color-coded by depth. The
                     <em>ladder</em> sets the <em>order</em>: a square of order
-                    <em>n</em> has side 2<sup>n</sup>, anchored at the origin so
-                    its dominant priority-<em>n</em> spine lands on the far edge —
-                    a closed, self-similar tile. Drag to pan, scroll or pinch to
-                    zoom, turn the <em>depth</em> knob to surface another shell of
-                    color, and flip <em>order colours</em> for the reference look.
-                    <em>Turtles all the way down.</em>
+                    <em>n</em> has side 2<sup>n</sup>, anchored at the origin: its
+                    left and top edges are the <em>∞ bars</em> (one priority above
+                    the rest) and its dominant priority-<em>n</em> spine lands on
+                    the far edge — a closed, self-similar tile. Drag to pan, scroll
+                    or pinch to zoom, and turn the <em>depth</em> knob to surface
+                    another shell of color. <em>Turtles all the way down.</em>
                 </p>
                 <aside class="orient-card">
                     <h2>Orientation</h2>
@@ -516,10 +516,6 @@
                 </div>
                 <button id="reset">Reset view</button>
                 <button id="daynight">☾ Night</button>
-                <label class="toggle" title="ring colour — off: classic elaborate (green frames, rainbow innards); on: order-indexed frames (the reference-square look)">
-                    <input type="checkbox" id="shadeorder" />
-                    order colours
-                </label>
                 <label class="toggle" title="the old render — the infinite boundary-seeded patch, as a reference">
                     <input type="checkbox" id="oldrender" />
                     old render
@@ -530,17 +526,18 @@
             <p class="note">
                 The square is the real engine — a unit N/W seed against side
                 <code>2ⁿ</code> to the S/E, reseeded by
-                <code>Propagation.fromUniverseBoundary</code> and rendered over
-                the interior <code>[1..side]</code> SE block (seed margin and
-                trailing result lines excluded), in the spirit of
+                <code>Propagation.fromUniverseBoundary</code>, in the spirit of
                 <code>meta/fibonacci-ruler</code>’s Coylean square — only
-                <em>elaborate</em>. It is anchored at the origin, so the
-                <em>ladder</em> only sets the <em>order</em> (side =
-                2<sup>order</sup>) and <em>seniority</em> re-anchors the V/H
-                tie-break; the depth knob surfaces the inner nested shells, and
-                <em>order colours</em> swaps the classic green-framed elaborate
-                for per-priority frames. The <em>old render</em> is the
-                boundary-seeded infinite patch in the same elaborate dress.
+                <em>elaborate</em>. It renders cells <code>[0..side]</code>: the
+                <code>col 0</code> / <code>row 0</code> ∞ axis (one priority above
+                the interior, the <em>infinity bars</em>) frames the left and top,
+                and the dominant priority-<em>n</em> spine lands on the far edge —
+                what makes it a Coylean <em>square</em> rather than a patch of map.
+                It is anchored at the origin, so the <em>ladder</em> only sets the
+                <em>order</em> (side = 2<sup>order</sup>) and <em>seniority</em>
+                re-anchors the V/H tie-break; the depth knob surfaces the inner
+                nested shells. The <em>old render</em> is the boundary-seeded
+                infinite <em>map</em> in the same elaborate dress.
             </p>
         </main>
 
