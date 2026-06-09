@@ -20,6 +20,8 @@ export class SlidingRuler {
     this._minorTickColor = options.minorTickColor ?? '#3a5068';
     this._labelColor     = options.labelColor     ?? '#94a3b8';
     this._fadeColor      = options.fadeColor      ?? 'rgba(13,24,38,0.9)';
+    // Optional per-unit background band tint: (u) => cssColor | null.
+    this._bandColor      = options.bandColor      ?? null;
 
     const dpr  = window.devicePixelRatio || 1;
     const cssW = canvas.offsetWidth || options.width || 260;
@@ -200,14 +202,31 @@ export class SlidingRuler {
 
     ctx.clearRect(0, 0, w, h);
 
+    const uMin = Math.floor(vol - w / ppu / 2) - 1;
+    const uMax = Math.ceil (vol + w / ppu / 2) + 1;
+
     // Track background
     ctx.fillStyle = this._bgColor;
     this._rrect(0, TRACK_Y, w, TRACK_H, 6);
     ctx.fill();
 
+    // Per-unit colour bands (optional) — clipped to the rounded track
+    if (this._bandColor) {
+      ctx.save();
+      this._rrect(0, TRACK_Y, w, TRACK_H, 6);
+      ctx.clip();
+      for (let u = uMin; u <= uMax; u++) {
+        if (u < this._min || u > this._max) continue;
+        const bc = this._bandColor(u);
+        if (!bc) continue;
+        const bx = cx + (u - vol) * ppu;
+        ctx.fillStyle = bc;
+        ctx.fillRect(bx - ppu / 2, TRACK_Y, ppu, TRACK_H);
+      }
+      ctx.restore();
+    }
+
     // Tick marks
-    const uMin = Math.floor(vol - w / ppu / 2) - 1;
-    const uMax = Math.ceil (vol + w / ppu / 2) + 1;
 
     for (let u = uMin; u <= uMax; u++) {
       if (u < this._min || u > this._max) continue;

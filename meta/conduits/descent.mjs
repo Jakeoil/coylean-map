@@ -44,7 +44,7 @@ const MIN_DEPTH = 1;
 // has to land on its far edge for it to read as a closed, self-similar tile, so
 // the side is a power of two and the order is its log.
 const ORDER_MIN = 2; // side 4 — the smallest square that reads as a tile
-const ORDER_MAX = 7; // side 128 — the ceiling (~1.5k px natural)
+const ORDER_MAX = 9; // side 512 — the ceiling (order 8 ≈ 3k px, 9 ≈ 6k px)
 
 // Old-render (infinite patch) constants — the reference mode.
 const MAPW = 1800;
@@ -387,8 +387,8 @@ function setOrder(n) {
     order = n;
     depth = Math.max(MIN_DEPTH, sqMaxPri(order)); // full nest for the new square
     if (mode === "square") buildActive();
-    buildRulers(); // depth ruler tops out at the new order
-    syncLadder();
+    buildRulers(); // depth ruler tops out at the new order (order ruler unchanged)
+    syncOrder();
     if (mode === "square") { fitView(); hardRegen(); }
 }
 
@@ -398,7 +398,7 @@ function setMode(m) {
     depth = mode === "square" ? Math.max(MIN_DEPTH, sqMaxPri(order)) : PATCH_MAXP;
     buildActive();
     buildRulers();
-    syncLadder();
+    syncOrder();
     fitView();
     hardRegen();
 }
@@ -435,45 +435,24 @@ function buildOrient() {
 }
 buildOrient();
 
-// ── Ladder card: the order meter, rungs coloured by the order palette ──
-// Rung o is boxed in orderColor(o) = COLOR_LIST[o−1] (1 green · 2 yellow ·
-// 3 purple · 4 blue …) — the colour the square's frame takes at that order.
-// Order = the canonical
-// square's order: side 2^o + 1, tallest trunk priority o. Click a rung to
-// resize the square. (In patch mode the ladder is disabled.)
-const ladderEl = document.getElementById("ladder");
+// ── Order ruler: the old ladder, now a SlidingRuler dial ───────────────────
+// Each notch is tinted its order colour (orderColor(o) = COLOR_LIST[o−1]:
+// 2 cream · 3 purple · 4 cyan …) — the colour the square's spine takes at that
+// order. Drag to resize the square. (In patch mode it's disabled.) The dial is
+// built in buildOrderRuler (below, next to the depth dial, sharing the palette).
+const orderCanvas = document.getElementById("orderRuler");
 const orderLabel = document.getElementById("orderLabel");
-function syncLadder() {
-    ladderEl.classList.toggle("disabled", mode !== "square");
-    for (const b of ladderEl.children) {
-        const o = +b.dataset.order;
-        b.classList.toggle("on", o <= order); // lit up to the current order
-        b.classList.toggle("cur", o === order);
-    }
+const sideLabel = document.getElementById("sideLabel");
+let orderRuler = null;
+function syncOrder() {
+    const card = orderCanvas && orderCanvas.closest(".ladder-card");
+    if (card) card.classList.toggle("disabled", mode !== "square");
     if (orderLabel)
         orderLabel.textContent = mode === "square" ? String(order) : "—";
+    if (sideLabel)
+        sideLabel.textContent = mode === "square" ? String(sqSide(order)) : "—";
+    if (orderRuler) orderRuler.setValue(order); // ignored while dragging
 }
-function buildLadder() {
-    ladderEl.innerHTML = "";
-    // top rung = highest order (you climb UP to bigger squares)
-    for (let o = ORDER_MAX; o >= ORDER_MIN; o--) {
-        const b = document.createElement("button");
-        b.className = "rung";
-        b.dataset.order = String(o);
-        b.style.setProperty("--c", orderColor(o));
-        b.title = "order " + o + " · " + sqSide(o) + "² square";
-        const box = document.createElement("span");
-        box.className = "rung-box";
-        const num = document.createElement("span");
-        num.className = "rung-num";
-        num.textContent = String(o);
-        b.append(box, num);
-        b.onclick = () => { if (mode === "square") setOrder(o); };
-        ladderEl.append(b);
-    }
-    syncLadder();
-}
-buildLadder();
 
 // One SlidingRuler knob: depth = how many nested shells show (from the inside
 // out). Its max tracks the shell ceiling (order in square mode, PATCH_MAXP in
@@ -483,12 +462,8 @@ const labelsFor = (lo, hi) => {
     for (let v = lo; v <= hi; v++) m[v] = String(v);
     return m;
 };
-
-let depthRuler = null;
-function buildRulers() {
-    const maxDepth = mode === "square" ? Math.max(MIN_DEPTH, sqMaxPri(order)) : PATCH_MAXP;
-    if (depth > maxDepth) depth = maxDepth;
-    const pal = day
+const rulerPalette = () =>
+    day
         ? {
               bgColor: "#eef5ea",
               indicatorColor: "#5a8f3f",
@@ -507,6 +482,17 @@ function buildRulers() {
               labelColor: "#cfe8cf",
               fadeColor: "rgba(16,24,15,0.92)",
           };
+// Translucent tint of an order's colour, so the ticks/labels still read over it.
+function bandTint(o) {
+    const c = orderColor(o); // #rrggbb
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+    return `rgba(${r},${g},${b},0.5)`;
+}
+
+let depthRuler = null;
+function buildRulers() {
+    const maxDepth = mode === "square" ? Math.max(MIN_DEPTH, sqMaxPri(order)) : PATCH_MAXP;
+    if (depth > maxDepth) depth = maxDepth;
     if (depthRuler) depthRuler.destroy();
     depthRuler = new SlidingRuler(depthCanvas, {
         min: MIN_DEPTH,
@@ -520,10 +506,33 @@ function buildRulers() {
             depth = v;
             regen();
         },
-        ...pal,
+        ...rulerPalette(),
     });
 }
 buildRulers();
+
+// The order dial — fixed range ORDER_MIN..ORDER_MAX, each notch its order colour.
+// Rebuilt only on day/night (palette), never on setOrder — so a drag is never
+// destroyed mid-scrub; setOrder just setValue()s it (ignored while dragging).
+function buildOrderRuler() {
+    if (!orderCanvas) return;
+    if (orderRuler) orderRuler.destroy();
+    orderRuler = new SlidingRuler(orderCanvas, {
+        min: ORDER_MIN,
+        max: ORDER_MAX,
+        value: order,
+        visibleRange: ORDER_MAX - ORDER_MIN + 2,
+        height: 54,
+        labels: labelsFor(ORDER_MIN, ORDER_MAX),
+        bandColor: bandTint,
+        onChange: (v) => {
+            if (mode === "square" && v !== order) setOrder(v);
+        },
+        ...rulerPalette(),
+    });
+    syncOrder();
+}
+buildOrderRuler();
 
 document.getElementById("reset").onclick = fitView;
 
@@ -552,7 +561,8 @@ dayBtn.onclick = () => {
     document.body.classList.toggle("day", day);
     document.body.classList.toggle("night", !day);
     dayBtn.textContent = day ? "☾ Night" : "☀ Day";
-    buildRulers(); // recolor the dials to match
+    buildRulers(); // recolor the depth dial
+    buildOrderRuler(); // recolor the order dial
     hardRegen(); // rebuild without crossfade so the two grounds don't blend
 };
 

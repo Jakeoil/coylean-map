@@ -259,11 +259,18 @@
                 color: rgba(255, 255, 255, 0.42);
                 margin-top: 3px;
             }
-            /* the ladder — rungs climb toward ∞ at the top, colored per order */
+            /* the order dial — a sliding ruler, each notch tinted its order color */
             .ladder-card {
-                flex: 0 0 132px;
+                flex: 0 0 268px;
                 display: flex;
                 flex-direction: column;
+            }
+            .ladder-card .ruler {
+                margin: 2px 0 4px;
+            }
+            .ladder-card.disabled {
+                opacity: 0.4;
+                pointer-events: none;
             }
             .ladder {
                 display: flex;
@@ -498,10 +505,11 @@
                     <div class="orient-sub">anchor · seniority</div>
                 </aside>
                 <aside class="ladder-card">
-                    <h2>Ladder</h2>
-                    <div class="ladder" id="ladder"></div>
+                    <h2>Order</h2>
+                    <canvas id="orderRuler" class="ruler"></canvas>
                     <div class="ladder-foot">
-                        order <span id="orderLabel"></span>
+                        order <span id="orderLabel"></span> ·
+                        <span id="sideLabel"></span>² square
                     </div>
                 </aside>
             </div>
