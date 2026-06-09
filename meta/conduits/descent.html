@@ -475,12 +475,14 @@
                     A <em>Coylean square</em> in its <em>elaborate</em> dress —
                     every cell a nest of rectangles, color-coded by depth. The
                     <em>ladder</em> sets the <em>order</em>: a square of order
-                    <em>n</em> has side 2<sup>n</sup>, anchored at the origin: its
-                    left and top edges are the <em>∞ bars</em> (one priority above
-                    the rest) and its dominant priority-<em>n</em> spine lands on
-                    the far edge — a closed, self-similar tile. Drag to pan, scroll
-                    or pinch to zoom, and turn the <em>depth</em> knob to surface
-                    another shell of color. <em>Turtles all the way down.</em>
+                    <em>n</em> has side 2<sup>n</sup>, with two <em>∞ bars</em>
+                    (one priority above the rest) framing its anchor corner and
+                    its dominant priority-<em>n</em> spine on the opposite corner —
+                    a closed, self-similar tile. The <em>orientation</em> card's
+                    lat/long force a different <em>quadrant pattern</em> (the
+                    dyadic offset). Drag to pan, scroll or pinch to zoom, and turn
+                    the <em>depth</em> knob to surface another shell of color.
+                    <em>Turtles all the way down.</em>
                 </p>
                 <aside class="orient-card">
                     <h2>Orientation</h2>
@@ -535,13 +537,15 @@
                 <em>elaborate</em>. It renders cells <code>[0..side]</code>: the
                 <code>col 0</code> / <code>row 0</code> ∞ axis (one priority above
                 the interior, the <em>infinity bars</em>) frames the left and top,
-                and the dominant priority-<em>n</em> spine lands on the far edge —
-                what makes it a Coylean <em>square</em> rather than a patch of map.
-                It is anchored at the origin, so the <em>ladder</em> only sets the
-                <em>order</em> (side = 2<sup>order</sup>) and <em>seniority</em>
-                re-anchors the V/H tie-break; the depth knob surfaces the inner
-                nested shells. The <em>old render</em> is the boundary-seeded
-                infinite <em>map</em> in the same elaborate dress.
+                and the dominant priority-<em>n</em> spine lands on the opposite
+                corner — what makes it a Coylean <em>square</em> rather than a patch
+                of map. The <em>ladder</em> sets the <em>order</em> (side =
+                2<sup>order</sup>); the <em>orientation</em> card's lat/long force
+                a different quadrant pattern (the dyadic offset ∈ {0,1}, like
+                compound-glyphs’ <code>setOffset</code>) and <em>seniority</em>
+                flips the V/H tie-break; the depth knob surfaces the inner nested
+                shells. The <em>old render</em> is the boundary-seeded infinite
+                <em>map</em> in the same elaborate dress.
             </p>
         </main>
 

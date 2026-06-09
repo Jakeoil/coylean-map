@@ -4,12 +4,13 @@
 // "elaborate" style (priority-width nested rectangles, color-coded by depth) —
 // the same square meta/fibonacci-ruler draws, only elaborate. A square of order
 // n has side 2^n and is ANCHORED AT THE ORIGIN: a unit N/W seed against side to
-// the S/E, reseeded by fromUniverseBoundary. Rendered over cells [0..side]: the
-// col 0 / row 0 ∞ axis (priority order+1, one above the interior max) draws as
-// the LEFT and TOP infinity bars that frame it as a Coylean square, and the
-// dominant priority-order spine lands on the far edge — a closed, self-similar
-// tile. The ladder picks the order; depth is the elaborate-nesting knob;
-// seniority flips the V/H tie-break.
+// the S/E. Rendered over cells [0..side]: the ∞ axis (priority order+1, one above
+// the interior max) draws the two infinity bars that frame it as a Coylean
+// square, and the priority-order spine lands on the opposite corner — a closed,
+// self-similar tile. The ladder picks the order; the orientation card's lat/long
+// force a different quadrant pattern (the dyadic offset ∈ {0,1}, like
+// compound-glyphs); depth is the elaborate-nesting knob; seniority flips the V/H
+// tie-break.
 //
 // A checkbox swaps in the OLD render — the boundary-seeded INFINITE patch
 // (fromUniverseBoundary) in the same elaborate dress — as a reference. The
@@ -149,20 +150,22 @@ let bmpW = SCALE, bmpH = SCALE; // natural pixel size of the active bitmap
 // centered window, and NOT a hand-rolled all-true grid.)
 const sqSide = (n) => Math.max(1, 2 ** n);
 
-// ∞ = one above the square's highest interior priority. The left (col 0) and top
-// (row 0) seed margin carry it: setting maxPri = order + 1 makes pri(0) (the seed
-// column/row) come out at order + 1 while the interior [1..side] stays capped at
-// its natural `order`. Drawing col 0 / row 0 gives the LEFT and TOP infinity bars
-// that frame a Coylean square. (∞ on the far/right/bottom edges is the spine,
-// not a bar.)
+// ∞ = one above the square's highest interior priority. A cell's priority is
+// pri(i + hInitCol); setting maxPri = order + 1 makes pri(0) (the ∞ axis) come
+// out at order + 1 while the interior stays capped at its natural `order`.
 const sqMaxPri = (n) => n + 1;
 
-// Build the order-n square: one cell of N/W context, the full side to the S/E,
-// reseeded by fromUniverseBoundary. The interior side×side SE block is the
-// genuine SE patch; we render cells [0..side] so the col 0 / row 0 ∞ axis draws
-// as the left + top bars, and the trailing result lines past `side` are excluded.
-// Origin-anchored, so the orientation card's E/W·N/S offset does NOT apply here
-// (it would slide the spine off the edge — the README "trap"); only seniority does.
+// ORIENTATION = the anchor points. long = hInitCol, lat = vInitRow, each ∈ {0,1}
+// — exactly compound-glyphs' setOffset(curH, curV). It just re-propagates one of
+// the four anchor patterns; the universe is always the same (a 1-cell N/W context
+// against a side×side S/E square, reseeded by fromUniverseBoundary for the correct
+// boundary seed). The four offsets COINCIDENTALLY resemble reflections of the
+// matching universe quadrants — hence the SE/SW/NE/NW names — but they are anchor
+// points, not geometric reflections, so the patterns genuinely differ (only the
+// diagonal S·E / N·W close into squares; S·W / N·E are the off-anchor patterns).
+// The clean baseline is S·E (1/1). The two ∞ bars a square "needs" come from the
+// seed margin where the offset is 1 (col 0 ∞ iff curH=1, row 0 ∞ iff curV=1) plus
+// the interior where it is 0 — so SE adds 2, SW/NE add 1, NW adds 0.
 function integrateSquare(n) {
     const side = sqSide(n);
     const maxPri = sqMaxPri(n);
@@ -171,8 +174,8 @@ function integrateSquare(n) {
         westExtent: 1,
         southExtent: side,
         eastExtent: side,
-        hInitCol: 1,
-        vInitRow: 1,
+        hInitCol: orient.curH,
+        vInitRow: orient.curV,
         maxPri,
         seniority: seniorityNow(),
     });
@@ -226,10 +229,11 @@ function buildActive() {
 let day = true;
 const ground = () => (day ? "#ffffff" : "#0a0d0a");
 
-// The genuine origin-anchored Coylean square, drawn elaborate. Render cells
-// [0..side]: col 0 / row 0 are the LEFT and TOP ∞ bars (priority order+1) that
-// frame the square; [1..side] is the interior. Always the classic shell
-// coylean.js coloring (green frames, rainbow innards).
+// The genuine Coylean square, drawn elaborate. Render every cell [0..side]: the
+// ∞ axis (priority order+1) draws the two ∞ bars framing the square and the
+// spine on the opposite corner; [1..side] is the interior. The orientation
+// (see integrateSquare) just re-propagates a different quadrant pattern. Always
+// the classic shell coylean.js coloring (green frames, rainbow innards).
 //
 // The RESULT rows — the last row of downMatrix (resultDown) and last column of
 // rightMatrix (resultRight) — are the out-arrows leaving the far (S/E) edge,
