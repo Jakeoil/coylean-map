@@ -38,6 +38,31 @@ vacuum (∞)        the true vacuum — nothing above it, the lat/long-0 frame
   lines are the glyph's own strokes — its 3×3 code. The smallest, most crowded
   inhabitants.
 
+## Colors — each priority its own hue
+
+In the elaborate dress every priority wears a fixed color (the depth palette
+`COLOR_LIST`, index = `priority − 1`):
+
+```
+1  green   #8FBC8F      4  cyan       #00FFFF
+2  cream   #FFEBCD      5  burlywood  #DEB887
+3  purple  #8A2BE2      6  coral      #FF7F50   …
+```
+
+A priority-`P` reaction box draws as nested rings from the outside in —
+`green(1) ⊃ cream(2) ⊃ … ⊃ P`'s own color — so the box's **deepest wall is its
+own hue**, and inside that sits the next level down. Examine the first reaction
+box of a priority-3 square: green ⊃ cream ⊃ **purple ⊃ cyan core**. The purple is
+the priority-3 wall; the cyan dead-center is the ∞/vacuum showing through.
+
+**A square's identity is the color of its highest *normal* priority — the spine —
+not the ∞ line one above it.** So an order-3 square is *purple* (spine = 3),
+even though its vacuum core is cyan (4). This is the line straight to the SX-70
+lineage and the reference squares: **green 1 · yellow/cream 2 · purple 3 · blue 4**
+name the orders. (The ∞ band is just the frame; a later pass may *trim*
+superfluous outer bands, since the identity rides the normal spine, not the
+vacuum.)
+
 ## Turtles — insides of glyphs
 
 A cage magnified *is* a glyph-scale map of its own. So this scale's vacuum and

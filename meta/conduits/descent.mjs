@@ -140,7 +140,6 @@ function renderComplex(
 
 // ── The active map's matrices + bitmap size, rebuilt on any change ─────────
 let downMatrix, rightMatrix, colPriority, rowPriority, numRows, numColumns;
-let sqN = 1; // the square's side in cells (square mode) — see sqSide
 let bmpW = SCALE, bmpH = SCALE; // natural pixel size of the active bitmap
 
 // The genuine Coylean square (per meta/fibonacci-ruler): its side is a power of
@@ -166,14 +165,20 @@ const sqMaxPri = (n) => n + 1;
 // The clean baseline is S·E (1/1). The two ∞ bars a square "needs" come from the
 // seed margin where the offset is 1 (col 0 ∞ iff curH=1, row 0 ∞ iff curV=1) plus
 // the interior where it is 0 — so SE adds 2, SW/NE add 1, NW adds 0.
+//
+// At offset 0 the lattice slides by one, so the priority-`order` SPINE (the
+// purple band for order 3) would fall one cell past the side and the last column
+// loses its hue. We extend the far extent by that slide (1−curH / 1−curV) so the
+// spine still lands in the last column/row for EVERY anchor — and render from 0,
+// so the leading zero-width cells stay and the four anchors remain distinct.
 function integrateSquare(n) {
     const side = sqSide(n);
     const maxPri = sqMaxPri(n);
     const u = Universe.create({
         northExtent: 1,
         westExtent: 1,
-        southExtent: side,
-        eastExtent: side,
+        southExtent: side + (1 - orient.curV),
+        eastExtent: side + (1 - orient.curH),
         hInitCol: orient.curH,
         vInitRow: orient.curV,
         maxPri,
@@ -182,12 +187,12 @@ function integrateSquare(n) {
     return Propagation.fromUniverseBoundary(u, { maxPri });
 }
 
-// Pixel size of the square INCLUDING the ∞ bars — cells [0..N] (priority-0 cells
-// contribute width 0; col 0 / row 0 are the wide ∞ frame).
-function squarePx(p, N) {
+// Pixel size over the whole propagation — every column/row (priority-0 cells
+// contribute width 0; the ∞ axis is the wide frame, the spine the last band).
+function squarePx(p) {
     let w = 0, h = 0;
-    for (let i = 0; i <= N; i++) w += p.colPriority[i] * 2;
-    for (let j = 0; j <= N; j++) h += p.rowPriority[j] * 2;
+    for (let i = 0; i < p.numColumns; i++) w += p.colPriority[i] * 2;
+    for (let j = 0; j < p.numRows; j++) h += p.rowPriority[j] * 2;
     return [Math.max(SCALE, SCALE * w), Math.max(SCALE, SCALE * h)];
 }
 
@@ -197,8 +202,7 @@ function buildSquare() {
     const p = integrateSquare(order);
     ({ downMatrix, rightMatrix, colPriority, rowPriority, numRows, numColumns } =
         p);
-    sqN = sqSide(order);
-    [bmpW, bmpH] = squarePx(p, sqN);
+    [bmpW, bmpH] = squarePx(p);
 }
 
 // The OLD render: the boundary-seeded INFINITE patch (fromUniverseBoundary).
@@ -237,9 +241,9 @@ const ground = () => (day ? "#ffffff" : "#0a0d0a");
 //
 // The RESULT rows — the last row of downMatrix (resultDown) and last column of
 // rightMatrix (resultRight) — are the out-arrows leaving the far (S/E) edge,
-// reached as down_out at j = sqN and right_out at i = sqN. Showing them lets the
-// spine trunks poke out the bottom/right (the square continuing into the next
-// tile); hiding them caps the spine for a closed, self-contained square.
+// reached as down_out at the last row and right_out at the last column. Showing
+// them lets the spine trunks poke out the bottom/right (the square continuing
+// into the next tile); hiding them caps the spine into a closed square.
 function makeSquareBitmap(depth) {
     const off = document.createElement("canvas");
     off.width = Math.max(1, Math.round(bmpW));
@@ -249,16 +253,17 @@ function makeSquareBitmap(depth) {
     g.fillRect(0, 0, off.width, off.height);
 
     const top = sqMaxPri(order); // shell ceiling = ∞ (order + 1)
+    const colN = numColumns - 1, rowN = numRows - 1; // last real col / row
     let y = 0;
-    for (let j = 0; j <= sqN; j++) {
+    for (let j = 0; j <= rowN; j++) {
         const rPri = rowPriority[j];
         let x = 0;
-        for (let i = 0; i <= sqN; i++) {
+        for (let i = 0; i <= colN; i++) {
             const dPri = colPriority[i];
             // suppress the result row/col (last down/right matrix line) unless shown
-            const dOut = !showResult && j === sqN
+            const dOut = !showResult && j === rowN
                 ? false : downMatrix[j + 1][i];
-            const rOut = !showResult && i === sqN
+            const rOut = !showResult && i === colN
                 ? false : rightMatrix[i + 1][j];
             x += renderComplex(
                 g, x, y,
@@ -317,7 +322,7 @@ function fittingOrder() {
     const stage = Math.min(cv.clientWidth || 800, cv.clientHeight || 600);
     let best = ORDER_MIN;
     for (let n = ORDER_MIN + 1; n <= ORDER_MAX; n++) {
-        const [w, h] = squarePx(integrateSquare(n), sqSide(n));
+        const [w, h] = squarePx(integrateSquare(n));
         if (Math.max(w, h) <= stage) best = n;
         else break;
     }
