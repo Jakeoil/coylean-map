@@ -14,6 +14,7 @@ art is a skin over it.
 | `compound-glyphs.html` / `.mjs` | The real lettered map at anchor 1/1. Baby-block letters at each glyph's D4 orientation; no-bar neighbors fuse into *compound* rectangles. Has the **orientation card** (anchor quadrant + V/H seniority) — both seniorities show the square compounds. |
 | `turtle-paradise.html` / `.mjs` + `turtle-paradise-data.js` | **Turtle Paradise** — a living catalog of glyphs (see below). |
 | `turtle paradise.md` | The source Excalidraw sketch (Obsidian) that inspired the living glyphs. Baked to `turtle-paradise-data.js`. |
+| `glyph-lore.md` | **Glyph Lore** — the zoo's bestiary / vocabulary: the *vacuum* (∞, the lat/long-0 frame), *lesser vacui* (every priority a sky to the level below), *cages* (2s), *glyphs* (0s/1s), the turtle recursion, and *merged rooms* (compounds, always rectangles). |
 | `life-cycle.html` / `.mjs` | **The Life Cycle** — the recursive cycle of growth (below). |
 | `life-cycle.md` | The Excalidraw storyboard for the life cycle (day/night, the detailed 13×13 closed glyph, the growth column). Baked to `life-cycle-data.js`. |
 | `life-cycle-data.js` | The baked storyboard shapes (114 elements). |
