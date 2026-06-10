@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>How to Draw a Coylean Square</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <style>
+            /* ─────────────────────────────────────────────────────────────
+               Theme tokens. Dark is the default (matches the rest of the
+               site); [data-theme="light"] on <html> swaps in the light set.
+               ───────────────────────────────────────────────────────────── */
+            :root {
+                --bg: radial-gradient(
+                    1200px 800px at 50% -10%,
+                    #16213e 0%,
+                    #0f1830 55%,
+                    #0a1022 100%
+                );
+                --panel: rgba(22, 33, 62, 0.62);
+                --panel-border: rgba(233, 69, 96, 0.4);
+                --text: #e9edf6;
+                --muted: rgba(233, 237, 246, 0.62);
+                --accent: #e94560;
+                --accent-soft: rgba(233, 69, 96, 0.14);
+                --field-bg: rgba(0, 0, 0, 0.28);
+                --field-border: rgba(255, 255, 255, 0.16);
+                /* the SVG square */
+                --paper: #0c1326;
+                --paper-edge: rgba(255, 255, 255, 0.08);
+                --ink: #e9edf6; /* drawn Coylean segments (mono mode) */
+                --grid: rgba(120, 160, 220, 0.16); /* faint guide lines */
+                --grid-strong: rgba(120, 160, 220, 0.32);
+                --highlight: #ffd23f; /* freshly-drawn segment */
+            }
+            html[data-theme="light"] {
+                --bg: linear-gradient(135deg, #f4f6fb 0%, #e9eef7 100%);
+                --panel: #ffffff;
+                --panel-border: rgba(20, 30, 60, 0.12);
+                --text: #1a2238;
+                --muted: rgba(26, 34, 56, 0.6);
+                --accent: #d12d4c;
+                --accent-soft: rgba(209, 45, 76, 0.1);
+                --field-bg: #ffffff;
+                --field-border: rgba(20, 30, 60, 0.2);
+                --paper: #fbfcfe;
+                --paper-edge: rgba(20, 30, 60, 0.12);
+                --ink: #1a2238;
+                --grid: rgba(40, 70, 130, 0.16);
+                --grid-strong: rgba(40, 70, 130, 0.3);
+                --highlight: #e07a00;
+            }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family:
+                    "Segoe UI", system-ui, -apple-system, sans-serif;
+                background: var(--bg);
+                background-attachment: fixed;
+                color: var(--text);
+                min-height: 100vh;
+                padding: 32px 20px 56px;
+                line-height: 1.5;
+            }
+            main {
+                max-width: 980px;
+                margin: 0 auto;
+            }
+            .topbar {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 16px;
+                margin-bottom: 18px;
+            }
+            .back {
+                color: var(--accent);
+                text-decoration: none;
+                font-size: 0.9rem;
+            }
+            .back:hover {
+                text-decoration: underline;
+            }
+            h1 {
+                font-size: 2rem;
+                color: var(--accent);
+                margin-bottom: 6px;
+            }
+            .lede {
+                color: var(--muted);
+                margin-bottom: 22px;
+                max-width: 70ch;
+            }
+            .theme-toggle {
+                border: 1.5px solid var(--field-border);
+                background: var(--field-bg);
+                color: var(--text);
+                border-radius: 999px;
+                padding: 7px 14px;
+                font-size: 0.85rem;
+                cursor: pointer;
+                white-space: nowrap;
+            }
+            .theme-toggle:hover {
+                border-color: var(--accent);
+            }
+
+            /* layout: square on the left, controls on the right (stacks on
+               narrow screens) */
+            .stage {
+                display: flex;
+                gap: 22px;
+                align-items: flex-start;
+                flex-wrap: wrap;
+            }
+            .square-wrap {
+                flex: 1 1 480px;
+                min-width: 300px;
+            }
+            svg.board {
+                width: 100%;
+                height: auto;
+                display: block;
+                background: var(--paper);
+                border: 1px solid var(--paper-edge);
+                border-radius: 12px;
+            }
+            .panel {
+                flex: 0 1 340px;
+                min-width: 280px;
+                background: var(--panel);
+                border: 1px solid var(--panel-border);
+                border-radius: 12px;
+                padding: 18px 18px 20px;
+            }
+            .panel h2 {
+                font-size: 0.78rem;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                color: var(--muted);
+                margin: 0 0 12px;
+            }
+            .row {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 12px;
+                flex-wrap: wrap;
+            }
+            label {
+                font-size: 0.9rem;
+                color: var(--text);
+            }
+            input[type="number"],
+            select {
+                background: var(--field-bg);
+                color: var(--text);
+                border: 1.5px solid var(--field-border);
+                border-radius: 8px;
+                padding: 6px 9px;
+                font-size: 0.9rem;
+                font-family: inherit;
+            }
+            input[type="number"] {
+                width: 64px;
+            }
+            select {
+                flex: 1;
+            }
+            input[type="range"] {
+                flex: 1;
+                accent-color: var(--accent);
+            }
+            .checks label {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 0.88rem;
+                cursor: pointer;
+            }
+            input[type="checkbox"] {
+                accent-color: var(--accent);
+                width: 16px;
+                height: 16px;
+            }
+            .btns {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+                margin: 4px 0 16px;
+            }
+            button.ctl {
+                flex: 1 1 0;
+                min-width: 74px;
+                border: 1.5px solid var(--field-border);
+                background: var(--field-bg);
+                color: var(--text);
+                border-radius: 8px;
+                padding: 9px 8px;
+                font-size: 0.9rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.12s;
+            }
+            button.ctl:hover:not(:disabled) {
+                border-color: var(--accent);
+                background: var(--accent-soft);
+            }
+            button.ctl.primary {
+                border-color: var(--accent);
+                background: var(--accent-soft);
+                color: var(--accent);
+            }
+            button.ctl:disabled {
+                opacity: 0.4;
+                cursor: default;
+            }
+            .stage-label {
+                margin-top: 4px;
+                padding: 12px 14px;
+                background: var(--field-bg);
+                border: 1px solid var(--field-border);
+                border-radius: 10px;
+            }
+            .stage-label .where {
+                font-size: 1rem;
+                font-weight: 600;
+            }
+            .stage-label .count {
+                font-size: 0.82rem;
+                color: var(--muted);
+                margin-top: 4px;
+                font-variant-numeric: tabular-nums;
+            }
+            .legend {
+                margin-top: 14px;
+                font-size: 0.8rem;
+                color: var(--muted);
+            }
+            .legend .sw {
+                display: inline-block;
+                width: 22px;
+                height: 0;
+                border-top: 3px solid var(--ink);
+                vertical-align: middle;
+                margin-right: 6px;
+            }
+            .legend .sw.grid {
+                border-top: 2px dashed var(--grid-strong);
+            }
+            .legend .sw.hl {
+                border-top: 3px solid var(--highlight);
+            }
+
+            /* ─── drawn segments ─── */
+            line.seg {
+                stroke: var(--ink);
+                stroke-linecap: square;
+                fill: none;
+            }
+            line.seg.fresh {
+                stroke-dasharray: 1;
+                stroke-dashoffset: 1;
+                animation: draw-on var(--reveal, 0.28s) ease-out forwards;
+            }
+            @keyframes draw-on {
+                from {
+                    stroke-dashoffset: 1;
+                    stroke: var(--highlight);
+                }
+                70% {
+                    stroke: var(--highlight);
+                }
+                to {
+                    stroke-dashoffset: 0;
+                }
+            }
+            line.guide {
+                stroke: var(--grid);
+                stroke-width: 1;
+                stroke-dasharray: 3 4;
+            }
+            line.guide.major {
+                stroke: var(--grid-strong);
+            }
+
+            .prose {
+                margin-top: 36px;
+                max-width: 74ch;
+            }
+            .prose h2 {
+                color: var(--accent);
+                font-size: 1.25rem;
+                margin: 26px 0 8px;
+            }
+            .prose p,
+            .prose li {
+                color: var(--text);
+            }
+            .prose ul {
+                padding-left: 22px;
+                margin: 8px 0 14px;
+            }
+            .prose li {
+                margin-bottom: 5px;
+            }
+            .prose a {
+                color: var(--accent);
+            }
+            code {
+                font-family: "Menlo", "Consolas", monospace;
+                background: var(--accent-soft);
+                padding: 1px 5px;
+                border-radius: 4px;
+                font-size: 0.88em;
+            }
+            .callout {
+                border-left: 3px solid var(--accent);
+                background: var(--accent-soft);
+                padding: 12px 16px;
+                border-radius: 0 8px 8px 0;
+                margin: 18px 0;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <div class="topbar">
+                <a class="back" href="../">← Meta</a>
+                <button class="theme-toggle" id="theme-toggle">☾ Dark</button>
+            </div>
+
+            <h1>How to Draw a Coylean Square</h1>
+            <p class="lede">
+                The Coylean square is, first of all, a
+                <strong>compass-and-straightedge drawing</strong>: you make
+                vertical and horizontal passes across a square, and each pass
+                lifts and drops the pencil whenever it crosses a line already
+                on the paper. Watch the construction unfold pass by pass. The
+                propagation <em>algorithm</em> elsewhere on the site is just a
+                bookkeeping shadow of this geometry.
+            </p>
+
+            <div class="stage">
+                <div class="square-wrap">
+                    <svg
+                        class="board"
+                        id="board"
+                        viewBox="0 0 720 720"
+                        preserveAspectRatio="xMidYMid meet"
+                    >
+                        <g id="guides"></g>
+                        <g id="ink"></g>
+                    </svg>
+                </div>
+
+                <div class="panel">
+                    <h2>Construction</h2>
+                    <div class="row">
+                        <label for="order">Max order n</label>
+                        <input
+                            type="number"
+                            id="order"
+                            min="0"
+                            max="6"
+                            value="4"
+                        />
+                    </div>
+                    <div class="row">
+                        <label for="gran">Step by</label>
+                        <select id="gran">
+                            <option value="segment">segment</option>
+                            <option value="pass">pass</option>
+                            <option value="half" selected>half-order</option>
+                            <option value="order">order</option>
+                        </select>
+                    </div>
+
+                    <div class="btns">
+                        <button class="ctl" id="reset">Reset</button>
+                        <button class="ctl" id="step">Step ▸</button>
+                        <button class="ctl primary" id="play">Play ▶</button>
+                    </div>
+                    <div class="btns">
+                        <button class="ctl" id="complete">Complete ⤢</button>
+                    </div>
+
+                    <div class="row">
+                        <label for="speed">Speed</label>
+                        <input
+                            type="range"
+                            id="speed"
+                            min="60"
+                            max="1100"
+                            value="430"
+                        />
+                    </div>
+
+                    <div class="checks">
+                        <div class="row">
+                            <label
+                                ><input type="checkbox" id="grid" />Guide
+                                grid</label
+                            >
+                        </div>
+                        <div class="row">
+                            <label
+                                ><input
+                                    type="checkbox"
+                                    id="bycolor"
+                                    checked
+                                />Color by order</label
+                            >
+                        </div>
+                    </div>
+
+                    <div class="stage-label">
+                        <div class="where" id="where">
+                            Order 0 — ready.
+                        </div>
+                        <div class="count" id="count">
+                            Press <strong>Step</strong> or
+                            <strong>Play</strong> to begin.
+                        </div>
+                    </div>
+
+                    <div class="legend">
+                        <span class="sw"></span>Coylean segment &nbsp;
+                        <span class="sw hl"></span>just drawn<br />
+                        <span class="sw grid"></span>guide grid (toggle)
+                    </div>
+                </div>
+            </div>
+
+            <!-- ───────────── prose explainer ───────────── -->
+            <div class="prose">
+                <h2>The geometric rule</h2>
+                <p>
+                    Start with the bare square <code>ABCD</code> — that is
+                    <strong>order 0</strong>. Each later order <code>k</code>
+                    adds <code>2<sup>k-1</sup></code> vertical passes and the
+                    same number of horizontal passes, placed at the new odd
+                    dyadic fractions
+                    <code
+                        >1⁄2<sup>k</sup>, 3⁄2<sup>k</sup>, …,
+                        (2<sup>k</sup>−1)⁄2<sup>k</sup></code
+                    >. By convention all of an order's verticals are drawn
+                    first, then its horizontals — so the horizontals already
+                    "see" the verticals of their own order.
+                </p>
+                <p>A <strong>vertical pass</strong> at column <code>x</code>:</p>
+                <ul>
+                    <li>start at the top edge, pencil <em>down</em>;</li>
+                    <li>
+                        travel straight down to the bottom edge;
+                    </li>
+                    <li>
+                        every time you cross a horizontal segment that
+                        <em>actually exists</em> at that point, flip the pencil
+                        (down → up, up → down);
+                    </li>
+                    <li>draw only the stretches travelled pencil-down.</li>
+                </ul>
+                <p>
+                    A <strong>horizontal pass</strong> is the mirror image:
+                    travel left to right, flipping the pencil at every existing
+                    vertical segment it crosses. Crossings count only where the
+                    perpendicular line is really present — there is no full
+                    grid underneath, just the segments drawn so far. A single
+                    pass can therefore leave several disjoint pieces.
+                </p>
+
+                <div class="callout">
+                    <strong>Why the algorithm is a shadow of this.</strong>
+                    The propagation rule —
+                    <a href="../toy-rendering/how-to-draw.html"
+                        >priority, reaction, propagation</a
+                    >
+                    — just records, cell by cell, whether the pencil happened
+                    to be down on each edge. Tie-breaking by 2-adic priority is
+                    exactly the seniority of these dyadic passes; the reaction
+                    box is one crossing. Run this page to order 3 and the
+                    propagation map is pixel-identical (verified in Node against
+                    <code>coylean-core</code>).
+                </div>
+            </div>
+        </main>
+
+        <script>
+            // ════════════════════════════════════════════════════════════════
+            // Geometry. A segment is an axis-aligned drawn piece in normalized
+            // [0,1] coordinates:
+            //   { orientation:"V"|"H", fixed, start, end, order, half,
+            //     passIndex, passCount, segIndex, segCount }
+            // Verified equivalent to the core propagation map (orders 0–4).
+            // ════════════════════════════════════════════════════════════════
+            const EPS = 1e-9;
+
+            // Collect the crossing coordinates for a pass: the perpendicular
+            // segments that actually exist where the pass travels, strictly
+            // interior (the start/end edges are the pass's own endpoints and
+            // never toggle), de-duplicated and sorted.
+            function crossingsFor(orientation, fixed, segments) {
+                const perp = orientation === "V" ? "H" : "V";
+                const vals = [];
+                for (const s of segments) {
+                    if (s.orientation !== perp) continue;
+                    if (s.start - EPS <= fixed && fixed <= s.end + EPS) {
+                        const c = s.fixed;
+                        if (c > EPS && c < 1 - EPS) vals.push(c);
+                    }
+                }
+                vals.sort((a, b) => a - b);
+                const uniq = [];
+                for (const v of vals)
+                    if (!uniq.length || Math.abs(v - uniq.at(-1)) > EPS)
+                        uniq.push(v);
+                return uniq;
+            }
+
+            // Walk 0→1 toggling the pencil at each crossing; emit the drawn
+            // (pencil-down) intervals.
+            function passIntervals(crossings) {
+                const out = [];
+                let pencil = true;
+                let segStart = 0;
+                for (const c of crossings) {
+                    if (pencil && c - segStart > EPS)
+                        out.push([segStart, c]);
+                    segStart = c;
+                    pencil = !pencil;
+                }
+                if (pencil && 1 - segStart > EPS) out.push([segStart, 1]);
+                return out;
+            }
+
+            // Build the full ordered draw timeline up to maxOrder.
+            function buildTimeline(maxOrder) {
+                const segments = []; // feeds crossing computation
+                const timeline = []; // ordered list with display metadata
+
+                // order 0 — the square boundary ABCD, four edges.
+                const frame = [
+                    ["H", 0],
+                    ["H", 1],
+                    ["V", 0],
+                    ["V", 1],
+                ];
+                frame.forEach(([o, f], i) => {
+                    const s = {
+                        orientation: o,
+                        fixed: f,
+                        start: 0,
+                        end: 1,
+                        order: 0,
+                        half: "frame",
+                        passIndex: 0,
+                        passCount: 1,
+                        segIndex: i,
+                        segCount: 4,
+                    };
+                    segments.push(s);
+                    timeline.push(s);
+                });
+
+                for (let k = 1; k <= maxOrder; k++) {
+                    const denom = 2 ** k;
+                    const pos = [];
+                    for (let odd = 1; odd < denom; odd += 2)
+                        pos.push(odd / denom);
+                    const passCount = pos.length;
+
+                    const doHalf = (half) => {
+                        const orient = half === "V" ? "V" : "H";
+                        pos.forEach((coord, passIndex) => {
+                            const ivs = passIntervals(
+                                crossingsFor(orient, coord, segments),
+                            );
+                            ivs.forEach(([a, b], segIndex) => {
+                                const s = {
+                                    orientation: orient,
+                                    fixed: coord,
+                                    start: a,
+                                    end: b,
+                                    order: k,
+                                    half,
+                                    passIndex,
+                                    passCount,
+                                    segIndex,
+                                    segCount: ivs.length,
+                                };
+                                segments.push(s);
+                                timeline.push(s);
+                            });
+                        });
+                    };
+                    doHalf("V"); // all verticals of this order first …
+                    doHalf("H"); // … then all horizontals (canonical seniority)
+                }
+                return timeline;
+            }
+
+            // ════════════════════════════════════════════════════════════════
+            // Rendering + animation controller
+            // ════════════════════════════════════════════════════════════════
+            const PAD = 40;
+            const SIZE = 720;
+            const INNER = SIZE - 2 * PAD;
+            const X = (x) => PAD + x * INNER;
+            const Y = (y) => PAD + y * INNER;
+            const SVGNS = "http://www.w3.org/2000/svg";
+
+            const el = (id) => document.getElementById(id);
+            const board = el("board");
+            const guidesG = el("guides");
+            const inkG = el("ink");
+
+            const state = {
+                maxOrder: 4,
+                gran: "half",
+                timeline: [],
+                drawn: 0, // how many timeline entries are on the paper
+                playing: false,
+                timer: null,
+            };
+
+            function strokeWidthFor(order) {
+                // earlier orders (higher priority) draw heavier — like the
+                // dyadic gridlines thickening with the 2-adic ruler.
+                return Math.max(1.1, 3.4 - 0.42 * order);
+            }
+            function colorFor(s) {
+                if (!el("bycolor").checked) return null; // use --ink via CSS
+                if (s.half === "frame")
+                    return getCSS("--accent");
+                const hue = (s.order * 52 + 8) % 360;
+                const light =
+                    document.documentElement.dataset.theme === "light"
+                        ? 42
+                        : 70;
+                return `hsl(${hue} 70% ${light}%)`;
+            }
+            function getCSS(name) {
+                return getComputedStyle(document.documentElement)
+                    .getPropertyValue(name)
+                    .trim();
+            }
+
+            function drawGuides() {
+                guidesG.innerHTML = "";
+                if (!el("grid").checked) return;
+                const n = state.maxOrder;
+                if (n < 1) return;
+                const denom = 2 ** n;
+                for (let i = 0; i <= denom; i++) {
+                    const t = i / denom;
+                    // a guide is "major" when its dyadic priority is high
+                    const major =
+                        i === 0 ||
+                        i === denom ||
+                        (i % 2 === 0 && trailingZeros(i) >= n - 1);
+                    addLine(guidesG, X(t), Y(0), X(t), Y(1), [
+                        "guide",
+                        major ? "major" : "",
+                    ]);
+                    addLine(guidesG, X(0), Y(t), X(1), Y(t), [
+                        "guide",
+                        major ? "major" : "",
+                    ]);
+                }
+            }
+            function trailingZeros(n) {
+                let z = 0;
+                while (n > 0 && (n & 1) === 0) {
+                    z++;
+                    n >>= 1;
+                }
+                return z;
+            }
+
+            function addLine(parent, x1, y1, x2, y2, classes) {
+                const l = document.createElementNS(SVGNS, "line");
+                l.setAttribute("x1", x1);
+                l.setAttribute("y1", y1);
+                l.setAttribute("x2", x2);
+                l.setAttribute("y2", y2);
+                l.setAttribute("class", classes.filter(Boolean).join(" "));
+                parent.appendChild(l);
+                return l;
+            }
+
+            // append timeline entries [from, to) to the paper, animating them
+            function paintRange(from, to, animate) {
+                for (let i = from; i < to; i++) {
+                    const s = state.timeline[i];
+                    const x1 = s.orientation === "V" ? X(s.fixed) : X(s.start);
+                    const x2 = s.orientation === "V" ? X(s.fixed) : X(s.end);
+                    const y1 = s.orientation === "V" ? Y(s.start) : Y(s.fixed);
+                    const y2 = s.orientation === "V" ? Y(s.end) : Y(s.fixed);
+                    const l = addLine(inkG, x1, y1, x2, y2, [
+                        "seg",
+                        animate ? "fresh" : "",
+                    ]);
+                    l.setAttribute("pathLength", "1");
+                    l.style.strokeWidth = strokeWidthFor(s.order);
+                    const c = colorFor(s);
+                    if (c) l.style.stroke = c;
+                }
+            }
+
+            function rebuild() {
+                state.maxOrder = clampOrder(el("order").value);
+                el("order").value = state.maxOrder;
+                state.gran = el("gran").value;
+                state.timeline = buildTimeline(state.maxOrder);
+                state.drawn = 0;
+                inkG.innerHTML = "";
+                drawGuides();
+                updateLabel();
+                updateButtons();
+            }
+            function clampOrder(v) {
+                v = Math.round(Number(v));
+                if (!Number.isFinite(v)) v = 0;
+                return Math.min(6, Math.max(0, v));
+            }
+
+            // Granularity grouping: a "step" advances the paper to the end of
+            // the group containing the next undrawn segment.
+            function groupId(s, gran) {
+                if (gran === "segment") return null; // every segment its own
+                if (gran === "pass")
+                    return `${s.order}:${s.half}:${s.passIndex}`;
+                if (gran === "half") return `${s.order}:${s.half}`;
+                return `${s.order}`; // order
+            }
+            function nextStop() {
+                const t = state.timeline;
+                if (state.drawn >= t.length) return state.drawn;
+                if (state.gran === "segment") return state.drawn + 1;
+                const gid = groupId(t[state.drawn], state.gran);
+                let i = state.drawn;
+                while (i < t.length && groupId(t[i], state.gran) === gid) i++;
+                return i;
+            }
+
+            function step(animate = true) {
+                if (state.drawn >= state.timeline.length) {
+                    stop();
+                    return false;
+                }
+                const to = nextStop();
+                paintRange(state.drawn, to, animate);
+                state.drawn = to;
+                updateLabel();
+                updateButtons();
+                if (state.drawn >= state.timeline.length) stop();
+                return true;
+            }
+
+            function complete() {
+                stop();
+                paintRange(state.drawn, state.timeline.length, false);
+                state.drawn = state.timeline.length;
+                updateLabel();
+                updateButtons();
+            }
+
+            function reset() {
+                stop();
+                state.drawn = 0;
+                inkG.innerHTML = "";
+                updateLabel();
+                updateButtons();
+            }
+
+            // ── play / pause ──
+            function play() {
+                if (state.playing) return;
+                if (state.drawn >= state.timeline.length) reset();
+                state.playing = true;
+                el("play").textContent = "Pause ⏸";
+                el("play").classList.add("primary");
+                tick();
+            }
+            function stop() {
+                state.playing = false;
+                clearTimeout(state.timer);
+                state.timer = null;
+                el("play").textContent = "Play ▶";
+            }
+            function tick() {
+                if (!state.playing) return;
+                const more = step(true);
+                if (!more) {
+                    stop();
+                    return;
+                }
+                const interval = Number(el("speed").value);
+                document.documentElement.style.setProperty(
+                    "--reveal",
+                    Math.min(0.28, interval / 1000) + "s",
+                );
+                state.timer = setTimeout(tick, interval);
+            }
+
+            // ── labels & button states ──
+            function updateLabel() {
+                const where = el("where");
+                const count = el("count");
+                const total = state.timeline.length;
+                count.innerHTML = `${state.drawn} / ${total} segments drawn`;
+                if (state.drawn === 0) {
+                    where.textContent = "Order 0 — ready.";
+                    count.innerHTML =
+                        "Press <strong>Step</strong> or <strong>Play</strong> to begin.";
+                    return;
+                }
+                const s = state.timeline[state.drawn - 1];
+                if (s.half === "frame") {
+                    where.textContent =
+                        state.gran === "segment"
+                            ? `Order 0 — boundary edge ${s.segIndex + 1}/4`
+                            : "Order 0 — square boundary ABCD";
+                    return;
+                }
+                const dir = s.half === "V" ? "vertical" : "horizontal";
+                where.textContent =
+                    `Order ${s.order} · ${dir} pass ` +
+                    `${s.passIndex + 1}/${s.passCount} · ` +
+                    `segment ${s.segIndex + 1}/${s.segCount}`;
+            }
+            function updateButtons() {
+                const done = state.drawn >= state.timeline.length;
+                el("step").disabled = done;
+                el("complete").disabled = done;
+            }
+
+            // ── wiring ──
+            el("step").onclick = () => {
+                stop();
+                step(true);
+            };
+            el("reset").onclick = reset;
+            el("complete").onclick = complete;
+            el("play").onclick = () => (state.playing ? stop() : play());
+            el("order").onchange = rebuild;
+            el("gran").onchange = () => {
+                // keep what's drawn, just recompute stops on next step
+                state.gran = el("gran").value;
+            };
+            el("grid").onchange = drawGuides;
+            el("bycolor").onchange = () => {
+                // recolor everything already on the paper
+                const lines = inkG.querySelectorAll("line.seg");
+                lines.forEach((l, i) => {
+                    const c = colorFor(state.timeline[i]);
+                    l.style.stroke = c || "";
+                });
+            };
+
+            // keyboard niceties
+            window.addEventListener("keydown", (e) => {
+                if (e.target.tagName === "INPUT" && e.target.type === "number")
+                    return;
+                if (e.code === "Space") {
+                    e.preventDefault();
+                    state.playing ? stop() : play();
+                } else if (e.key === "ArrowRight") {
+                    stop();
+                    step(true);
+                } else if (e.key.toLowerCase() === "r") {
+                    reset();
+                }
+            });
+
+            // ── theme ──
+            const themeBtn = el("theme-toggle");
+            function applyTheme(t) {
+                document.documentElement.dataset.theme = t;
+                themeBtn.textContent = t === "light" ? "☀ Light" : "☾ Dark";
+                localStorage.setItem("coylean-square-theme", t);
+                // recolor live segments (color-by-order depends on theme)
+                if (el("bycolor").checked) el("bycolor").onchange();
+            }
+            themeBtn.onclick = () =>
+                applyTheme(
+                    document.documentElement.dataset.theme === "light"
+                        ? "dark"
+                        : "light",
+                );
+            applyTheme(
+                localStorage.getItem("coylean-square-theme") || "dark",
+            );
+
+            // initial build
+            rebuild();
+        </script>
+    </body>
+</html>

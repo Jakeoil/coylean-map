@@ -242,17 +242,37 @@
                 </p>
             </a>
 
-            <a class="card" href="toy-rendering/how-to-draw.html">
-                <h2>How to Draw a Coylean Map</h2>
+            <div class="card card-multi">
+                <h2>
+                    How to Draw a Coylean Square<span class="new-sticker"
+                        >new</span
+                    >
+                </h2>
                 <p>
-                    A short walkthrough of the algorithm — priority,
-                    reaction, propagation — plus how to translate the
-                    boolean output into Unicode box-drawing characters. Comes
-                    with a Node renderer (<code>draw-coylean.mjs</code>), a
-                    Line Style Variants page, and a Proper Coylean Square
-                    (16×16, seeded from NW context) in the same folder.
+                    Before it is an algorithm, the Coylean square is a
+                    <strong>compass-and-straightedge drawing</strong>: vertical
+                    and horizontal passes across a square, each lifting and
+                    dropping the pencil whenever it crosses a line already on
+                    the paper. The interactive renderer animates that
+                    construction segment-by-segment, pass-by-pass, or
+                    order-by-order, in light or dark. The propagation
+                    <em>algorithm</em> — priority, reaction, propagation, then
+                    Unicode box-drawing — is just its bookkeeping shadow
+                    (pixel-identical, verified in Node). That walkthrough ships
+                    with a Node renderer (<code>draw-coylean.mjs</code>), a Line
+                    Style Variants page, and a Proper Coylean Square.
                 </p>
-            </a>
+                <div class="card-actions">
+                    <a class="chip" href="how-to-draw-square/">
+                        <span class="chip-tag">geometry</span>
+                        Geometric construction
+                    </a>
+                    <a class="chip" href="toy-rendering/how-to-draw.html">
+                        <span class="chip-tag">algorithm</span>
+                        Algorithm walkthrough
+                    </a>
+                </div>
+            </div>
 
             <div class="card card-multi">
                 <h2>drawPipeJunction Tester</h2>

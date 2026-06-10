@@ -128,6 +128,26 @@
             <a class="back" href="../">← Meta</a>
             <h1>How to Draw a Coylean Map</h1>
 
+            <p
+                style="
+                    border-left: 3px solid #e94560;
+                    background: rgba(233, 69, 96, 0.12);
+                    padding: 12px 16px;
+                    border-radius: 0 8px 8px 0;
+                    margin-bottom: 18px;
+                "
+            >
+                <strong>First, the geometry.</strong> A Coylean map is really a
+                <a href="../how-to-draw-square/"
+                    >compass-and-straightedge drawing of a square</a
+                >: vertical and horizontal passes that lift and drop the pencil
+                at every crossing. The algorithm below is just a reflection of
+                that geometric process — it records, cell by cell, whether the
+                pencil was down on each edge (pixel-identical to the drawing,
+                verified in Node). If you have not seen the construction yet,
+                <a href="../how-to-draw-square/">watch it draw itself first</a>.
+            </p>
+
             <p>
                 A Coylean map is a square grid of cells. Each cell decides
                 whether a vertical line lives on its right edge and whether a
