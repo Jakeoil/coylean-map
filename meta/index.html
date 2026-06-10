@@ -253,12 +253,15 @@
                     <strong>compass-and-straightedge drawing</strong>: vertical
                     and horizontal passes across a square, each lifting and
                     dropping the pencil whenever it crosses a line already on
-                    the paper. The interactive renderer animates that
-                    construction segment-by-segment, pass-by-pass, or
-                    order-by-order, in light or dark. The propagation
-                    <em>algorithm</em> — priority, reaction, propagation, then
-                    Unicode box-drawing — is just its bookkeeping shadow
-                    (pixel-identical, verified in Node). That walkthrough ships
+                    the paper. The interactive renderer reads those passes
+                    straight off a <em>finished propagation</em> and animates
+                    them in priority order — by segment, pass, half-level, or
+                    level — as a 2ⁿ square or an arbitrary south × east map,
+                    with an orientation triplet (the four anchors + seniority),
+                    in light or dark. The propagation <em>algorithm</em> —
+                    priority, reaction, propagation, then Unicode box-drawing —
+                    is just its bookkeeping shadow (pixel-identical, verified in
+                    Node). That walkthrough ships
                     with a Node renderer (<code>draw-coylean.mjs</code>), a Line
                     Style Variants page, and a Proper Coylean Square.
                 </p>
