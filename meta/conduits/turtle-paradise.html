@@ -219,30 +219,35 @@
                 font-size: 1.55rem;
             }
 
-            /* view toggle: stub/monster ⇄ elaborate sealed glyph */
-            .elab-btn {
+            /* representation switch: basic ⇄ elaborate ⇄ monster (segmented) */
+            .repr {
                 margin-left: auto;
                 align-self: center;
-                padding: 8px 12px;
+                display: flex;
                 border-radius: 9px;
+                overflow: hidden;
                 border: 1px solid rgba(151, 117, 250, 0.4);
-                background: rgba(151, 117, 250, 0.08);
+            }
+            .repr .rbtn {
+                padding: 8px 11px;
+                background: rgba(151, 117, 250, 0.07);
                 color: #d8ccff;
                 font: inherit;
-                font-size: 0.82rem;
+                font-size: 0.8rem;
                 cursor: pointer;
                 white-space: nowrap;
-                transition:
-                    background 0.15s,
-                    border-color 0.15s;
+                border: 0;
+                border-right: 1px solid rgba(151, 117, 250, 0.25);
+                transition: background 0.15s;
             }
-            .elab-btn:hover {
-                background: rgba(151, 117, 250, 0.2);
-                border-color: #9775fa;
+            .repr .rbtn:last-child {
+                border-right: 0;
             }
-            .elab-btn.on {
-                background: rgba(151, 117, 250, 0.28);
-                border-color: #9775fa;
+            .repr .rbtn:hover {
+                background: rgba(151, 117, 250, 0.18);
+            }
+            .repr .rbtn.on {
+                background: rgba(151, 117, 250, 0.3);
                 color: #fff;
             }
 
@@ -391,10 +396,12 @@
                         <div class="title" id="heroTitle"></div>
                         <div class="sub" id="heroSub"></div>
                     </div>
-                    <button class="elab-btn" id="elabBtn"
-                        title="show the elaborate sealed glyph (descent style)">
-                        ○ elaborate
-                    </button>
+                    <div class="repr" id="repr"
+                        title="how to draw the selected glyph">
+                        <button class="rbtn on" data-repr="basic">basic</button>
+                        <button class="rbtn" data-repr="elaborate">elaborate</button>
+                        <button class="rbtn" data-repr="monster">monster</button>
+                    </div>
                     <div class="orient" id="orient">
                         <button class="obtn" id="longBtn"
                             title="longitude — mirror E/W"></button>

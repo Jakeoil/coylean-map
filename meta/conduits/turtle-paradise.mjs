@@ -1,20 +1,25 @@
 "use strict";
 
-// Turtle Paradise — a living catalog of glyphs in the elaborate-render style.
+// Turtle Paradise — a living catalog of the 12 lettered glyphs.
 //
-// Each tile is one glyph brought to life with a calm "breathing idle": the
-// cluster sways and breathes, the dots pulse and blink like eyes. Two layers
-// share the one animation loop:
-//   • the hero tile REPLAYS the hand sketch from `turtle paradise.md`
-//     (baked into turtle-paradise-data.js — no runtime LZ-String), keyed to
-//     the F glyph (V77) per glyphs/assignments.json.
-//   • the rest are ENGINE tiles: the real coylean glyph (computeGlyphMatrices)
-//     drawn in the same green/yellow/pink palette, then breathed alive.
+// Twelve LETTERS, a finished subset of the 128 immutable V/H glyph cards. The
+// orientation triplet picks a D4 element: ⤢ seniority swaps the whole set
+// between the 12 V cards and their 12 H duals; ↔/↕ pick the orientation within.
+// Each card shown is the letter's REAL glyph at that orientation — the actual
+// Vdr/Hdr code, correct number, oriented letter watermark — NOT a rotated image.
+// Changing orientation swaps in the 12 real cards for that orientation.
+//
+// The hero (the selected letter) has a Basic / Elaborate / Monster switch:
+//   • basic     — the glyph-page card: native segments + oriented letter mark.
+//   • elaborate — the glyph as a little elaborate Coylean square (a placeholder
+//                 precursor to the monster; its content is corrected elsewhere).
+//   • monster   — the animated creature, assigned per ORIENTED glyph; only \F
+//                 (V77) has one so far (the baked turtle paradise.md sketch).
+//                 Unassigned → falls back to basic.
+// The twelve thumbnails are always basic.
 //
 // To re-bake the sketch if the .md changes (needs `npm i lz-string`):
-//   const LZ=require("lz-string"); const md=fs.readFileSync(".../turtle
-//   paradise.md","utf8"); JSON.parse(LZ.decompressFromBase64(
-//   md.match(/```compressed-json\n([\s\S]*?)\n```/)[1].replace(/\s+/g,"")));
+//   const LZ=require("lz-string"); … decompressFromBase64(the compressed-json).
 
 import { TURTLE_PARADISE } from "./turtle-paradise-data.js";
 import { Seniority } from "../../coylean-explorer/coylean-core.js";
@@ -33,20 +38,20 @@ import { elabGlyphInto } from "./elaborate-glyph.js";
 
 // engine d4Index → baby-block transform name (verified, per compound-glyphs)
 const D4B = ["e", "r", "r2", "r3", "sh", "sv", "d", "d'"];
-// engine d4Index → 2×2 matrix, for the plain-font fallback before blocks load
+// engine d4Index → 2×2 matrix (oriented watermark + font-fallback badge)
 const D4M = [
     [1, 0, 0, 1], [0, 1, -1, 0], [-1, 0, 0, -1], [0, -1, 1, 0],
     [1, 0, 0, -1], [-1, 0, 0, 1], [0, 1, 1, 0], [0, -1, -1, 0],
 ];
+const SYM = ["0", "1", "2", "3", "h", "v", "\\", "/"];
+const GRID_SWAP = new Set([1, 3, 6, 7]); // D4 elements that land in the H grid
 let babyBlocks = null; // loaded async
 let lettersReady = false; // assignments built → glyphLetterAt resolves orient.
 
-// Phase 2 — orientation triplet. Each button applies a D4 reflection to the
-// SELECTED glyph (the hero) only; the twelve in the collection stay native.
-//   ↔ longitude → s_v (E/W mirror)   ↕ latitude → s_h (N/S flip)
-//   ⤢ seniority → s_d1 (transpose / backslash dual)
+// Orientation triplet → a D4 element. ↔ longitude s_v (E/W) · ↕ latitude s_h
+// (N/S) · ⤢ seniority s_d1 (transpose / backslash dual = the V↔H swap).
 const ORI = { h: 0, v: 0, senH: false };
-const D4_LONG = 5, D4_LAT = 4, D4_TRANSPOSE = 6; // s_v, s_h, s_d1
+const D4_LONG = 5, D4_LAT = 4, D4_TRANSPOSE = 6;
 function netOrient() {
     let n = 0;
     if (ORI.h) n = d4Compose(D4_LONG, n);
@@ -55,45 +60,17 @@ function netOrient() {
     return n;
 }
 
-// ── The catalog ────────────────────────────────────────────────────────────
-// Entry 1 is the sketch (the F glyph). The engine entries are the lettered
-// V-glyphs from glyphs/assignments.json — adding a row here grows the catalog.
+// ── The catalog: the 12 lettered glyphs (canonical V forms, assignments.json)
 const CATALOG = [
-    {
-        kind: "sketch",
-        letter: "F",
-        code: "V77",
-        sym: "F\\",
-        dc: 7, // F = V77, so its orientation resolves like the engine stubs
-        rc: 7,
-        title: "Turtle Paradise",
-        blurb: "this map is an example of the elaborate rendering",
-        featured: true,
-        data: TURTLE_PARADISE,
-    },
-    ...[
-        ["P", "V17", "P/", 1, 7],
-        ["J", "V66", "J\\", 6, 6],
-        ["B", "V56", "B/", 5, 6],
-        ["O", "V00", "O\\", 0, 0],
-        ["L", "V11", "L/", 1, 1],
-        ["Q", "V25", "Q\\", 2, 5],
-        ["E", "V07", "E\\", 0, 7],
-        ["V", "V15", "V/", 1, 5],
-        ["C", "V51", "C/", 5, 1],
-        ["R", "V61", "R\\", 6, 1],
-        ["N", "V16", "N/", 1, 6],
-    ].map(([letter, code, sym, dc, rc]) => ({
-        kind: "engine",
-        letter,
-        code,
-        sym,
-        title: letter + " — a seedling",
-        blurb: "the " + code + " glyph, growing",
-        dc,
-        rc,
-    })),
-];
+    ["F", "V77", 7, 7], ["P", "V17", 1, 7], ["J", "V66", 6, 6],
+    ["B", "V56", 5, 6], ["O", "V00", 0, 0], ["L", "V11", 1, 1],
+    ["Q", "V25", 2, 5], ["E", "V07", 0, 7], ["V", "V15", 1, 5],
+    ["C", "V51", 5, 1], ["R", "V61", 6, 1], ["N", "V16", 1, 6],
+].map(([letter, code, dc, rc]) => ({ letter, code, dc, rc }));
+
+// Monsters are keyed to the ORIENTED glyph code. Only \F (V77) has one so far:
+// the baked turtle paradise.md sketch — the prototype monster.
+const MONSTERS = { V77: TURTLE_PARADISE };
 
 // ── Palette (the glyph / turtle colors) ────────────────────────────────────
 const GREEN = "#b2f2bb";
@@ -139,17 +116,169 @@ function withLife(ctx, t, phase, cx, cy, fn) {
     ctx.restore();
 }
 
-// ── Sketch tile: replay the baked excalidraw shapes, alive ─────────────────
-function drawSketch(ctx, W, H, entry, t, phase, orient = 0) {
-    const data = entry.data;
+// ── The oriented designation: a catalog entry at the current orientation ────
+// The triplet's net D4 element transforms the canonical V pattern; we match the
+// resulting pattern key to a real member and read the engine's own code + letter
+// for it, so the code (Vdr/Hdr) AND the letter+suffix (e.g. F\) are correct —
+// and the glyph is drawn NATIVE (the real card), never a rotated image.
+let revMapV = null, revMapH = null;
+function buildRevMaps() {
+    const build = (sen) => {
+        const m = new Map();
+        for (let d = 0; d < 8; d++)
+            for (let r = 0; r < 8; r++) {
+                const p = computePattern(d, r, sen);
+                m.set(transformedPatternKey(p.v, p.h, 0), d + "," + r);
+            }
+        return m;
+    };
+    revMapV = build(Seniority.vertical());
+    revMapH = build(Seniority.horizontal());
+}
+
+// → { code, sym, letter, d4, grid, d, r } for the entry under the orientation.
+function designation(entry) {
+    const net = netOrient();
+    // fallback before assignments load: the canonical V card (correct at net 0)
+    let out = {
+        code: entry.code, letter: entry.letter, d4: net, grid: "V",
+        d: entry.dc, r: entry.rc, sym: entry.letter + (SYM[net] || ""),
+    };
+    if (lettersReady) {
+        if (!revMapV) buildRevMaps();
+        const base = computePattern(entry.dc, entry.rc, Seniority.vertical());
+        const key = transformedPatternKey(base.v, base.h, net);
+        const grid = GRID_SWAP.has(net) ? "H" : "V";
+        const code = (grid === "H" ? revMapH : revMapV).get(key);
+        if (code) {
+            const [d, r] = code.split(",").map(Number);
+            const ft = glyphLetterAt(grid, d, r);
+            if (ft)
+                out = {
+                    code: grid + "" + d + "" + r,
+                    letter: ft[0],
+                    sym: ft[0] + (SYM[ft[1]] || ""),
+                    d4: ft[1],
+                    grid, d, r,
+                };
+        }
+    }
+    return out;
+}
+
+// ── Basic: the native glyph card (segments + oriented letter watermark) ─────
+const NC = 3; // cells per glyph axis
+const matCache = new Map();
+function glyphMat(dsg) {
+    if (matCache.has(dsg.code)) return matCache.get(dsg.code);
+    const sen = dsg.grid === "H"
+        ? Seniority.horizontal()
+        : Seniority.vertical();
+    const m = computeGlyphMatrices(dsg.d, dsg.r, sen);
+    matCache.set(dsg.code, m);
+    return m;
+}
+
+// Sized to a centred block so it is never larger than the monster — and matches
+// between the big hero and the small thumbnails.
+const STUB_FRAC = 0.56;
+
+function drawBasic(ctx, W, H, dsg, t, phase) {
+    const { downMatrix, rightMatrix } = glyphMat(dsg);
+    const span = NC + 1; // grid positions 0..NC, plus the exit ring
+    const block = Math.min(W, H) * STUB_FRAC;
+    const cell = block / span;
+    const gx = (W - cell * span) / 2;
+    const gy = (H - cell * span) / 2;
+    const px = (g) => g * cell;
+
+    ctx.fillStyle = GROUND; // the tile ground stays put
+    roundRect(ctx, 8, 8, W - 16, H - 16, 16);
+    ctx.fill();
+
+    withLife(ctx, t, phase, W / 2, H / 2, () => {
+        ctx.save();
+        ctx.translate(gx, gy);
+
+        // soft body behind the live 3×3 area
+        ctx.fillStyle = PINK + "55";
+        roundRect(ctx, px(0.5), px(0.5), px(NC), px(NC), cell * 0.5);
+        ctx.fill();
+
+        // the glyph's letter as a faint watermark, at the correct orientation
+        ctx.save();
+        ctx.translate(px(span / 2), px(span / 2));
+        const m = D4M[dsg.d4] || D4M[0];
+        ctx.transform(m[0], m[1], m[2], m[3], 0, 0);
+        ctx.fillStyle = YELLOW_DEEP + "33";
+        ctx.font = "bold " + cell * 2.4 + "px Monaco, Menlo, monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(dsg.letter, 0, 0);
+        ctx.restore();
+
+        // green stems — the glyph's propagated segments
+        ctx.strokeStyle = GREEN_DEEP;
+        ctx.lineCap = "round";
+        ctx.lineWidth = cell * 0.16;
+        for (let y = 0; y <= NC; y++)
+            for (let x = 0; x < NC; x++)
+                if (downMatrix[y][x]) {
+                    const xr = px(x + 1);
+                    ctx.beginPath();
+                    ctx.moveTo(xr, px(y));
+                    ctx.lineTo(xr, px(y + 1));
+                    ctx.stroke();
+                }
+        for (let x = 0; x <= NC; x++)
+            for (let y = 0; y < NC; y++)
+                if (rightMatrix[x][y]) {
+                    const yb = px(y + 1);
+                    ctx.beginPath();
+                    ctx.moveTo(px(x), yb);
+                    ctx.lineTo(px(x + 1), yb);
+                    ctx.stroke();
+                }
+
+        // input / output dots as pulsing, blinking eyes
+        const drawEye = (cxp, cyp, filled, idx) => {
+            const ph = phase + idx * 0.8;
+            const r = cell * 0.18 * pulse(t, ph);
+            const by = blink(t, ph);
+            ctx.save();
+            ctx.translate(cxp, cyp);
+            ctx.scale(1, by);
+            ctx.beginPath();
+            ctx.ellipse(0, 0, r, r, 0, 0, Math.PI * 2);
+            if (filled) {
+                ctx.fillStyle = GREEN_DEEP;
+                ctx.fill();
+            } else {
+                ctx.lineWidth = cell * 0.06;
+                ctx.strokeStyle = GREEN_DEEP;
+                ctx.stroke();
+            }
+            ctx.restore();
+        };
+        let k = 0;
+        for (let i = 0; i < 3; i++) {
+            drawEye(px(i + 1), px(0), !!(dsg.d & (1 << i)), k++);
+            drawEye(px(0), px(i + 1), !!(dsg.r & (1 << i)), k++);
+            drawEye(px(i + 1), px(span), downMatrix[NC][i], k++);
+            drawEye(px(span), px(i + 1), rightMatrix[NC][i], k++);
+        }
+        ctx.restore();
+    });
+}
+
+// ── Monster: the animated creature. Replays the baked excalidraw shapes for
+// glyphs that have one (only \F = V77 so far); falls back to basic otherwise. ─
+function drawSketch(ctx, W, H, data, t, phase) {
     const pad = 26;
     const s = Math.min((W - 2 * pad) / data.w, (H - 2 * pad) / data.h);
     const ox = (W - data.w * s) / 2;
     const oy = (H - data.h * s) / 2;
 
-    orientWrap(ctx, W, H, orient, () => {
-    // cream ground framed to the artwork (the hero band is wide; the sketch is
-    // portrait — flooding the whole tile would look empty)
     const fr = 14;
     ctx.fillStyle = GROUND;
     roundRect(ctx, ox - fr, oy - fr, data.w * s + 2 * fr, data.h * s + 2 * fr,
@@ -200,192 +329,25 @@ function drawSketch(ctx, W, H, entry, t, phase, orient = 0) {
         }
         ctx.restore();
     });
-    });
 }
 
-// ── Engine tile: the real glyph in the turtle palette, alive ───────────────
-const NC = 3; // cells per glyph axis
-const matCache = new Map();
-function glyphMatrices(entry) {
-    if (matCache.has(entry.code)) return matCache.get(entry.code);
-    const m = computeGlyphMatrices(entry.dc, entry.rc, Seniority.vertical());
-    matCache.set(entry.code, m);
-    return m;
+function drawMonster(ctx, W, H, dsg, t, phase) {
+    const data = MONSTERS[dsg.code];
+    if (data) drawSketch(ctx, W, H, data, t, phase);
+    else drawBasic(ctx, W, H, dsg, t, phase); // unassigned → basic
 }
 
-// The stub glyph is sized to a centred block (a fraction of the smaller side),
-// so it is never larger than the future "monster" — and matches between the
-// big hero and the small thumbnails.
-const STUB_FRAC = 0.56;
-
-function drawEngine(ctx, W, H, entry, t, phase, orient = 0) {
-    const { downMatrix, rightMatrix } = glyphMatrices(entry);
-    const span = NC + 1; // grid positions 0..NC, plus the exit ring
-    const block = Math.min(W, H) * STUB_FRAC;
-    const cell = block / span;
-    const gx = (W - cell * span) / 2;
-    const gy = (H - cell * span) / 2;
-    const px = (g) => g * cell;
-
-    ctx.fillStyle = GROUND; // the tile ground stays put
-    roundRect(ctx, 8, 8, W - 16, H - 16, 16);
-    ctx.fill();
-
-    orientWrap(ctx, W, H, orient, () =>
-    withLife(ctx, t, phase, W / 2, H / 2, () => {
-        ctx.save();
-        ctx.translate(gx, gy);
-
-        // soft body behind the live 3×3 area
-        ctx.fillStyle = PINK + "55";
-        roundRect(ctx, px(0.5), px(0.5), px(NC), px(NC), cell * 0.5);
-        ctx.fill();
-
-        // the glyph's letter, centred where it belongs (a faint watermark)
-        ctx.save();
-        ctx.fillStyle = YELLOW_DEEP + "33";
-        ctx.font = "bold " + cell * 2.4 + "px Monaco, Menlo, monospace";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(entry.letter, px(span / 2), px(span / 2));
-        ctx.restore();
-
-        // green stems — the glyph's propagated segments
-        ctx.strokeStyle = GREEN_DEEP;
-        ctx.lineCap = "round";
-        ctx.lineWidth = cell * 0.16;
-        for (let y = 0; y <= NC; y++) {
-            for (let x = 0; x < NC; x++) {
-                if (downMatrix[y][x]) {
-                    const xr = px(x + 1);
-                    ctx.beginPath();
-                    ctx.moveTo(xr, px(y));
-                    ctx.lineTo(xr, px(y + 1));
-                    ctx.stroke();
-                }
-            }
-        }
-        for (let x = 0; x <= NC; x++) {
-            for (let y = 0; y < NC; y++) {
-                if (rightMatrix[x][y]) {
-                    const yb = px(y + 1);
-                    ctx.beginPath();
-                    ctx.moveTo(px(x), yb);
-                    ctx.lineTo(px(x + 1), yb);
-                    ctx.stroke();
-                }
-            }
-        }
-
-        // input / output dots as pulsing, blinking eyes
-        const drawEye = (cxp, cyp, filled, idx) => {
-            const ph = phase + idx * 0.8;
-            const r = cell * 0.18 * pulse(t, ph);
-            const by = blink(t, ph);
-            ctx.save();
-            ctx.translate(cxp, cyp);
-            ctx.scale(1, by);
-            ctx.beginPath();
-            ctx.ellipse(0, 0, r, r, 0, 0, Math.PI * 2);
-            if (filled) {
-                ctx.fillStyle = GREEN_DEEP;
-                ctx.fill();
-            } else {
-                ctx.lineWidth = cell * 0.06;
-                ctx.strokeStyle = GREEN_DEEP;
-                ctx.stroke();
-            }
-            ctx.restore();
-        };
-        let k = 0;
-        for (let i = 0; i < 3; i++) {
-            drawEye(px(i + 1), px(0), !!(entry.dc & (1 << i)), k++);
-            drawEye(px(0), px(i + 1), !!(entry.rc & (1 << i)), k++);
-            drawEye(px(i + 1), px(span), downMatrix[NC][i], k++);
-            drawEye(px(span), px(i + 1), rightMatrix[NC][i], k++);
-        }
-        ctx.restore();
-    }));
-}
-
-// Wrap a drawing in a D4 orientation about the tile centre (identity = no-op).
-function orientWrap(ctx, W, H, orient, fn) {
-    if (!orient) return fn();
-    const m = D4M[orient] || D4M[0];
-    ctx.save();
-    ctx.translate(W / 2, H / 2);
-    ctx.transform(m[0], m[1], m[2], m[3], 0, 0);
-    ctx.translate(-W / 2, -H / 2);
-    fn();
-    ctx.restore();
-}
-
-// ── The displayed designation, recomputed under the current orientation ────
-// The triplet applies a visual D4 element (netOrient) to the selected V glyph.
-// Reflections (e/s_v/s_h/r²) stay in the V grid; the grid-swapping elements
-// (r/r³/s_d1/s_d2) land in the H grid (the backslash dual). We find the member
-// the transform produces by matching its pattern key, then read the engine's
-// own letter + orientation for it — so the code (Vdr/Hdr) AND the letter+suffix
-// (e.g. F\) are always correct. SYM mirrors compound-glyphs' transform symbols.
-const SYM = ["0", "1", "2", "3", "h", "v", "\\", "/"];
-const GRID_SWAP = new Set([1, 3, 6, 7]);
-let revMapV = null, revMapH = null;
-function buildRevMaps() {
-    const build = (sen) => {
-        const m = new Map();
-        for (let d = 0; d < 8; d++)
-            for (let r = 0; r < 8; r++) {
-                const p = computePattern(d, r, sen);
-                m.set(transformedPatternKey(p.v, p.h, 0), d + "," + r);
-            }
-        return m;
-    };
-    revMapV = build(Seniority.vertical());
-    revMapH = build(Seniority.horizontal());
-}
-
-// → { code, sym, letter, d4 } for the entry under the current orientation.
-function currentDesignation(entry) {
-    const net = netOrient();
-    // pre-load fallback: the entry's stored designation (native V glyph)
-    let out = {
-        code: entry.code, sym: entry.sym, letter: entry.letter, d4: net,
-        grid: "V", d: entry.dc, r: entry.rc,
-    };
-    if (lettersReady && entry.dc != null) {
-        if (!revMapV) buildRevMaps();
-        const base = computePattern(entry.dc, entry.rc, Seniority.vertical());
-        const key = transformedPatternKey(base.v, base.h, net);
-        const grid = GRID_SWAP.has(net) ? "H" : "V";
-        const code = (grid === "H" ? revMapH : revMapV).get(key);
-        if (code) {
-            const [d, r] = code.split(",").map(Number);
-            const ft = glyphLetterAt(grid, d, r);
-            if (ft)
-                out = {
-                    code: grid + "" + d + "" + r,
-                    sym: ft[0] + (SYM[ft[1]] || ""),
-                    letter: ft[0],
-                    d4: ft[1],
-                    grid, d, r,
-                };
-        }
-    }
-    return out;
-}
-
-// ── Elaborate "monster" — the 2×2 split children, descent style ────────────
-// The sealed elaborate glyph renderer lives in elaborate-glyph.js (shared with
-// the life-cycle page). The monster = the selected glyph's 2×2 split children
-// (a 4-glyph Coylean map, NW NE SW SE from translationOf). Falls
-// back to the single glyph where the translation isn't defined.
-function drawElaborate(ctx, W, H, grid, d, r, t, phase) {
-    ctx.fillStyle = GROUND; // tile ground stays put
+// ── Elaborate: the glyph as a little elaborate Coylean square ──────────────
+// PLACEHOLDER — currently the 2×2 split children (terrain-core.translationOf)
+// via the shared elaborate-glyph renderer. The "perfect little square" content
+// is corrected later; here we only wire it to the representation switch.
+function drawElaborate(ctx, W, H, dsg, t, phase) {
+    ctx.fillStyle = GROUND;
     roundRect(ctx, 8, 8, W - 16, H - 16, 16);
     ctx.fill();
 
     withLife(ctx, t, phase, W / 2, H / 2, () => {
-        const kids = translationOf(grid, d, r).children;
+        const kids = translationOf(dsg.grid, dsg.d, dsg.r).children;
         if (kids.length === 4) {
             const block = Math.min(W, H) * 0.82;
             const cell = block / 2;
@@ -399,12 +361,10 @@ function drawElaborate(ctx, W, H, grid, d, r, t, phase) {
         } else {
             const size = Math.min(W, H) * 0.62;
             elabGlyphInto(ctx, (W - size) / 2, (H - size) / 2, size,
-                grid, d, r);
+                dsg.grid, dsg.d, dsg.r);
         }
     });
 }
-
-const drawFor = (entry) => (entry.kind === "sketch" ? drawSketch : drawEngine);
 
 // ── The hero (selected glyph) + the strip of twelve thumbnails ─────────────
 const strip = document.getElementById("strip");
@@ -419,7 +379,7 @@ let selected = 0; // default: F (entry 0)
 let heroFadeT = 1; // 1 = fully shown; resets to 0 on select for a soft fade-in
 let heroW = 0, heroH = 0;
 const heroPhase = 0.4;
-let elaborate = false; // hero shows the elaborate sealed glyph instead of stub
+let repr = "basic"; // "basic" | "elaborate" | "monster"
 
 const thumbs = [];
 function makeThumb(entry, idx) {
@@ -449,19 +409,16 @@ function makeThumb(entry, idx) {
         stage,
         canvas,
         ctx: canvas.getContext("2d"),
+        codeEl: label.querySelector(".tc"),
         phase: idx * 1.7,
-        // the collection is uniform: every thumbnail is the glyph STUB (even F,
-        // which is V77) — the sketch image only appears in the hero.
-        draw: drawEngine,
     });
 }
 CATALOG.forEach(makeThumb);
 
 // The info-area badge: the selected glyph's letter as a properly oriented baby
 // block (same drawDirect approach as compound-glyphs), over the gradient chip.
-// Oriented-font fallback until the blocks SVG loads.
 function renderBadge() {
-    const dsg = currentDesignation(CATALOG[selected]);
+    const dsg = designation(CATALOG[selected]);
     const dpr = window.devicePixelRatio || 1;
     const w = heroBadge.clientWidth || 48, h = heroBadge.clientHeight || 48;
     heroBadge.width = w * dpr;
@@ -490,19 +447,33 @@ function renderBadge() {
     }
 }
 
-// The code (Vdr/Hdr) + letter-transform (e.g. F\) for the current orientation.
-function updateSub() {
-    const dsg = currentDesignation(CATALOG[selected]);
+// badge + title + the Vdr/Hdr code · letter-transform, for the selected glyph.
+function syncHeroMeta() {
+    renderBadge();
+    const dsg = designation(CATALOG[selected]);
+    heroTitle.textContent = CATALOG[selected].letter;
     heroSub.innerHTML = "<code>" + dsg.code + "</code> · " + dsg.sym;
 }
 
-function syncHeroMeta() {
-    renderBadge();
-    heroTitle.textContent = CATALOG[selected].title;
-    updateSub();
+// ── Representation switch (basic / elaborate / monster) ─────────────────────
+const reprEl = document.getElementById("repr");
+function syncRepr() {
+    if (!reprEl) return;
+    for (const b of reprEl.querySelectorAll(".rbtn"))
+        b.classList.toggle("on", b.dataset.repr === repr);
+}
+if (reprEl) {
+    reprEl.addEventListener("click", (e) => {
+        const b = e.target.closest(".rbtn");
+        if (!b || b.dataset.repr === repr) return;
+        repr = b.dataset.repr;
+        syncRepr();
+        heroFadeT = 0; // soft fade-in of the new representation
+    });
+    syncRepr();
 }
 
-// ── Orientation triplet — three buttons + status, re-orients the hero ──────
+// ── Orientation triplet — three buttons re-orient the hero AND the twelve ───
 const longBtn = document.getElementById("longBtn");
 const latBtn = document.getElementById("latBtn");
 const senBtn = document.getElementById("senBtn");
@@ -516,8 +487,8 @@ function syncOrient() {
 }
 function orientChanged() {
     syncOrient();
-    renderBadge(); // the hero re-renders in the loop; the badge needs a nudge
-    updateSub(); // the Vdr/Hdr code + letter-transform follow the orientation
+    renderThumbs(); // the twelve swap to the new orientation (glyph + V/H code)
+    syncHeroMeta(); // badge + title + sub follow
 }
 function buildOrient() {
     longBtn.onclick = () => { ORI.h ^= 1; orientChanged(); };
@@ -527,15 +498,6 @@ function buildOrient() {
 }
 buildOrient();
 
-// view toggle: stub/monster ⇄ elaborate sealed glyph
-const elabBtn = document.getElementById("elabBtn");
-if (elabBtn) {
-    elabBtn.onclick = () => {
-        elaborate = !elaborate;
-        elabBtn.classList.toggle("on", elaborate);
-        elabBtn.textContent = elaborate ? "✦ elaborate" : "○ elaborate";
-    };
-}
 function select(idx) {
     if (idx === selected) return;
     selected = idx;
@@ -563,19 +525,21 @@ function sizeAll() {
     renderBadge();
 }
 
-// The twelve are STATIC stubs — drawn once at the rest pose (t = 0, phase = 0);
-// the only thing that changes on select is the highlight. (Re-rendered on
-// resize and when the letters / baby blocks finish loading.)
+// The twelve are STATIC basic cards at the rest pose (t = 0), each its letter's
+// real glyph at the current orientation. Re-rendered on resize, on orientation
+// change, and once the letters finish loading.
 function renderThumbs() {
     for (const tm of thumbs) {
+        const dsg = designation(tm.entry);
         tm.ctx.clearRect(0, 0, tm.cssW, tm.cssH);
-        tm.draw(tm.ctx, tm.cssW, tm.cssH, tm.entry, 0, 0);
+        drawBasic(tm.ctx, tm.cssW, tm.cssH, dsg, 0, 0);
+        if (tm.codeEl) tm.codeEl.textContent = dsg.code;
     }
 }
 sizeAll();
 window.addEventListener("resize", sizeAll);
 
-// ── Load the letters' orientation + the baby blocks (then restamp stubs) ───
+// ── Load the letters' orientation + the baby blocks ────────────────────────
 async function loadAssets() {
     try {
         const res = await fetch("../../glyphs/assignments.json", {
@@ -586,8 +550,8 @@ async function loadAssets() {
             setWorkingAssignments(data.assignments);
             applyAssignments(true);
             lettersReady = true; // glyphLetterAt now resolves orientation
-            renderBadge(); // badge can now orient correctly
-            updateSub(); // and the Vdr/Hdr + letter-transform resolve
+            renderThumbs(); // codes/letters resolve
+            syncHeroMeta();
         }
     } catch (e) {
         console.warn("turtle-paradise: assignments load failed", e);
@@ -609,14 +573,12 @@ function frame(ts) {
     if (heroFadeT < 1) heroFadeT = Math.min(1, heroFadeT + 0.06);
     heroCtx.clearRect(0, 0, heroW, heroH);
     heroCtx.globalAlpha = heroFadeT;
-    const he = CATALOG[selected];
-    if (elaborate) {
-        const dsg = currentDesignation(he); // the displayed (oriented) member
-        drawElaborate(heroCtx, heroW, heroH, dsg.grid, dsg.d, dsg.r, t,
-            heroPhase);
-    } else {
-        drawFor(he)(heroCtx, heroW, heroH, he, t, heroPhase, netOrient());
-    }
+    const dsg = designation(CATALOG[selected]);
+    if (repr === "elaborate") drawElaborate(heroCtx, heroW, heroH, dsg, t,
+        heroPhase);
+    else if (repr === "monster") drawMonster(heroCtx, heroW, heroH, dsg, t,
+        heroPhase);
+    else drawBasic(heroCtx, heroW, heroH, dsg, t, heroPhase);
     heroCtx.globalAlpha = 1;
     requestAnimationFrame(frame);
 }
