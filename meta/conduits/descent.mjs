@@ -44,7 +44,8 @@ const MIN_DEPTH = 1;
 // has to land on its far edge for it to read as a closed, self-similar tile, so
 // the side is a power of two and the order is its log.
 const ORDER_MIN = 2; // side 4 — the smallest square that reads as a tile
-const ORDER_MAX = 9; // side 512 — the ceiling (order 8 ≈ 3k px, 9 ≈ 6k px)
+const ORDER_MAX = 10; // side 1024 — the ceiling (the order dial shows 2..10)
+const MAX_BMP = 4096; // cap the offscreen square bitmap; big orders downscale
 
 // Old-render (infinite patch) constants — the reference mode.
 const MAPW = 1800;
@@ -246,11 +247,15 @@ const ground = () => (day ? "#ffffff" : "#0a0d0a");
 // into the next tile); hiding them caps the spine into a closed square.
 function makeSquareBitmap(depth) {
     const off = document.createElement("canvas");
-    off.width = Math.max(1, Math.round(bmpW));
-    off.height = Math.max(1, Math.round(bmpH));
+    // cap the offscreen size; big orders render at a reduced scale, then the
+    // camera blits the logical bmpW×bmpH (so fitView/zoom are unaffected).
+    const rs = Math.min(1, MAX_BMP / Math.max(bmpW, bmpH));
+    off.width = Math.max(1, Math.round(bmpW * rs));
+    off.height = Math.max(1, Math.round(bmpH * rs));
     const g = off.getContext("2d");
+    if (rs !== 1) g.scale(rs, rs);
     g.fillStyle = ground();
-    g.fillRect(0, 0, off.width, off.height);
+    g.fillRect(0, 0, bmpW, bmpH);
 
     const top = sqMaxPri(order); // shell ceiling = ∞ (order + 1)
     const colN = numColumns - 1, rowN = numRows - 1; // last real col / row
@@ -435,22 +440,14 @@ function buildOrient() {
 }
 buildOrient();
 
-// ── Order ruler: the old ladder, now a SlidingRuler dial ───────────────────
-// Each notch is tinted its order colour (orderColor(o) = COLOR_LIST[o−1]:
-// 2 cream · 3 purple · 4 cyan …) — the colour the square's spine takes at that
-// order. Drag to resize the square. (In patch mode it's disabled.) The dial is
-// built in buildOrderRuler (below, next to the depth dial, sharing the palette).
+// ── Order ruler: the old ladder, now a SlidingRuler dial faced with the
+// colored numbered order-dial.png. Drag to resize the square; the selected
+// number rides under the centre indicator. Disabled (greyed) in patch mode.
 const orderCanvas = document.getElementById("orderRuler");
-const orderLabel = document.getElementById("orderLabel");
-const sideLabel = document.getElementById("sideLabel");
 let orderRuler = null;
 function syncOrder() {
-    const card = orderCanvas && orderCanvas.closest(".ladder-card");
-    if (card) card.classList.toggle("disabled", mode !== "square");
-    if (orderLabel)
-        orderLabel.textContent = mode === "square" ? String(order) : "—";
-    if (sideLabel)
-        sideLabel.textContent = mode === "square" ? String(sqSide(order)) : "—";
+    const knob = orderCanvas && orderCanvas.closest(".knob");
+    if (knob) knob.classList.toggle("disabled", mode !== "square");
     if (orderRuler) orderRuler.setValue(order); // ignored while dragging
 }
 
@@ -482,13 +479,6 @@ const rulerPalette = () =>
               labelColor: "#cfe8cf",
               fadeColor: "rgba(16,24,15,0.92)",
           };
-// Translucent tint of an order's colour, so the ticks/labels still read over it.
-function bandTint(o) {
-    const c = orderColor(o); // #rrggbb
-    const [r, g, b] = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
-    return `rgba(${r},${g},${b},0.5)`;
-}
-
 let depthRuler = null;
 function buildRulers() {
     const maxDepth = mode === "square" ? Math.max(MIN_DEPTH, sqMaxPri(order)) : PATCH_MAXP;
@@ -511,7 +501,9 @@ function buildRulers() {
 }
 buildRulers();
 
-// The order dial — fixed range ORDER_MIN..ORDER_MAX, each notch its order colour.
+// The order dial — fixed range ORDER_MIN..ORDER_MAX, faced with the colored
+// numbered dial PNG (order-dial.png, numbers 2..10 on their order colours). The
+// image spans [1.5, 10.5] so number n centres on unit n, and scrolls in step.
 // Rebuilt only on day/night (palette), never on setOrder — so a drag is never
 // destroyed mid-scrub; setOrder just setValue()s it (ignored while dragging).
 function buildOrderRuler() {
@@ -521,10 +513,10 @@ function buildOrderRuler() {
         min: ORDER_MIN,
         max: ORDER_MAX,
         value: order,
-        visibleRange: ORDER_MAX - ORDER_MIN + 2,
+        visibleRange: (ORDER_MAX - ORDER_MIN + 2) / 2, // half — fewer numbers
         height: 54,
-        labels: labelsFor(ORDER_MIN, ORDER_MAX),
-        bandColor: bandTint,
+        bgImage: "./order-dial.png",
+        bgImageRange: [ORDER_MIN - 0.5, ORDER_MAX + 0.5],
         onChange: (v) => {
             if (mode === "square" && v !== order) setOrder(v);
         },

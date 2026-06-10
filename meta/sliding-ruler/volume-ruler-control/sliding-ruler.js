@@ -22,6 +22,23 @@ export class SlidingRuler {
     this._fadeColor      = options.fadeColor      ?? 'rgba(13,24,38,0.9)';
     // Optional per-unit background band tint: (u) => cssColor | null.
     this._bandColor      = options.bandColor      ?? null;
+    // Optional scrolling background image (the dial face). bgImage: an
+    // HTMLImageElement/HTMLCanvasElement, or a url string the ruler loads.
+    // bgImageRange = [loUnit, hiUnit] the image's left/right edges map onto, so
+    // it scrolls in step with the value. When set, it replaces the tick/label
+    // face (the ticks, bands and labels are skipped — they live in the image).
+    this._bgImageRange   = options.bgImageRange   ?? [this._min, this._max];
+    this._bgImage = null;
+    if (options.bgImage) {
+      if (typeof options.bgImage === 'string') {
+        const img = new Image();
+        img.onload = () => this._draw();
+        img.src = options.bgImage;
+        this._bgImage = img;
+      } else {
+        this._bgImage = options.bgImage;
+      }
+    }
 
     const dpr  = window.devicePixelRatio || 1;
     const cssW = canvas.offsetWidth || options.width || 260;
@@ -210,8 +227,22 @@ export class SlidingRuler {
     this._rrect(0, TRACK_Y, w, TRACK_H, 6);
     ctx.fill();
 
+    // Scrolling dial image (optional) — replaces the tick/label face.
+    const img = this._bgImage;
+    const hasImg = img && (img.naturalWidth || img.width);
+    if (hasImg) {
+      ctx.save();
+      this._rrect(0, TRACK_Y, w, TRACK_H, 6);
+      ctx.clip();
+      const [lo, hi] = this._bgImageRange;
+      const x0 = cx + (lo - vol) * ppu;
+      const x1 = cx + (hi - vol) * ppu;
+      ctx.drawImage(img, x0, TRACK_Y, x1 - x0, TRACK_H);
+      ctx.restore();
+    }
+
     // Per-unit colour bands (optional) — clipped to the rounded track
-    if (this._bandColor) {
+    if (!hasImg && this._bandColor) {
       ctx.save();
       this._rrect(0, TRACK_Y, w, TRACK_H, 6);
       ctx.clip();
@@ -227,8 +258,7 @@ export class SlidingRuler {
     }
 
     // Tick marks
-
-    for (let u = uMin; u <= uMax; u++) {
+    if (!hasImg) for (let u = uMin; u <= uMax; u++) {
       if (u < this._min || u > this._max) continue;
       const x = cx + (u - vol) * ppu;
       if (x < 0 || x > w) continue;

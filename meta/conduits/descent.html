@@ -180,17 +180,13 @@
                 color: #b7d6a0;
             }
 
-            /* intro: lede on the left, orientation + ladder cards on the right */
-            .intro {
+            /* cards row — order dial + orientation, below the canvas */
+            .cards {
                 display: flex;
                 gap: 18px;
                 align-items: stretch;
                 flex-wrap: wrap;
-                margin-bottom: 18px;
-            }
-            .intro .lede {
-                flex: 1 1 380px;
-                margin-bottom: 0;
+                margin-top: 16px;
             }
             .orient-card,
             .ladder-card {
@@ -215,22 +211,25 @@
             .orient-btns {
                 display: flex;
                 gap: 6px;
-                margin-bottom: 10px;
             }
             .orient-btn {
-                flex: 1;
+                flex: 0 0 46px;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                gap: 3px;
+                gap: 2px;
                 background: rgba(255, 255, 255, 0.04);
                 border: 1px solid rgba(143, 188, 143, 0.3);
                 color: #cfe8cf;
                 border-radius: 8px;
-                padding: 9px 4px;
+                padding: 6px 4px;
                 font: inherit;
                 cursor: pointer;
                 transition: all 0.15s;
+            }
+            .knob.disabled {
+                opacity: 0.4;
+                pointer-events: none;
             }
             .orient-btn:hover {
                 background: rgba(143, 188, 143, 0.18);
@@ -246,11 +245,20 @@
                 font-weight: 600;
                 color: rgba(255, 255, 255, 0.6);
             }
+            /* orient knob: 'orient' over its quadrant label (SE/NW/WN…) */
+            .orient-head {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 2px;
+                line-height: 1.05;
+            }
             .orient-label {
                 text-align: center;
                 font-family: ui-monospace, "SF Mono", Menlo, monospace;
-                font-size: 1.1rem;
-                letter-spacing: 0.12em;
+                font-size: 1rem;
+                font-weight: 700;
+                letter-spacing: 0.1em;
                 color: #b7d6a0;
             }
             .orient-sub {
@@ -477,22 +485,34 @@
             <a class="back" href="./">← The Conduits</a>
             <div class="kicker">The Conduits · a living descent</div>
             <h1>Descent</h1>
-            <div class="intro">
-                <p class="lede">
-                    A <em>Coylean square</em> in its <em>elaborate</em> dress —
-                    every cell a nest of rectangles, color-coded by depth. The
-                    <em>ladder</em> sets the <em>order</em>: a square of order
-                    <em>n</em> has side 2<sup>n</sup>, with two <em>∞ bars</em>
-                    (one priority above the rest) framing its anchor corner and
-                    its dominant priority-<em>n</em> spine on the opposite corner —
-                    a closed, self-similar tile. The <em>orientation</em> card's
-                    lat/long force a different <em>quadrant pattern</em> (the
-                    dyadic offset). Drag to pan, scroll or pinch to zoom, and turn
-                    the <em>depth</em> knob to surface another shell of color.
-                    <em>Turtles all the way down.</em>
-                </p>
-                <aside class="orient-card">
-                    <h2>Orientation</h2>
+            <p class="lede">
+                A <em>Coylean square</em> in its <em>elaborate</em> dress —
+                every cell a nest of rectangles, color-coded by depth. The
+                <em>order</em> dial sets a square of order <em>n</em>: side
+                2<sup>n</sup>, two <em>∞ bars</em> (one priority above the rest)
+                framing its anchor corner and its dominant priority-<em>n</em>
+                spine on the opposite corner — a closed, self-similar tile. The
+                <em>orientation</em> card's lat/long force a different
+                <em>quadrant pattern</em> (the dyadic offset). Drag to pan, scroll
+                or pinch to zoom, and turn the <em>depth</em> knob to surface
+                another shell of color. <em>Turtles all the way down.</em>
+            </p>
+
+            <div class="stage">
+                <canvas id="cv"></canvas>
+                <div class="hud" id="hud"></div>
+            </div>
+
+            <div class="cards">
+                <div class="knob">
+                    <span class="knob-label">order</span>
+                    <canvas id="orderRuler" class="ruler"></canvas>
+                </div>
+                <div class="knob">
+                    <span class="orient-head">
+                        <span class="knob-label">orient</span>
+                        <span class="orient-label" id="orientLabel"></span>
+                    </span>
                     <div class="orient-btns">
                         <button class="orient-btn" id="longBtn"
                             title="longitude — east / west anchor"></button>
@@ -501,22 +521,7 @@
                         <button class="orient-btn" id="senBtn"
                             title="seniority — V / H tie-break"></button>
                     </div>
-                    <div class="orient-label" id="orientLabel"></div>
-                    <div class="orient-sub">anchor · seniority</div>
-                </aside>
-                <aside class="ladder-card">
-                    <h2>Order</h2>
-                    <canvas id="orderRuler" class="ruler"></canvas>
-                    <div class="ladder-foot">
-                        order <span id="orderLabel"></span> ·
-                        <span id="sideLabel"></span>² square
-                    </div>
-                </aside>
-            </div>
-
-            <div class="stage">
-                <canvas id="cv"></canvas>
-                <div class="hud" id="hud"></div>
+                </div>
             </div>
 
             <div class="controls">
