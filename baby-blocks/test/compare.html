@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Baby Blocks — font vs existing</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Menlo, Monaco, "Courier New", monospace;
+            background: #fff; color: #222; padding: 24px;
+        }
+        .breadcrumb { font-size: 0.85rem; color: #888; margin-bottom: 12px; }
+        .breadcrumb a { color: #555; text-decoration: none; }
+        h1 { font-size: 1.5rem; margin-bottom: 6px; }
+        p.lede { color: #555; font-size: 0.9rem; margin-bottom: 16px; max-width: 720px; }
+        .controls { margin-bottom: 16px; font-size: 0.85rem; }
+        table { border-collapse: collapse; }
+        th { font-size: 0.7rem; color: #888; font-weight: normal; padding: 4px 10px; }
+        td { padding: 4px; text-align: center; vertical-align: middle; }
+        td.char { font-size: 1rem; color: #444; width: 2rem; }
+        svg { display: block; }
+        .cell { width: 90px; height: 90px; border: 1px solid #eee; display: inline-block; }
+        tr:hover .cell { background: #fafafa; }
+        .legend { font-size: 0.8rem; color: #666; margin-top: 16px; }
+        .legend b.red { color: #d22; } .legend b.blue { color: #0075BB; }
+    </style>
+</head>
+<body>
+    <div class="breadcrumb"><a href="../../">Coylean Map</a> / <a href="../">Baby Blocks</a> / test</div>
+    <h1>Font vs Existing — viability check</h1>
+    <p class="lede">
+        Left: letter extracted from <b>News 706 Bold.otf</b>. Middle: the
+        letter already baked into <b>AlphabetBlocks.svg</b>. Right: both fit to
+        the same box and overlaid. Each glyph is fit-to-box by its own bounding
+        box, so this compares pure <i>shape</i>, not size or placement.
+    </p>
+    <div class="controls">
+        <label>Overlay size:
+            <input type="range" id="ovsize" min="60" max="180" value="80" />
+        </label>
+    </div>
+    <table id="tbl"></table>
+    <p class="legend">
+        Overlay: <b class="red">red</b> = font only &nbsp;
+        <b class="blue">blue</b> = existing only &nbsp;
+        purple/dark = they coincide. A clean purple silhouette means same
+        typeface.
+    </p>
+    <script type="module" src="./compare.mjs"></script>
+</body>
+</html>

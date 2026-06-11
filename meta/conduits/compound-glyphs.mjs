@@ -85,7 +85,7 @@ async function loadAssets() {
     }
     try {
         babyBlocks = await BabyBlocks.load(
-            "../../baby-blocks/AlphabetBlocks.svg"
+            "../../baby-blocks/AlphabetBlocks-complete.svg"
         );
     } catch (e) {
         console.warn("compound-glyphs: baby blocks load failed", e);

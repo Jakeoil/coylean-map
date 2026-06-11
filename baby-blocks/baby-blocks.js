@@ -71,7 +71,8 @@ function parseBlocks(svgText) {
 
     for (const path of paths) {
         const id = path.getAttribute("id");
-        const char = ID_TO_CHAR[id];
+        // Newer complete sets carry data-char; the original 36 map via id.
+        const char = path.getAttribute("data-char") || ID_TO_CHAR[id];
         if (!char) continue;
 
         const cls = path.getAttribute("class");
@@ -121,10 +122,12 @@ function splitPaths(pathData) {
     const letter = [];
 
     for (const sp of subpaths) {
-        // A subpath is "outline" if it draws one of the two rectangles
-        // (outer ~183.5 or inner ~153.5). Check for 183 or 153 dimensions
-        // in any command (v, h, V, H — relative or absolute).
-        if (/[vh]-?183\.\d/i.test(sp) || /[vh]-?153\.\d/i.test(sp)) {
+        // A subpath is "outline" if it draws one of the two rectangles.
+        // Match the exact frame side length (183.5395508 / 153.5395508 to
+        // 5 decimals) — that magnitude is intrinsic to the rects and never
+        // occurs in a glyph, so font letters whose absolute H/V coords land
+        // near 153/183 are not misread as frame.
+        if (/1[58]3\.53955/.test(sp)) {
             outline.push(sp);
         } else {
             letter.push(sp);
@@ -167,7 +170,10 @@ export class BabyBlocks {
      * @returns {SVGSVGElement}
      */
     get(char, opts = {}) {
-        const block = this._blocks.get(char.toUpperCase());
+        // Exact char first (complete sets have lower/upper/punctuation);
+        // fall back to uppercase for the original A-Z/0-9 set.
+        const block =
+            this._blocks.get(char) || this._blocks.get(char.toUpperCase());
         if (!block) throw new Error(`No block for "${char}"`);
 
         const {
@@ -227,7 +233,8 @@ export class BabyBlocks {
      * @param {boolean} opts.outline   - include outline (default: true)
      */
     drawDirect(ctx, char, x, y, size, opts = {}) {
-        const block = this._blocks.get(char.toUpperCase());
+        const block =
+            this._blocks.get(char) || this._blocks.get(char.toUpperCase());
         if (!block) return;
 
         const {

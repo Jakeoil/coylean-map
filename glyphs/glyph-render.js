@@ -529,7 +529,7 @@ function ensureBabyBlocksLoaded(cb) {
     }
     import("../baby-blocks/baby-blocks.js").then((mod) => {
         calibrateBabyNames(mod.D4);
-        mod.BabyBlocks.load("../baby-blocks/AlphabetBlocks.svg").then((bb) => {
+        mod.BabyBlocks.load("../baby-blocks/AlphabetBlocks-complete.svg").then((bb) => {
             babyBlocks = bb;
             cb();
         });

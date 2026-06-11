@@ -558,7 +558,7 @@ async function loadAssets() {
     }
     try {
         babyBlocks = await BabyBlocks.load(
-            "../../baby-blocks/AlphabetBlocks.svg",
+            "../../baby-blocks/AlphabetBlocks-complete.svg",
         );
         renderBadge(); // badge upgrades from font fallback to the baby block
     } catch (e) {
