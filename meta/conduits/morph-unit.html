@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>The Morph Unit — The Unbiased Map</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            :root {
+                --purple: #9575cd;
+                --purple-pale: #c9b6f5;
+                --ink: #2a1f4a;
+            }
+            body {
+                font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+                background:
+                    radial-gradient(900px 500px at 60% -10%,
+                        rgba(149,117,205,0.12), transparent 60%),
+                    linear-gradient(150deg, #140f23, #16122a 50%, #0c0a18);
+                color: #ece8f6;
+                min-height: 100vh;
+                padding: 36px 22px 70px;
+                line-height: 1.6;
+            }
+            main { max-width: 720px; margin: 0 auto; }
+            a.back { color: var(--purple); text-decoration: none; font-size: 0.9rem; }
+            a.back:hover { text-decoration: underline; }
+            .kicker {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 0.74rem; letter-spacing: 0.2em; text-transform: uppercase;
+                color: rgba(201,182,245,0.65); margin: 16px 0 6px;
+            }
+            h1 { font-size: 2rem; color: var(--purple-pale); margin-bottom: 14px; }
+            p { color: rgba(236,232,246,0.78); margin-bottom: 14px; max-width: 64ch; }
+            em { color: var(--purple-pale); font-style: normal; }
+            .stage {
+                display: flex; justify-content: center; align-items: center;
+                height: 260px; margin: 26px 0;
+                border: 1px solid rgba(149,117,205,0.3); border-radius: 14px;
+                background: rgba(0,0,0,0.25);
+            }
+            /* the single morphing cell: square → 3:2 → snaps into two */
+            .cell {
+                position: relative; height: 120px; width: 120px;
+                background: linear-gradient(135deg, #7b58c4, #5b3aa0);
+                border: 2px solid var(--purple-pale); border-radius: 8px;
+                animation: morph 4.2s ease-in-out infinite;
+            }
+            .cell::after { /* the snap bar that divides the long axis */
+                content: ""; position: absolute; top: 6%; bottom: 6%;
+                left: 50%; width: 3px; transform: translateX(-50%);
+                background: #efe6ff; border-radius: 2px; opacity: 0;
+                animation: snap 4.2s ease-in-out infinite;
+            }
+            @keyframes morph {
+                0%, 8%   { width: 120px; }   /* square 1:1 */
+                40%      { width: 180px; }   /* grown to 3:2 */
+                52%,100% { width: 180px; }   /* held, now read as two */
+            }
+            @keyframes snap {
+                0%, 44%  { opacity: 0; }
+                52%, 92% { opacity: 1; }      /* the divide appears */
+                100%     { opacity: 0; }
+            }
+            .label {
+                margin-top: 14px; text-align: center;
+                font-family: ui-monospace, Menlo, monospace; font-size: 0.82rem;
+                color: rgba(236,232,246,0.55);
+            }
+            .next { margin-top: 26px; }
+            .next a { color: var(--purple-pale); }
+        </style>
+    </head>
+    <body>
+        <main>
+            <a class="back" href="unbiased-map.html">← The Unbiased Map</a>
+            <div class="kicker">A little page · the morph unit</div>
+            <h1>The Morph Unit</h1>
+
+            <p>
+                The thing that actually breathes and divides is not the whole
+                map — it is a <em>single cell</em>. Hold one in view and the
+                growth is simple: a square stretches along one axis until it
+                reaches <em>3 : 2</em>, the proportion at which it can no longer
+                pass as a square, and it <em>snaps</em> — a bar drops down the
+                long middle and what was one cell is now two.
+            </p>
+
+            <div class="stage">
+                <div class="cell"></div>
+            </div>
+            <div class="label">1 : 1 &nbsp;→&nbsp; 3 : 2 &nbsp;→&nbsp; ∥ snap ∥ &nbsp;→&nbsp; two cells</div>
+
+            <p>
+                Each of the two halves is a smaller rectangle (3 : 4), ready to
+                be grown the <em>other</em> way on the next half-order. Run the
+                whole map and every cell is doing this at once, one phase out of
+                step with its neighbours — which is why the map stays a coherent
+                Coylean square instead of a bag of loose tiles.
+            </p>
+
+            <p class="next">
+                Next: <a href="snap-direction.html">the snap direction →</a> —
+                which way the bar falls, and why widening and heightening are the
+                same move seen through the diagonal.
+            </p>
+        </main>
+    </body>
+</html>

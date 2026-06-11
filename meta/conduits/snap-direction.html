@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>The Snap Direction — The Unbiased Map</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            :root {
+                --purple: #9575cd;
+                --purple-pale: #c9b6f5;
+            }
+            body {
+                font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+                background:
+                    radial-gradient(900px 500px at 60% -10%,
+                        rgba(149,117,205,0.12), transparent 60%),
+                    linear-gradient(150deg, #140f23, #16122a 50%, #0c0a18);
+                color: #ece8f6;
+                min-height: 100vh;
+                padding: 36px 22px 70px;
+                line-height: 1.6;
+            }
+            main { max-width: 720px; margin: 0 auto; }
+            a.back { color: var(--purple); text-decoration: none; font-size: 0.9rem; }
+            a.back:hover { text-decoration: underline; }
+            .kicker {
+                font-family: ui-monospace, Menlo, monospace;
+                font-size: 0.74rem; letter-spacing: 0.2em; text-transform: uppercase;
+                color: rgba(201,182,245,0.65); margin: 16px 0 6px;
+            }
+            h1 { font-size: 2rem; color: var(--purple-pale); margin-bottom: 14px; }
+            p { color: rgba(236,232,246,0.78); margin-bottom: 14px; max-width: 64ch; }
+            em { color: var(--purple-pale); font-style: normal; }
+            code {
+                font-family: ui-monospace, Menlo, monospace;
+                background: rgba(149,117,205,0.16); padding: 1px 6px; border-radius: 4px;
+                font-size: 0.9em; color: var(--purple-pale);
+            }
+            .twin {
+                display: flex; gap: 18px; flex-wrap: wrap; margin: 26px 0 8px;
+            }
+            .demo {
+                flex: 1 1 240px;
+                border: 1px solid rgba(149,117,205,0.3); border-radius: 14px;
+                background: rgba(0,0,0,0.25); padding: 18px;
+                display: flex; flex-direction: column; align-items: center;
+            }
+            .demo h3 {
+                font-size: 0.95rem; color: var(--purple-pale); margin-bottom: 14px;
+                font-family: ui-monospace, Menlo, monospace;
+            }
+            .pen { height: 150px; display: flex; align-items: center; }
+            .cell {
+                position: relative; height: 110px; width: 110px;
+                background: linear-gradient(135deg, #7b58c4, #5b3aa0);
+                border: 2px solid var(--purple-pale); border-radius: 8px;
+            }
+            .cell::after {
+                content: ""; position: absolute; background: #efe6ff;
+                border-radius: 2px; opacity: 0;
+            }
+            /* v-grow: widen, split COLUMNS (a bar down the middle, side by side) */
+            .v .cell { animation: wide 4s ease-in-out infinite; }
+            .v .cell::after {
+                top: 6%; bottom: 6%; left: 50%; width: 3px;
+                transform: translateX(-50%); animation: snap 4s ease-in-out infinite;
+            }
+            @keyframes wide {
+                0%,8% { width: 110px; } 42% { width: 165px; }
+                54%,100% { width: 165px; }
+            }
+            /* h-grow: heighten, split ROWS (a bar across the middle, stacked) */
+            .h .cell { animation: tall 4s ease-in-out infinite; }
+            .h .cell::after {
+                left: 6%; right: 6%; top: 50%; height: 3px;
+                transform: translateY(-50%); animation: snap 4s ease-in-out infinite;
+            }
+            @keyframes tall {
+                0%,8% { height: 110px; } 42% { height: 165px; }
+                54%,100% { height: 165px; }
+            }
+            @keyframes snap {
+                0%,46% { opacity: 0; } 54%,92% { opacity: 1; } 100% { opacity: 0; }
+            }
+            .cap {
+                margin-top: 12px; font-size: 0.8rem; color: rgba(236,232,246,0.55);
+                font-family: ui-monospace, Menlo, monospace; text-align: center;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <a class="back" href="unbiased-map.html">← The Unbiased Map</a>
+            <div class="kicker">A little page · the snap direction</div>
+            <h1>The Snap Direction</h1>
+
+            <p>
+                When a cell snaps, which way does the bar fall? It depends on
+                which way it grew. A <em>v-grow</em> widens the cell and the bar
+                drops <em>vertically</em> — the columns divide, two cells
+                side-by-side (the <code>V → H</code> substitution,
+                <code>2ⁿ → 2ⁿ⁺¹</code> columns). An <em>h-grow</em> heightens the
+                cell and the bar lies <em>across</em> — the rows divide, two
+                cells stacked (<code>H → V</code>, rows doubled).
+            </p>
+
+            <div class="twin">
+                <div class="demo v">
+                    <h3>v-grow · split columns</h3>
+                    <div class="pen"><div class="cell"></div></div>
+                    <div class="cap">V → H · widen to 3:2 · ∥</div>
+                </div>
+                <div class="demo h">
+                    <h3>h-grow · split rows</h3>
+                    <div class="pen"><div class="cell"></div></div>
+                    <div class="cap">H → V · heighten to 3:2 · ═</div>
+                </div>
+            </div>
+
+            <p>
+                These are not two rules — they are <em>one move seen through the
+                main diagonal.</em> Reflect the left demo across the backslash
+                and you get the right one exactly: width becomes height, a
+                vertical bar becomes a horizontal one, V becomes H. That is the
+                <code>D₁</code> transform, and it is the whole reason the map can
+                be <em>unbiased</em>: the growth has no preferred axis, only a
+                preferred <em>diagonal</em> — and the looking-glass swaps even
+                that.
+            </p>
+
+            <p>
+                So the ladder <code>V → H → 2V → 2H → …</code> is just the cell
+                alternating which way it last grew. Ask whether
+                <em>v-then-h</em> equals <em>h-then-v</em> and the answer is:
+                yes, up to the backslash. Order only chooses which side of the
+                mirror you read.
+            </p>
+        </main>
+    </body>
+</html>

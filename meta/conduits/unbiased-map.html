@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>The Unbiased Map — The Purple Waste Conduit</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            :root {
+                --purple: #9575cd;
+                --purple-deep: #6a4bb0;
+                --purple-pale: #c9b6f5;
+                --glow: rgba(149, 117, 205, 0.5);
+                --bg: radial-gradient(
+                        1100px 600px at 60% -10%,
+                        rgba(149, 117, 205, 0.12),
+                        transparent 60%
+                    ),
+                    linear-gradient(150deg, #140f23 0%, #16122a 50%, #0c0a18 100%);
+                --text: #ece8f6;
+                --text-dim: rgba(236, 232, 246, 0.72);
+                --canvas1: #261d44;
+                --canvas2: #140f28;
+                --panel: rgba(28, 20, 48, 0.6);
+                --field: rgba(0, 0, 0, 0.3);
+                --border: rgba(149, 117, 205, 0.35);
+            }
+            html[data-theme="light"] {
+                --purple: #7e5cbe;
+                --purple-deep: #5a3aa0;
+                --purple-pale: #5b3aa0;
+                --glow: rgba(126, 92, 190, 0.28);
+                --bg: linear-gradient(150deg, #f3eefc 0%, #ece4f8 50%, #f6f1fd 100%);
+                --text: #2a2148;
+                --text-dim: rgba(42, 33, 72, 0.72);
+                --canvas1: #faf7ff;
+                --canvas2: #efe9fb;
+                --panel: #ffffff;
+                --field: #f4eefb;
+                --border: rgba(106, 75, 176, 0.28);
+            }
+            body {
+                font-family:
+                    "Segoe UI", system-ui, -apple-system, sans-serif;
+                background: var(--bg);
+                background-attachment: fixed;
+                color: var(--text);
+                min-height: 100vh;
+                padding: 26px 22px 70px;
+                line-height: 1.55;
+            }
+            main {
+                max-width: 1040px;
+                margin: 0 auto;
+            }
+            .topbar {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 16px;
+                margin-bottom: 6px;
+            }
+            .back {
+                color: var(--purple);
+                text-decoration: none;
+                font-size: 0.9rem;
+                opacity: 0.85;
+            }
+            .back:hover {
+                text-decoration: underline;
+            }
+            .theme-toggle {
+                border: 1.5px solid var(--border);
+                background: var(--field);
+                color: var(--text);
+                border-radius: 999px;
+                padding: 7px 14px;
+                font-size: 0.85rem;
+                cursor: pointer;
+                white-space: nowrap;
+            }
+            .theme-toggle:hover {
+                border-color: var(--purple);
+            }
+            .kicker {
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.76rem;
+                letter-spacing: 0.22em;
+                text-transform: uppercase;
+                color: var(--purple);
+                opacity: 0.8;
+                margin: 10px 0 6px;
+            }
+            h1 {
+                font-size: 2.3rem;
+                color: var(--purple-pale);
+                text-shadow: 0 0 26px var(--glow);
+                margin-bottom: 10px;
+            }
+            .lede {
+                color: var(--text-dim);
+                max-width: 70ch;
+                margin-bottom: 22px;
+            }
+            .lede em {
+                color: var(--purple-pale);
+                font-style: normal;
+            }
+            .stage {
+                display: flex;
+                gap: 20px;
+                align-items: flex-start;
+                flex-wrap: wrap;
+            }
+            .board-wrap {
+                flex: 1 1 460px;
+                min-width: 300px;
+            }
+            canvas#cv {
+                width: 100%;
+                aspect-ratio: 1 / 1;
+                display: block;
+                background: radial-gradient(
+                    circle at 50% 42%,
+                    var(--canvas1),
+                    var(--canvas2) 82%
+                );
+                border: 1px solid var(--border);
+                border-radius: 14px;
+                box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.3);
+                touch-action: none;
+                cursor: grab;
+            }
+            canvas#cv:active {
+                cursor: grabbing;
+            }
+            .panel {
+                flex: 0 1 300px;
+                min-width: 260px;
+                background: var(--panel);
+                border: 1px solid var(--border);
+                border-radius: 14px;
+                padding: 16px 18px 20px;
+            }
+            .panel h2 {
+                font-size: 0.72rem;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+                color: var(--purple);
+                opacity: 0.85;
+                margin: 14px 0 9px;
+            }
+            .panel h2:first-child {
+                margin-top: 0;
+            }
+            .readout {
+                background: var(--field);
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                padding: 12px 14px;
+                margin-bottom: 6px;
+            }
+            .readout .rung {
+                font-size: 1.5rem;
+                font-weight: 700;
+                color: var(--purple-pale);
+                font-variant-numeric: tabular-nums;
+            }
+            .readout .phase {
+                font-size: 0.82rem;
+                color: var(--text-dim);
+                margin-top: 2px;
+                min-height: 2.4em;
+            }
+            .btns {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+                margin: 4px 0 10px;
+            }
+            button.ctl {
+                flex: 1 1 0;
+                min-width: 64px;
+                border: 1.5px solid var(--border);
+                background: var(--field);
+                color: var(--text);
+                border-radius: 8px;
+                padding: 9px 8px;
+                font-size: 0.9rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.12s;
+            }
+            button.ctl:hover {
+                border-color: var(--purple);
+                background: rgba(149, 117, 205, 0.16);
+            }
+            button.ctl.primary {
+                border-color: var(--purple);
+                background: rgba(149, 117, 205, 0.18);
+                color: var(--purple-pale);
+            }
+            button.ctl.on {
+                border-color: var(--purple);
+                background: var(--purple);
+                color: #fff;
+            }
+            .row {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 11px;
+            }
+            .row label {
+                font-size: 0.88rem;
+            }
+            input[type="range"] {
+                flex: 1;
+                accent-color: var(--purple);
+            }
+            .checks label {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 0.86rem;
+                cursor: pointer;
+                margin-bottom: 8px;
+            }
+            input[type="checkbox"] {
+                accent-color: var(--purple);
+                width: 16px;
+                height: 16px;
+            }
+            .hint {
+                font-size: 0.78rem;
+                color: var(--text-dim);
+                opacity: 0.8;
+                margin-top: 4px;
+            }
+            .little {
+                display: flex;
+                gap: 12px;
+                flex-wrap: wrap;
+                margin-top: 26px;
+            }
+            .little a {
+                flex: 1 1 240px;
+                display: block;
+                padding: 14px 16px;
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                background: rgba(149, 117, 205, 0.06);
+                color: var(--text);
+                text-decoration: none;
+                transition: all 0.15s;
+            }
+            .little a:hover {
+                border-color: var(--purple);
+                background: rgba(149, 117, 205, 0.14);
+                transform: translateY(-2px);
+            }
+            .little h3 {
+                color: var(--purple-pale);
+                font-size: 1rem;
+                margin-bottom: 3px;
+            }
+            .little p {
+                font-size: 0.85rem;
+                color: var(--text-dim);
+            }
+            .footnote {
+                margin-top: 30px;
+                font-size: 0.9rem;
+                font-style: italic;
+                color: var(--text-dim);
+                opacity: 0.8;
+                max-width: 70ch;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <div class="topbar">
+                <a class="back" href="./">← The Conduits</a>
+                <button class="theme-toggle" id="theme">☀ Light</button>
+            </div>
+            <div class="kicker">Scene II · The Purple Waste Conduit</div>
+            <h1>The Unbiased Map</h1>
+            <p class="lede">
+                Why should <em>H</em> always play second fiddle? In the usual
+                render the horizontal half-order draws skinny — yet those tiles
+                are fine once you fatten them back into squares. It is only a
+                <em>D₁ backslash</em> transform: H is V seen through the main
+                diagonal. So here we stop squashing. Every cell keeps an honest
+                square and the <em>map grows instead</em> — a square swells
+                toward 3 : 2, then <em>snaps</em>, its long side dividing in two.
+                v-grow splits the columns, h-grow splits the rows, and the two
+                are mirror twins. <em>Agnostic growth.</em> Drink me, eat me —
+                and step through the looking-glass.
+            </p>
+
+            <div class="stage">
+                <div class="board-wrap">
+                    <canvas id="cv"></canvas>
+                </div>
+
+                <div class="panel">
+                    <h2>The ladder</h2>
+                    <div class="readout">
+                        <div class="rung" id="rung">V0</div>
+                        <div class="phase" id="phase">V0 — the 1×1 seed box</div>
+                    </div>
+
+                    <div class="btns">
+                        <button class="ctl" id="stepb">◂ back</button>
+                        <button class="ctl primary" id="play">Play ▶</button>
+                        <button class="ctl" id="stepf">fwd ▸</button>
+                    </div>
+                    <div class="btns">
+                        <button class="ctl" id="reset">Reset ↺</button>
+                        <button class="ctl" id="mirror">⟍ Looking-glass</button>
+                    </div>
+                    <div class="btns">
+                        <button class="ctl" id="clutch">⟟ Clutch — hold scale</button>
+                    </div>
+
+                    <h2>Growth rate</h2>
+                    <div class="row">
+                        <input
+                            type="range"
+                            id="speed"
+                            min="3"
+                            max="100"
+                            value="27"
+                        />
+                    </div>
+
+                    <h2>Layers</h2>
+                    <div class="checks">
+                        <label
+                            ><input type="checkbox" id="cells" checked />Cells
+                            (cage depth)</label
+                        >
+                        <label
+                            ><input type="checkbox" id="lines" checked />Lines
+                            (the Coylean square)</label
+                        >
+                    </div>
+                    <p class="hint">
+                        Opens paused on the 1×1 seed. <strong>Space</strong> steps
+                        frame-by-frame; <strong>Play</strong> runs the slow climb.
+                        <strong>Clutch</strong> holds the cell grain so the scale
+                        stays put as the map grows (the auto-zoom kept in sync) —
+                        release to re-fit. Drag to pan · scroll to zoom · the
+                        looking-glass reflects across the main diagonal, so the
+                        ladder starts at H and grows tall first.
+                    </p>
+                </div>
+            </div>
+
+            <div class="little">
+                <a href="morph-unit.html">
+                    <h3>The morph unit →</h3>
+                    <p>
+                        What actually breathes and splits — the single cell, not
+                        the whole map. Square → 3 : 2 → two cells.
+                    </p>
+                </a>
+                <a href="snap-direction.html">
+                    <h3>The snap direction →</h3>
+                    <p>
+                        Which way it divides: v-grow widens and splits columns,
+                        h-grow heightens and splits rows — and why they are the
+                        same move through the diagonal.
+                    </p>
+                </a>
+            </div>
+
+            <p class="footnote">
+                The square does not get more crowded as it grows; it gets
+                <em>finer</em> — the same map, one half-order deeper, agnostic to
+                which way it last divided. Turtles all the way down.
+            </p>
+        </main>
+
+        <script type="module" src="./unbiased-map.mjs"></script>
+    </body>
+</html>

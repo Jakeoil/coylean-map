@@ -213,6 +213,31 @@
                 border-color: rgba(149, 117, 205, 0.5);
                 color: var(--purple);
             }
+            a.stratum {
+                display: block;
+                text-decoration: none;
+                border-style: solid;
+                cursor: pointer;
+                transition:
+                    transform 0.15s ease,
+                    box-shadow 0.15s ease,
+                    background 0.15s ease;
+            }
+            a.stratum.purple:hover {
+                transform: translateY(-2px);
+                background: rgba(149, 117, 205, 0.14);
+                box-shadow: 0 8px 30px rgba(149, 117, 205, 0.22);
+            }
+            a.stratum .go {
+                display: inline-block;
+                margin-top: 12px;
+                font-family: ui-monospace, "SF Mono", Menlo, monospace;
+                font-size: 0.84rem;
+                font-weight: 600;
+                color: #c9b6f5;
+                position: relative;
+                z-index: 1;
+            }
             .stratum.blue {
                 border-color: rgba(79, 195, 247, 0.45);
                 color: var(--blue);
@@ -325,15 +350,19 @@
                 Deeper strata <span>— room left for what we have not found</span>
             </h2>
 
-            <div class="stratum purple">
-                <span class="seal">not yet found</span>
-                <h3>The Purple Waste Conduit</h3>
+            <a class="stratum purple" href="unbiased-map.html">
+                <span class="seal">now charted</span>
+                <h3>The Purple Waste Conduit → The Unbiased Map</h3>
                 <p>
-                    One scale finer than the yellow. When we can resolve it, this
-                    is where the scene continues — the spent and the discarded
-                    routed away beneath the conduit floor. Reserved.
+                    One scale finer than the yellow, and we have reached it. Here
+                    the bias drains away: H stops playing second fiddle — it is
+                    only V through the main diagonal — and a Coylean square
+                    <em>grows and splits</em>, v to h to 2v to 2h, every cell an
+                    honest square. Agnostic growth. Step through the
+                    looking-glass.
                 </p>
-            </div>
+                <span class="go">Enter the Unbiased Map ↓</span>
+            </a>
 
             <div class="stratum blue">
                 <span class="seal">much later</span>
