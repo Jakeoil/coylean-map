@@ -8,3 +8,7 @@ gen/
 build/
 Coylean/
 .vscode/
+
+# Proprietary source font (Bitstream/Monotype, "All rights reserved") — used
+# only to regenerate baby-blocks; not redistributable. Keep it local, untracked.
+baby-blocks/*.otf
