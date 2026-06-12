@@ -17,11 +17,11 @@
 // (computeMapModel under the hood). We only animate the framing + the split.
 // ════════════════════════════════════════════════════════════════════════
 import { rungMap } from "../planet-coyleus/terrain-core.js";
+import { ladderRung, aspW, aspH, ease, lerp } from "./ladder-kinematics.js";
 
 // The ladder, from the seed up: k=0 is V0 (a 1×1 box), then it alternates
 // half-orders — V0,H0,V1,H1,…,V8 — the doubling sequence 1, v,h, 2v,2h, …, 8.
-// order = k>>1, seniority H = k odd. (Through the looking-glass it reads h,v,…)
-const ladderRung = (k) => ({ order: k >> 1, seniorityH: (k & 1) === 1 });
+// order = k>>1, seniority H = k odd; ladderRung lives in ./ladder-kinematics.
 
 const MAXK = 16; // …up to V8 (256×256). Deep rungs ride on lines alone (LOD).
 const FULL_SECONDS = 30; // superslow: the whole climb over ~30 s
@@ -66,18 +66,26 @@ const rampAt = (d) => {
 const state = {
     k: 0, // continuous ladder position (0 = V0, the 1×1 box … MAXK)
     playing: false, // start paused on the seed — step it frame-by-frame
+    dir: 1, // +1 grows forward, −1 reverses (the reverse clutch)
     speed: MAXK / FULL_SECONDS, // superslow default
     userZoom: 1,
     panX: 0,
     panY: 0,
     mirror: false, // through the main diagonal (D1 looking-glass): starts at H
     theme: "dark",
-    clutch: false, // hold the scale: freeze the cell grain as the map grows
-    heldScale: 0, // px-per-cell captured when the clutch engages
-    showCells: true,
+    grow: 1.5, // snap proportion: 1.5 = grow to 3:2 (default) · 2 = grow to 2:1
+    autoscale: true, // on = auto-fit the whole map; off = hold the cell grain
+    heldScale: 0, // px-per-cell captured when autoscale is switched off
+    showCells: false, // lines (the Coylean square) carry it; cells optional
     showLines: true,
 };
 let lastFitScale = 1; // most recent auto-fit grain (for the clutch to grab)
+
+// The box proportion at a rung (aspW/aspH from ./ladder-kinematics). A square
+// grows along its split axis by `state.grow` then SNAPS: 1.5 → snap at 3:2
+// (default), 2 → snap at 2:1. So every other half-order the box is square (the
+// genuine Coylean square: V rungs) and between them it is a `grow`:1 rectangle
+// (H rungs). At 2:1 the H cells fatten back to squares; at 3:2 they stay 3:4.
 
 // rung cache wrapper (terrain-core already caches; this keeps anchor 1/1)
 const rung = (kInt) => {
@@ -85,21 +93,31 @@ const rung = (kInt) => {
     return rungMap(r.order, r.seniorityH, 1, 1);
 };
 
-// smoothstep ease
-const ease = (t) => t * t * (3 - 2 * t);
-const lerp = (a, b, t) => a + (b - a) * t;
-
 // ── draw one rung's field into a pixel box, at a given alpha ──
-// We render the 2ⁿ interior only — drop the index-0 seed margin — so dims are
-// exact powers of two (V4 = 16, H4 = 32). That makes a rung and its v/h
-// counterpart NEST: every coarse cell of the back map lands exactly on two of
-// the front map's, so the cross-fade lines up instead of drifting.
+// We render the 2ⁿ interior cells (drop the index-0 seed margin) so dims are
+// exact powers of two and a rung NESTS in its v/h counterpart — the cross-fade
+// lines up. But a Coylean square is CLOSED: all four sides drawn. The ∞-axis
+// (column 0 / row 0 of the west=north=1 integration) IS the west and north
+// frame, so we draw the lines on every edge 0..N — col 0 / row 0 land on the
+// left / top edge — giving the full frame, not just the open SE interior.
 function drawRung(m, px, py, pw, ph, alpha) {
-    const Wc = m.Mc - 1; // 2ⁿ columns (interior, seed margin dropped)
-    const Hc = m.Mr - 1; // 2ⁿ rows
+    const Wc = m.Mc - 1; // 2ⁿ interior columns
+    const Hc = m.Mr - 1; // 2ⁿ interior rows
     const cw = pw / Wc;
     const ch = ph / Hc;
     ctx.globalAlpha = alpha;
+
+    // The ∞ frame (pri(0)) comes out as the maxPri cap (e.g. 32); remap it to
+    // one above the real interior max so the four frame lines read as a frame,
+    // not a slab.
+    const inf = m.colPriority[0];
+    let finiteMax = 0;
+    for (let c = 1; c < m.colPriority.length; c++)
+        finiteMax = Math.max(finiteMax, m.colPriority[c]);
+    for (let r = 1; r < m.rowPriority.length; r++)
+        finiteMax = Math.max(finiteMax, m.rowPriority[r]);
+    const capPri = finiteMax + 1;
+    const eff = (p) => (p >= inf ? capPri : p);
 
     // deep rungs: cells go sub-pixel, so ride on the lines alone (keeps the
     // superslow 30 s climb to V8 smooth)
@@ -119,32 +137,32 @@ function drawRung(m, px, py, pw, ph, alpha) {
     if (state.showLines) {
         ctx.strokeStyle = theInk();
         ctx.lineCap = "butt";
-        // vertical (down) lines: downMatrix[row][col] is the right edge of col
-        for (let sc = 0; sc < Wc; sc++) {
-            const col = sc + 1;
-            const x = px + (sc + 1) * cw;
-            ctx.lineWidth = lineWidth(m.colPriority[col], cw, ch);
-            let runStart = -1;
-            for (let sr = 0; sr <= Hc; sr++) {
-                const on = sr < Hc && cellDown(m, sr + 1, col);
-                if (on && runStart < 0) runStart = sr;
+        // vertical lines on every edge 0..N. col 0 = west frame (x=px); col N =
+        // east frame (x=px+pw). downMatrix[row][col] is the right edge of col.
+        for (let col = 0; col <= Wc; col++) {
+            const x = px + col * cw;
+            ctx.lineWidth = lineWidth(eff(m.colPriority[col]), cw, ch);
+            let runStart = -1; // in interior rows 1..N
+            for (let r = 1; r <= Hc + 1; r++) {
+                const on = r <= Hc && cellDown(m, r, col);
+                if (on && runStart < 0) runStart = r;
                 if (!on && runStart >= 0) {
-                    seg(x, py + runStart * ch, x, py + sr * ch);
+                    seg(x, py + (runStart - 1) * ch, x, py + (r - 1) * ch);
                     runStart = -1;
                 }
             }
         }
-        // horizontal (right) lines: rightMatrix[col][row] is the bottom of row
-        for (let sr = 0; sr < Hc; sr++) {
-            const row = sr + 1;
-            const y = py + (sr + 1) * ch;
-            ctx.lineWidth = lineWidth(m.rowPriority[row], ch, cw);
-            let runStart = -1;
-            for (let sc = 0; sc <= Wc; sc++) {
-                const on = sc < Wc && cellRight(m, sc + 1, row);
-                if (on && runStart < 0) runStart = sc;
+        // horizontal lines on every edge 0..N. row 0 = north frame (y=py);
+        // row N = south frame. rightMatrix[col][row] is the bottom of row.
+        for (let row = 0; row <= Hc; row++) {
+            const y = py + row * ch;
+            ctx.lineWidth = lineWidth(eff(m.rowPriority[row]), ch, cw);
+            let runStart = -1; // in interior cols 1..N
+            for (let c = 1; c <= Wc + 1; c++) {
+                const on = c <= Wc && cellRight(m, c, row);
+                if (on && runStart < 0) runStart = c;
                 if (!on && runStart >= 0) {
-                    seg(px + runStart * cw, y, px + sc * cw, y);
+                    seg(px + (runStart - 1) * cw, y, px + (c - 1) * cw, y);
                     runStart = -1;
                 }
             }
@@ -196,18 +214,19 @@ function render() {
     const A = rung(kInt);
     const B = rung(kInt + 1);
 
-    // interpolate the framed cell-grid aspect from A to B (the split axis
-    // grows). Powers of two (16 → 32) so the rungs nest and the fade lines up.
-    const Wci = lerp(A.Mc - 1, B.Mc - 1, f);
-    const Hci = lerp(A.Mr - 1, B.Mr - 1, f);
+    // box proportion: grow the split axis toward 3 : 2 then snap (not 2 : 1).
+    // (The cell COUNTS still double — drawRung fills the box with each rung's
+    // own 2ⁿ grid — so the rungs nest and the fade lines up.)
+    const Wci = lerp(aspW(kInt, state.grow), aspW(kInt + 1, state.grow), f);
+    const Hci = lerp(aspH(kInt, state.grow), aspH(kInt + 1, state.grow), f);
 
-    // grain = px per cell. Free-wheeling, the auto-fit frames the whole map
-    // (cells shrink as it grows). With the clutch in, we hold the captured
-    // grain so the cell scale stays put and the map grows past the frame —
-    // the auto-zoom kept in sync with the doubling.
+    // grain = px per cell. Autoscale on: the auto-fit frames the whole map
+    // (cells shrink as it grows). Autoscale off: hold the captured grain so the
+    // scale stays put and the map grows past the frame.
     const margin = 0.86;
     lastFitScale = Math.min(VP / Wci, VP / Hci) * margin;
-    const grain = (state.clutch ? state.heldScale : lastFitScale) * state.userZoom;
+    const grain =
+        (state.autoscale ? lastFitScale : state.heldScale) * state.userZoom;
     const boxW = Wci * grain;
     const boxH = Hci * grain;
     const px = (VP - boxW) / 2 + state.panX;
@@ -235,6 +254,7 @@ function syncReadout(kInt, f) {
     // V→H splits columns (grows wide); the mirror transposes that to rows/tall
     let splitCols = ladderRung(kInt).seniorityH === false;
     if (state.mirror) splitCols = !splitCols;
+    const op = splitCols ? "v-grow" : "h-grow";
     el("phase").textContent =
         f < 0.02
             ? kInt === 0
@@ -243,8 +263,8 @@ function syncReadout(kInt, f) {
             : f > 0.98
               ? `${b}`
               : splitCols
-                ? `${a} → ${b} · growing wide, columns dividing`
-                : `${a} → ${b} · growing tall, rows dividing`;
+                ? `${a} → ${b} · ${op} · widen to 3:2, columns divide`
+                : `${a} → ${b} · ${op} · heighten to 3:2, rows divide`;
 }
 
 // ── animation loop ──
@@ -253,14 +273,13 @@ function frame(now) {
     const dt = (now - last) / 1000;
     last = now;
     if (state.playing) {
-        state.k += Math.max(0, dt) * state.speed;
-        if (state.k >= MAXK) {
-            state.k = MAXK;
+        state.k += state.dir * Math.max(0, dt) * state.speed;
+        if (state.k >= MAXK || state.k <= 0) {
+            state.k = state.k >= MAXK ? MAXK : 0; // hit an end → stop
             state.playing = false;
-            el("play").textContent = "Replay ↺";
+            syncTransport();
         }
     }
-    if (state.k < 0) state.k = 0;
     render();
     requestAnimationFrame(frame);
 }
@@ -275,45 +294,81 @@ function resize() {
 }
 window.addEventListener("resize", resize);
 
-// ── controls ──
+// ── transport: reverse ◀ / play ▶, each a play↔pause toggle in its direction
+function syncTransport() {
+    const fwd = state.playing && state.dir > 0;
+    const rev = state.playing && state.dir < 0;
+    el("play").textContent = fwd
+        ? "Pause ❚❚"
+        : state.k >= MAXK
+          ? "Replay ↺"
+          : "Play ▶";
+    el("rev").textContent = rev ? "Pause ❚❚" : "◀ Rev";
+}
 el("play").onclick = () => {
-    if (state.k >= MAXK) {
-        state.k = 0;
+    if (state.playing && state.dir > 0) state.playing = false;
+    else {
+        if (state.k >= MAXK) state.k = 0; // replay from the seed
+        state.dir = 1;
+        state.playing = true;
     }
-    state.playing = !state.playing;
-    el("play").textContent = state.playing ? "Pause ❚❚" : "Play ▶";
+    syncTransport();
+};
+el("rev").onclick = () => {
+    if (state.playing && state.dir < 0) state.playing = false;
+    else {
+        if (state.k <= 0) state.k = MAXK; // reverse from the top
+        state.dir = -1;
+        state.playing = true;
+    }
+    syncTransport();
 };
 el("speed").oninput = (e) => (state.speed = Number(e.target.value) / 100);
 el("mirror").onclick = () => {
     state.mirror = !state.mirror;
     el("mirror").classList.toggle("on", state.mirror);
 };
-// the clutch: engage to hold the cell grain (freeze the auto-zoom in sync with
-// the growth); disengage to free-wheel back to fitting the whole map.
-el("clutch").onclick = () => {
-    state.clutch = !state.clutch;
-    if (state.clutch) {
-        state.heldScale = lastFitScale; // grab the current grain, no jump
-        state.userZoom = 1;
-    }
-    el("clutch").classList.toggle("on", state.clutch);
+// snap proportion: switch the growth between 3:2 and 2:1 (3:2 is the default).
+function syncSnap() {
+    el("snap").textContent =
+        state.grow === 2 ? "Snap 2:1 ⇄ 3:2" : "Snap 3:2 ⇄ 2:1";
+    el("snap").classList.toggle("on", state.grow === 1.5);
+}
+el("snap").onclick = () => {
+    state.grow = state.grow === 1.5 ? 2 : 1.5;
+    syncSnap();
+};
+// Autoscale clutch. On (default): the auto-fit frames the whole map as it
+// grows. Switch it OFF: it does NOT jump — it grabs the current grain and just
+// holds it, so the map keeps growing past the frame at a constant scale (and
+// you can wheel-zoom far deeper). Switch back on to re-fit.
+function syncAutoscale() {
+    el("autoscale").classList.toggle("on", state.autoscale);
+    el("autoscale").textContent = state.autoscale
+        ? "⟲ Autoscale — on"
+        : "⟟ Held — autoscale off";
+}
+el("autoscale").onclick = () => {
+    state.autoscale = !state.autoscale;
+    if (state.autoscale) state.userZoom = 1; // clean re-fit
+    else state.heldScale = lastFitScale; // freeze at the current grain — no jump
+    syncAutoscale();
 };
 el("reset").onclick = () => {
     state.k = 0;
     state.userZoom = 1;
     state.panX = state.panY = 0;
     state.playing = false;
-    state.clutch = false;
-    el("clutch").classList.remove("on");
-    el("play").textContent = "Play ▶";
+    state.autoscale = true;
+    syncAutoscale();
+    syncTransport();
 };
 const stepRung = (dir) => {
     state.playing = false;
-    el("play").textContent = "Play ▶";
     state.k = Math.max(0, Math.min(MAXK, Math.round(state.k) + dir));
+    syncTransport();
 };
 el("stepf").onclick = () => stepRung(1);
-el("stepb").onclick = () => stepRung(-1);
 el("cells").onchange = (e) => (state.showCells = e.target.checked);
 el("lines").onchange = (e) => (state.showLines = e.target.checked);
 
@@ -333,8 +388,12 @@ window.addEventListener("keydown", (e) => {
     if (e.code === "Space") {
         e.preventDefault();
         state.playing = false;
-        el("play").textContent = "Play ▶";
-        state.k = Math.min(MAXK, state.k + FRAME_STEP);
+        // step in the current direction so Space frame-steps a reverse too
+        state.k = Math.max(
+            0,
+            Math.min(MAXK, state.k + state.dir * FRAME_STEP),
+        );
+        syncTransport();
     }
 });
 
@@ -364,10 +423,16 @@ cv.addEventListener(
     (e) => {
         e.preventDefault();
         const f = Math.exp(-e.deltaY * 0.0014);
-        state.userZoom = Math.max(0.4, Math.min(40, state.userZoom * f));
+        // with autoscale off the grain is held, so allow a far deeper zoom
+        const lo = state.autoscale ? 0.4 : 0.02;
+        const hi = state.autoscale ? 40 : 6000;
+        state.userZoom = Math.max(lo, Math.min(hi, state.userZoom * f));
     },
     { passive: false },
 );
 
+syncTransport();
+syncSnap();
+syncAutoscale();
 resize();
 requestAnimationFrame(frame);

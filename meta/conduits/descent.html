@@ -531,9 +531,17 @@
                 </div>
                 <button id="reset">Reset view</button>
                 <button id="daynight">☾ Night</button>
-                <label class="toggle" title="show the square's result rows — the trailing down/right matrix line at the far edge; off caps it into a closed square">
-                    <input type="checkbox" id="resultrows" checked />
-                    result rows
+                <label class="toggle" title="glyph letters (baby blocks) centered in each green+beige glyph, where scale permits">
+                    <input type="checkbox" id="labels" />
+                    labels
+                </label>
+                <label class="toggle" title="stroke a visible outline around every reaction's cell boundary — a debug aid for deciding what to reduce when rendering elaborate">
+                    <input type="checkbox" id="outlines" />
+                    outlines
+                </label>
+                <label class="toggle" title="shave the square's proud outermost shell — the ∞ axis sits one priority above the interior, so a square carries an extra outer ring the patch doesn't; this peels it (square mode only)">
+                    <input type="checkbox" id="shaveouter" />
+                    shave outer shell
                 </label>
                 <label class="toggle" title="the old render — the infinite boundary-seeded patch, as a reference">
                     <input type="checkbox" id="oldrender" />

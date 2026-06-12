@@ -175,7 +175,9 @@
                 font-size: 0.82rem;
                 color: var(--text-dim);
                 margin-top: 2px;
-                min-height: 2.4em;
+                /* fixed height so wrapping phase text never shifts the buttons */
+                height: 3.4em;
+                overflow: hidden;
             }
             .btns {
                 display: flex;
@@ -317,7 +319,7 @@
                     </div>
 
                     <div class="btns">
-                        <button class="ctl" id="stepb">◂ back</button>
+                        <button class="ctl" id="rev">◀ Rev</button>
                         <button class="ctl primary" id="play">Play ▶</button>
                         <button class="ctl" id="stepf">fwd ▸</button>
                     </div>
@@ -326,7 +328,8 @@
                         <button class="ctl" id="mirror">⟍ Looking-glass</button>
                     </div>
                     <div class="btns">
-                        <button class="ctl" id="clutch">⟟ Clutch — hold scale</button>
+                        <button class="ctl on" id="snap">Snap 3:2 ⇄ 2:1</button>
+                        <button class="ctl on" id="autoscale">⟲ Autoscale — on</button>
                     </div>
 
                     <h2>Growth rate</h2>
@@ -343,7 +346,7 @@
                     <h2>Layers</h2>
                     <div class="checks">
                         <label
-                            ><input type="checkbox" id="cells" checked />Cells
+                            ><input type="checkbox" id="cells" />Cells
                             (cage depth)</label
                         >
                         <label
@@ -353,12 +356,16 @@
                     </div>
                     <p class="hint">
                         Opens paused on the 1×1 seed. <strong>Space</strong> steps
-                        frame-by-frame; <strong>Play</strong> runs the slow climb.
-                        <strong>Clutch</strong> holds the cell grain so the scale
-                        stays put as the map grows (the auto-zoom kept in sync) —
-                        release to re-fit. Drag to pan · scroll to zoom · the
-                        looking-glass reflects across the main diagonal, so the
-                        ladder starts at H and grows tall first.
+                        frame-by-frame; <strong>Play ▶</strong> /
+                        <strong>◀ Rev</strong> run it forward / backward. A square
+                        widens to 3:2 then snaps (columns divide), then heightens
+                        to 3:2 and snaps (rows divide) — so the V rungs are
+                        squares, the H rungs the 3:2 between.
+                        <strong>Autoscale</strong> frames the whole map as it
+                        grows; switch it off and it holds the current scale (no
+                        jump) so it grows past the frame — zoom far deeper there.
+                        Drag to pan · scroll to zoom · the looking-glass reflects
+                        across the main diagonal (starts at H, grows tall first).
                     </p>
                 </div>
             </div>

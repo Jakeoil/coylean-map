@@ -35,38 +35,41 @@
             p { color: rgba(236,232,246,0.78); margin-bottom: 14px; max-width: 64ch; }
             em { color: var(--purple-pale); font-style: normal; }
             .stage {
-                display: flex; justify-content: center; align-items: center;
-                height: 260px; margin: 26px 0;
+                height: 300px; margin: 26px 0;
                 border: 1px solid rgba(149,117,205,0.3); border-radius: 14px;
                 background: rgba(0,0,0,0.25);
+                overflow: hidden;
             }
-            /* the single morphing cell: square → 3:2 → snaps into two */
-            .cell {
-                position: relative; height: 120px; width: 120px;
-                background: linear-gradient(135deg, #7b58c4, #5b3aa0);
-                border: 2px solid var(--purple-pale); border-radius: 8px;
-                animation: morph 4.2s ease-in-out infinite;
+            .stage canvas { display: block; width: 100%; height: 100%; }
+            .controls {
+                display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+                justify-content: center; margin-top: 6px;
             }
-            .cell::after { /* the snap bar that divides the long axis */
-                content: ""; position: absolute; top: 6%; bottom: 6%;
-                left: 50%; width: 3px; transform: translateX(-50%);
-                background: #efe6ff; border-radius: 2px; opacity: 0;
-                animation: snap 4.2s ease-in-out infinite;
+            .controls button {
+                font-family: ui-monospace, Menlo, monospace; font-size: 0.8rem;
+                color: var(--purple-pale); background: rgba(149,117,205,0.12);
+                border: 1px solid rgba(149,117,205,0.35); border-radius: 8px;
+                padding: 6px 12px; cursor: pointer;
             }
-            @keyframes morph {
-                0%, 8%   { width: 120px; }   /* square 1:1 */
-                40%      { width: 180px; }   /* grown to 3:2 */
-                52%,100% { width: 180px; }   /* held, now read as two */
+            .controls button:hover { background: rgba(149,117,205,0.22); }
+            .controls button.on {
+                background: rgba(149,117,205,0.32);
+                border-color: var(--purple-pale);
             }
-            @keyframes snap {
-                0%, 44%  { opacity: 0; }
-                52%, 92% { opacity: 1; }      /* the divide appears */
-                100%     { opacity: 0; }
-            }
+            /* pin toggling buttons so their changing labels don't reflow the row */
+            #play { min-width: 6.5em; }
+            #mode { min-width: 11em; }
+            #snap { min-width: 11em; }
             .label {
                 margin-top: 14px; text-align: center;
                 font-family: ui-monospace, Menlo, monospace; font-size: 0.82rem;
                 color: rgba(236,232,246,0.55);
+            }
+            /* fixed-width slot so the live phase text never shoves the buttons */
+            #phase {
+                display: inline-block; width: 25em; max-width: 100%;
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                text-align: center; vertical-align: middle;
             }
             .next { margin-top: 26px; }
             .next a { color: var(--purple-pale); }
@@ -88,9 +91,15 @@
             </p>
 
             <div class="stage">
-                <div class="cell"></div>
+                <canvas id="cv"></canvas>
             </div>
-            <div class="label">1 : 1 &nbsp;→&nbsp; 3 : 2 &nbsp;→&nbsp; ∥ snap ∥ &nbsp;→&nbsp; two cells</div>
+            <div class="controls">
+                <button id="play">⏸ Pause</button>
+                <button id="mode">Render: subdivide</button>
+                <button id="snap">Snap 3:2 ⇄ 2:1</button>
+                <span class="label" id="phase" style="margin-top:0"></span>
+            </div>
+            <div class="label">V1 (square) &nbsp;→&nbsp; H1 (grown 3:2) &nbsp;→&nbsp; ∥ snap ∥ &nbsp;→&nbsp; V2 (two, square again)</div>
 
             <p>
                 Each of the two halves is a smaller rectangle (3 : 4), ready to
@@ -106,5 +115,6 @@
                 same move seen through the diagonal.
             </p>
         </main>
+        <script type="module" src="./morph-unit.mjs"></script>
     </body>
 </html>

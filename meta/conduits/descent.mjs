@@ -22,15 +22,16 @@ import {
     Seniority,
 } from "../../coylean-explorer/coylean-core.js";
 import { SlidingRuler } from "../sliding-ruler/volume-ruler-control/sliding-ruler.js";
+import {
+    glyphLetterAt,
+    setWorkingAssignments,
+    applyAssignments,
+} from "../../glyphs/glyph-core.js";
+import { BabyBlocks } from "../../baby-blocks/baby-blocks.js";
+import { COLOR_LIST, renderComplex } from "./elaborate-cell.js";
 
-// The 19-color depth palette, verbatim from coylean.js (elaborate mode). Index
-// = shell: 0 outermost. Low depth shows only the inner (warm/bright) shells.
-const COLOR_LIST = [
-    "#8FBC8F", "#FFEBCD", "#8A2BE2", "#00FFFF", "#DEB887",
-    "#FAEBD7", "#FF7F50", "#F0FFFF", "#FF1493", "#8FBC8F",
-    "#FFFACD", "#FF6347", "#B22222", "#C0C0C0", "#FFDEAD",
-    "#A52A2A", "#FF00FF", "#40E0D0", "#FF00FF",
-];
+// engine d4Index → baby-block transform name (per compound-glyphs).
+const D4B = ["e", "r", "r2", "r3", "sh", "sv", "d", "d'"];
 
 // The order's colour = COLOR_LIST[order − 1]: order 1 green, 2 cream/yellow,
 // 3 purple, 4 blue/cyan, … — what the bar all around and the ladder rungs use.
@@ -43,8 +44,8 @@ const MIN_DEPTH = 1;
 // meta/fibonacci-ruler (sides 4·8·16·32·64·128). A square's high-priority spine
 // has to land on its far edge for it to read as a closed, self-similar tile, so
 // the side is a power of two and the order is its log.
-const ORDER_MIN = 2; // side 4 — the smallest square that reads as a tile
-const ORDER_MAX = 10; // side 1024 — the ceiling (the order dial shows 2..10)
+const ORDER_MIN = 1; // side 2 — the green+white atom (order 1)
+const ORDER_MAX = 10; // side 1024 — the ceiling (the order dial shows 1..10)
 const MAX_BMP = 4096; // cap the offscreen square bitmap; big orders downscale
 
 // Old-render (infinite patch) constants — the reference mode.
@@ -56,10 +57,17 @@ const southExtent = Math.ceil(MAPH / SCALE) + 8;
 
 let mode = "square"; // "square" (canonical) | "patch" (old infinite render)
 
-// Show the square's RESULT rows — the last down/right matrix line leaving the
-// far edge. On = spine pokes out (open, continues into the next tile); off =
-// capped, a closed square. Square mode only.
-let showResult = true;
+// Draw a visible outline around every reaction's cell boundary — a debug aid
+// for deciding what to reduce when rendering elaborate. Off by default.
+let outlines = false;
+
+// Shave the square's outermost shell (square mode only). A square's outer shell
+// is the n+1 ∞ line at col0/row0 — the unique max priority, one above the
+// interior, the extra ring the patch never has. Shaving drops it entirely
+// (everything outside and including the n+1 line), leaving the interior: all
+// colours ≤ n bounded by the order-n spine. Render-only — the propagation is
+// untouched; see `infSkip`. Off by default.
+let shaveOuter = false;
 
 // Orientation (anchor quadrant + seniority), mirroring compound-glyphs. The
 // map re-integrates on each toggle. Defaults = the clean 1/1 / vertical baseline.
@@ -67,81 +75,21 @@ const orient = { curH: 1, curV: 1, senH: false };
 const seniorityNow = () =>
     orient.senH ? Seniority.horizontal() : Seniority.vertical();
 
-// ── Elaborate cell renderer — the IMMUTABLE core, ported from coylean.js ───
-// This is the elaborate-mode algorithm verbatim from the index draw map
-// (coylean.js renderComplex); the Descent / old-render is a port of it. DO NOT
-// fold render variants into it. Each cell is a priority-sized rectangle
-// (width/height = priority·2·scale), placed at the running offset of
-// accumulated cell widths, driven by the engine's arrow matrices + priorities.
-// down/right = IN arrows (from N / W), down_out/right_out = OUT arrows (to S /
-// E). `top` is the shell ceiling (PATCH_MAXP, playing coylean.js's maxPri);
-// shell i draws only while `i > top - depth - 2`, so LOW depth shows just the
-// inner colourful shells of the big trunks (small cells vanish) and raising
-// depth fills outward to the green frames.
-//
-// Colour is the coylean.js default: ONE shell colour COLOR_LIST[i % len] per
-// ring i (shell index from the outside), shared by the vertical and horizontal
-// arms — green frames with rainbow innards. (A trailing `{ shade }` hook exists
-// for callers that need a different per-arm colour without touching this core;
-// both modes here use the default.)
-const SHELL_SHADE = (i) => COLOR_LIST[i % COLOR_LIST.length]; // coylean.js
-
-function renderComplex(
-    g, x_place, y_place, down, downPri, right, rightPri,
-    down_out, right_out, depth, top, opts = {}
-) {
-    const shade = opts.shade || SHELL_SHADE;
-    const width = downPri * 2;
-    const height = rightPri * 2;
-    const x_width = SCALE * width;
-    for (let i = 0; i < top; i++) {
-        let work_done = true;
-        if (i > top - depth - 2) {
-            work_done = false;
-            const w = width - 2 * i - 1;
-            const h = height - 2 * i - 1;
-            if (w > 0) {
-                g.fillStyle = shade(i, downPri); // vertical arm
-                if (down) {
-                    if (down_out) {
-                        g.fillRect(x_place + SCALE * (i + 1), y_place,
-                            SCALE * w, SCALE * (rightPri * 2));
-                    } else {
-                        g.fillRect(x_place + SCALE * (i + 1), y_place,
-                            SCALE * w, SCALE * (rightPri + 1));
-                    }
-                }
-                if (down_out) {
-                    g.fillRect(x_place + SCALE * (i + 1),
-                        y_place + SCALE * rightPri, SCALE * w, SCALE * rightPri);
-                }
-                work_done = true;
-            }
-            if (h > 0) {
-                g.fillStyle = shade(i, rightPri); // horizontal arm
-                if (right) {
-                    if (right_out) {
-                        g.fillRect(x_place, y_place + SCALE * (i + 1),
-                            SCALE * (downPri * 2), SCALE * h);
-                    }
-                    g.fillRect(x_place, y_place + SCALE * (i + 1),
-                        SCALE * (downPri + 1), SCALE * h);
-                }
-                if (right_out) {
-                    g.fillRect(x_place + SCALE * downPri,
-                        y_place + SCALE * (i + 1), SCALE * downPri, SCALE * h);
-                }
-                work_done = true;
-            }
-        }
-        if (!work_done) break;
-    }
-    return x_width;
-}
+// The elaborate cell renderer (renderComplex) + COLOR_LIST now live in the
+// shared ./elaborate-cell.js — the IMMUTABLE coylean.js core, so the Morph Unit
+// reuses the same copy. descent draws at the default scale (SCALE = 6).
 
 // ── The active map's matrices + bitmap size, rebuilt on any change ─────────
 let downMatrix, rightMatrix, colPriority, rowPriority, numRows, numColumns;
 let bmpW = SCALE, bmpH = SCALE; // natural pixel size of the active bitmap
+
+// Glyph labels: a baby-block letter at each 4×4 glyph cage's centre (square mode
+// only), superimposed where scale permits. A glyph is the order-2 cage bounded
+// by its purple (priority-3) conduit — exactly compound-glyphs' SEC=4 sections.
+let labels = false; // off by default — a switch turns them on
+let babyBlocks = null; // loaded async
+let lettersReady = false; // assignments-complete loaded → glyphLetterAt resolves
+let labelData = []; // [{ letter, d4, cx, cy, w }] in logical bitmap pixels
 
 // The genuine Coylean square (per meta/fibonacci-ruler): its side is a power of
 // two, side = 2^order, and it is ANCHORED AT THE ORIGIN — its left/top edges are
@@ -188,12 +136,22 @@ function integrateSquare(n) {
     return Propagation.fromUniverseBoundary(u, { maxPri });
 }
 
-// Pixel size over the whole propagation — every column/row (priority-0 cells
+// Shave = drop the ∞ axis. A square's outermost shell is the n+1 ∞ line at
+// col0/row0 (the unique max priority, one above the interior). Shaving removes
+// everything outside and including that n+1 line, leaving the interior — all
+// colours ≤ n bounded by the order-n spine. So we simply skip col0/row0 (and
+// their width) when `shaveOuter` is on. `infSkip` is that start index; threading
+// it through squarePx, the draw loop and the labels keeps everything aligned.
+const infSkip = () => (shaveOuter ? 1 : 0);
+
+// Pixel size over the rendered cells — every column/row (priority-0 cells
 // contribute width 0; the ∞ axis is the wide frame, the spine the last band).
+// When shaving, the ∞ axis (index 0) is dropped from the sum.
 function squarePx(p) {
+    const s = infSkip();
     let w = 0, h = 0;
-    for (let i = 0; i < p.numColumns; i++) w += p.colPriority[i] * 2;
-    for (let j = 0; j < p.numRows; j++) h += p.rowPriority[j] * 2;
+    for (let i = s; i < p.numColumns; i++) w += p.colPriority[i] * 2;
+    for (let j = s; j < p.numRows; j++) h += p.rowPriority[j] * 2;
     return [Math.max(SCALE, SCALE * w), Math.max(SCALE, SCALE * h)];
 }
 
@@ -204,6 +162,60 @@ function buildSquare() {
     ({ downMatrix, rightMatrix, colPriority, rowPriority, numRows, numColumns } =
         p);
     [bmpW, bmpH] = squarePx(p);
+    buildLabels();
+}
+
+// A glyph is the green+beige square fenced by the purple (priority-3) conduit —
+// an order-2 square, 8 cells (SEC). Its identity (glyphLetterAt code) is read at
+// the three senior internal lines (green·beige·green, offsets +2/+4/+6 from the
+// fence), and the letter is centred on the beige (priority-2) spine. The
+// cumulative priority-widths map a cell to its pixel x/y (priority-0 cells
+// contribute 0). Recomputed per build. (The finer 4-cell cages — the SEC/2
+// compound-glyph level — are not labelled here.)
+const SEC = 8;
+function buildLabels() {
+    labelData = [];
+    if (mode !== "square" || !lettersReady) return;
+    const fdc = (((1 - orient.curH) % SEC) + SEC) % SEC; // first purple fence
+    const fdr = (((1 - orient.curV) % SEC) + SEC) % SEC;
+    const grid = orient.senH ? "H" : "V";
+    // when shaving, the ∞ axis (col0/row0) contributes no width — so the
+    // interior starts at x=y=0 and absolute column indices still map correctly
+    const s = infSkip();
+    const cumX = [0], cumY = [0];
+    for (let i = 0; i < numColumns; i++)
+        cumX.push(cumX[i] + (i < s ? 0 : colPriority[i] * 2 * SCALE));
+    for (let j = 0; j < numRows; j++)
+        cumY.push(cumY[j] + (j < s ? 0 : rowPriority[j] * 2 * SCALE));
+    const dAt = (y, x) =>
+        downMatrix[y] && x < downMatrix[y].length ? downMatrix[y][x] : false;
+    const rAt = (x, y) =>
+        rightMatrix[x] && y < rightMatrix[x].length ? rightMatrix[x][y] : false;
+    const SR = [2, 4, 6]; // the senior green·beige·green offsets within a glyph
+    const NSr = Math.floor((numRows - fdr) / SEC);
+    const NSc = Math.floor((numColumns - fdc) / SEC);
+    for (let sr = 0; sr < NSr; sr++) {
+        for (let sc = 0; sc < NSc; sc++) {
+            const rs = fdr + sr * SEC, cs = fdc + sc * SEC; // the glyph's fence
+            let dc = 0, rc = 0;
+            for (let i = 0; i < 3; i++) {
+                if (dAt(rs + 1, cs + SR[i])) dc |= 1 << i;
+                if (rAt(cs + 1, rs + SR[i])) rc |= 1 << i;
+            }
+            const ft = glyphLetterAt(grid, dc, rc);
+            if (!ft) continue; // unlettered → no label
+            // centre on the green+beige interior (skip the fence cells), beige spine
+            const x1 = cumX[cs + 1], x2 = cumX[cs + 7];
+            const y1 = cumY[rs + 1], y2 = cumY[rs + 7];
+            labelData.push({
+                letter: ft[0],
+                d4: ft[1],
+                cx: (x1 + x2) / 2,
+                cy: (y1 + y2) / 2,
+                w: Math.min(x2 - x1, y2 - y1),
+            });
+        }
+    }
 }
 
 // The OLD render: the boundary-seeded INFINITE patch (fromUniverseBoundary).
@@ -222,6 +234,7 @@ function buildPatch() {
         Propagation.fromUniverseBoundary(u, { maxPri: PATCH_MAXP }));
     bmpW = MAPW;
     bmpH = MAPH;
+    labelData = []; // no glyph labels on the infinite patch
 }
 
 function buildActive() {
@@ -240,11 +253,10 @@ const ground = () => (day ? "#ffffff" : "#0a0d0a");
 // (see integrateSquare) just re-propagates a different quadrant pattern. Always
 // the classic shell coylean.js coloring (green frames, rainbow innards).
 //
-// The RESULT rows — the last row of downMatrix (resultDown) and last column of
-// rightMatrix (resultRight) — are the out-arrows leaving the far (S/E) edge,
-// reached as down_out at the last row and right_out at the last column. Showing
-// them lets the spine trunks poke out the bottom/right (the square continuing
-// into the next tile); hiding them caps the spine into a closed square.
+// The result row/col (the trailing down/right matrix line) is always rendered,
+// so the spine trunks poke out the far (S/E) edge — the square continuing into
+// the next tile. When `outlines` is on, every reaction's cell boundary is
+// stroked (a debug aid for deciding what to reduce).
 function makeSquareBitmap(depth) {
     const off = document.createElement("canvas");
     // cap the offscreen size; big orders render at a reduced scale, then the
@@ -258,25 +270,30 @@ function makeSquareBitmap(depth) {
     g.fillRect(0, 0, bmpW, bmpH);
 
     const top = sqMaxPri(order); // shell ceiling = ∞ (order + 1)
+    // shaving drops the ∞ axis (col0/row0 = the n+1 line); start past it
+    const s = infSkip();
     const colN = numColumns - 1, rowN = numRows - 1; // last real col / row
     let y = 0;
-    for (let j = 0; j <= rowN; j++) {
+    for (let j = s; j <= rowN; j++) {
         const rPri = rowPriority[j];
         let x = 0;
-        for (let i = 0; i <= colN; i++) {
+        for (let i = s; i <= colN; i++) {
             const dPri = colPriority[i];
-            // suppress the result row/col (last down/right matrix line) unless shown
-            const dOut = !showResult && j === rowN
-                ? false : downMatrix[j + 1][i];
-            const rOut = !showResult && i === colN
-                ? false : rightMatrix[i + 1][j];
-            x += renderComplex(
+            // always render the result row/col (the trailing down/right matrix
+            // line) so the spine trunks poke out the far edge
+            const cw = renderComplex(
                 g, x, y,
                 downMatrix[j][i], dPri,
                 rightMatrix[i][j], rPri,
-                dOut, rOut,
-                depth, top
+                downMatrix[j + 1][i], rightMatrix[i + 1][j],
+                depth, top, { scale: SCALE }
             );
+            if (outlines && cw > 0 && rPri > 0) {
+                g.strokeStyle = day ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.5)";
+                g.lineWidth = 1;
+                g.strokeRect(x + 0.5, y + 0.5, cw - 1, SCALE * rPri * 2 - 1);
+            }
+            x += cw;
         }
         y += SCALE * rPri * 2;
     }
@@ -298,13 +315,19 @@ function makePatchBitmap(depth) {
         let x = 0;
         for (let i = 0; i < numColumns && x < MAPW; i++) {
             const dPri = colPriority[i];
-            x += renderComplex(
+            const cw = renderComplex(
                 g, x, y,
                 downMatrix[j][i], dPri,
                 rightMatrix[i][j], rPri,
                 downMatrix[j + 1][i], rightMatrix[i + 1][j],
-                depth, PATCH_MAXP
+                depth, PATCH_MAXP, { scale: SCALE }
             );
+            if (outlines && cw > 0 && rPri > 0) {
+                g.strokeStyle = day ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.5)";
+                g.lineWidth = 1;
+                g.strokeRect(x + 0.5, y + 0.5, cw - 1, SCALE * rPri * 2 - 1);
+            }
+            x += cw;
         }
         y += SCALE * rPri * 2;
     }
@@ -502,8 +525,8 @@ function buildRulers() {
 buildRulers();
 
 // The order dial — fixed range ORDER_MIN..ORDER_MAX, faced with the colored
-// numbered dial PNG (order-dial.png, numbers 2..10 on their order colours). The
-// image spans [1.5, 10.5] so number n centres on unit n, and scrolls in step.
+// numbered dial PNG (order-dial.png, numbers 1..10 on their order colours). The
+// image spans [0.5, 10.5] so number n centres on unit n, and scrolls in step.
 // Rebuilt only on day/night (palette), never on setOrder — so a drag is never
 // destroyed mid-scrub; setOrder just setValue()s it (ignored while dragging).
 function buildOrderRuler() {
@@ -536,16 +559,66 @@ if (oldToggle) {
     );
 }
 
-// Result-rows toggle (square only): show/hide the trailing down/right result
-// line at the far edge.
-const resultToggle = document.getElementById("resultrows");
-if (resultToggle) {
-    resultToggle.checked = showResult;
-    resultToggle.addEventListener("change", () => {
-        showResult = resultToggle.checked;
-        if (mode === "square") regen();
+// Outlines toggle: stroke every reaction's cell boundary (a debug aid for
+// deciding what to reduce when rendering elaborate).
+const outlinesToggle = document.getElementById("outlines");
+if (outlinesToggle) {
+    outlinesToggle.checked = outlines;
+    outlinesToggle.addEventListener("change", () => {
+        outlines = outlinesToggle.checked;
+        regen();
     });
 }
+
+// Shave-outer-shell toggle (square only): drop the proud outer ∞ ring.
+const shaveToggle = document.getElementById("shaveouter");
+if (shaveToggle) {
+    shaveToggle.checked = shaveOuter;
+    shaveToggle.addEventListener("change", () => {
+        shaveOuter = shaveToggle.checked;
+        // clamping the ∞ axis changes the square's size → rebuild + re-fit
+        if (mode === "square") {
+            buildActive();
+            fitView();
+            hardRegen();
+        }
+    });
+}
+
+// Labels toggle (square only): glyph letters at each cage centre.
+const labelsToggle = document.getElementById("labels");
+if (labelsToggle) {
+    labelsToggle.checked = labels;
+    labelsToggle.addEventListener("change", () => {
+        labels = labelsToggle.checked; // drawn in the loop — no rebuild needed
+    });
+}
+
+// Load the glyph letters + baby blocks, then stamp the cage labels.
+async function loadLabels() {
+    try {
+        const res = await fetch("../../glyphs/assignments-complete.json", {
+            cache: "no-store",
+        });
+        const data = await res.json();
+        if (data && data.assignments) {
+            setWorkingAssignments(data.assignments);
+            applyAssignments(true);
+            lettersReady = true;
+            buildLabels(); // matrices are already built
+        }
+    } catch (e) {
+        console.warn("descent: assignments load failed", e);
+    }
+    try {
+        babyBlocks = await BabyBlocks.load(
+            "../../baby-blocks/AlphabetBlocks-complete.svg"
+        );
+    } catch (e) {
+        console.warn("descent: baby blocks load failed", e);
+    }
+}
+loadLabels();
 
 const dayBtn = document.getElementById("daynight");
 dayBtn.onclick = () => {
@@ -663,6 +736,24 @@ function frame(ts) {
         vg.addColorStop(1, "rgba(0,0,0,0.4)");
         ctx.fillStyle = vg;
         ctx.fillRect(0, 0, W, H);
+    }
+
+    // glyph labels — a baby-block letter at each cage centre, where scale
+    // permits. Tracks the same breathe transform as the blit.
+    if (labels && mode === "square" && babyBlocks && labelData.length) {
+        ctx.globalAlpha = 0.45; // transparent enough to see the glyph underneath
+        for (const L of labelData) {
+            const sw = L.w * ds;
+            if (sw < 22) continue; // too small to read at this scale
+            const sx = dx + L.cx * ds, sy = dy + L.cy * ds;
+            if (sx < -sw || sx > W + sw || sy < -sw || sy > H + sw) continue;
+            babyBlocks.drawDirect(ctx, L.letter, sx, sy, sw * 0.62, {
+                transform: D4B[L.d4] || "e",
+                outline: false,
+                color: day ? "#14210f" : "#eef5e6",
+            });
+        }
+        ctx.globalAlpha = 1;
     }
 
     hud.textContent =
