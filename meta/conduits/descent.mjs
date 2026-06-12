@@ -29,9 +29,11 @@ import {
 } from "../../glyphs/glyph-core.js";
 import { BabyBlocks } from "../../baby-blocks/baby-blocks.js";
 import { COLOR_LIST, renderComplex } from "./elaborate-cell.js";
-
-// engine d4Index → baby-block transform name (per compound-glyphs).
-const D4B = ["e", "r", "r2", "r3", "sh", "sv", "d", "d'"];
+// engine d4Index → baby-block transform name. The calibrated map from
+// glyph-render (Baby Blocks names its two rotations OPPOSITE to ours, so r/r³
+// are swapped vs the naïve order — this is the corrected mapping). Imported so
+// it can't drift from the catalog.
+import { D4_TO_BABY as D4B } from "../../glyphs/glyph-render.js";
 
 // The order's colour = COLOR_LIST[order − 1]: order 1 green, 2 cream/yellow,
 // 3 purple, 4 blue/cyan, … — what the bar all around and the ladder rungs use.

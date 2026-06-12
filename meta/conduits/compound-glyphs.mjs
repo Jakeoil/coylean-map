@@ -17,16 +17,18 @@ import {
 } from "../../glyphs/glyph-core.js";
 import { Seniority } from "../../coylean-explorer/coylean-core.js";
 import { BabyBlocks } from "../../baby-blocks/baby-blocks.js";
-
-// engine d4Index → baby-block transform name (verified against both D4 tables)
-const D4B = ["e", "r", "r2", "r3", "sh", "sv", "d", "d'"];
+// engine d4Index → baby-block transform name. The calibrated map from
+// glyph-render (Baby Blocks names its two rotations OPPOSITE to ours, so r/r³
+// are swapped vs the naïve order — this is the corrected mapping). Imported so
+// it can't drift from the catalog.
+import {
+    D4_TO_BABY as D4B,
+    D4_MATRIX as D4M,
+} from "../../glyphs/glyph-render.js";
 // engine d4Index → Jake's transform symbols (0 1 2 3 h v \ /)
 const SYM = ["0", "1", "2", "3", "h", "v", "\\", "/"];
-// engine d4Index → 2×2 matrix, for the plain-font fallback label
-const D4M = [
-    [1, 0, 0, 1], [0, 1, -1, 0], [-1, 0, 0, -1], [0, -1, 1, 0],
-    [1, 0, 0, -1], [-1, 0, 0, 1], [0, 1, 1, 0], [0, -1, -1, 0],
-];
+// D4M (engine d4Index → 2×2 matrix, plain-font fallback label) is the calibrated
+// D4_MATRIX imported above — same source as the catalog, rotations correct.
 
 let lettersReady = false; // assignments loaded → glyphLetterAt resolves
 let showLabels = true;

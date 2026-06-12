@@ -554,4 +554,6 @@ export {
     renderState,
     ensureBabyBlocksLoaded,
     babyBlocksReady,
+    D4_TO_BABY,
+    D4_MATRIX,
 };
