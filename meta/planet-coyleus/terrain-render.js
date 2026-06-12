@@ -283,11 +283,19 @@ export function drawQuadrant(canvas, rung, view, hover, selected) {
         ctx.stroke();
     }
 
-    // selected cage (solid accent) + hover (faint), interaction feedback
+    // selected cage: a high-contrast double ring (dark halo + bright core) so
+    // it reads against any terrain fill, including warm/yellow glyphs.
     if (selected) {
-        ctx.strokeStyle = isLight ? "#b07d12" : "#e0bd6e";
-        ctx.lineWidth = 3;
-        ctx.strokeRect(Xs(selected.C) + 1.5, Ys(selected.R) + 1.5, secW - 3, secH - 3);
+        const sx = Xs(selected.C);
+        const sy = Ys(selected.R);
+        // outer dark halo
+        ctx.strokeStyle = "rgba(0,0,0,0.78)";
+        ctx.lineWidth = 5;
+        ctx.strokeRect(sx + 2.5, sy + 2.5, secW - 5, secH - 5);
+        // bright core ring (vivid magenta/cyan — sits off the glyph palette)
+        ctx.strokeStyle = isLight ? "#d6006e" : "#36e0ff";
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(sx + 2.5, sy + 2.5, secW - 5, secH - 5);
     }
     if (hover && (!selected || hover.R !== selected.R || hover.C !== selected.C)) {
         ctx.strokeStyle = isLight ? "rgba(176,125,18,0.5)" : "rgba(216,181,106,0.5)";
