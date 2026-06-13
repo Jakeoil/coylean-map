@@ -72,12 +72,18 @@ const state = {
     panX: 0,
     panY: 0,
     mirror: false, // through the main diagonal (D1 looking-glass): starts at H
+    curH: 1, // longitude anchor ∈ {0,1} (lon toggle) — rungMap's curH
+    curV: 1, // latitude anchor ∈ {0,1} (lat toggle) — rungMap's curV
     theme: "dark",
     grow: 1.5, // snap proportion: 1.5 = grow to 3:2 (default) · 2 = grow to 2:1
     autoscale: true, // on = auto-fit the whole map; off = hold the cell grain
     heldScale: 0, // px-per-cell captured when autoscale is switched off
     showCells: false, // lines (the Coylean square) carry it; cells optional
     showLines: true,
+    // "no one needs to get fatter": off = the honest fat grow (cells stretch
+    // anisotropically with the box); on = subdivide (square cells, the box
+    // letterboxes, so the doubling shows as more cells, never fatter ones).
+    subdivide: false,
 };
 let lastFitScale = 1; // most recent auto-fit grain (for the clutch to grab)
 
@@ -87,10 +93,11 @@ let lastFitScale = 1; // most recent auto-fit grain (for the clutch to grab)
 // genuine Coylean square: V rungs) and between them it is a `grow`:1 rectangle
 // (H rungs). At 2:1 the H cells fatten back to squares; at 3:2 they stay 3:4.
 
-// rung cache wrapper (terrain-core already caches; this keeps anchor 1/1)
+// rung cache wrapper (terrain-core caches by key). Anchor = the lon/lat toggles
+// (curH/curV); 1/1 is the clean baseline.
 const rung = (kInt) => {
     const r = ladderRung(kInt);
-    return rungMap(r.order, r.seniorityH, 1, 1);
+    return rungMap(r.order, r.seniorityH, state.curH, state.curV);
 };
 
 // ── draw one rung's field into a pixel box, at a given alpha ──
@@ -103,8 +110,15 @@ const rung = (kInt) => {
 function drawRung(m, px, py, pw, ph, alpha) {
     const Wc = m.Mc - 1; // 2ⁿ interior columns
     const Hc = m.Mr - 1; // 2ⁿ interior rows
-    const cw = pw / Wc;
-    const ch = ph / Hc;
+    let cw = pw / Wc;
+    let ch = ph / Hc;
+    if (state.subdivide) {
+        // honest square cells — no fattening; centre in the (possibly wider)
+        // grow box, which then letterboxes instead of stretching the cells
+        cw = ch = Math.min(cw, ch);
+        px += (pw - cw * Wc) / 2;
+        py += (ph - ch * Hc) / 2;
+    }
     ctx.globalAlpha = alpha;
 
     // The ∞ frame (pri(0)) comes out as the maxPri cap (e.g. 32); remap it to
@@ -328,6 +342,23 @@ el("mirror").onclick = () => {
     state.mirror = !state.mirror;
     el("mirror").classList.toggle("on", state.mirror);
 };
+// Orientation triple: lon (↔ = curH) and lat (↕ = curV) anchor toggles ∈ {0,1},
+// plus the looking-glass above. The rAF loop re-reads rung() each frame, so a
+// toggle just updates state + the button face.
+function syncOrient() {
+    const lon = el("lonBtn");
+    const lat = el("latBtn");
+    if (lon) {
+        lon.textContent = "↔ " + state.curH;
+        lon.classList.toggle("on", state.curH === 1);
+    }
+    if (lat) {
+        lat.textContent = "↕ " + state.curV;
+        lat.classList.toggle("on", state.curV === 1);
+    }
+}
+if (el("lonBtn")) el("lonBtn").onclick = () => { state.curH ^= 1; syncOrient(); };
+if (el("latBtn")) el("latBtn").onclick = () => { state.curV ^= 1; syncOrient(); };
 // snap proportion: switch the growth between 3:2 and 2:1 (3:2 is the default).
 function syncSnap() {
     el("snap").textContent =
@@ -371,6 +402,9 @@ const stepRung = (dir) => {
 el("stepf").onclick = () => stepRung(1);
 el("cells").onchange = (e) => (state.showCells = e.target.checked);
 el("lines").onchange = (e) => (state.showLines = e.target.checked);
+// "no one needs to get fatter" → subdivide (square cells) instead of the fat grow
+if (el("fatter"))
+    el("fatter").onchange = (e) => (state.subdivide = e.target.checked);
 
 // ── light / dark theme ──
 function applyTheme(t) {
@@ -434,5 +468,6 @@ cv.addEventListener(
 syncTransport();
 syncSnap();
 syncAutoscale();
+syncOrient();
 resize();
 requestAnimationFrame(frame);

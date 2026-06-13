@@ -323,11 +323,14 @@
                         <button class="ctl primary" id="play">Play ▶</button>
                         <button class="ctl" id="stepf">fwd ▸</button>
                     </div>
+                    <h2>Orientation</h2>
                     <div class="btns">
-                        <button class="ctl" id="reset">Reset ↺</button>
-                        <button class="ctl" id="mirror">⟍ Looking-glass</button>
+                        <button class="ctl on" id="lonBtn" title="longitude anchor (curH) ∈ {0,1}">↔ 1</button>
+                        <button class="ctl on" id="latBtn" title="latitude anchor (curV) ∈ {0,1}">↕ 1</button>
+                        <button class="ctl" id="mirror" title="looking-glass (D1 transpose)">⟍ glass</button>
                     </div>
                     <div class="btns">
+                        <button class="ctl" id="reset">Reset ↺</button>
                         <button class="ctl on" id="snap">Snap 3:2 ⇄ 2:1</button>
                         <button class="ctl on" id="autoscale">⟲ Autoscale — on</button>
                     </div>
@@ -352,6 +355,10 @@
                         <label
                             ><input type="checkbox" id="lines" checked />Lines
                             (the Coylean square)</label
+                        >
+                        <label
+                            ><input type="checkbox" id="fatter" />no one needs to
+                            get fatter (subdivide)</label
                         >
                     </div>
                     <p class="hint">
