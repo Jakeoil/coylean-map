@@ -26,7 +26,6 @@ import {
     V_TO_H,
     H_TO_V,
 } from "../superglyphs/tests/rules.mjs";
-import { oklchHex } from "../4d/src/oklch-ramps.js";
 
 const V = Seniority.vertical();
 const H = Seniority.horizontal();
@@ -62,28 +61,6 @@ const CELL_PERM = [
     [3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12],
     [0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15],
     [15, 11, 7, 3, 14, 10, 6, 2, 13, 9, 5, 1, 12, 8, 4, 0],
-];
-
-// ── terrain ramps (OKLCH) ──
-const hexOf = (n) => "#" + (n & 0xffffff).toString(16).padStart(6, "0");
-function ramp(name, hue, stops) {
-    return {
-        name,
-        hue,
-        stops: Object.entries(stops).map(([label, [L, C]]) => ({
-            label,
-            hex: hexOf(oklchHex(L, C, hue)),
-        })),
-    };
-}
-export const TERRAINS = [
-    ramp("water", 245, { deep: [0.3, 0.1], mid: [0.45, 0.13], shallow: [0.62, 0.11], foam: [0.85, 0.04] }),
-    ramp("forest", 145, { dark: [0.38, 0.1], canopy: [0.52, 0.14], meadow: [0.68, 0.13], dry: [0.8, 0.1] }),
-    ramp("desert", 75, { shadow: [0.55, 0.08], sand: [0.72, 0.1], bright: [0.84, 0.09], pale: [0.92, 0.05] }),
-    ramp("mountain", 55, { rock: [0.4, 0.04], scree: [0.55, 0.03], bare: [0.7, 0.02], snow: [0.95, 0.01] }),
-    ramp("mars", 32, { basalt: [0.32, 0.06], rust: [0.48, 0.12], ochre: [0.62, 0.11], dust: [0.78, 0.06] }),
-    ramp("ice", 262, { deep: [0.42, 0.09], glacier: [0.6, 0.1], frost: [0.78, 0.07], rime: [0.92, 0.03] }),
-    ramp("dusk", 305, { shadow: [0.34, 0.1], heather: [0.5, 0.14], glow: [0.66, 0.13], haze: [0.82, 0.08] }),
 ];
 
 // ── orbit model ──

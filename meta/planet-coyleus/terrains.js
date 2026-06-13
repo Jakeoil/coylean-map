@@ -5,7 +5,6 @@
 
 import {
     LETTERS,
-    TERRAINS,
     cellsFor,
     focusGlyph,
     letterTag,
@@ -31,6 +30,7 @@ import {
     cageClientRect,
     setTheme,
 } from "./terrain-render.js";
+import { oklchHex } from "../4d/src/oklch-ramps.js";
 
 const SIZES = { focus: 220, sub: 88, trans: 80, bar: 6 };
 
@@ -42,7 +42,7 @@ const state = {
     // anonymous selection: a specific glyph {grid,d,r} with no map location
     // (shift-right-click a child in the editor). Takes precedence over cursor.
     member: null,
-    color: TERRAINS[0].stops[2].hex, // a mid water stop to start
+    color: null, // active paint hex; set from the loaded ramps (see loadRamps)
     curH: 1, // longitude anchor (0/1)
     curV: 1, // latitude anchor (0/1)
     seniorityH: false, // follows the current map rung
@@ -309,11 +309,94 @@ function buildPalette() {
     }
 }
 
+// ── color ramps (loaded from terrain-ramps.json) ──
+// `palettes` is the full set of named swatch books; `activePalette` is the one
+// the tray currently shows. A ramp's stored OKLCH (hue + per-stop [L,C]) is
+// resolved to hex here — the controller owns this since core stays fetch-free.
+let palettes = [];
+let activePalette = null;
+
+// Remember the chosen palette across reloads.
+const PALETTE_KEY = "planet-coyleus.palette";
+function savedPaletteId() {
+    try {
+        return localStorage.getItem(PALETTE_KEY);
+    } catch (e) {
+        return null;
+    }
+}
+
+const hexOf = (n) => "#" + (n & 0xffffff).toString(16).padStart(6, "0");
+function buildRamp(spec) {
+    return {
+        name: spec.name,
+        hue: spec.hue,
+        stops: Object.entries(spec.stops).map(([label, [L, C]]) => ({
+            label,
+            hex: hexOf(oklchHex(L, C, spec.hue)),
+        })),
+    };
+}
+
+// A single neutral ramp, used only if terrain-ramps.json fails to load so the
+// page still paints.
+const FALLBACK_PALETTE = {
+    id: "grey",
+    label: "Grey",
+    ramps: [buildRamp({ name: "grey", hue: 250, stops: { dark: [0.35, 0.01], mid: [0.55, 0.01], light: [0.75, 0.01], pale: [0.9, 0.01] } })],
+};
+
+async function loadRamps() {
+    try {
+        const res = await fetch("./terrain-ramps.json");
+        const data = await res.json();
+        palettes = data.palettes.map((p) => ({
+            id: p.id,
+            label: p.label,
+            ramps: p.ramps.map(buildRamp),
+        }));
+    } catch (err) {
+        console.warn("terrain-ramps.json failed to load:", err);
+        palettes = [FALLBACK_PALETTE];
+    }
+    const remembered = savedPaletteId();
+    activePalette = palettes.find((p) => p.id === remembered) || palettes[0];
+    // start on a mid stop of the active palette's first ramp
+    const r0 = activePalette.ramps[0];
+    state.color = r0.stops[Math.min(2, r0.stops.length - 1)].hex;
+}
+
+// Switch the visible swatch book. Painted cells keep their stored hex — this
+// only changes which swatches the tray offers, not the map.
+function setPalette(id) {
+    const p = palettes.find((q) => q.id === id);
+    if (!p || p === activePalette) return;
+    activePalette = p;
+    try {
+        localStorage.setItem(PALETTE_KEY, p.id);
+    } catch (e) {
+        /* no storage */
+    }
+    buildColors();
+    markColor();
+}
+
 // ── sidebar: color tray ──
 function buildColors() {
     const box = $("colors");
     box.innerHTML = "";
-    for (const terrain of TERRAINS) {
+    if (palettes.length > 1) {
+        const switcher = el("div", "pal-switch");
+        for (const p of palettes) {
+            const b = el("button", "chip act");
+            b.textContent = p.label;
+            b.classList.toggle("on", p === activePalette);
+            b.addEventListener("click", () => setPalette(p.id));
+            switcher.appendChild(b);
+        }
+        box.appendChild(switcher);
+    }
+    for (const terrain of activePalette.ramps) {
         const row = el("div", "ramp");
         const label = el("span", "ramp-name");
         label.textContent = terrain.name;
@@ -352,6 +435,7 @@ function buildColors() {
 
 function markColor() {
     document.querySelectorAll("#colors .chip").forEach((chip) => {
+        if (chip.closest(".pal-switch")) return; // palette toggles own their .on
         const sel =
             (state.color === null && chip.classList.contains("erase")) ||
             chip.dataset.hex === state.color;
@@ -817,7 +901,8 @@ function buildIO() {
     });
 }
 
-export function init() {
+export async function init() {
+    await loadRamps(); // ramps drive the color tray + initial paint color
     const themeToggle = $("theme-toggle");
     themeToggle.checked = !state.light; // checked = dark
     themeToggle.addEventListener("change", () => {
