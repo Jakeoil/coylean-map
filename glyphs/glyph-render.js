@@ -22,6 +22,10 @@ const renderState = {
     useBabyBlocks: false,
     babyBlocksOutline: true,
     showIndices: false,
+    // Override the block fill (null = the SVG's own per-letter color) and the
+    // overlay opacity. Defaults reproduce the historical faint-overlay look.
+    babyBlocksColor: null,
+    babyBlocksAlpha: 0.45,
 };
 let babyBlocks = null; // lazy-loaded Baby Blocks instance
 
@@ -206,18 +210,21 @@ function drawGlyph(canvas, downCode, rightCode, seniority, fTransform) {
         if (renderState.useBabyBlocks && babyBlocks) {
             const d4 = ftToD4Glyph(fTransform);
             const blockSize = GRID_CELLS * CELL_PX;
+            const bbOpts = {
+                transform: d4,
+                outline: renderState.babyBlocksOutline,
+            };
+            if (renderState.babyBlocksColor)
+                bbOpts.color = renderState.babyBlocksColor;
             ctx.save();
-            ctx.globalAlpha = 0.45;
+            ctx.globalAlpha = renderState.babyBlocksAlpha;
             babyBlocks.drawDirect(
                 ctx,
                 fTransform[0],
                 gridCx,
                 gridCy,
                 blockSize,
-                {
-                    transform: d4,
-                    outline: renderState.babyBlocksOutline,
-                },
+                bbOpts,
             );
             ctx.restore();
         } else {
@@ -473,12 +480,12 @@ function drawCoyleanMap(canvasEl, model, opts) {
                 if (mapBB && babyBlocks) {
                     const d4 = ftToD4Glyph(ft);
                     const blockSize = 4 * cell;
+                    const bbOpts = { transform: d4, outline: mapBBOutline };
+                    if (renderState.babyBlocksColor)
+                        bbOpts.color = renderState.babyBlocksColor;
                     ctx.save();
-                    ctx.globalAlpha = 0.45;
-                    babyBlocks.drawDirect(ctx, ft[0], cx, cy, blockSize, {
-                        transform: d4,
-                        outline: mapBBOutline,
-                    });
+                    ctx.globalAlpha = renderState.babyBlocksAlpha;
+                    babyBlocks.drawDirect(ctx, ft[0], cx, cy, blockSize, bbOpts);
                     ctx.restore();
                 } else {
                     const mapFontSize = 3 * cell;

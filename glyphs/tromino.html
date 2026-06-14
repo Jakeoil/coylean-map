@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Coylean Glyphs — Tromino Explorer</title>
+        <link rel="icon" type="image/png" href="../map-icon.png" />
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family: Menlo, Monaco, "Courier New", monospace;
+                background: #fff;
+                color: #222;
+                padding: 24px;
+                max-width: 1280px;
+                margin: 0 auto;
+            }
+            .breadcrumb {
+                font-size: 0.85rem;
+                color: #888;
+                margin-bottom: 12px;
+            }
+            .breadcrumb a {
+                color: #555;
+                text-decoration: none;
+            }
+            .breadcrumb a:hover {
+                text-decoration: underline;
+            }
+            h1 {
+                font-size: 1.5rem;
+                margin-bottom: 6px;
+            }
+            .subtitle {
+                color: #666;
+                font-size: 0.9rem;
+                margin-bottom: 16px;
+                max-width: 760px;
+                line-height: 1.5;
+            }
+            .subtitle b {
+                color: #222;
+            }
+
+            /* banner: the Home Anchor vs anchor lesson */
+            .banner {
+                border-radius: 8px;
+                padding: 10px 14px;
+                font-size: 0.86rem;
+                line-height: 1.45;
+                margin-bottom: 14px;
+            }
+            .banner.home {
+                background: #eef6ee;
+                border: 1px solid #bcd9bc;
+            }
+            .banner.away {
+                background: #fdf1e7;
+                border: 1px solid #efc9a3;
+            }
+
+            /* offset switcher */
+            .controls {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                align-items: center;
+                margin-bottom: 16px;
+            }
+            .off-btn {
+                font-family: inherit;
+                font-size: 0.78rem;
+                padding: 5px 12px;
+                border: 1px solid #ccc;
+                background: #fafafa;
+                color: #333;
+                border-radius: 6px;
+                cursor: pointer;
+            }
+            .off-btn.on {
+                background: #2b2b2b;
+                color: #fff;
+                border-color: #2b2b2b;
+            }
+
+            .layout {
+                display: grid;
+                grid-template-columns: 1fr 240px;
+                gap: 24px;
+                align-items: start;
+            }
+
+            /* the Coylean map (single canvas, with cage-wall bars) */
+            .panel-title {
+                font-size: 0.8rem;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                color: #999;
+                margin-bottom: 8px;
+            }
+            #map {
+                border: 1px solid #ddd;
+                width: fit-content;
+            }
+            .map-canvas {
+                display: block;
+                cursor: crosshair;
+                max-width: 100%;
+                height: auto;
+            }
+
+            /* catalog */
+            #catalog {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 6px;
+                max-height: 560px;
+                overflow-y: auto;
+                padding-right: 4px;
+            }
+            .cat-item {
+                border: 1px solid #e5e5e5;
+                border-radius: 6px;
+                padding: 4px;
+                text-align: center;
+                cursor: pointer;
+                background: #fff;
+            }
+            .cat-item:hover {
+                border-color: #aaa;
+            }
+            .cat-item.on {
+                border-color: #c026d3;
+                box-shadow: 0 0 0 1px #c026d3;
+            }
+            .cat-item.ambig {
+                background: #fdf1e7;
+            }
+            .cat-item .g {
+                display: block;
+                width: 100%;
+                height: auto;
+                aspect-ratio: 1;
+            }
+            .cat-tag {
+                font-size: 0.62rem;
+                color: #777;
+            }
+
+            /* floating tromino editor */
+            #editor {
+                position: fixed;
+                top: 120px;
+                right: 28px;
+                width: 300px;
+                background: #fff;
+                border: 1px solid #cbd5e1;
+                border-radius: 10px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+                z-index: 50;
+            }
+            #editor-bar {
+                background: #2b2b2b;
+                color: #fff;
+                padding: 8px 12px;
+                font-size: 0.8rem;
+                border-radius: 10px 10px 0 0;
+                cursor: move;
+                user-select: none;
+            }
+            .editor-body {
+                padding: 14px;
+            }
+            /* L-tromino: blank | N ; W | self */
+            #trom {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 6px;
+                width: 168px;
+                margin: 0 auto 4px;
+            }
+            .slot {
+                position: relative;
+                border: 2px solid #e5e5e5;
+                border-radius: 6px;
+                cursor: pointer;
+                background: #fff;
+            }
+            .slot.focus {
+                border-color: #c026d3;
+            }
+            .slot .g {
+                display: block;
+                width: 100%;
+                height: auto;
+                aspect-ratio: 1;
+            }
+            .slot-tag {
+                position: absolute;
+                bottom: 2px;
+                left: 0;
+                right: 0;
+                font-size: 0.6rem;
+                color: #888;
+                text-align: center;
+            }
+            .arrow {
+                text-align: center;
+                color: #999;
+                font-size: 0.8rem;
+                margin: 8px 0 6px;
+            }
+            #kids {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 4px;
+                width: 132px;
+                margin: 0 auto;
+                padding: 4px;
+                background: #f0f4ff;
+                border-radius: 6px;
+            }
+            #kids .g {
+                display: block;
+                width: 100%;
+                height: auto;
+                aspect-ratio: 1;
+                background: #fff;
+            }
+            #kids-note {
+                font-size: 0.66rem;
+                color: #b45309;
+                text-align: center;
+                margin-top: 6px;
+                min-height: 1em;
+            }
+            #readout {
+                margin-top: 12px;
+                font-size: 0.78rem;
+                line-height: 1.45;
+                color: #333;
+                border-top: 1px solid #eee;
+                padding-top: 10px;
+            }
+            #readout .ok {
+                color: #15803d;
+            }
+            #readout .bad {
+                color: #b45309;
+            }
+            .hint {
+                font-size: 0.72rem;
+                color: #999;
+                margin-top: 8px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="breadcrumb">
+            <a href="./index.html">← glyph catalog</a> ·
+            <a href="./substitution.html">substitution explorer</a>
+        </div>
+        <h1>Tromino Explorer</h1>
+        <p class="subtitle">
+            A <b>tromino</b> is not a bigger glyph — it is the 3-cell
+            <b>context key</b> <b>(self, North, West)</b> that decides how one
+            glyph refines into its 2×2 children. At the <b>Home Anchor</b> the
+            cage wall seals and <b>self alone</b> decides. At any other
+            <b>anchor</b> the wall leaks, so the same self splits differently
+            depending on its North and West neighbours — that is why you need the
+            L-tromino. Click any cell in the map to load its tromino; edit the
+            slots from the catalog.
+        </p>
+
+        <div id="banner" class="banner away"></div>
+
+        <div class="controls">
+            <span id="offsets"></span>
+        </div>
+
+        <div class="layout">
+            <div>
+                <div class="panel-title">Map (order 6 · vertical seniority)</div>
+                <div id="map"></div>
+            </div>
+            <div>
+                <div class="panel-title">
+                    Glyph catalog · complete set
+                </div>
+                <div id="catalog"></div>
+            </div>
+        </div>
+
+        <div id="editor">
+            <div id="editor-bar">⠿ Tromino — (self, N, W) → children</div>
+            <div class="editor-body">
+                <div id="trom"></div>
+                <div class="arrow">↓ refines to</div>
+                <div id="kids"></div>
+                <div id="kids-note"></div>
+                <div id="readout">
+                    Click a cell on the map to load its tromino.
+                </div>
+                <div class="hint">
+                    Click a slot to aim, then click a catalog glyph to set it.
+                </div>
+            </div>
+        </div>
+
+        <script type="module" src="./tromino.mjs"></script>
+    </body>
+</html>

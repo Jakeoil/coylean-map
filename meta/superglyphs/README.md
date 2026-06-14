@@ -1,10 +1,10 @@
 # superglyphs
 
 Working area for the **superglyph** program: lifting the fixed glyph catalog and
-its anchor-local translation rule from the 3×3 glyph up to the 255×255 block
+its home-local translation rule from the 3×3 glyph up to the 255×255 block
 inside a priority-≥8 cage.
 
-This README is the shared-vocabulary anchor. Definitions are ordered from the
+This README is the shared-vocabulary reference. Definitions are ordered from the
 ground up — each builds on the previous.
 
 > **⚠️ The universe is SEEDED, not hand-rolled. (This has tripped up every
@@ -12,8 +12,8 @@ ground up — each builds on the previous.
 > coherent finite map — **create the seed with `Propagation.fromUniverseExtents`
 > (or `fromUniverseBoundary(Universe.create(…))`) and grow it by substitution.**
 > Do **not** try to reconstruct the off-SE quadrants as reflections / D4-duals of
-> the SE map: the four quadrants sit at the four anchor offsets with *different
-> N/W padding*, so naive reflection fails (tested — 0 matches). Seeded from a real
+> the SE map: the four quadrants sit at the Home Anchor's four quads with
+> *different N/W padding*, so naive reflection fails (tested — 0 matches). Seeded from a real
 > `fromUniverseExtents` grid, the translation table expands **all four quadrants
 > correctly** with no extra work. Verified: `expand(seed @ ext 32)` equals
 > `universe @ ext 64` with **0 mismatches**, and every seed glyph already has a
@@ -87,25 +87,35 @@ of its four seams carries **3 cells**, not a single boolean.
 
 Lives in `glyphs/` (`glyph-core.js` is the Node-importable math layer).
 
-## Anchor points
+## The Home Anchor (and its quads)
 
-The **four dyadic offsets with latitude, longitude ∈ {0, 1}**:
-`0/0, 0/1, 1/0, 1/1` (latitude = `vInitRow`, N–S; longitude = `hInitCol`, E–W).
-The four corners of the unit dyadic cell at the origin.
+Every offset value is an **anchor** — a node of the dyadic quadtree carrying
+four quadrant children (NW/NE/SW/SE). One is distinguished: the **Home Anchor**,
+the origin and the dilation fixed point. In raw coordinates (`raw = offset − 1`)
+the doubling map `x ↦ 2x` fixes only `x = 0`. (We say "away from home," not
+"off-anchor" — there is no off-anchor; everything is an anchor and one of them
+is home.)
+
+The Home Anchor's **four quads** are the **dyadic offsets with latitude,
+longitude ∈ {0, 1}**: `0/0, 0/1, 1/0, 1/1` (latitude = `vInitRow`, N–S; longitude
+= `hInitCol`, E–W) — the four corners of the unit dyadic cell at the origin, and
+the four quadrants of the canonical universe (the same canonical map with
+different N/W padding).
 
 Their significance is algebraic, not merely positional. The glyph **translation
 rule** — the 4→1 dilation that sends a parent cage at absolute lattice
 `(Pr, Pc)` to its four children at `(2Pr−1 + 4i, 2Pc−1 + 4j)`, `i,j ∈ {0,1}` — is
-an **exact fixed point, a function of the glyph code alone, only on these four
-offsets**. (Translation is the full 2×2 step; it factors into two 2→1
-substitutions — see *Genealogy of a superglyph*.) There exactly **35 codes = 12 D4 orbits** appear, and that set *is* the
-whole table (for both V and H). The four anchors are the same canonical map with
-different N/W padding.
+an **exact fixed point, a function of the glyph code alone, only on the Home
+Anchor's quad family** `{0,1}²`. (Translation is the full 2×2 step; it factors
+into two 2→1 substitutions — see *Genealogy of a superglyph*.) There exactly
+**35 codes = 12 D4 orbits** appear, and that set *is* the whole table (for both V
+and H).
 
-Off-anchor (either coordinate ≥ 2) the rule is no longer a function of the code:
-the same code expands to different children in different places. It becomes a
-clean function only of the larger **(self, North, West) tromino**, and that table
-is **offset-specific**. So the anchors are the **only offsets where "glyph
+Anywhere beyond the home quads (either coordinate ≥ 2) an offset drifts `×2` per
+cage-level away from home, and the rule is no longer a function of the code: the
+same code expands to different children in different places. It becomes a clean
+function only of the larger **(self, North, West) tromino**, and that table is
+**offset-specific**. So the home quads are the **only offsets where "glyph
 translation" works** — where growth is a code→codes rule rather than a
 position-dependent neighborhood rule.
 
@@ -138,11 +148,12 @@ a **255×255 (`2⁸−1`) block** of reaction boxes, walled by valuation-≥8 li
 Just as the 3×3 glyph is the unit at cage level 2, the 255×255 superglyph is the
 unit at cage level 8. The research question is how the glyph's structure lifts:
 
-- **Translation / substitution.** For glyphs, translation is anchor-local — clean
-  only at the four `{0,1}²` offsets, with a 12-orbit alphabet. The open question
-  is the superglyph analogue: a priority-≥8 cage nests a *sequence* of dilations,
-  and the composite stays describable by translation only when every level lands
-  its sub-offset back on the anchor family. The admissible 255×255 superglyphs
+- **Translation / substitution.** For glyphs, translation is home-local — clean
+  only at the Home Anchor's four `{0,1}²` quads, with a 12-orbit alphabet. The
+  open question is the superglyph analogue: a priority-≥8 cage nests a *sequence*
+  of dilations, and the composite stays describable by translation only when
+  every level lands its sub-offset back on the home quads. The admissible 255×255
+  superglyphs
   should be the substitution-closure of the 12-orbit alphabet under the cage
   depth — a **subset** of all order-7-ish windows, not the full count. (Open;
   to be measured in Node against the existing `glyphs/test-tromino-crossorder`,
@@ -176,7 +187,7 @@ Between scales there are **two reduction maps**, two paths of different grain:
 
 - **Translation — 4 → 1.** The full isotropic dilation by 2: a `2×2` arrangement
   of four child cages collapses to one parent cage (the `(2P−1 + 4i, 2P−1 + 4j)`
-  rule of the anchor section, read in the ancestry direction). One translation =
+  rule of the home quads, read in the ancestry direction). One translation =
   **one whole cage level** (`k → k+1`). This is the primary path for the
   superglyph program.
 
@@ -205,8 +216,8 @@ back in V, one whole cage level deeper.
          split → 2 H)               vertically → 2 V)             one cage level)
 ```
 
-**Verified** — `tests/two-substitutions-make-a-translation.mjs`. On the anchor
-fixed-point map, v→h and h→v are each a clean function of the glyph code (0
+**Verified** — `tests/two-substitutions-make-a-translation.mjs`. On the Home
+Anchor's fixed-point map, v→h and h→v are each a clean function of the glyph code (0
 conflicts; 27 V codes, 32 H codes), and composing the two rule tables reproduces
 the direct 4→1 translation exactly (0 mismatches). So the **translation table is
 the generalized shortcut** that collapses this V→H→V round trip into one
@@ -235,13 +246,13 @@ recovered exactly from the half-steps (35/35): the single v→h bar IS both
 vertical separators (`vTop = vBot = v→h bar`, unbroken — 35/35), and the two h→v
 bars are the two horizontal separators (`hLeft`, `hRight`, independent). So a
 superglyph's full "DNA" — codes *and* bars — descends through the V→H→V round
-trip. (See *Bars are cage walls* below for what the bars then reveal about
-anchors.)
+trip. (See *Bars are cage walls* below for what the bars then reveal about the
+Home Anchor.)
 
 > **Out of scope here — the (self, N, W) tromino.** The tromino rule is the
-> machinery for the **non-anchor-point** regime; it does not belong to this
-> anchor-point genealogy. Set it aside — superglyph genealogy is studied on the
-> anchor family only, where translation is a clean function of the code.
+> machinery for the **away-from-home** regime; it does not belong to this
+> Home-Anchor genealogy. Set it aside — superglyph genealogy is studied on the
+> home quads only, where translation is a clean function of the code.
 
 ## Scaling up to the superglyph — the catalog closes
 
@@ -279,37 +290,37 @@ Two results:
 Using the translation table (the 4→1 shortcut) is what makes this cheap:
 each level is a doubling by lookup, not a fresh `O(4ⁿ)` propagation.
 
-## Bars are cage walls — the anchor's magic
+## Bars are cage walls — the Home Anchor's magic
 
 A **bar** (separator) is a **cage wall**: a high-valuation priority line
-dividing a cage into children. The bars turn out to *carry* the whole anchor
-property. Measured (`tests/bars.mjs`, order-7 parents = 961 cages):
+dividing a cage into children. The bars turn out to *carry* the whole Home
+Anchor property. Measured (`tests/bars.mjs`, order-7 parents = 961 cages):
 
 | offset | broken vertical walls | wall-ambiguous codes |
 |---|---|---|
-| **1/1 anchor** | **0** | **0** |
-| 2/2, 5/3, 3/5 (off) | 174 | 27 / 46 / 58 |
+| **1/1 Home Anchor** | **0** | **0** |
+| 2/2, 5/3, 3/5 (away) | 174 | 27 / 46 / 58 |
 
-On the anchor every cage's vertical wall is **unbroken** (`vTop=vBot`) *and* a
-function of the glyph code. Off-anchor the walls **break** and the same code
-walls both ways.
+At the Home Anchor every cage's vertical wall is **unbroken** (`vTop=vBot`)
+*and* a function of the glyph code. Away from home the walls **break** and the
+same code walls both ways.
 
 **Proposed why** (ties the bars to the [[project_reaction_box]] /
-conservation-of-information picture): a cage wall lies on a valuation line. At an
-anchor offset the priority lattice is aligned to the dyadic origin, so each
+conservation-of-information picture): a cage wall lies on a valuation line. At
+the Home Anchor the priority lattice is aligned to the dyadic origin, so each
 cage's midline falls on a line running the cage's **full height** → an intact
 wall. An intact wall **seals** the cage (seniority resolves the wall before the
 interior), so the interior is fed only through the cage's own seam → its
 refinement is a pure function of its code = clean substitution = translation
-works. Off-anchor the lattice is shifted (`firstDark ≠ 0`), the midline
+works. Away from home the lattice is shifted (`firstDark ≠ 0`), the midline
 straddles, the wall **leaks**, and refinement starts depending on neighbours —
 the `(self, N, W)` tromino regime. In one line:
 
-> **intact wall  ⟺  sealed cage  ⟺  code-determined substitution  ⟺  anchor.**
+> **intact wall  ⟺  sealed cage  ⟺  code-determined substitution  ⟺  Home Anchor.**
 
-## Saving work in big-map (anchor offsets only)
+## Saving work in big-map (home quads only)
 
-Because the anchor map is a substitution fixed point, a section's glyph is a
+Because the home map is a substitution fixed point, a section's glyph is a
 function of its **dyadic address** — so you can compute the glyph at *any*
 `(row, col)` of an order-M map by descending the translation table from a
 one-section root: **O(M) lookups, touching no neighbours, propagating nothing**.
@@ -327,12 +338,12 @@ section of the order-8 map (0 wrong), spot-checks deeper orders against truth,
 and pulls a single tile out of an order-30 map (~10⁹ cells/side — hopeless to
 propagate) in 28 lookups / a few µs.
 
-**The hard boundary is exactly the anchor family** `lat/long ∈ {0,1}`. Off-anchor
-the cage walls break (above), translation is no longer a function of the code,
-and big-map must fall back to propagation (or the offset-specific tromino rule).
-The four quadrants of the canonical universe all sit at anchor offsets
-(NW 0/0, NE 1/0, SW 0/1, SE 1/1), so the **default view qualifies wholesale**;
-a user-dialled non-anchor lat/long does not.
+**The hard boundary is exactly the Home Anchor's quad family** `lat/long ∈ {0,1}`.
+Away from home the cage walls break (above), translation is no longer a function
+of the code, and big-map must fall back to propagation (or the offset-specific
+tromino rule). The four quadrants of the canonical universe all sit at the Home
+Anchor's quads (NW 0/0, NE 1/0, SW 0/1, SE 1/1), so the **default view qualifies
+wholesale**; a user-dialled offset away from home does not.
 
 **Live page — `universe.html`.** A scrollable map built on exactly this:
 drag/zoom and jump to any cell up to `2⁴⁰` (≈1.1 trillion) per axis, each visible
@@ -375,30 +386,30 @@ in the same band-cell.)
 - Engine: `coylean-explorer/coylean-core.js` (`Propagation`, `Universe`).
 - Glyph math (Node-importable): `glyphs/glyph-core.js`.
 - Big-map / scaffold: `meta/big-map/`, `meta/big-map/NOTES_lazy_scaffold.md`.
-- Substitution scope & anchor-locality evidence: `glyphs/` `test-substitution*`,
+- Substitution scope & home-locality evidence: `glyphs/` `test-substitution*`,
   `test-tromino-*`, `test-offset-regimes`.
 - Domain background: top-level `README.md`, `ALGORITHM.md`.
 
 ### Pages
 
 - `universe.html` / `universe.mjs` — scrollable map; jump to any cell ≤ `2⁴⁰`
-  via O(order) address descent (anchor / SE-flowing map). Loads via
+  via O(order) address descent (Home Anchor / SE-flowing map). Loads via
   `<script type="module" src="./universe.mjs">`.
 
 ### tests/ — the rules library + Node checks
 
 - `rules.mjs` — the rule objects (`TRANSLATION_V/H`, `V_TO_H`, `H_TO_V`,
   `ORBIT_V/H`) + `expandTranslation`. `node rules.mjs` for a readable dump.
-- `translation-is-a-function.mjs` — translation is anchor-local (bedrock).
+- `translation-is-a-function.mjs` — translation is home-local (bedrock).
 - `two-substitutions-make-a-translation.mjs` — v→h then h→v = translation.
 - `between-every-two-v-orders-an-h-map.mjs` — the V/H/V ladder; rules transfer
   across orders.
 - `scale-up.mjs` — climb to the superglyph by table lookup; the catalog closes
   at 35 codes / 12 orbits.
 - `bars.mjs` — bars factor through V→H→V; the unbroken, code-determined cage
-  wall is the anchor's defining property (off-anchor the walls break).
-- `broken-wall-structure.mjs` — the off-anchor broken-wall count is a
+  wall is the Home Anchor's defining property (away from home the walls break).
+- `broken-wall-structure.mjs` — the away-from-home broken-wall count is a
   self-similar 2-adic function of the offset (lat gates, long scales); "174"
   was not an invariant.
-- `random-access-tile.mjs` — any tile by O(order) address descent (anchor
+- `random-access-tile.mjs` — any tile by O(order) address descent (home quads
   only); the big-map saving: random access, no propagation, no seam chain.
