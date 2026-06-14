@@ -126,3 +126,45 @@ undo, revert the commit.
 ## Effort
 ~17 dir-batches, 43 HTML pages get the import-map block, 64 importer files
 repointed. Independently shippable per batch; spread across sessions.
+
+---
+
+# Phases 8+ — shared widgets → `coylean/ui` (post core migration)
+
+Reusable UI now scattered in feature dirs (especially
+`coylean-explorer/src/display/`, a de-facto component library) gets hoisted to
+`coylean/ui/`. **Principle:** generic interaction / chrome / rendering →
+`coylean/ui/*`; pure map/glyph math stays in `coylean/core|glyphs`. (E.g. extent
+*math* stays in `coylean/core` — only the extent/range *control cluster* is UI.)
+
+**Tier A — relocate** (already-standalone modules; `git mv` + repoint, low risk):
+- **8. sliding-ruler** — `meta/sliding-ruler/volume-ruler-control` →
+  `src/ui/sliding-ruler` (`coylean/ui/sliding-ruler`). Consumers: conduits
+  `descent`/`unbiased-map` (import), `coylean-globe.html` (registers the custom
+  element via `<script src>`).
+- **9. explorer display generics** → `coylean/ui/`: `theme.js`, `svg.js`,
+  `save-svg.js`, `canvas-scene.js`, `svg-pan-zoom.js`, `wheel-input.js`,
+  `render-pipes.js` (+ `meta/pipes/pipe-junction.js`).
+- **10. viewport base** — `coylean-explorer/src/display/viewport.js` →
+  `coylean/ui/viewport`; then **converge** the ad-hoc pan/zoom pages (universe,
+  big-map/explore, coylean-globe, planet-coyleus/terrains, conduits) onto it
+  **incrementally** (browser-verified each).
+
+**Tier B — extract** (embedded in a page; a refactor, not a move):
+- **11. orientation triple** — factor `planet-coyleus/terrains.js` `buildOrient`
+  → `coylean/ui/orientation`.
+- **12. extent/range control cluster** — design one control API across
+  big-map / universe / coylean-globe / conduits → `coylean/ui/range`
+  (the math stays in core).
+
+**Aside — scaffold** → `coylean/scaffold` (sibling of core): `src/scaffold` ←
+`big-map/scaffold.mjs` + `tile.mjs` (engine only; pages + `worker.mjs` stay in
+`meta/big-map`). Node self-check gated (`selfcheck.mjs` → `npm test`).
+
+**Gotchas:**
+- A *bare* module name (`coylean/scaffold`, `coylean/ui/viewport`) needs BOTH a
+  `package.json` `exports` entry AND the import-map entry. A sub-path *with a
+  filename* (`coylean/ui/sliding-ruler/sliding-ruler.js`) is covered by the
+  relative `coylean/` wildcard — no new entry.
+- `<script src=…>` does NOT consult the import map — use a page-relative path
+  (e.g. `coylean-globe` registering the sliding-ruler custom element).

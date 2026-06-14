@@ -18,7 +18,7 @@
 // ════════════════════════════════════════════════════════════════════════
 import { rungMap } from "../planet-coyleus/terrain-core.js";
 import { ladderRung, aspW, aspH, ease, lerp } from "./ladder-kinematics.js";
-import { SlidingRuler } from "../sliding-ruler/volume-ruler-control/sliding-ruler.js";
+import { SlidingRuler } from "coylean/ui/sliding-ruler/sliding-ruler.js";
 
 // The ladder, from the seed up: k=0 is V0 (a 1×1 box), then it alternates
 // half-orders — V0,H0,V1,H1,…,V8 — the doubling sequence 1, v,h, 2v,2h, …, 8.

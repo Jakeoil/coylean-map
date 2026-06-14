@@ -21,7 +21,7 @@ import {
     Propagation,
     Seniority,
 } from "coylean/core";
-import { SlidingRuler } from "../sliding-ruler/volume-ruler-control/sliding-ruler.js";
+import { SlidingRuler } from "coylean/ui/sliding-ruler/sliding-ruler.js";
 import {
     glyphLetterAt,
     setWorkingAssignments,
