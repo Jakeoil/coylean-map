@@ -1,0 +1,13 @@
+{
+  "name": "coylean",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:imports": "node test/import-smoketest.mjs"
+  },
+  "exports": {
+    "./core": "./src/core/coylean-core.js",
+    "./*": "./src/*"
+  }
+}

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>coylean/ import smoke test</title>
+        <!-- the $SRC import map: bare prefix coylean/ → /src/ -->
+        <script type="importmap">
+            {
+                "imports": {
+                    "coylean/": "/src/",
+                    "coylean/core": "/src/core/coylean-core.js"
+                }
+            }
+        </script>
+        <style>
+            body { font-family: Menlo, monospace; padding: 24px; }
+            pre { font-size: 0.9rem; line-height: 1.5; white-space: pre-wrap; }
+        </style>
+    </head>
+    <body>
+        <h1>coylean/ import map smoke test</h1>
+        <pre id="out">running…</pre>
+        <script type="module" src="/import-smoketest.mjs"></script>
+    </body>
+</html>
