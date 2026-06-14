@@ -35,7 +35,7 @@ import {
     renderState,
     ensureBabyBlocksLoaded,
     babyBlocksReady,
-} from "./glyph-render.js";
+} from "coylean/ui/render";
 
 // ── Build 8×8 Grid ──
 

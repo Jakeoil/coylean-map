@@ -26,7 +26,7 @@ import {
     V_COLOR,
     renderState,
     ensureBabyBlocksLoaded,
-} from "./glyph-render.js";
+} from "coylean/ui/render";
 
 const SEC = 4;
 const V = Seniority.vertical();

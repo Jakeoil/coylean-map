@@ -534,9 +534,9 @@ function ensureBabyBlocksLoaded(cb) {
         cb();
         return;
     }
-    import("../baby-blocks/baby-blocks.js").then((mod) => {
+    import("/baby-blocks/baby-blocks.js").then((mod) => {
         calibrateBabyNames(mod.D4);
-        mod.BabyBlocks.load("../baby-blocks/AlphabetBlocks-complete.svg").then((bb) => {
+        mod.BabyBlocks.load("/baby-blocks/AlphabetBlocks-complete.svg").then((bb) => {
             babyBlocks = bb;
             cb();
         });

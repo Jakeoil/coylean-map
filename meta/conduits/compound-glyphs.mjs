@@ -24,7 +24,7 @@ import { BabyBlocks } from "../../baby-blocks/baby-blocks.js";
 import {
     D4_TO_BABY as D4B,
     D4_MATRIX as D4M,
-} from "../../glyphs/glyph-render.js";
+} from "coylean/ui/render";
 // engine d4Index → Jake's transform symbols (0 1 2 3 h v \ /)
 const SYM = ["0", "1", "2", "3", "h", "v", "\\", "/"];
 // D4M (engine d4Index → 2×2 matrix, plain-font fallback label) is the calibrated

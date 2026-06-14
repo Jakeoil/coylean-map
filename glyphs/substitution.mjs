@@ -44,7 +44,7 @@ import {
     hGlyphLabel,
     ensureBabyBlocksLoaded,
     babyBlocksReady,
-} from "./glyph-render.js";
+} from "coylean/ui/render";
 
 // Cells per section side (Coylean structural constant).
 const SEC = 4;

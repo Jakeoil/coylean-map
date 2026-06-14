@@ -9,6 +9,7 @@
   "exports": {
     "./core": "./src/core/coylean-core.js",
     "./glyphs": "./src/glyphs/glyph-core.js",
+    "./ui/render": "./src/ui/glyph-render.js",
     "./*": "./src/*"
   }
 }
