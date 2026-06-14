@@ -32,7 +32,7 @@ import {
     setWorkingAssignments,
     applyAssignments,
 } from "coylean/glyphs";
-import { BabyBlocks } from "/src/assets/baby-blocks/baby-blocks.js";
+import { BabyBlocks } from "../../src/assets/baby-blocks/baby-blocks.js";
 import { translationOf } from "../planet-coyleus/terrain-core.js";
 import { elabGlyphInto } from "./elaborate-glyph.js";
 
@@ -558,7 +558,7 @@ async function loadAssets() {
     }
     try {
         babyBlocks = await BabyBlocks.load(
-            "/src/assets/baby-blocks/AlphabetBlocks-complete.svg",
+            "../../src/assets/baby-blocks/AlphabetBlocks-complete.svg",
         );
         renderBadge(); // badge upgrades from font fallback to the baby block
     } catch (e) {

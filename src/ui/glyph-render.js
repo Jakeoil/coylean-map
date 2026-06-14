@@ -534,9 +534,11 @@ function ensureBabyBlocksLoaded(cb) {
         cb();
         return;
     }
-    import("/src/assets/baby-blocks/baby-blocks.js").then((mod) => {
+    // module-relative (import.meta.url) so it resolves at any deployment base
+    const bbBase = new URL("../assets/baby-blocks/", import.meta.url);
+    import(new URL("baby-blocks.js", bbBase).href).then((mod) => {
         calibrateBabyNames(mod.D4);
-        mod.BabyBlocks.load("/src/assets/baby-blocks/AlphabetBlocks-complete.svg").then((bb) => {
+        mod.BabyBlocks.load(new URL("AlphabetBlocks-complete.svg", bbBase).href).then((bb) => {
             babyBlocks = bb;
             cb();
         });

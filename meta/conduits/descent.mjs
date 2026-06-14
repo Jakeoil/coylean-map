@@ -27,7 +27,7 @@ import {
     setWorkingAssignments,
     applyAssignments,
 } from "coylean/glyphs";
-import { BabyBlocks } from "/src/assets/baby-blocks/baby-blocks.js";
+import { BabyBlocks } from "../../src/assets/baby-blocks/baby-blocks.js";
 import { COLOR_LIST, renderComplex } from "./elaborate-cell.js";
 // engine d4Index → baby-block transform name. The calibrated map from
 // glyph-render (Baby Blocks names its two rotations OPPOSITE to ours, so r/r³
@@ -614,7 +614,7 @@ async function loadLabels() {
     }
     try {
         babyBlocks = await BabyBlocks.load(
-            "/src/assets/baby-blocks/AlphabetBlocks-complete.svg"
+            "../../src/assets/baby-blocks/AlphabetBlocks-complete.svg"
         );
     } catch (e) {
         console.warn("descent: baby blocks load failed", e);

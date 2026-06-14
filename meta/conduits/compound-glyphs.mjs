@@ -16,7 +16,7 @@ import {
     setOffset,
 } from "coylean/glyphs";
 import { Seniority } from "coylean/core";
-import { BabyBlocks } from "/src/assets/baby-blocks/baby-blocks.js";
+import { BabyBlocks } from "../../src/assets/baby-blocks/baby-blocks.js";
 // engine d4Index → baby-block transform name. The calibrated map from
 // glyph-render (Baby Blocks names its two rotations OPPOSITE to ours, so r/r³
 // are swapped vs the naïve order — this is the corrected mapping). Imported so
@@ -87,7 +87,7 @@ async function loadAssets() {
     }
     try {
         babyBlocks = await BabyBlocks.load(
-            "/src/assets/baby-blocks/AlphabetBlocks-complete.svg"
+            "../../src/assets/baby-blocks/AlphabetBlocks-complete.svg"
         );
     } catch (e) {
         console.warn("compound-glyphs: baby blocks load failed", e);
