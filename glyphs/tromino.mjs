@@ -11,7 +11,7 @@
 //
 // Loaded by tromino.html via <script type="module" src="./tromino.mjs">.
 
-import { Seniority } from "../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import {
     setOffset,
     computeMapModel,

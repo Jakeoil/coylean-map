@@ -6,7 +6,7 @@
 //   * vector   — at higher zoom, lines drawn directly so they stay crisp.
 // Overlay: dyadic gridlines whose thickness grows with pri.
 
-import { pri, DEFAULT_MAX_PRI } from "../../coylean-explorer/coylean-core.js";
+import { pri, DEFAULT_MAX_PRI } from "coylean/core";
 
 export function autoMaxPri(L) {
     return Math.ceil(Math.log2(Math.max(2, L))) + 1;

@@ -16,7 +16,7 @@ import {
     Col,
     Seniority,
     DEFAULT_MAX_PRI,
-} from "../../coylean-explorer/coylean-core.js";
+} from "coylean/core";
 
 export function createScaffold({
     K,

@@ -9,7 +9,7 @@
 import {
     Propagation,
     Universe,
-} from "../../coylean-explorer/coylean-core.js";
+} from "coylean/core";
 
 const mode = process.argv[2];
 const size = Number(process.argv[3]);

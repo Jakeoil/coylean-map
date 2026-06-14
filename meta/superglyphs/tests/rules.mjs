@@ -26,7 +26,7 @@
 //
 //  Run `node rules.mjs` to print all three tables as a human-readable reference.
 
-import { Seniority } from "../../../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import {
     getSectionData,
     classifyVisualD4,

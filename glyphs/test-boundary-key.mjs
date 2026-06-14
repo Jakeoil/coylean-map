@@ -3,7 +3,7 @@
 // function of the 6-bit interior code? If yes, "cage-boundary conditioning"
 // is the fix; if still conflicting, we need superglyphs / deeper context.
 
-import { Seniority } from "../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import { computeMapModel, setOffset } from "./glyph-core.js";
 
 const SEC = 4;

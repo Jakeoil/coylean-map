@@ -24,7 +24,7 @@ import {
     pri,
     Seniority,
     DEFAULT_MAX_PRI,
-} from "../../coylean-explorer/coylean-core.js";
+} from "coylean/core";
 import { makeCellUniverse } from "../superglyphs/cell-descent.mjs";
 import { ORBIT_V, ORBIT_H, codeKey } from "../superglyphs/tests/rules.mjs";
 import { computeGlyphMatrices } from "../../glyphs/glyph-core.js";

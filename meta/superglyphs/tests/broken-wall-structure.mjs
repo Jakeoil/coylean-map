@@ -24,7 +24,7 @@
 //
 //  Run:  node meta/superglyphs/tests/broken-wall-structure.mjs
 
-import { Seniority } from "../../../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import { computeMapModel, setOffset } from "../../../glyphs/glyph-core.js";
 
 // Vertical walls per section, straight from the propagated child map (works at

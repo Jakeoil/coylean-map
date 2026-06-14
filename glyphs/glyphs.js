@@ -2,7 +2,7 @@
 //  Coylean Glyphs — 4×4 Section Catalog
 // ═══════════════════════════════════════════════════
 
-import { Seniority } from "../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import {
     setOffset,
     D4_NAMES,

@@ -25,7 +25,7 @@
 import {
     Propagation,
     Seniority,
-} from "../../coylean-explorer/coylean-core.js";
+} from "coylean/core";
 
 // Maximal runs of "on" cells down a column of downMatrix → [ [yStart, yEnd], … ]
 function colRuns(downMatrix, i, R) {

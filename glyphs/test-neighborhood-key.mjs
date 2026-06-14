@@ -3,7 +3,7 @@
 // N / W / NW neighbors. Condition the child-set on progressively larger
 // neighborhoods and watch the conflict count.
 
-import { Seniority } from "../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import { computeMapModel, setOffset } from "./glyph-core.js";
 
 const SEC = 4;

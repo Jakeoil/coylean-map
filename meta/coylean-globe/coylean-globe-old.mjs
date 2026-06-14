@@ -17,7 +17,7 @@
 // 2W × 2W cells with the axis at (W-1, W-1). maxPri = ceil(log2(2W)) makes the
 // axis the unique global priority maximum (no repetition within the universe).
 
-import { pri, Seniority } from "../../coylean-explorer/coylean-core.js";
+import { pri, Seniority } from "coylean/core";
 import {
     buildIntegratedScaffold,
     propagateBlock,

@@ -1,4 +1,4 @@
-import { pri } from "../../coylean-core.js";
+import { pri } from "coylean/core";
 import { svgEl, diamondPts } from "./svg.js";
 import { downArrowPath, rightArrowPath, downLineSeg, rightLineSeg, presetForPri } from "./arrows.js";
 import { renderEncroach } from "./encroach.js";

@@ -1,5 +1,5 @@
 "use strict";
-import { pri, Seniority, Propagation } from "./coylean-core.js";
+import { pri, Seniority, Propagation } from "coylean/core";
 
 let g; // canvas 2D context
 

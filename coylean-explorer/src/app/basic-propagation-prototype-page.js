@@ -1,4 +1,4 @@
-import { Seniority, Propagation, Universe } from "../../coylean-core.js";
+import { Seniority, Propagation, Universe } from "coylean/core";
 import { renderPropagation } from "../display/render-propagation.js";
 import { attachSvgPanZoom } from "../display/svg-pan-zoom.js";
 import { saveSvgFullExtent } from "../display/save-svg.js";

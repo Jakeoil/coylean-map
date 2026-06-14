@@ -7,7 +7,7 @@
 // priorities (low, high, low) with the middle having strictly greater 2-adic
 // valuation than both neighbours.
 
-import { Seniority, Propagation } from "../coylean-explorer/coylean-core.js";
+import { Seniority, Propagation } from "coylean/core";
 import { computeMapModel, setOffset } from "./glyph-core.js";
 
 const SEC = 4;

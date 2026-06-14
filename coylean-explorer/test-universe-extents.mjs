@@ -10,7 +10,7 @@
 //
 // Run: node coylean-explorer/test-universe-extents.mjs   (exit 0 = all pass)
 
-import { Propagation, Universe, Seniority } from "./coylean-core.js";
+import { Propagation, Universe, Seniority } from "coylean/core";
 
 function eqMatrix(a, b) {
     if (a.length !== b.length) return `row count ${a.length} vs ${b.length}`;

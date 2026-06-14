@@ -7,7 +7,7 @@
 // terrain ramps. See test/orbits-12.mjs and test/cell-d4.mjs for the proofs the
 // constants below rest on.
 
-import { Seniority } from "../../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import {
     classifyVisualD4,
     computePattern,

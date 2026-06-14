@@ -25,7 +25,7 @@
 //
 //  Run:  node meta/superglyphs/tests/random-access-tile.mjs
 
-import { Seniority } from "../../../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import { getSectionData } from "../../../glyphs/glyph-core.js";
 import { TRANSLATION_V, codeKey } from "./rules.mjs";
 

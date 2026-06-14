@@ -25,7 +25,7 @@
 //
 //  Run:  node meta/superglyphs/tests/scale-up.mjs
 
-import { Seniority } from "../../../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import { getSectionData } from "../../../glyphs/glyph-core.js";
 import {
     TRANSLATION_V,

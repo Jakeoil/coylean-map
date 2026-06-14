@@ -21,7 +21,7 @@
 // algorithmic. Likely won't, but worth eliminating.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { Seniority } from "../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import { computeMapModel, setOffset } from "./glyph-core.js";
 
 const SEC = 4;

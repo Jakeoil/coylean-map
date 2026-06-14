@@ -1,4 +1,4 @@
-import { Propagation } from "../../coylean-explorer/coylean-core.js";
+import { Propagation } from "coylean/core";
 import { buildScaffold } from "./scaffold.mjs";
 import { tile } from "./tile.mjs";
 import { makeTileBitmap, autoMaxPri } from "./render.mjs";

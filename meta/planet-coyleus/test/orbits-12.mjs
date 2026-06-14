@@ -17,7 +17,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-import { Seniority } from "../../../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import { classifyVisualD4, getSectionData } from "../../../glyphs/glyph-core.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));

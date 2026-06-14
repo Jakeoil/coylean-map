@@ -16,7 +16,7 @@
 //   mapCodes(seniority, order, …)  → 2-D array of [d, r] section codes
 //   compositeRects({ codes, … })   → [{ x, y, size, r, g, b, a }, …]
 
-import { Seniority } from "../../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import {
     getSectionData,
     computeMapModel,

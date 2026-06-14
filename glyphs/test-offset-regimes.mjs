@@ -4,7 +4,7 @@
 // divergence + which codes appear ("reachables") grouped into D4 orbits
 // (member-only). Do it for V and H.
 
-import { Seniority } from "../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import {
     getSectionData, computeMapModel, setOffset,
     computePattern, transformedPatternKey, classifyVisualD4, d4Compose,

@@ -1,4 +1,4 @@
-import { Seniority } from "../../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import {
     buildIntegratedScaffold, propagateBlock, isBlockBuilt, nextReadyAncestor,
 } from "./scaffold.mjs";

@@ -17,7 +17,7 @@
 // dyadic offsets, divergence reveals where and at what order the substitution
 // rule starts mispredicting the true propagation.
 
-import { Seniority, Propagation } from "../coylean-explorer/coylean-core.js";
+import { Seniority, Propagation } from "coylean/core";
 import {
     getSectionData,
     GLYPH_LETTERS,

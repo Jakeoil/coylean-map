@@ -1,5 +1,5 @@
 import { D as DEFAULT_D } from "./diagram-coords.js";
-import { pri } from "../../coylean-core.js";
+import { pri } from "coylean/core";
 
 // Styled after research/arrow.svg: filled shaft with rounded cap + chevron arrowhead
 

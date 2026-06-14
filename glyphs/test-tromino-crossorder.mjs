@@ -4,7 +4,7 @@
 // the same key gives different children at different orders, the tromino is
 // not a fixed point and we need deeper context.
 
-import { Seniority } from "../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import { computeMapModel, setOffset } from "./glyph-core.js";
 
 const SEC = 4, V = Seniority.vertical();

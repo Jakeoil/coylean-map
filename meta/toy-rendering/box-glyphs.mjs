@@ -19,7 +19,7 @@
 //
 // USAGE
 // -----
-//   import { Propagation } from "../../coylean-explorer/coylean-core.js";
+//   import { Propagation } from "coylean/core";
 //   import {
 //       LIGHT, HEAVY, DOUBLE,
 //       renderUniform, renderMixed, priorityWeight,
@@ -40,7 +40,7 @@
 //       downMatrix, rightMatrix, weight: priorityWeight,
 //   }));
 
-import { pri } from "../../coylean-explorer/coylean-core.js";
+import { pri } from "coylean/core";
 
 /**
  * Light box-drawing glyphs. 16 entries indexed by

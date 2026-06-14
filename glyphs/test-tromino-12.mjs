@@ -3,7 +3,7 @@
 // seed with it, and compare to the order-6 truth. Expect ~0 interior
 // divergence (vs ~182/256 with the 6-bit code table).
 
-import { Seniority } from "../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import { computeMapModel, setOffset } from "./glyph-core.js";
 
 const SEC = 4, V = Seniority.vertical();

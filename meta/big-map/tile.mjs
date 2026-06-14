@@ -3,7 +3,7 @@
 // is auto-extended to cover the requested block, so any (k1, k2) >= 0 is
 // valid — panning past the current extent just grows the universe out.
 
-import { Propagation } from "../../coylean-explorer/coylean-core.js";
+import { Propagation } from "coylean/core";
 import { extendScaffold } from "./scaffold.mjs";
 
 export function tile(scaffold, k1, k2) {

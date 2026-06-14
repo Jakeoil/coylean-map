@@ -33,7 +33,7 @@
 //
 //  Run:  node meta/superglyphs/tests/two-substitutions-make-a-translation.mjs
 
-import { Seniority } from "../../../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import { getSectionData } from "../../../glyphs/glyph-core.js";
 
 const V = Seniority.vertical();

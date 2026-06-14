@@ -1,4 +1,4 @@
-import { pri, reaction } from "../../coylean-core.js";
+import { pri, reaction } from "coylean/core";
 
 function valSpan(v) {
     return `<span class="${v ? "val-true" : "val-false"}">${v}</span>`;

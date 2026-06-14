@@ -3,7 +3,7 @@
 // n -> n+1 expansion (4 children + 4 internal separators) straight from the
 // map, and check the expansion is consistent across every occurrence.
 
-import { Seniority } from "../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import {
     getSectionData,
     computeMapModel,

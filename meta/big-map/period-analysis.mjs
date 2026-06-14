@@ -8,7 +8,7 @@
 //   maxLongPri  caps longitude (E–W, cols, hInitCol)
 // Period = smallest shift P with zero mismatch of the full (down,right) arrow
 // field over an interior window — measured E–W and N–S independently.
-import { Propagation, Seniority } from "../../coylean-explorer/coylean-core.js";
+import { Propagation, Seniority } from "coylean/core";
 
 const N = 520, R0 = 100, W = 200, PMAX = 160; // need R0 + W + PMAX <= N
 const V = Seniority.vertical(), H = Seniority.horizontal();

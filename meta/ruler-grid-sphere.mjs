@@ -10,7 +10,7 @@
 //     meridian segments, right-arrows as parallel segments, so the map's
 //     streamlines replace the ruled grid.
 
-import { Propagation } from "../coylean-explorer/coylean-core.js";
+import { Propagation } from "coylean/core";
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");

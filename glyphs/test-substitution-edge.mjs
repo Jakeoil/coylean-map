@@ -1,7 +1,7 @@
 // Verify substitution at 0/1, 1/0, 0/0 (the offsets adjacent to / containing
 // the 1/1 anchor). Same abs-lattice dilation rule as test-substitution-abs.mjs.
 
-import { Seniority } from "../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import { computeMapModel, setOffset } from "./glyph-core.js";
 
 const SEC = 4;

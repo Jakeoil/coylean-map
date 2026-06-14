@@ -7,7 +7,7 @@
 // If every occurrence of the same parent code produces the same 2x2 children,
 // the substitution rule is well-defined (a function of the parent code).
 
-import { Seniority } from "../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import { computeMapModel, setOffset } from "./glyph-core.js";
 
 function key(code) {

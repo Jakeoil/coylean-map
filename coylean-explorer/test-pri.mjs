@@ -1,7 +1,7 @@
 // Equivalence + perf check for pri() (bitwise) vs priLoop() (museum).
 // Usage: node test-pri.mjs
 
-import { pri, priLoop } from "./coylean-core.js";
+import { pri, priLoop } from "coylean/core";
 
 function eqv(n, maxPri) {
     const a = priLoop(n, maxPri);

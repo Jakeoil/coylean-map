@@ -33,7 +33,7 @@
 //    setOffset(long, lat)  → moves the dyadic location of the map (longitude =
 //        hInitCol E–W, latitude = vInitRow N–S). 1/1 is the clean anchor.
 
-import { Seniority } from "../../../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import { computeMapModel, setOffset } from "../../../glyphs/glyph-core.js";
 
 // A glyph code [downCode, rightCode] as a stable string key.

@@ -3,7 +3,7 @@
 // Propagation comes from ../../coylean-explorer/coylean-core.js;
 // see ./how-to-draw.md for the algorithm.
 
-import { Propagation } from "../../coylean-explorer/coylean-core.js";
+import { Propagation } from "coylean/core";
 
 const N = 8;
 

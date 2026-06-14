@@ -22,7 +22,7 @@
 //   const LZ=require("lz-string"); … decompressFromBase64(the compressed-json).
 
 import { TURTLE_PARADISE } from "./turtle-paradise-data.js";
-import { Seniority } from "../../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import {
     computeGlyphMatrices,
     computePattern,

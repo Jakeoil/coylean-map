@@ -9,7 +9,7 @@
 //
 //   node meta/planet-coyleus/test/ladder.mjs
 
-import { Seniority } from "../../../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import { setOffset, computeMapModel } from "../../../glyphs/glyph-core.js";
 import { paintCell } from "../terrain-core.js";
 

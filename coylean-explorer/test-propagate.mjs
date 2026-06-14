@@ -1,4 +1,4 @@
-import { Propagation } from "./coylean-core.js";
+import { Propagation } from "coylean/core";
 
 function countTrue(matrix) {
     let n = 0;

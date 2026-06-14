@@ -1,4 +1,4 @@
-import { pri } from "../../coylean-core.js";
+import { pri } from "coylean/core";
 import { svgEl, diamondPts } from "./svg.js";
 import { S, D, PAD, downPos, rightPos, cellPos } from "./diagram-coords.js";
 import { downArrowPath, rightArrowPath, downLineSeg, rightLineSeg, presetForPri } from "./arrows.js";

@@ -1,4 +1,4 @@
-import { pri } from "../../coylean-core.js";
+import { pri } from "coylean/core";
 import { S, PAD } from "./diagram-coords.js";
 import { presetForPri } from "./arrows.js";
 import { drawPipeJunctionSvg } from "../../../meta/pipes/pipe-junction.js";

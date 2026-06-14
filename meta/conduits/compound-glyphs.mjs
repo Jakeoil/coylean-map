@@ -15,7 +15,7 @@ import {
     glyphLetterAt,
     setOffset,
 } from "../../glyphs/glyph-core.js";
-import { Seniority } from "../../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import { BabyBlocks } from "../../baby-blocks/baby-blocks.js";
 // engine d4Index → baby-block transform name. The calibrated map from
 // glyph-render (Baby Blocks names its two rotations OPPOSITE to ours, so r/r³

@@ -8,7 +8,7 @@
 // imports only the engine, no DOM/canvas-state config. Used by the turtle
 // paradise hero (the "monster" = 2×2 split children) and the life-cycle page.
 
-import { Seniority } from "../../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import { computeGlyphMatrices } from "../../glyphs/glyph-core.js";
 
 export const ELAB = ["#9775fa", "#ffec99", "#b2f2bb", "#ffc9c9"]; // outer→inner

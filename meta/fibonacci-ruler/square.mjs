@@ -11,7 +11,7 @@
 import {
     Propagation,
     Universe,
-} from "../../coylean-explorer/coylean-core.js";
+} from "coylean/core";
 import { createViewport } from "./coylean-viewport.mjs";
 
 // Order ladders. Dyadic squares are powers of two; Fibonacci squares must be

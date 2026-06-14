@@ -17,7 +17,7 @@
 //  Works on the four anchor offsets {0,1}² × {V, H} — exactly the globe's
 //  Lat/Long/Sen orientation buttons. Off-anchor is not address-addressable.
 
-import { Seniority, Propagation } from "../../coylean-explorer/coylean-core.js";
+import { Seniority, Propagation } from "coylean/core";
 import { computeGlyphMatrices } from "../../glyphs/glyph-core.js";
 import { TRANSLATION_V, TRANSLATION_H, codeKey } from "./tests/rules.mjs";
 

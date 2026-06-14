@@ -4,7 +4,7 @@
 // self-code already suffices). Group offsets by firstDark, merge within group,
 // count within-group cross-offset conflicts.
 
-import { Seniority } from "../coylean-explorer/coylean-core.js";
+import { Seniority } from "coylean/core";
 import { computeMapModel, setOffset } from "./glyph-core.js";
 
 const SEC = 4, V = Seniority.vertical();

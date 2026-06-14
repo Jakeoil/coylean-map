@@ -11,7 +11,7 @@ import {
     Seniority,
     Propagation,
     Universe,
-} from "../coylean-explorer/coylean-core.js";
+} from "coylean/core";
 
 const NUM_CELLS = 3;
 

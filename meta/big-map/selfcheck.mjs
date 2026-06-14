@@ -4,7 +4,7 @@
 //
 // Usage: node selfcheck.mjs [L] [K]   (defaults: L=1024, K=128)
 
-import { Propagation } from "../../coylean-explorer/coylean-core.js";
+import { Propagation } from "coylean/core";
 import { buildScaffold } from "./scaffold.mjs";
 import { tile } from "./tile.mjs";
 

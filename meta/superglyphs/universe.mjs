@@ -21,7 +21,7 @@
 //  propagation. The universe is a substitution fixed point about its centre, so
 //  the origin lands exactly on the grid centre `2^(d-1)`: the fake is one offset.
 
-import { Seniority, Propagation } from "../../coylean-explorer/coylean-core.js";
+import { Seniority, Propagation } from "coylean/core";
 import { computeGlyphMatrices } from "../../glyphs/glyph-core.js";
 import { TRANSLATION_V, ORBIT_V, codeKey } from "./tests/rules.mjs";
 
