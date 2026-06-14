@@ -26,7 +26,7 @@ import {
     DEFAULT_MAX_PRI,
 } from "coylean/core";
 import { makeCellUniverse } from "../superglyphs/cell-descent.mjs";
-import { ORBIT_V, ORBIT_H, codeKey } from "../superglyphs/tests/rules.mjs";
+import { ORBIT_V, ORBIT_H, codeKey } from "coylean/glyphs/rules.mjs";
 import { computeGlyphMatrices } from "coylean/glyphs";
 
 // Glyph arrow matrices, cached per code+seniority (the actual Coylean segments a

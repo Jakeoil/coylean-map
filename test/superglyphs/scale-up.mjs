@@ -32,7 +32,7 @@ import {
     ORBIT_V,
     codeKey,
     expandTranslation,
-} from "./rules.mjs";
+} from "coylean/glyphs/rules.mjs";
 
 const V = Seniority.vertical();
 

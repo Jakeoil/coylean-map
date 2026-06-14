@@ -27,7 +27,7 @@
 
 import { Seniority } from "coylean/core";
 import { getSectionData } from "coylean/glyphs";
-import { TRANSLATION_V, codeKey } from "./rules.mjs";
+import { TRANSLATION_V, codeKey } from "coylean/glyphs/rules.mjs";
 
 const V = Seniority.vertical();
 

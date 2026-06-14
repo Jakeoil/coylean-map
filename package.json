@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "node test/run.mjs",
     "test:imports": "node test/import-smoketest.mjs"
   },
   "exports": {

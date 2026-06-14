@@ -19,7 +19,7 @@
 
 import { Seniority, Propagation } from "coylean/core";
 import { computeGlyphMatrices } from "coylean/glyphs";
-import { TRANSLATION_V, TRANSLATION_H, codeKey } from "./tests/rules.mjs";
+import { TRANSLATION_V, TRANSLATION_H, codeKey } from "coylean/glyphs/rules.mjs";
 
 const SEC = 4;
 

@@ -25,7 +25,7 @@ import {
     TRANSLATION_H,
     V_TO_H,
     H_TO_V,
-} from "../superglyphs/tests/rules.mjs";
+} from "coylean/glyphs/rules.mjs";
 
 const V = Seniority.vertical();
 const H = Seniority.horizontal();

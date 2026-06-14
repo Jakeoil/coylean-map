@@ -23,7 +23,7 @@
 
 import { Seniority, Propagation } from "coylean/core";
 import { computeGlyphMatrices } from "coylean/glyphs";
-import { TRANSLATION_V, ORBIT_V, codeKey } from "./tests/rules.mjs";
+import { TRANSLATION_V, ORBIT_V, codeKey } from "coylean/glyphs/rules.mjs";
 
 const V = Seniority.vertical();
 const SEC = 4;

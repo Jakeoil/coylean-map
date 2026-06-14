@@ -34,7 +34,7 @@ import {
     V_TO_H,
     H_TO_V,
     codeKey,
-} from "./rules.mjs";
+} from "coylean/glyphs/rules.mjs";
 
 // ── PART A : bars factor through the half-steps (anchor) ─────────────────
 function partA() {
