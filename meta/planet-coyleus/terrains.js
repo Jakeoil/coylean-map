@@ -31,6 +31,7 @@ import {
     setTheme,
 } from "./terrain-render.js";
 import { oklchHex } from "../4d/src/oklch-ramps.js";
+import { createOrientation, quadrantLabel } from "coylean/ui/orientation.js";
 
 const SIZES = { focus: 220, sub: 88, trans: 80, bar: 6 };
 
@@ -444,59 +445,40 @@ function markColor() {
 }
 
 // ── sidebar: orientation (the quadrant anchor; seniority is the ladder) ──
+// The orientation triple is the shared coylean/ui/orientation widget; the page
+// supplies the state snapshot + what each button does.
+let orient = null;
+const orientState = () => ({
+    h: state.curH,
+    v: state.curV,
+    seniorityH: state.seniorityH,
+});
+
 function buildOrient() {
-    const box = $("orient");
-    box.innerHTML = "";
-    const mk = (id, onClick) => {
-        const b = el("button", "orient-btn");
-        b.id = id;
-        b.addEventListener("click", onClick);
-        return b;
-    };
-    const btns = el("div", "orient-btns");
-    btns.append(
-        mk("longBtn", () => {
+    orient = createOrientation($("orient"), {
+        getState: orientState,
+        onLong: () => {
             state.curH ^= 1;
             orientChanged();
-        }),
-        mk("latBtn", () => {
+        },
+        onLat: () => {
             state.curV ^= 1;
             orientChanged();
-        }),
+        },
         // Seniority is the V/H ladder: toggling jumps to the sibling rung
         // (V_n ↔ H_n at the same order).
-        mk("senBtn", () => {
+        onSeniority: () => {
             jumpToRung(curK ^ 1);
             clampView();
             redraw();
-        }),
-    );
-    const label = el("div", "orient-label");
-    label.id = "orientLabel";
-    box.append(btns, label);
-    syncOrient();
-}
-
-function quadrantLabel() {
-    const ns = state.curV === 1 ? "S" : "N";
-    const ew = state.curH === 1 ? "E" : "W";
-    return state.seniorityH ? ew + ns : ns + ew;
-}
-
-function syncOrient() {
-    const lab = (sym, val) =>
-        `<span class="osym">${sym}</span><span class="oval">${val}</span>`;
-    $("longBtn").innerHTML = lab("↔", state.curH);
-    $("latBtn").innerHTML = lab("↕", state.curV);
-    $("senBtn").innerHTML = lab("⤢", state.seniorityH ? "H" : "V");
-    // The quadrant label's letter order (SE vs ES) already encodes seniority, so
-    // no redundant "· H/V".
-    $("orientLabel").textContent = quadrantLabel();
+        },
+    });
+    orient.sync();
 }
 
 // Quadrant anchor changed: relabel and re-render the map (relatives unaffected).
 function orientChanged() {
-    syncOrient();
+    orient.sync();
     redraw();
 }
 
@@ -657,7 +639,7 @@ function syncRung() {
         lastRung = rungMap(r.order, r.seniorityH, state.curH, state.curV);
         if (state.cursor) state.letter = letterAtCursor() || state.letter;
         refreshPanels();
-        syncOrient();
+        orient.sync();
         syncOrder();
     }
     return r;
@@ -671,7 +653,7 @@ function renderMap() {
     const tag = hover ? letterTag(hover.grid, hover.d, hover.r) : null;
     $("map-hud").textContent =
         `rung ${rungLabel(r.k)} · ${lastRung.NSr}×${lastRung.NSc} glyphs · ` +
-        quadrantLabel() +
+        quadrantLabel(orientState()) +
         (hover ? ` · ${tag || "·"} (${hover.grid}${hover.d}${hover.r})` : "");
 }
 
@@ -809,7 +791,7 @@ function flipQuadrant(axis) {
     else state.curH ^= 1;
     const r = rungAt(curK);
     lastRung = rungMap(r.order, r.seniorityH, state.curH, state.curV);
-    syncOrient();
+    orient.sync();
 }
 
 // Pan just enough to keep the selected cage on-screen (one-cage margin).
