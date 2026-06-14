@@ -18,6 +18,7 @@
 // ════════════════════════════════════════════════════════════════════════
 import { rungMap } from "../planet-coyleus/terrain-core.js";
 import { ladderRung, aspW, aspH, ease, lerp } from "./ladder-kinematics.js";
+import { SlidingRuler } from "../sliding-ruler/volume-ruler-control/sliding-ruler.js";
 
 // The ladder, from the seed up: k=0 is V0 (a 1×1 box), then it alternates
 // half-orders — V0,H0,V1,H1,…,V8 — the doubling sequence 1, v,h, 2v,2h, …, 8.
@@ -26,6 +27,17 @@ import { ladderRung, aspW, aspH, ease, lerp } from "./ladder-kinematics.js";
 const MAXK = 16; // …up to V8 (256×256). Deep rungs ride on lines alone (LOD).
 const FULL_SECONDS = 30; // superslow: the whole climb over ~30 s
 const FRAME_STEP = 0.05; // spacebar nudge — frame-by-frame through a morph
+// Velocity ruler: stepped −VEL_MAX … 0 … +VEL_MAX. 0 = paused, sign = direction.
+// Speed is GEOMETRIC so the dial starts out very slow — |v|=1 crawls (≈ one rung
+// every ~25 s) and each step ~×2.6, ramping to brisk only near the top.
+const VEL_MAX = 5;
+const SLOW_KPS = MAXK / 400; // |v|=1 climb speed (ladder units/sec): a crawl
+const stepKps = (v) =>
+    v === 0 ? 0 : Math.sign(v) * SLOW_KPS * 2.6 ** (Math.abs(v) - 1);
+// position clock: k maps to morph time t = k / KPS seconds (fixed reference).
+const KPS = MAXK / FULL_SECONDS;
+const fmtClock = (s) =>
+    Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
 
 const cv = document.getElementById("cv");
 const ctx = cv.getContext("2d");
@@ -65,9 +77,8 @@ const rampAt = (d) => {
 // ── view / animation state ──
 const state = {
     k: 0, // continuous ladder position (0 = V0, the 1×1 box … MAXK)
-    playing: false, // start paused on the seed — step it frame-by-frame
-    dir: 1, // +1 grows forward, −1 reverses (the reverse clutch)
-    speed: MAXK / FULL_SECONDS, // superslow default
+    velocity: 0, // ruler step −VEL_MAX…VEL_MAX; 0 = paused, sign = direction
+    dir: 1, // last non-zero direction (for frame-step orientation)
     userZoom: 1,
     panX: 0,
     panY: 0,
@@ -252,6 +263,18 @@ function render() {
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     syncReadout(kInt, f);
+
+    // HUD: apparent h:v line-length ratio (a horizontal cell edge vs a vertical
+    // one). Subdivide keeps cells square (1.00); the fat grow stretches them.
+    const hud = el("hud");
+    if (hud) {
+        let ratio = 1;
+        if (!state.subdivide) {
+            const m = f < 0.5 ? A : B;
+            ratio = (boxW / (m.Mc - 1)) / (boxH / (m.Mr - 1));
+        }
+        hud.textContent = "h:v " + ratio.toFixed(2);
+    }
 }
 
 // rung name V4/H4 — through the looking-glass V↔H swap, so the ladder reads as
@@ -265,6 +288,9 @@ function syncReadout(kInt, f) {
     const a = rungName(kInt);
     const b = rungName(kInt + 1);
     el("rung").textContent = f < 0.5 ? a : b;
+    // position clock: how far up the morph we are, in M:SS (k / KPS)
+    const clk = el("clock");
+    if (clk) clk.textContent = fmtClock(state.k / KPS);
     // V→H splits columns (grows wide); the mirror transposes that to rows/tall
     let splitCols = ladderRung(kInt).seniorityH === false;
     if (state.mirror) splitCols = !splitCols;
@@ -286,12 +312,11 @@ let last = performance.now();
 function frame(now) {
     const dt = (now - last) / 1000;
     last = now;
-    if (state.playing) {
-        state.k += state.dir * Math.max(0, dt) * state.speed;
+    if (state.velocity !== 0) {
+        state.k += stepKps(state.velocity) * Math.max(0, dt);
         if (state.k >= MAXK || state.k <= 0) {
             state.k = state.k >= MAXK ? MAXK : 0; // hit an end → stop
-            state.playing = false;
-            syncTransport();
+            setVelocity(0); // park the ruler at 0
         }
     }
     render();
@@ -308,36 +333,28 @@ function resize() {
 }
 window.addEventListener("resize", resize);
 
-// ── transport: reverse ◀ / play ▶, each a play↔pause toggle in its direction
-function syncTransport() {
-    const fwd = state.playing && state.dir > 0;
-    const rev = state.playing && state.dir < 0;
-    el("play").textContent = fwd
-        ? "Pause ❚❚"
-        : state.k >= MAXK
-          ? "Replay ↺"
-          : "Play ▶";
-    el("rev").textContent = rev ? "Pause ❚❚" : "◀ Rev";
+// ── transport: one velocity ruler, −VEL_MAX … 0 … +VEL_MAX (0 = paused) ──
+let velRuler = null;
+function setVelocity(v) {
+    state.velocity = Math.max(-VEL_MAX, Math.min(VEL_MAX, Math.round(v)));
+    if (state.velocity !== 0) state.dir = state.velocity > 0 ? 1 : -1;
+    if (velRuler && velRuler.getValue() !== state.velocity)
+        velRuler.setValue(state.velocity);
 }
-el("play").onclick = () => {
-    if (state.playing && state.dir > 0) state.playing = false;
-    else {
-        if (state.k >= MAXK) state.k = 0; // replay from the seed
-        state.dir = 1;
-        state.playing = true;
-    }
-    syncTransport();
-};
-el("rev").onclick = () => {
-    if (state.playing && state.dir < 0) state.playing = false;
-    else {
-        if (state.k <= 0) state.k = MAXK; // reverse from the top
-        state.dir = -1;
-        state.playing = true;
-    }
-    syncTransport();
-};
-el("speed").oninput = (e) => (state.speed = Number(e.target.value) / 100);
+function buildVelocityRuler() {
+    const c = el("velRuler");
+    if (!c) return;
+    velRuler = new SlidingRuler(c, {
+        min: -VEL_MAX,
+        max: VEL_MAX,
+        value: state.velocity,
+        visibleRange: 2 * VEL_MAX + 2,
+        height: 54,
+        labels: { [-VEL_MAX]: "◀◀", 0: "0", [VEL_MAX]: "▶▶" },
+        onChange: (v) => setVelocity(v),
+    });
+}
+buildVelocityRuler();
 el("mirror").onclick = () => {
     state.mirror = !state.mirror;
     el("mirror").classList.toggle("on", state.mirror);
@@ -389,16 +406,16 @@ el("reset").onclick = () => {
     state.k = 0;
     state.userZoom = 1;
     state.panX = state.panY = 0;
-    state.playing = false;
+    setVelocity(0);
     state.autoscale = true;
     syncAutoscale();
-    syncTransport();
 };
+// single step either way: pause, then nudge one rung
 const stepRung = (dir) => {
-    state.playing = false;
+    setVelocity(0);
     state.k = Math.max(0, Math.min(MAXK, Math.round(state.k) + dir));
-    syncTransport();
 };
+if (el("stepb")) el("stepb").onclick = () => stepRung(-1);
 el("stepf").onclick = () => stepRung(1);
 el("cells").onchange = (e) => (state.showCells = e.target.checked);
 el("lines").onchange = (e) => (state.showLines = e.target.checked);
@@ -421,13 +438,12 @@ applyTheme(localStorage.getItem("unbiased-theme") || "dark");
 window.addEventListener("keydown", (e) => {
     if (e.code === "Space") {
         e.preventDefault();
-        state.playing = false;
-        // step in the current direction so Space frame-steps a reverse too
+        setVelocity(0); // pause
+        // step in the last direction so Space frame-steps a reverse too
         state.k = Math.max(
             0,
             Math.min(MAXK, state.k + state.dir * FRAME_STEP),
         );
-        syncTransport();
     }
 });
 
@@ -465,7 +481,6 @@ cv.addEventListener(
     { passive: false },
 );
 
-syncTransport();
 syncSnap();
 syncAutoscale();
 syncOrient();

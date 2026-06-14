@@ -26,7 +26,7 @@ import {
     Universe,
     Propagation,
     Seniority,
-} from "../../coylean-explorer/coylean-core.js";
+} from "coylean/core";
 import { ladderRung, aspW, aspH, ease, lerp } from "./ladder-kinematics.js";
 import { renderComplex } from "./elaborate-cell.js";
 import { rungMap } from "../planet-coyleus/terrain-core.js";
