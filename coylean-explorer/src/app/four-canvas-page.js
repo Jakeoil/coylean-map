@@ -1,4 +1,4 @@
-import { Viewport } from "coylean/ui/viewport.js";
+import { Viewport } from "../display/viewport.js";
 import { drawScene } from "../display/canvas-scene.js";
 
 const CANVAS_TITLES = {
