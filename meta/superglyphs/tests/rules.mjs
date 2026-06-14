@@ -30,7 +30,7 @@ import { Seniority } from "coylean/core";
 import {
     getSectionData,
     classifyVisualD4,
-} from "../../../glyphs/glyph-core.js";
+} from "coylean/glyphs";
 
 const V = Seniority.vertical();
 const H = Seniority.horizontal();

@@ -18,7 +18,7 @@
 //  Lat/Long/Sen orientation buttons. Off-anchor is not address-addressable.
 
 import { Seniority, Propagation } from "coylean/core";
-import { computeGlyphMatrices } from "../../glyphs/glyph-core.js";
+import { computeGlyphMatrices } from "coylean/glyphs";
 import { TRANSLATION_V, TRANSLATION_H, codeKey } from "./tests/rules.mjs";
 
 const SEC = 4;

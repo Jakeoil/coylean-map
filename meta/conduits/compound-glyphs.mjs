@@ -14,7 +14,7 @@ import {
     applyAssignments,
     glyphLetterAt,
     setOffset,
-} from "../../glyphs/glyph-core.js";
+} from "coylean/glyphs";
 import { Seniority } from "coylean/core";
 import { BabyBlocks } from "../../baby-blocks/baby-blocks.js";
 // engine d4Index → baby-block transform name. The calibrated map from

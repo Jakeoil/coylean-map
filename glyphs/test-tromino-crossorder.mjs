@@ -5,7 +5,7 @@
 // not a fixed point and we need deeper context.
 
 import { Seniority } from "coylean/core";
-import { computeMapModel, setOffset } from "./glyph-core.js";
+import { computeMapModel, setOffset } from "coylean/glyphs";
 
 const SEC = 4, V = Seniority.vertical();
 const dAt = (M, y, x) => (M[y] && M[y][x] ? 1 : 0);

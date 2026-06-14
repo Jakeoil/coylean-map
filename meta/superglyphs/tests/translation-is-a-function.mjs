@@ -34,7 +34,7 @@
 //        hInitCol E–W, latitude = vInitRow N–S). 1/1 is the clean anchor.
 
 import { Seniority } from "coylean/core";
-import { computeMapModel, setOffset } from "../../../glyphs/glyph-core.js";
+import { computeMapModel, setOffset } from "coylean/glyphs";
 
 // A glyph code [downCode, rightCode] as a stable string key.
 const codeKey = (c) => c[0] + "," + c[1];

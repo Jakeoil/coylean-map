@@ -4,7 +4,7 @@
 // divergence (vs ~182/256 with the 6-bit code table).
 
 import { Seniority } from "coylean/core";
-import { computeMapModel, setOffset } from "./glyph-core.js";
+import { computeMapModel, setOffset } from "coylean/glyphs";
 
 const SEC = 4, V = Seniority.vertical();
 const LONG = 2, LAT = 1; // lat/long = 1/2  → setOffset(h=long, v=lat)

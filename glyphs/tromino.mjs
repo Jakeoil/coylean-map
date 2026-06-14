@@ -18,7 +18,7 @@ import {
     applyAssignments,
     setWorkingAssignments,
     GLYPH_LETTERS,
-} from "./glyph-core.js";
+} from "coylean/glyphs";
 import {
     drawGlyph,
     drawCoyleanMap,

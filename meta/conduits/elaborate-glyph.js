@@ -9,7 +9,7 @@
 // paradise hero (the "monster" = 2×2 split children) and the life-cycle page.
 
 import { Seniority } from "coylean/core";
-import { computeGlyphMatrices } from "../../glyphs/glyph-core.js";
+import { computeGlyphMatrices } from "coylean/glyphs";
 
 export const ELAB = ["#9775fa", "#ffec99", "#b2f2bb", "#ffc9c9"]; // outer→inner
 export const ELAB_P = 4; // shells (and the uniform cell priority)

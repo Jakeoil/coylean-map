@@ -23,7 +23,7 @@ import {
     computeGlyphMatrices,
     classifyVisualD4,
     setOffset,
-} from "../../glyphs/glyph-core.js";
+} from "coylean/glyphs";
 import { oklchHex } from "../4d/src/oklch-ramps.js";
 
 // Golden-angle hue so any number of orbits stays perceptually separated.

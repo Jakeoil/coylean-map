@@ -25,7 +25,7 @@
 //  Run:  node meta/superglyphs/tests/broken-wall-structure.mjs
 
 import { Seniority } from "coylean/core";
-import { computeMapModel, setOffset } from "../../../glyphs/glyph-core.js";
+import { computeMapModel, setOffset } from "coylean/glyphs";
 
 // Vertical walls per section, straight from the propagated child map (works at
 // any offset — the cage lattice rides the firstDark shift).

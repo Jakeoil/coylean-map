@@ -4,7 +4,7 @@
 // neighborhoods and watch the conflict count.
 
 import { Seniority } from "coylean/core";
-import { computeMapModel, setOffset } from "./glyph-core.js";
+import { computeMapModel, setOffset } from "coylean/glyphs";
 
 const SEC = 4;
 const V = Seniority.vertical();

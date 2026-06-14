@@ -34,7 +34,7 @@
 //  Run:  node meta/superglyphs/tests/between-every-two-v-orders-an-h-map.mjs
 
 import { Seniority } from "coylean/core";
-import { getSectionData } from "../../../glyphs/glyph-core.js";
+import { getSectionData } from "coylean/glyphs";
 
 const V = Seniority.vertical();
 const H = Seniority.horizontal();

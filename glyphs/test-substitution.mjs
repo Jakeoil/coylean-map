@@ -8,7 +8,7 @@
 // the substitution rule is well-defined (a function of the parent code).
 
 import { Seniority } from "coylean/core";
-import { computeMapModel, setOffset } from "./glyph-core.js";
+import { computeMapModel, setOffset } from "coylean/glyphs";
 
 function key(code) {
     return code[0] + "," + code[1];

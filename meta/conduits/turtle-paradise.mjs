@@ -31,7 +31,7 @@ import {
     d4Compose,
     setWorkingAssignments,
     applyAssignments,
-} from "../../glyphs/glyph-core.js";
+} from "coylean/glyphs";
 import { BabyBlocks } from "../../baby-blocks/baby-blocks.js";
 import { translationOf } from "../planet-coyleus/terrain-core.js";
 import { elabGlyphInto } from "./elaborate-glyph.js";

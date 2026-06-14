@@ -8,7 +8,7 @@ import { Seniority } from "coylean/core";
 import {
     getSectionData, computeMapModel, setOffset,
     computePattern, transformedPatternKey, classifyVisualD4, d4Compose,
-} from "./glyph-core.js";
+} from "coylean/glyphs";
 
 const SEC = 4;
 const V = Seniority.vertical();

@@ -32,7 +32,7 @@ import {
     transformedPatternKey,
     classifyVisualD4,
     d4Compose,
-} from "./glyph-core.js";
+} from "coylean/glyphs";
 import {
     drawSection,
     renderState,

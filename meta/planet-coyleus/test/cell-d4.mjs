@@ -18,7 +18,7 @@ import {
     transformedPatternKey,
     d4Compose,
     D4_NAMES,
-} from "../../../glyphs/glyph-core.js";
+} from "coylean/glyphs";
 
 // Glyph segment layout (drawGlyph convention):
 //   v[x][y]  x:0..2 y:0..3   vertical line at dot-col x+1, rows y..y+1

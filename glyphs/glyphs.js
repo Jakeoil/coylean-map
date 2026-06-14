@@ -21,7 +21,7 @@ import {
     parseAssignmentValue,
     SUFFIX_TO_D4,
     applyAssignments,
-} from "./glyph-core.js";
+} from "coylean/glyphs";
 import {
     CELL_PX,
     V_COLOR,

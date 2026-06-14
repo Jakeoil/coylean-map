@@ -19,7 +19,7 @@ import {
     setOffset,
     computeMapModel,
     pairKey,
-} from "../../glyphs/glyph-core.js";
+} from "coylean/glyphs";
 import {
     TRANSLATION_V,
     TRANSLATION_H,

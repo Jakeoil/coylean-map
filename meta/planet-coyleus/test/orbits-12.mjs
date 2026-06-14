@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 import { Seniority } from "coylean/core";
-import { classifyVisualD4, getSectionData } from "../../../glyphs/glyph-core.js";
+import { classifyVisualD4, getSectionData } from "coylean/glyphs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..", "..");

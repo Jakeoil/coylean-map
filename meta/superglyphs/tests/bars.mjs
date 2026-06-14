@@ -28,7 +28,7 @@
 //  Run:  node meta/superglyphs/tests/bars.mjs
 
 import { Seniority } from "coylean/core";
-import { computeMapModel, setOffset } from "../../../glyphs/glyph-core.js";
+import { computeMapModel, setOffset } from "coylean/glyphs";
 import {
     TRANSLATION_V,
     V_TO_H,

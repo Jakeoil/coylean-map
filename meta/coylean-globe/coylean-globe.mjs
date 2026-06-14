@@ -27,7 +27,7 @@ import {
 } from "coylean/core";
 import { makeCellUniverse } from "../superglyphs/cell-descent.mjs";
 import { ORBIT_V, ORBIT_H, codeKey } from "../superglyphs/tests/rules.mjs";
-import { computeGlyphMatrices } from "../../glyphs/glyph-core.js";
+import { computeGlyphMatrices } from "coylean/glyphs";
 
 // Glyph arrow matrices, cached per code+seniority (the actual Coylean segments a
 // section draws once its tiles are big enough — the map, not just the swatch).

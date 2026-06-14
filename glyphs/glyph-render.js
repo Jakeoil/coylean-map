@@ -13,7 +13,7 @@ import {
     D4_SUFFIX,
     d4Compose,
     computeGlyphMatrices,
-} from "./glyph-core.js";
+} from "coylean/glyphs";
 
 // ── Render config (mutated by the controller's toggles) ──
 // useBabyBlocks / babyBlocksOutline: global Baby Blocks state for the grids.

@@ -4,7 +4,7 @@
 // is the fix; if still conflicting, we need superglyphs / deeper context.
 
 import { Seniority } from "coylean/core";
-import { computeMapModel, setOffset } from "./glyph-core.js";
+import { computeMapModel, setOffset } from "coylean/glyphs";
 
 const SEC = 4;
 const V = Seniority.vertical();
