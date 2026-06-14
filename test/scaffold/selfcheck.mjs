@@ -5,8 +5,8 @@
 // Usage: node selfcheck.mjs [L] [K]   (defaults: L=1024, K=128)
 
 import { Propagation } from "coylean/core";
-import { buildScaffold } from "./scaffold.mjs";
-import { tile } from "./tile.mjs";
+import { buildScaffold } from "coylean/scaffold/scaffold.mjs";
+import { tile } from "coylean/scaffold/tile.mjs";
 
 const L = Number(process.argv[2] ?? 1024);
 const K = Number(process.argv[3] ?? 128);

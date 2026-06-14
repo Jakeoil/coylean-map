@@ -23,8 +23,8 @@ import {
     propagateBlock,
     isBlockBuilt,
     nextReadyAncestor,
-} from "../big-map/scaffold.mjs";
-import { tile } from "../big-map/tile.mjs";
+} from "coylean/scaffold/scaffold.mjs";
+import { tile } from "coylean/scaffold/tile.mjs";
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");

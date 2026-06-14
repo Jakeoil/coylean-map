@@ -1,8 +1,8 @@
 import { Seniority } from "coylean/core";
 import {
     buildIntegratedScaffold, propagateBlock, isBlockBuilt, nextReadyAncestor,
-} from "./scaffold.mjs";
-import { tile } from "./tile.mjs";
+} from "coylean/scaffold/scaffold.mjs";
+import { tile } from "coylean/scaffold/tile.mjs";
 import {
     makeTileBitmap, drawArrowsVector,
     drawDyadicGrid, drawDyadicLabels, autoMaxPri,

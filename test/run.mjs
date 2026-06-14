@@ -9,6 +9,7 @@ const dirs = [
     "test/core",
     "test/glyphs",
     "test/superglyphs",
+    "test/scaffold",
     "meta/planet-coyleus/test",
 ];
 const skip = new Set(["run.mjs"]);

@@ -1,6 +1,6 @@
 import { Propagation } from "coylean/core";
-import { buildScaffold } from "./scaffold.mjs";
-import { tile } from "./tile.mjs";
+import { buildScaffold } from "coylean/scaffold/scaffold.mjs";
+import { tile } from "coylean/scaffold/tile.mjs";
 import { makeTileBitmap, autoMaxPri } from "./render.mjs";
 
 let scaffold = null;
