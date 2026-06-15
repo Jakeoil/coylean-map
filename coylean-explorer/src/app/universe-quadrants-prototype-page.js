@@ -128,6 +128,7 @@ export function init() {
     // Resize a boolean array to `len`: extend with `true`, truncate from end.
     // Matches the implicit Propagation default (missing init defaults to true).
     function resizeBools(arr, len) {
+        len = Math.max(0, len); // a negative (off-origin) extent has no init array
         if (arr.length === len) return arr;
         if (arr.length < len) {
             return arr.concat(Array(len - arr.length).fill(true));
@@ -136,20 +137,14 @@ export function init() {
     }
 
     function syncNumericInputs() {
-        // Range endpoints clamp to ±1 so a side can collapse to zero
-        // extent (minRow=1 ⇒ no north, maxRow=-1 ⇒ no south, etc).
-        let minRow = +numericInputs.minRow.value;
-        let maxRow = +numericInputs.maxRow.value;
-        let minCol = +numericInputs.minCol.value;
-        let maxCol = +numericInputs.maxCol.value;
-        if (minRow > 1) minRow = 1;
-        if (maxRow < -1) maxRow = -1;
-        if (minCol > 1) minCol = 1;
-        if (maxCol < -1) maxCol = -1;
-        config.minRow = minRow;
-        config.maxRow = maxRow;
-        config.minCol = minCol;
-        config.maxCol = maxCol;
+        // No clamp: a range past the origin (minRow>1, maxRow<-1, …) yields a
+        // NEGATIVE extent — the seam moves into the opposite territory and the
+        // window lies wholly on one side. The core handles it (per-axis sum ≥ 0
+        // is enforced there; render() catches a sum<0 throw).
+        config.minRow = +numericInputs.minRow.value;
+        config.maxRow = +numericInputs.maxRow.value;
+        config.minCol = +numericInputs.minCol.value;
+        config.maxCol = +numericInputs.maxCol.value;
         config.northExtent = +numericInputs.northExtent.value;
         config.southExtent = +numericInputs.southExtent.value;
         config.westExtent  = +numericInputs.westExtent.value;
@@ -203,6 +198,7 @@ export function init() {
 
         let result;
         let baseSig;
+        try {
         if (config.mode === "range") {
             baseSig =
                 `Universe.createUniverseQuadrants(\n` +
@@ -248,6 +244,14 @@ export function init() {
                 { maxPri: config.maxPri },
             );
         }
+        } catch (e) {
+            // Invalid request (e.g. axis sum < 0, or no quadrant) — surface the
+            // message and skip drawing rather than throwing to the console.
+            callSig.textContent = (baseSig || "") + "\n// ✗ " + e.message;
+            info.textContent = e.message;
+            quads = [];
+            return;
+        }
         const { nw, ne, sw, se } = result;
 
         // Flip flags place each quadrant's local (0,0) — the axis-adjacent
@@ -262,7 +266,13 @@ export function init() {
         ].filter((q) => q.p);
 
         if (config.view === "integrated") {
-            const boundary = Propagation.fromUniverseBoundary(result);
+            // Carry the requested extents (which may be negative) so
+            // fromUniverseBoundary slices the covering quadrants down to the
+            // off-origin window. Non-negative extents → no slice (unchanged).
+            const boundary = Propagation.fromUniverseBoundary({
+                ...result,
+                ...readEffectiveExtents(),
+            });
             const integrated = {
                 p: boundary,
                 name: "integrated",
