@@ -597,6 +597,19 @@ export class Propagation {
             initDown,
             initRight,
         });
+        // Negative requested extents (carried on the Universe) mean the seam is
+        // off-origin: the quadrants above built the clamped covering; slice the
+        // window from it. Universes without extents (or non-negative) → no drop.
+        const dropN = universe.northExtent < 0 ? -universe.northExtent : 0;
+        const dropS = universe.southExtent < 0 ? -universe.southExtent : 0;
+        const dropW = universe.westExtent < 0 ? -universe.westExtent : 0;
+        const dropE = universe.eastExtent < 0 ? -universe.eastExtent : 0;
+        if (dropN || dropS || dropW || dropE) {
+            const windowed = new Propagation(
+                Propagation.windowSeed(propagation, dropN, dropE, dropS, dropW));
+            windowed.metadata = { source: "universe-boundary" };
+            return windowed;
+        }
         propagation.metadata = { source: "universe-boundary" };
         return propagation;
     }
@@ -628,6 +641,39 @@ export class Propagation {
         const propagation = new Propagation(seed);
         propagation.metadata = { source: "universe-extents" };
         return propagation;
+    }
+
+    /**
+     * Re-seed a covering propagation to the sub-window obtained by dropping
+     * `dropN`/`dropS` rows and `dropW`/`dropE` columns. Used to realise a
+     * negative-extent (off-origin) window from its origin-anchored covering:
+     * the window's near boundary — an *interior* row/column of the covering,
+     * found by the covering's own propagation — becomes the new seam seed, and
+     * the offsets shift by the drop. Shared by every extent path that admits a
+     * negative extent (universeBoundarySeed, fromUniverseBoundary).
+     *
+     * @param {Propagation} cover  the origin-anchored covering propagation
+     * @returns {{ initDown: Row, initRight: Col, hInitCol: number,
+     *   vInitRow: number, seniority: Seniority, maxPri: number,
+     *   maxLatPri: number, maxLongPri: number, ruler: * }} a seed
+     */
+    static windowSeed(cover, dropN, dropE, dropS, dropW) {
+        const c0 = dropW, c1 = cover.numColumns - dropE; // window cols [c0, c1)
+        const r0 = dropN, r1 = cover.numRows - dropS;    // window rows [r0, r1)
+        const initDown = cover.downMatrix[r0].slice(c0, c1);
+        const initRight = [];
+        for (let r = r0; r < r1; r++) initRight.push(cover.rightMatrix[c0][r]);
+        return {
+            initDown: Row.from(initDown),
+            initRight: Col.from(initRight),
+            hInitCol: cover.hInitCol + dropW,
+            vInitRow: cover.vInitRow + dropN,
+            seniority: cover.seniority,
+            maxPri: cover.maxPri,
+            maxLatPri: cover.maxLatPri,
+            maxLongPri: cover.maxLongPri,
+            ruler: cover.ruler,
+        };
     }
 
     /**
@@ -667,12 +713,40 @@ export class Propagation {
         northInitRight,
         southInitRight,
     }) {
-        if (northExtent < 0 || southExtent < 0
-            || westExtent < 0 || eastExtent < 0) {
-            throw new Error("Universe extents must be non-negative");
+        // Negative extents are allowed: a negative side moves the seam past
+        // the origin into the opposite territory (the window lies wholly on one
+        // side). Only the per-axis SUM (the window size) must be non-negative.
+        if (westExtent + eastExtent < 0 || northExtent + southExtent < 0) {
+            throw new Error("Universe axis extents must sum to ≥ 0");
         }
         if (northExtent + southExtent === 0 || westExtent + eastExtent === 0) {
             throw new Error("Universe must contain at least one quadrant");
+        }
+
+        // A negative extent moves the seam past the origin into the opposite
+        // territory: the window lies wholly on one side. Build the origin-
+        // anchored covering map (negatives clamped to 0), then drop |extent|
+        // columns/rows from that side and re-seed the propagation from the
+        // FOUND interior row/column at the window's near edge. The result is the
+        // same field, windowed off-origin (offsets still hInitCol−westExtent,
+        // vInitRow−northExtent).
+        if (westExtent < 0 || eastExtent < 0
+            || northExtent < 0 || southExtent < 0) {
+            if (westInitDown || eastInitDown || northInitRight || southInitRight) {
+                throw new Error(
+                    "negative extents with custom seam inits are not supported");
+            }
+            const cover = Propagation.fromUniverseExtents({
+                northExtent: Math.max(0, northExtent),  // clamp negatives → 0
+                southExtent: Math.max(0, southExtent),
+                westExtent: Math.max(0, westExtent),
+                eastExtent: Math.max(0, eastExtent),
+                hInitCol, vInitRow, seniority,
+                maxPri, maxLatPri, maxLongPri, ruler,
+            });
+            return Propagation.windowSeed(cover,
+                Math.max(0, -northExtent), Math.max(0, -eastExtent),
+                Math.max(0, -southExtent), Math.max(0, -westExtent));
         }
         const priFn = resolveRuler(ruler);
 
@@ -1014,16 +1088,20 @@ export class Universe {
         initArrays = {},
         { maxPri = DEFAULT_MAX_PRI } = {},
     ) {
-        if (northExtent < 0 || southExtent < 0 || westExtent < 0 || eastExtent < 0) {
-            throw new Error("Universe extents must be non-negative");
+        if (westExtent + eastExtent < 0 || northExtent + southExtent < 0) {
+            throw new Error("Universe axis extents must sum to ≥ 0");
         }
         if (northExtent + southExtent === 0 || westExtent + eastExtent === 0) {
             throw new Error("Universe must contain at least one quadrant");
         }
         const { westInitDown, eastInitDown, northInitRight, southInitRight } = initArrays;
-        // A quadrant exists iff both of its bounding extents are non-zero.
-        // Missing quadrants are returned as null. initDown/initRight are
-        // shared by reference between the two quadrants on each side.
+        // Negative extents → clamp to 0 for the (origin-anchored covering)
+        // quadrant sizes; the negative request is carried by the assembling
+        // Universe and sliced to the off-origin window by fromUniverseBoundary.
+        // A quadrant exists iff both clamped bounding extents are non-zero;
+        // absent quadrants are null. initDown/initRight are shared by reference.
+        const nE = Math.max(0, northExtent), sE = Math.max(0, southExtent);
+        const wE = Math.max(0, westExtent), eE = Math.max(0, eastExtent);
         const quadrant = (direction, numRows, numColumns, h, v, initDown, initRight) =>
             (numRows && numColumns)
                 ? new Propagation({
@@ -1034,10 +1112,10 @@ export class Universe {
                 : null;
         // prettier-ignore
         return {
-            nw: quadrant("nw", northExtent, westExtent, 1 - hInitCol, 1 - vInitRow, westInitDown, northInitRight),
-            ne: quadrant("ne", northExtent, eastExtent, hInitCol,     1 - vInitRow, eastInitDown, northInitRight),
-            sw: quadrant("sw", southExtent, westExtent, 1 - hInitCol, vInitRow,     westInitDown, southInitRight),
-            se: quadrant("se", southExtent, eastExtent, hInitCol,     vInitRow,     eastInitDown, southInitRight),
+            nw: quadrant("nw", nE, wE, 1 - hInitCol, 1 - vInitRow, westInitDown, northInitRight),
+            ne: quadrant("ne", nE, eE, hInitCol,     1 - vInitRow, eastInitDown, northInitRight),
+            sw: quadrant("sw", sE, wE, 1 - hInitCol, vInitRow,     westInitDown, southInitRight),
+            se: quadrant("se", sE, eE, hInitCol,     vInitRow,     eastInitDown, southInitRight),
         };
     }
     /**
@@ -1222,6 +1300,15 @@ export class Universe {
                 initDown,
                 initRight,
             });
+        // Negative extents move the seam off-origin. Build the CLAMPED
+        // (origin-anchored) covering quadrants — a side whose clamped extent is
+        // 0 is suppressed (null) so the boundary stitch uses the surviving
+        // side — but store the requested (possibly negative) extents on the
+        // Universe so fromUniverseBoundary slices the window.
+        const nE = Math.max(0, northExtent), sE = Math.max(0, southExtent);
+        const wE = Math.max(0, westExtent), eE = Math.max(0, eastExtent);
+        const quad = (dir, rows, cols, h, v, iD, iR) =>
+            rows > 0 && cols > 0 ? quadrant(dir, rows, cols, h, v, iD, iR) : null;
         const universe = new Universe(
             northExtent,
             southExtent,
@@ -1231,10 +1318,10 @@ export class Universe {
             vInitRow,
             seniority,
             maxPri,
-            quadrant("nw", northExtent, westExtent, 1 - hInitCol, 1 - vInitRow, westInitDown, northInitRight),
-            quadrant("ne", northExtent, eastExtent, hInitCol,     1 - vInitRow, eastInitDown, northInitRight),
-            quadrant("sw", southExtent, westExtent, 1 - hInitCol, vInitRow,     westInitDown, southInitRight),
-            quadrant("se", southExtent, eastExtent, hInitCol,     vInitRow,     eastInitDown, southInitRight),
+            quad("nw", nE, wE, 1 - hInitCol, 1 - vInitRow, westInitDown, northInitRight),
+            quad("ne", nE, eE, hInitCol, 1 - vInitRow, eastInitDown, northInitRight),
+            quad("sw", sE, wE, 1 - hInitCol, vInitRow, westInitDown, southInitRight),
+            quad("se", sE, eE, hInitCol, vInitRow, eastInitDown, southInitRight),
         );
         return universe;
     }

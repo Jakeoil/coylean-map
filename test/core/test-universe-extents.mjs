@@ -162,5 +162,60 @@ check("custom init arrays asym + cap", {
     northInitRight: bits(4, 9), southInitRight: bits(8, 10),
 });
 
+// ── Negative extents: the seam moves off-origin, the window lies wholly on
+// one side. check() already cross-validates both build paths agree; these add
+// the external oracle (the window must equal the canonical field sliced) and
+// the guard.
+for (const opts of [
+    { northExtent: 6, southExtent: 6, westExtent: -2, eastExtent: 6 },
+    { northExtent: 6, southExtent: 6, westExtent: 6, eastExtent: -1 },
+    { northExtent: -2, southExtent: 6, westExtent: 6, eastExtent: 6 },
+    { northExtent: 6, southExtent: -3, westExtent: 6, eastExtent: 6 },
+    { northExtent: -3, southExtent: 6, westExtent: -2, eastExtent: 6 },
+]) {
+    const o = { ...opts, hInitCol: 1, vInitRow: 1, seniority: V };
+    const w = opts.westExtent, e = opts.eastExtent;
+    check(`neg W=${w} E=${e} N=${opts.northExtent} S=${opts.southExtent}`, o);
+}
+
+// Windowed-oracle: a negative-extent map equals a big origin-containing map
+// sliced to the same absolute (offset-aligned) window.
+const BIG = Propagation.fromUniverseExtents({
+    northExtent: 16, southExtent: 16, westExtent: 16, eastExtent: 16,
+    hInitCol: 1, vInitRow: 1, seniority: V,
+});
+function windowOK(label, opts) {
+    total++;
+    const m = Propagation.fromUniverseExtents({
+        ...opts, hInitCol: 1, vInitRow: 1, seniority: V,
+    });
+    const cS = m.hInitCol - BIG.hInitCol;
+    const rS = m.vInitRow - BIG.vInitRow;
+    let bad = 0;
+    for (let r = 0; r < m.downMatrix.length; r++)
+        for (let c = 0; c < m.downMatrix[r].length; c++)
+            if (!!m.downMatrix[r][c] !== !!BIG.downMatrix[r + rS]?.[c + cS]) bad++;
+    for (let c = 0; c < m.rightMatrix.length; c++)
+        for (let r = 0; r < m.rightMatrix[c].length; r++)
+            if (!!m.rightMatrix[c][r] !== !!BIG.rightMatrix[c + cS]?.[r + rS]) bad++;
+    console.log(`${bad === 0 ? "PASS" : "FAIL"}  window ${label}  (${bad} off)`);
+    if (bad === 0) pass++;
+}
+windowOK("W=-2", { northExtent: 6, southExtent: 6, westExtent: -2, eastExtent: 6 });
+windowOK("N=-3,W=-2", { northExtent: -3, southExtent: 6, westExtent: -2, eastExtent: 6 });
+
+// Guard: per-axis sum must be ≥ 0 (the negative side can't out-reach the
+// positive one).
+total++;
+let threw = false;
+try {
+    Propagation.fromUniverseExtents({
+        northExtent: 6, southExtent: 6, westExtent: -7, eastExtent: 6,
+        hInitCol: 1, vInitRow: 1, seniority: V,
+    });
+} catch { threw = true; }
+console.log(`${threw ? "PASS" : "FAIL"}  guard: W+E < 0 throws`);
+if (threw) pass++;
+
 console.log(`\n${pass}/${total} passed`);
 process.exit(pass === total ? 0 : 1);
