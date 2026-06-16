@@ -10,7 +10,7 @@ art is a skin over it.
 | Page | What it is |
 | --- | --- |
 | `index.html` | **The Yellow Conduit** — the scene hub. Links to the others. |
-| `descent.html` / `.mjs` | **Descent** — a genuine **Coylean square** in the draw map's *elaborate* dress (the same square `meta/fibonacci-ruler` draws, only elaborate): every cell a nest of priority-sized rectangles, color-coded by depth (the 19-step `COLOR_LIST`, verbatim from `coylean.js`; the immutable `renderComplex` core is byte-faithful to it). Built with `Propagation.fromUniverseBoundary` (unit N/W seed × side `2ⁿ` to the S/E), **anchored at the origin**: it renders cells `[0..side]` so `col 0` / `row 0` (priority `n+1` — one above the interior) draw the **left and top ∞ bars** that frame it as a square, while the dominant priority-`n` spine lands on the far edge. A **result rows** checkbox shows/hides the trailing `resultDown` row / `resultRight` column (the far-edge out-arrows) — on, the spine pokes out into the next tile; off, a closed square. The **ladder card** sets the *order* `n` (side 2ⁿ, sides 4·8·16·32·64·128). The **orientation card** carries V/H seniority (the E/W·N/S offset doesn't apply to an origin-anchored square). Plus a depth dial (nested-shell detail, ceiling `n+1`), free zoom/pan, day/night, and an **old render** toggle for the boundary-seeded infinite *map* in the same dress. **This is where the living-glyph colors come from.** |
+| `descent.html` / `.mjs` | **Descent** — a genuine **Coylean square** in the draw map's *elaborate* dress (the same square `meta/fibonacci-ruler` draws, only elaborate): every cell a nest of priority-sized rectangles, color-coded by depth (the 19-step `COLOR_LIST`, verbatim from `coylean.js`; the immutable `renderComplex` core is byte-faithful to it). Built with `Propagation.fromUniverseBoundary` (unit N/W seed × side `2ⁿ` to the S/E), **anchored at the origin**: it renders cells `[0..side]` so `col 0` / `row 0` (priority `n+1` — one above the interior) draw the **left and top ∞ bars** that frame it as a square, while the dominant priority-`n` spine lands on the far edge. A **frame to edge** toggle (on by default) clips each boundary bar to its **order-coloured ring** so the square is wrapped in one clean uniform frame — see *The elaborate Coylean square* below; off, the full bars overhang the edges. The **ladder card** sets the *order* `n` (side 2ⁿ, sides 4·8·16·32·64·128). The **orientation card** carries V/H seniority (the E/W·N/S offset doesn't apply to an origin-anchored square). Plus a depth dial (nested-shell detail, ceiling `n+1`), free zoom/pan, day/night, and an **old render** toggle for the boundary-seeded infinite *map* in the same dress. **This is where the living-glyph colors come from.** |
 | `compound-glyphs.html` / `.mjs` | The real lettered map at anchor 1/1. Baby-block letters at each glyph's D4 orientation; no-bar neighbors fuse into *compound* rectangles. Has the **orientation card** (anchor quadrant + V/H seniority) — both seniorities show the square compounds. |
 | `turtle-paradise.html` / `.mjs` + `turtle-paradise-data.js` | **Turtle Paradise** — a living catalog of glyphs (see below). |
 | `turtle paradise.md` | The source Excalidraw sketch (Obsidian) that inspired the living glyphs. Baked to `turtle-paradise-data.js`. |
@@ -19,6 +19,33 @@ art is a skin over it.
 | `life-cycle.md` | The Excalidraw storyboard for the life cycle (day/night, the detailed 13×13 closed glyph, the growth column). Baked to `life-cycle-data.js`. |
 | `life-cycle-data.js` | The baked storyboard shapes (114 elements). |
 | `elaborate-glyph.js` | Shared pure renderer for the sealed elaborate glyph (`elabCell` / `elabGlyphInto`, palette `ELAB`). Used by the turtle-paradise hero (the "monster") — no reinvented wheel. |
+
+## The elaborate Coylean square
+
+A `fromUniverseBoundary` square draws each cell as a nest of priority-sized
+rectangles. Its four boundary cells aren't interior glyphs: the **left/top ∞
+bars** sit at priority `order + 1` (one above the interior) and the dominant
+**spine** lands on the far (S/E) edge at priority `order`. Each is a *full*
+nest, so half of every boundary bar overhangs the square — the bar pokes out
+past where the square's true edge should be.
+
+The square's real edge is the **order-coloured ring** inside each bar
+(`COLOR_LIST[order − 1]` — purple at order 3). The **frame to edge** toggle (on
+by default) clips every side to that ring, so the square comes out wrapped in
+one clean, uniform frame instead of four proud overhanging bars. The two bar
+kinds need different cuts (see `barInset` in `descent.mjs`):
+
+- **spine** (priority `order`): the order ring *is* its centre, so we keep
+  through its far side — the purple line stays as the edge rather than being
+  sliced off.
+- **∞ axis** (priority `order + 1`): its centre is one priority above the order
+  (blue at order 3), with the order ring flanking it twice; we drop the blue
+  centre and the outer order ring, keeping the **inner** ring as the edge.
+
+Off-anchor squares carry a zero-width seed-margin column/row, so a bar can hide
+behind a leading zero-width cell — `clipRect` anchors on the first/last cell
+with real width (priority > 0) so every side resolves to a genuine bar and gets
+the right cut. Toggle it off to see the full bars overhang again.
 
 ---
 

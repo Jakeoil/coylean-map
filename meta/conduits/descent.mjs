@@ -71,6 +71,22 @@ let outlines = false;
 // untouched; see `infSkip`. Off by default.
 let shaveOuter = false;
 
+// Frame the square to its true edge (square mode only; ON by default). Each
+// outer bar — an ∞ axis (priority order+1) or the dominant spine (priority
+// order) — is a full nest of rectangles that overhangs the square: half of it
+// pokes OUT past the boundary. The square's real edge is the ORDER-coloured
+// ring inside that bar (COLOR_LIST[order−1] — "the colour of the order", purple
+// at order 3). Framing clips every side to that ring so the square ends up with
+// a uniform purple→cream→green frame: the spine's purple centre becomes the
+// edge (keeping the line, not slicing it off), and the ∞ axis is cut down past
+// its blue centre + outer purple ring to its INNER purple ring (see barInset
+// for the two insets). A side whose outer cell is NOT a bar (e.g. the absent
+// left/right bar of an off-anchor square like 1/0) has no order ring to cut to,
+// so it truncates flush at the cell boundary. Render-only; the `clipX/clipY`
+// offset + clipped `bmpW/bmpH` are derived by `clipRect`.
+let frameSquare = true;
+let clipX = 0, clipY = 0; // framed-square clip origin (logical px), per build
+
 // Orientation (anchor quadrant + seniority), mirroring compound-glyphs. The
 // map re-integrates on each toggle. Defaults = the clean 1/1 / vertical baseline.
 const orient = { curH: 1, curV: 1, senH: false };
@@ -157,13 +173,74 @@ function squarePx(p) {
     return [Math.max(SCALE, SCALE * w), Math.max(SCALE, SCALE * h)];
 }
 
+// Inset (logical px) from a boundary bar's OUTER edge to the square's true edge
+// — the ORDER-coloured ring (COLOR_LIST[order−1]; purple at order 3). In
+// renderComplex shell i sits SCALE·(i+1) in from the outer edge, and the order
+// colour is shell i = order−1. The two bar kinds need different cuts so the
+// square ends up with a uniform purple→cream→green frame on every side:
+//   • spine (priority order): the order ring IS the centre. Cutting at its near
+//     side sliced the purple line off; we keep through its FAR side instead, so
+//     the inset is SCALE·(order−1) and the purple stays as the edge.
+//   • ∞ axis (priority order+1): the centre is one priority ABOVE the order
+//     (blue at order 3), with the order ring appearing twice, flanking it. We
+//     drop the blue centre and the OUTER order ring, keeping the INNER one as
+//     the edge — inset SCALE·(order+2) to that inner ring's outer band.
+//   • anything lower carries no order colour (the absent bar of an off-anchor
+//     square) — nothing to cut to, so truncate flush at the boundary (inset 0).
+const barInset = (p) =>
+    p === order + 1 ? SCALE * (order + 2)
+    : p === order ? SCALE * (order - 1)
+    : 0;
+
+// The framed-square clip rectangle, in full-square logical pixels — each side
+// cut to its bar's order ring via barInset. Uses the cumulative priority-widths
+// (priority-0 cells contribute 0), honouring infSkip.
+//
+// A boundary bar can sit BEHIND a leading zero-width cell: every off-anchor
+// square carries a zero-width seed-margin column/row (kept so the four anchors
+// stay distinct), so e.g. SW's left ∞ bar is colPriority index 1, not 0 (`0 4 0
+// 1 …`). Reading index 0 saw priority 0 and truncated flush; instead we anchor
+// on the first / last cell that actually has width (priority > 0). With that,
+// every side resolves to a real ∞ bar or spine — there is no genuinely bar-less
+// side — so each gets the right cut (drop 5 layers to the inner purple on an ∞
+// side, keep the purple line on a spine side).
+function clipRect() {
+    const s = infSkip();
+    const cumX = [0], cumY = [0];
+    for (let i = 0; i < numColumns; i++)
+        cumX.push(cumX[i] + (i < s ? 0 : colPriority[i] * 2 * SCALE));
+    for (let j = 0; j < numRows; j++)
+        cumY.push(cumY[j] + (j < s ? 0 : rowPriority[j] * 2 * SCALE));
+    let fc = s, lc = numColumns - 1, fr = s, lr = numRows - 1;
+    while (fc < lc && colPriority[fc] === 0) fc++;
+    while (lc > fc && colPriority[lc] === 0) lc--;
+    while (fr < lr && rowPriority[fr] === 0) fr++;
+    while (lr > fr && rowPriority[lr] === 0) lr--;
+    const x0 = cumX[fc] + barInset(colPriority[fc]);
+    const y0 = cumY[fr] + barInset(rowPriority[fr]);
+    const x1 = cumX[lc + 1] - barInset(colPriority[lc]);
+    const y1 = cumY[lr + 1] - barInset(rowPriority[lr]);
+    return {
+        x: x0, y: y0,
+        w: Math.max(SCALE, x1 - x0), h: Math.max(SCALE, y1 - y0),
+    };
+}
+
 let order = ORDER_MIN; // set to the fitting default once the canvas exists
 
 function buildSquare() {
     const p = integrateSquare(order);
     ({ downMatrix, rightMatrix, colPriority, rowPriority, numRows, numColumns } =
         p);
-    [bmpW, bmpH] = squarePx(p);
+    const [fullW, fullH] = squarePx(p);
+    if (frameSquare) {
+        const c = clipRect();
+        clipX = c.x; clipY = c.y;
+        bmpW = c.w; bmpH = c.h;
+    } else {
+        clipX = 0; clipY = 0;
+        bmpW = fullW; bmpH = fullH;
+    }
     buildLabels();
 }
 
@@ -256,8 +333,10 @@ const ground = () => (day ? "#ffffff" : "#0a0d0a");
 // the classic shell coylean.js coloring (green frames, rainbow innards).
 //
 // The result row/col (the trailing down/right matrix line) is always rendered,
-// so the spine trunks poke out the far (S/E) edge — the square continuing into
-// the next tile. When `outlines` is on, every reaction's cell boundary is
+// so the spine trunks reach the far (S/E) edge; with `frameSquare` on (default)
+// the clip cuts each bar at its order ring so the spine's outer half is the
+// square's clean edge rather than poking into the next tile, and off it pokes
+// out as before. When `outlines` is on, every reaction's cell boundary is
 // stroked (a debug aid for deciding what to reduce).
 function makeSquareBitmap(depth) {
     const off = document.createElement("canvas");
@@ -270,6 +349,15 @@ function makeSquareBitmap(depth) {
     if (rs !== 1) g.scale(rs, rs);
     g.fillStyle = ground();
     g.fillRect(0, 0, bmpW, bmpH);
+
+    // Frame: clip to the bitmap (the framed-square rectangle) and shift the
+    // full-square cell coords by the clip origin, so the proud outer halves of
+    // the boundary bars fall outside the clip and read as the square's edges.
+    g.save();
+    g.beginPath();
+    g.rect(0, 0, bmpW, bmpH);
+    g.clip();
+    g.translate(-clipX, -clipY);
 
     const top = sqMaxPri(order); // shell ceiling = ∞ (order + 1)
     // shaving drops the ∞ axis (col0/row0 = the n+1 line); start past it
@@ -299,6 +387,7 @@ function makeSquareBitmap(depth) {
         }
         y += SCALE * rPri * 2;
     }
+    g.restore();
     return off;
 }
 
@@ -587,6 +676,22 @@ if (shaveToggle) {
     });
 }
 
+// Frame-to-edge toggle (square only): clip each boundary bar to its order
+// ring so the bars read as the square's clean edges. Changes the square's
+// size → rebuild + re-fit.
+const frameToggle = document.getElementById("framesquare");
+if (frameToggle) {
+    frameToggle.checked = frameSquare;
+    frameToggle.addEventListener("change", () => {
+        frameSquare = frameToggle.checked;
+        if (mode === "square") {
+            buildActive();
+            fitView();
+            hardRegen();
+        }
+    });
+}
+
 // Labels toggle (square only): glyph letters at each cage centre.
 const labelsToggle = document.getElementById("labels");
 if (labelsToggle) {
@@ -747,7 +852,8 @@ function frame(ts) {
         for (const L of labelData) {
             const sw = L.w * ds;
             if (sw < 22) continue; // too small to read at this scale
-            const sx = dx + L.cx * ds, sy = dy + L.cy * ds;
+            // labelData is in full-square coords; shift by the frame clip origin
+            const sx = dx + (L.cx - clipX) * ds, sy = dy + (L.cy - clipY) * ds;
             if (sx < -sw || sx > W + sw || sy < -sw || sy > H + sw) continue;
             babyBlocks.drawDirect(ctx, L.letter, sx, sy, sw * 0.62, {
                 transform: D4B[L.d4] || "e",
