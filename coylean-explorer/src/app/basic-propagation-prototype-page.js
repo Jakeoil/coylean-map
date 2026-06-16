@@ -21,11 +21,23 @@ export function init() {
         maxPri: document.getElementById("maxPri"),
         initDown: document.getElementById("initDown"),
         initRight: document.getElementById("initRight"),
+        northExtent: document.getElementById("northExtent"),
+        southExtent: document.getElementById("southExtent"),
+        westExtent: document.getElementById("westExtent"),
+        eastExtent: document.getElementById("eastExtent"),
     };
     const initModeBtn = document.getElementById("init-mode");
+    const buildModeBtn = document.getElementById("build-mode");
+    const directControls = document.getElementById("direct-controls");
+    const extentsControls = document.getElementById("extents-controls");
+    const initSection = document.getElementById("init-section");
 
     // Propagation input — the values that determine what Propagation produces.
     const config = {
+        // "direct"  → raw Propagation from numRows/numCols + init arrays.
+        // "extents" → integrated map via Propagation.fromUniverseExtents (the
+        //             extent inputs admit negatives — off-origin window).
+        mode: "direct",
         numRows: +inputs.numRows.value,
         numCols: +inputs.numCols.value,
         hInitCol: +inputs.hInitCol.value,
@@ -35,6 +47,10 @@ export function init() {
         // Boolean init arrays (top row of downMatrix, left column of rightMatrix).
         initDown: Array(+inputs.numCols.value).fill(true),
         initRight: Array(+inputs.numRows.value).fill(true),
+        northExtent: +inputs.northExtent.value,
+        southExtent: +inputs.southExtent.value,
+        westExtent: +inputs.westExtent.value,
+        eastExtent: +inputs.eastExtent.value,
     };
 
     // "show"   → text inputs are readonly mirrors of config; no clicks.
@@ -134,6 +150,10 @@ export function init() {
         config.hInitCol = +inputs.hInitCol.value;
         config.vInitRow = +inputs.vInitRow.value;
         config.maxPri = +inputs.maxPri.value;
+        config.northExtent = +inputs.northExtent.value;
+        config.southExtent = +inputs.southExtent.value;
+        config.westExtent = +inputs.westExtent.value;
+        config.eastExtent = +inputs.eastExtent.value;
     }
 
     function paintInitInputs() {
@@ -146,6 +166,62 @@ export function init() {
 
     function render() {
         syncNumericInputs();
+
+        // Extents mode: build the integrated map via fromUniverseExtents (the
+        // extents may be negative → off-origin window). The built propagation's
+        // own dims/offsets drive the renderer (they differ from the inputs:
+        // numColumns = W+E, hInitCol = hInitCol−westExtent, …). Read-only —
+        // the boundary is derived, so init editing / partitions don't apply.
+        if (config.mode === "extents") {
+            let p;
+            try {
+                p = Propagation.fromUniverseExtents({
+                    northExtent: config.northExtent,
+                    southExtent: config.southExtent,
+                    westExtent: config.westExtent,
+                    eastExtent: config.eastExtent,
+                    hInitCol: config.hInitCol,
+                    vInitRow: config.vInitRow,
+                    seniority: config.seniority,
+                    maxPri: config.maxPri,
+                });
+            } catch (e) {
+                callSig.textContent =
+                    "Propagation.fromUniverseExtents({ … })\n// ✗ " + e.message;
+                info.textContent = e.message;
+                return;
+            }
+            prop = p;
+            result = { downMatrix: p.downMatrix, rightMatrix: p.rightMatrix };
+            const seniorityCall = config.seniority.isVertical
+                ? "Seniority.vertical()"
+                : "Seniority.horizontal()";
+            callSig.textContent = `Propagation.fromUniverseExtents({
+  northExtent: ${config.northExtent},
+  southExtent: ${config.southExtent},
+  westExtent:  ${config.westExtent},
+  eastExtent:  ${config.eastExtent},
+  hInitCol: ${config.hInitCol},
+  vInitRow: ${config.vInitRow},
+  ${seniorityCall},
+  maxPri: ${config.maxPri},
+})  // → ${p.numRows}×${p.numColumns} @ offset (${p.hInitCol}, ${p.vInitRow})`;
+            const viewConfig = {
+                numRows: p.numRows,
+                numCols: p.numColumns,
+                hInitCol: p.hInitCol,
+                vInitRow: p.vInitRow,
+                seniority: config.seniority,
+                maxPri: config.maxPri,
+            };
+            renderPropagation(
+                svg, viewConfig, result,
+                { ...flags, initEditable: false, allCellsClickable: false },
+                infoHooks,
+            );
+            return;
+        }
+
         prop = new Propagation({
             direction: "se",
             numRows: config.numRows,
@@ -181,10 +257,27 @@ export function init() {
     // ── Controls ──
 
     // Numeric inputs render on every keystroke; text init inputs commit on blur/Enter only.
-    for (const key of ["numRows", "numCols", "hInitCol", "vInitRow", "maxPri"]) {
+    for (const key of [
+        "numRows", "numCols", "hInitCol", "vInitRow", "maxPri",
+        "northExtent", "southExtent", "westExtent", "eastExtent",
+    ]) {
         inputs[key].addEventListener("input", render);
         attachWheelStep(inputs[key]);
     }
+
+    // Build mode: Direct (raw Propagation) ↔ Extents (fromUniverseExtents,
+    // negative-capable). Init editing is direct-only, so its section hides in
+    // extents mode.
+    buildModeBtn.onclick = () => {
+        config.mode = config.mode === "direct" ? "extents" : "direct";
+        const isExtents = config.mode === "extents";
+        buildModeBtn.textContent = isExtents ? "Extents" : "Direct";
+        buildModeBtn.classList.toggle("active", isExtents);
+        directControls.hidden = isExtents;
+        extentsControls.hidden = !isExtents;
+        initSection.hidden = isExtents;
+        render();
+    };
 
     // ── Init mode toggle + hex commit ──
 
