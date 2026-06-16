@@ -78,7 +78,7 @@ function focusGlyphNow() {
 }
 
 // ── quadrant view: centre (cx,cy) in unit-square [0,1]², z = px per unit ──
-const view = { cx: 0.5, cy: 0.5, z: 640 };
+const view = { cx: 0.5, cy: 0.5, z: 640, aspX: 1 }; // aspX=√2 in A4-cells mode
 const TARGET = 42; // aimed-for section size (px) — picks the LOD rung
 let curK = -1; // the DISPLAYED ladder rung (decoupled from raw zoom by the clutch)
 let renderedK = -1; // last rung the panels were built for (change detection)
@@ -672,7 +672,7 @@ function clampZoom() {
 function clampView() {
     clampZoom();
     const canvas = $("quadrant");
-    const hw = canvas.width / 2 / view.z;
+    const hw = canvas.width / 2 / (view.z * view.aspX);
     const hh = canvas.height / 2 / view.z;
     view.cx = 2 * hw >= 1 ? 0.5 : Math.max(hw, Math.min(1 - hw, view.cx));
     view.cy = 2 * hh >= 1 ? 0.5 : Math.max(hh, Math.min(1 - hh, view.cy));
@@ -702,7 +702,7 @@ function bindQuadrant() {
         const rect = canvas.getBoundingClientRect();
         const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
         const my = (e.clientY - rect.top) * (canvas.height / rect.height);
-        const uxAt = view.cx + (mx - canvas.width / 2) / view.z;
+        const uxAt = view.cx + (mx - canvas.width / 2) / (view.z * view.aspX);
         const uyAt = view.cy + (my - canvas.height / 2) / view.z;
         // Shift can remap the wheel to the X axis (macOS), so take whichever
         // axis carries the scroll — otherwise shift+wheel never zooms.
@@ -710,7 +710,7 @@ function bindQuadrant() {
         view.z *= Math.exp(-delta * 0.0016);
         clampZoom();
         updateRung(e.shiftKey); // shift slips the clutch (rung lags the zoom)
-        view.cx = uxAt - (mx - canvas.width / 2) / view.z;
+        view.cx = uxAt - (mx - canvas.width / 2) / (view.z * view.aspX);
         view.cy = uyAt - (my - canvas.height / 2) / view.z;
         clampView();
         scheduleMap();
@@ -727,7 +727,7 @@ function bindQuadrant() {
         if (drag) {
             const rect = canvas.getBoundingClientRect();
             const sc = canvas.width / rect.width;
-            view.cx = drag.cx - ((e.clientX - drag.x) * sc) / view.z;
+            view.cx = drag.cx - ((e.clientX - drag.x) * sc) / (view.z * view.aspX);
             view.cy = drag.cy - ((e.clientY - drag.y) * sc) / view.z;
             if (Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) > 3)
                 drag.moved = true;
@@ -907,6 +907,15 @@ export async function init() {
         redraw();
     });
     applyTheme();
+
+    // A4 cells: stretch X by √2 so V cells read as A4 landscape and H cells as
+    // A4 portrait (the V/H ladder = the A4 fold).
+    $("a4-toggle").addEventListener("click", () => {
+        view.aspX = view.aspX === 1 ? Math.SQRT2 : 1;
+        $("a4-toggle").classList.toggle("on", view.aspX !== 1);
+        clampView();
+        redraw();
+    });
 
     buildPalette();
     buildColors();

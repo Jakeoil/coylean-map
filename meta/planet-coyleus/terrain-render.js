@@ -211,15 +211,20 @@ export function drawQuadrant(canvas, rung, view, hover, selected) {
     const cellsX = NSc * SEC;
     const cellsY = NSr * SEC;
     // cell-grid coordinate → screen; section-grid coordinate → screen
-    const sx = (cx) => W / 2 + ((cx - rung.firstDarkCol) / cellsX - view.cx) * view.z;
+    // A4-cells mode (view.aspX = √2) stretches the X axis: V cells (square) →
+    // A4 landscape, H cells (1:2 tall) → A4 portrait (1:√2). The map outline
+    // stays A4-landscape; the V→H half-step is the A4 fold (a landscape V cell
+    // splits left|right into two portrait H cells). zx = X screen-px per unit.
+    const zx = view.z * (view.aspX || 1);
+    const sx = (cx) => W / 2 + ((cx - rung.firstDarkCol) / cellsX - view.cx) * zx;
     const sy = (cy) => Ht / 2 + ((cy - rung.firstDarkRow) / cellsY - view.cy) * view.z;
     // Section rect aligned to the line field: a glyph sits +1 cell into its cage.
     const Xs = (C) => sx(rung.firstDarkCol + C * SEC + 1);
     const Ys = (R) => sy(rung.firstDarkRow + R * SEC + 1);
-    const secW = view.z / NSc;
+    const secW = zx / NSc;
     const secH = view.z / NSr;
-    const uxL = view.cx - W / 2 / view.z;
-    const uxR = view.cx + W / 2 / view.z;
+    const uxL = view.cx - W / 2 / zx;
+    const uxR = view.cx + W / 2 / zx;
     const uyT = view.cy - Ht / 2 / view.z;
     const uyB = view.cy + Ht / 2 / view.z;
 
@@ -246,7 +251,7 @@ export function drawQuadrant(canvas, rung, view, hover, selected) {
     const x1 = Math.min(rung.Mc - 1, Math.ceil(uxR * cellsX + rung.firstDarkCol) + 1);
     const y0 = Math.max(0, Math.floor(uyT * cellsY + rung.firstDarkRow) - 1);
     const y1 = Math.min(rung.Mr - 1, Math.ceil(uyB * cellsY + rung.firstDarkRow) + 1);
-    const cellPx = Math.min(view.z / cellsX, view.z / cellsY);
+    const cellPx = Math.min(zx / cellsX, view.z / cellsY);
     const base = Math.max(0.4, cellPx * 0.12);
     const widthFor = (p) => base * (1 + 0.62 * Math.min(p, 6));
     ctx.strokeStyle = isLight ? "#15171c" : "#eef1f6";
@@ -312,13 +317,14 @@ export function cageClientRect(canvas, rung, view, R, C) {
     const sX = rect.width / canvas.width;
     const sY = rect.height / canvas.height;
     const { NSr, NSc, SEC } = rung;
+    const zx = view.z * (view.aspX || 1); // A4-cells X stretch (see drawQuadrant)
     const sx = (cx) =>
-        canvas.width / 2 + ((cx - rung.firstDarkCol) / (NSc * SEC) - view.cx) * view.z;
+        canvas.width / 2 + ((cx - rung.firstDarkCol) / (NSc * SEC) - view.cx) * zx;
     const sy = (cy) =>
         canvas.height / 2 + ((cy - rung.firstDarkRow) / (NSr * SEC) - view.cy) * view.z;
     const x = sx(rung.firstDarkCol + C * SEC + 1);
     const y = sy(rung.firstDarkRow + R * SEC + 1);
-    const w = view.z / NSc;
+    const w = zx / NSc;
     const h = view.z / NSr;
     return {
         left: rect.left + x * sX,
@@ -337,7 +343,7 @@ export function quadrantHit(canvas, rung, view, e) {
     const rect = canvas.getBoundingClientRect();
     const px = (e.clientX - rect.left) * (canvas.width / rect.width);
     const py = (e.clientY - rect.top) * (canvas.height / rect.height);
-    const ux = view.cx + (px - canvas.width / 2) / view.z;
+    const ux = view.cx + (px - canvas.width / 2) / (view.z * (view.aspX || 1));
     const uy = view.cy + (py - canvas.height / 2) / view.z;
     const fx = (ux - 1 / (rung.NSc * rung.SEC)) * rung.NSc;
     const fy = (uy - 1 / (rung.NSr * rung.SEC)) * rung.NSr;
