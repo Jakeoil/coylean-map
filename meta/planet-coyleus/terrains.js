@@ -850,6 +850,20 @@ function placePanelForCage(R, C) {
 
 // ── IO ──
 function buildIO() {
+    // Preset color schemes shipped alongside the page — fetch + load on pick.
+    $("scheme-preset").addEventListener("change", async (e) => {
+        const file = e.target.value;
+        if (!file) return;
+        try {
+            const res = await fetch("./" + file);
+            const data = await res.json();
+            loadScheme(data);
+            if (data.name) $("scheme-name").value = data.name;
+            redraw();
+        } catch (err) {
+            console.error("preset scheme load failed:", file, err);
+        }
+    });
     $("save").addEventListener("click", () => {
         const name = $("scheme-name").value.trim() || "scheme";
         const blob = new Blob([JSON.stringify(serialize(name), null, 2)], {
@@ -919,14 +933,18 @@ export async function init() {
         );
         if (inField || !state.cursor) return;
         const moves = {
-            ArrowUp: [-1, 0],
-            ArrowDown: [1, 0],
-            ArrowLeft: [0, -1],
-            ArrowRight: [0, 1],
+            ArrowUp: [-1, 0], w: [-1, 0],
+            ArrowDown: [1, 0], s: [1, 0],
+            ArrowLeft: [0, -1], a: [0, -1],
+            ArrowRight: [0, 1], d: [0, 1],
         };
-        if (moves[e.key]) {
+        // WASD mirrors the arrows; skip when a modifier is held so browser
+        // shortcuts (⌘W, etc.) still work.
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        const mv = moves[e.key] || moves[e.key.toLowerCase()];
+        if (mv) {
             e.preventDefault();
-            moveCursor(moves[e.key][0], moves[e.key][1]);
+            moveCursor(mv[0], mv[1]);
         }
     });
     markColor();
