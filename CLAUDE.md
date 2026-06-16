@@ -4,10 +4,12 @@ Domain background lives in `README.md` and `ALGORITHM.md`. This file is the
 short list of things that have bitten past sessions. Read it before touching the
 algorithm or the glyphs catalog.
 
-## The engine — `coylean-explorer/coylean-core.js`
+## The engine — `src/core/coylean-core.js` (imported as `coylean/core`)
 
 This is the hub; almost everything imports from it. Frozen API — extend free
-functions via a trailing options object, never new positional params.
+functions via a trailing options object, never new positional params. Shared
+code lives in `src/` and is imported by the bare `coylean/` prefix (import map
+in browser pages, `package.json` `exports` in Node) — not relative paths.
 
 - **`Propagation`** runs one SE-flowing quadrant: `pri(i + hInitCol)` /
   `pri(j + vInitRow)` priorities, `Seniority` breaks ties (vertical `>=`,
@@ -18,6 +20,15 @@ functions via a trailing options object, never new positional params.
   (odd `hInitCol` → a sparse blue scatter). The standard seed is all-true;
   `fromUniverseBoundary` derives the correct boundary seed from the four
   quadrants and sets `hInitCol = hInitCol_user − westExtent`.
+- **Extents may be NEGATIVE** (since 2026-06-15): a negative extent moves the
+  seam past the origin into the opposite territory — the window then lies wholly
+  on one side (the same field, windowed off-origin). The guard is per-axis SUM
+  ≥ 0 (`westExtent + eastExtent`, `northExtent + southExtent`), not per-extent
+  ≥ 0. Honoured by every extent path (`fromUniverseExtents`, `Universe.create` +
+  `fromUniverseBoundary`, `createUniverseQuadrants`) via clamp-to-covering +
+  `Propagation.windowSeed` (re-seed from the found interior edge). Dial/test it
+  in the basic-propagation + universe-quadrants prototypes; see
+  `test/core/test-universe-extents.mjs`.
 - **A `Universe` is just the bundle of four quadrant Propagations
   (`nw`/`ne`/`sw`/`se`); it has no global raster.** The old broken
   `Universe.assemble()` / `debugAssemblySummary()` and the stitched
@@ -34,10 +45,13 @@ functions via a trailing options object, never new positional params.
 classes, substitution + translation tables); `glyphs/assign.html` is the
 interactive symbol-assignment editor. Both load via a single entry module.
 
-**Three-layer split** (one-way chain `coylean-core → glyph-core → glyph-render →
-glyphs.js`):
+**Three-layer split** (one-way chain `coylean/core → coylean/glyphs →
+coylean/ui/render → glyphs.js`); the math now lives in `src/` — `glyph-core.js`
+→ `src/glyphs/` (`coylean/glyphs`), `glyph-render.js` → `src/ui/`
+(`coylean/ui/render`) — while `glyphs.js` stays the page controller in `glyphs/`:
 
-- **`glyph-core.js`** — pure math + assignment model. No DOM, no canvas, no
+- **`glyph-core.js`** (`src/glyphs/`, `coylean/glyphs`) — pure math + assignment
+  model. No DOM, no canvas, no
   `fetch`; imports only the engine. Owns `computePattern`, the D4 algebra
   (`VISUAL_D4`, `D4_COMPOSE`/`d4Compose`), `classifyVisualD4`, the letter maps +
   `assignLetter`/`applyAssignmentDict`, the dyadic offsets (`curHInit`/`curVInit`
@@ -45,10 +59,12 @@ glyphs.js`):
   universe-integration map + section codes) and `computeGlyphMatrices`. **This is
   the Node-importable layer — do algorithm validation here** (see the engine
   note above), not against the canvas.
-- **`glyph-render.js`** — canvas drawing only (`drawGlyph`, `drawDot`,
+- **`glyph-render.js`** (`src/ui/`, `coylean/ui/render`) — canvas drawing only
+  (`drawGlyph`, `drawDot`,
   `drawCoyleanMap(canvas, model, opts)` consuming `computeMapModel`'s output),
-  the calibrated `D4_MATRIX`, Baby Blocks, and a `renderState` config object the
-  controller mutates. Imports only `glyph-core` — holds no `Propagation`/DOM.
+  the calibrated `D4_MATRIX`, Baby Blocks (loaded from `src/assets/baby-blocks/`),
+  and a `renderState` config object the
+  controller mutates. Imports only `coylean/glyphs` — holds no `Propagation`/DOM.
 - **`glyphs.js`** — page controller: DOM table builders, `mapConfigs`, event
   wiring, IO (`loadAssignments`), and the re-export barrel `assign.mjs` imports.
 
