@@ -287,13 +287,33 @@ export function init() {
             // arrays the sidebar edits).
             renderIntegrated(svg, baseQuads, integrated, flags, infoHooks);
         } else {
-            quads = baseQuads;
+            // Off-origin window (negative extents): each surviving quad's local
+            // (0,0) is the seam corner, so window every tile by dropping the
+            // seam-side strip — colDrop from local col 0, rowDrop from local
+            // row 0 — and renderMosaic re-packs them to meet at the shifted
+            // seam. (At most one of W/E and one of N/S is negative, so the +
+            // is really a select.)
+            const eff = readEffectiveExtents();
+            const colDrop =
+                Math.max(0, -eff.westExtent) + Math.max(0, -eff.eastExtent);
+            const rowDrop =
+                Math.max(0, -eff.northExtent) + Math.max(0, -eff.southExtent);
+            let mosaicQuads = baseQuads;
+            if (colDrop || rowDrop) {
+                mosaicQuads = baseQuads.map((q) => ({
+                    ...q,
+                    p: new Propagation(
+                        Propagation.windowSeed(q.p, rowDrop, 0, 0, colDrop)),
+                }));
+            }
+            quads = mosaicQuads;
             callSig.textContent = baseSig;
-            // Click hooks attach only in Set mode; Show mode is read-only.
-            const hooks = flags.initEditable
+            // Click hooks attach only in Set mode AND when not windowed (sliced
+            // tiles don't line up with the full-extent central arrays).
+            const hooks = flags.initEditable && !colDrop && !rowDrop
                 ? { ...infoHooks, ...clickHooks }
                 : infoHooks;
-            renderMosaic(svg, baseQuads, flags, hooks);
+            renderMosaic(svg, mosaicQuads, flags, hooks);
         }
         paintInitInputs();
         infoHooks.showDefault();
