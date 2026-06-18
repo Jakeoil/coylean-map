@@ -254,6 +254,36 @@ Home Anchor.)
 > Home-Anchor genealogy. Set it aside — superglyph genealogy is studied on the
 > home quads only, where translation is a clean function of the code.
 
+## Unbiased proportion — the √2 V/H aspect
+
+The half-step ladder above counts cells, and those counts are **biased**: a V
+map is a square (`2ⁿ × 2ⁿ`, 1:1) and the H map between is double-wide
+(`2ⁿ × 2ⁿ⁺¹`, 1:2). Read literally the sequence jolts square → 2:1 → square,
+favouring one axis at a time.
+
+The **unbiased** method *proportions* each map instead at **√2** — the one
+aspect that halving preserves (A-series paper). Each map is drawn as a √2
+rectangle, oriented by type:
+
+- **V map — `√2 : 1`, wider than high** (landscape).
+- **H map — `1 : √2`, higher than wide** (portrait).
+
+A v→h substitution then cuts a V (landscape √2) down the middle into two
+halves, each `1 : √2` — i.e. two H maps; h→v cuts an H the other way into two V
+maps. So **a substitution is a single shape-preserving split + 90° flip**, and
+V → H → V → … is a uniform progression with no axis preferred — *unbiased*.
+
+The payoff: **no aspect growth is needed.** The morph-unit's "widen to 3:2 then
+snap" was a compromise; under √2 the split alone keeps the proportion, and the
+only scaling is **zoom — to descend into a sub-cell for more detail** (turtles
+all the way down). Two half-steps (V→H→V) zoom the linear scale by `√2·√2 = 2`,
+one whole cage level, matching the `2×` cell-count doublings above.
+
+Dialled in the **Unbiased Map** (`meta/conduits/unbiased-map.*`) and drawn out in
+the figures of **`meta/mitosis/`** — the main (V, landscape) sequence and its
+**v/h version** (H, portrait), which is just the main one transposed through the
+diagonal.
+
 ## Scaling up to the superglyph — the catalog closes
 
 The rules are encapsulated as plain dictionaries in **`tests/rules.mjs`**

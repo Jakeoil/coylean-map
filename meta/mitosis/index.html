@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Elaborate Mitosis — the sequence &amp; its v/h version</title>
+        <link rel="icon" type="image/png" href="../../map-icon.png" />
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            :root { --purple: #9575cd; --purple-pale: #c9b6f5; }
+            body {
+                font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+                background:
+                    radial-gradient(900px 500px at 60% -10%,
+                        rgba(149,117,205,0.12), transparent 60%),
+                    linear-gradient(150deg, #140f23, #16122a 50%, #0c0a18);
+                color: #ece8f6; min-height: 100vh; padding: 36px 22px 70px;
+                line-height: 1.6;
+            }
+            main { max-width: 860px; margin: 0 auto; }
+            a.back { color: var(--purple); text-decoration: none; font-size: 0.9rem; }
+            a.back:hover { text-decoration: underline; }
+            .kicker {
+                font-family: ui-monospace, Menlo, monospace; font-size: 0.74rem;
+                letter-spacing: 0.2em; text-transform: uppercase;
+                color: rgba(201,182,245,0.65); margin: 16px 0 6px;
+            }
+            h1 { font-size: 2rem; color: var(--purple-pale); margin-bottom: 14px; }
+            p { color: rgba(236,232,246,0.78); margin-bottom: 14px; max-width: 70ch; }
+            em { color: var(--purple-pale); font-style: normal; }
+            .pair {
+                display: flex; gap: 26px; justify-content: center; align-items: flex-end;
+                flex-wrap: wrap; margin: 28px 0 6px;
+            }
+            figure {
+                background: rgba(0,0,0,0.25); border: 1px solid rgba(149,117,205,0.3);
+                border-radius: 14px; padding: 16px; text-align: center;
+            }
+            figure img { display: block; border-radius: 8px; background: #fff; }
+            figcaption {
+                margin-top: 12px; font-family: ui-monospace, Menlo, monospace;
+                font-size: 0.8rem; color: rgba(236,232,246,0.7);
+            }
+            figcaption b { color: var(--purple-pale); }
+            figcaption span { color: rgba(236,232,246,0.5); }
+        </style>
+    </head>
+    <body>
+        <main>
+            <a class="back" href="../conduits/index.html">← The Conduits</a>
+            <div class="kicker">elaborate mitosis · two sequences</div>
+            <h1>The Sequence &amp; its v/h Version</h1>
+
+            <p>
+                One cell, growing elaborate and dividing, drawn straight from the
+                Excalidraw figures. The colours name the <em>order</em> (the
+                priority of the spine): <em>green</em> = 1, <em>yellow / cream</em>
+                = 2, <em>violet / purple</em> = 3 — a higher order carries the
+                lower ones as its inner shells. Each step is a mitotic division.
+            </p>
+
+            <div class="pair">
+                <figure>
+                    <img src="figures/mitosis-sequence.gif"
+                         alt="green to yellow to violet mitosis sequence" height="300" />
+                    <figcaption><b>the sequence</b> — V<br />
+                        <span>cells wider than high; split side-by-side</span>
+                    </figcaption>
+                </figure>
+                <figure>
+                    <img src="figures/vh-sequence.gif"
+                         alt="the v/h (transposed) mitosis sequence" height="300" />
+                    <figcaption><b>the v/h version</b> — H<br />
+                        <span>the diagonal transpose; split top-and-bottom</span>
+                    </figcaption>
+                </figure>
+            </div>
+
+            <p>
+                The two are the same sequence through the <em>main diagonal</em>:
+                H is V transposed (the D1 backslash). The left was drawn out in
+                full; the right existed only as far as the first five figures, so
+                its later stages here are completed by transposing the left.
+            </p>
+        </main>
+    </body>
+</html>
