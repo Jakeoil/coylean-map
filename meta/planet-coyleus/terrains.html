@@ -122,6 +122,24 @@
                 cursor: pointer;
             }
 
+            .map-controls {
+                display: flex;
+                gap: 16px;
+                margin: 6px 0;
+            }
+            .map-toggle {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 0.74rem;
+                color: var(--muted);
+                cursor: pointer;
+                user-select: none;
+            }
+            .map-toggle input {
+                cursor: pointer;
+            }
+
             /* orientation control (anchor quadrant + seniority) */
             #orient .orient-btns {
                 display: flex;
@@ -472,7 +490,14 @@
                     glyph to edit it
                 </div>
                 <div class="map-controls">
-                    <button id="a4-toggle" title="Draw cells in √2 (A4) proportions: V landscape, H portrait — the V/H ladder is the A4 fold">A4 cells</button>
+                    <label class="map-toggle" title="Overlay a black transparent baby-block letter on each glyph">
+                        <input type="checkbox" id="glyphs-toggle" />
+                        show glyphs
+                    </label>
+                    <label class="map-toggle" title="Draw cells in √2 (silver ratio) proportions: V landscape, H portrait — the V/H ladder is the silver-ratio fold">
+                        <input type="checkbox" id="silver-toggle" />
+                        silver ratio
+                    </label>
                 </div>
                 <div id="map-hud" class="hud"></div>
                 <canvas id="quadrant" width="760" height="760"></canvas>

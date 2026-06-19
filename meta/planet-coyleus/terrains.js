@@ -29,6 +29,8 @@ import {
     quadrantHit,
     cageClientRect,
     setTheme,
+    setShowGlyphs,
+    loadBabyBlocks,
 } from "./terrain-render.js";
 import { oklchHex } from "../4d/src/oklch-ramps.js";
 import { createOrientation, quadrantLabel } from "coylean/ui/orientation.js";
@@ -78,7 +80,7 @@ function focusGlyphNow() {
 }
 
 // ── quadrant view: centre (cx,cy) in unit-square [0,1]², z = px per unit ──
-const view = { cx: 0.5, cy: 0.5, z: 640, aspX: 1 }; // aspX=√2 in A4-cells mode
+const view = { cx: 0.5, cy: 0.5, z: 640, aspX: 1 }; // aspX=√2 in silver-ratio mode
 const TARGET = 42; // aimed-for section size (px) — picks the LOD rung
 let curK = -1; // the DISPLAYED ladder rung (decoupled from raw zoom by the clutch)
 let renderedK = -1; // last rung the panels were built for (change detection)
@@ -908,13 +910,21 @@ export async function init() {
     });
     applyTheme();
 
-    // A4 cells: stretch X by √2 so V cells read as A4 landscape and H cells as
-    // A4 portrait (the V/H ladder = the A4 fold).
-    $("a4-toggle").addEventListener("click", () => {
-        view.aspX = view.aspX === 1 ? Math.SQRT2 : 1;
-        $("a4-toggle").classList.toggle("on", view.aspX !== 1);
+    // Silver ratio: stretch X by √2 so V cells read as landscape and H cells as
+    // portrait (the V/H ladder = the silver-ratio fold).
+    $("silver-toggle").addEventListener("change", (e) => {
+        view.aspX = e.target.checked ? Math.SQRT2 : 1;
         clampView();
         redraw();
+    });
+
+    // Glyph labels: black transparent baby-block letters at each cage centre.
+    $("glyphs-toggle").addEventListener("change", (e) => {
+        setShowGlyphs(e.target.checked);
+        redraw();
+    });
+    loadBabyBlocks().then(() => {
+        if ($("glyphs-toggle").checked) redraw();
     });
 
     buildPalette();

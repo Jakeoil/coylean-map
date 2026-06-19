@@ -7,8 +7,34 @@
 // row-major over the 4×4 grid: idx = i*4 + j.
 
 import { cellsFor, matricesFor } from "./terrain-core.js";
+import { glyphLetterAt } from "coylean/glyphs";
+import { D4_TO_BABY } from "coylean/ui/render";
+import { BabyBlocks } from "coylean/assets/baby-blocks/baby-blocks.js";
 
 const NUM_CELLS = 3; // interior reaction boxes; cell grid is 4×4
+
+// ── glyph labels: black transparent baby-block letters over the map (see
+// conduits/descent for the same overlay). Loaded async; the page redraws when
+// ready. `showGlyphs` is toggled by the controller. ──
+let babyBlocks = null;
+let showGlyphs = false;
+export function setShowGlyphs(on) {
+    showGlyphs = on;
+}
+export async function loadBabyBlocks() {
+    if (babyBlocks) return babyBlocks;
+    try {
+        babyBlocks = await BabyBlocks.load(
+            new URL(
+                "../../src/assets/baby-blocks/AlphabetBlocks-complete.svg",
+                import.meta.url,
+            ),
+        );
+    } catch (e) {
+        console.warn("terrains: baby blocks load failed", e);
+    }
+    return babyBlocks;
+}
 
 // Theme-aware canvas neutrals (the chrome is CSS; these are drawn). Light is the
 // default; setTheme(false) switches to dark.
@@ -286,6 +312,35 @@ export function drawQuadrant(canvas, rung, view, hover, selected) {
             ctx.lineTo(a[i + 2], a[i + 3]);
         }
         ctx.stroke();
+    }
+
+    // ── glyph labels: a black-transparent baby-block letter at each cage
+    // centre, transformed by the glyph's D4 operation (same overlay as descent).
+    if (showGlyphs && babyBlocks) {
+        const lsize = Math.min(secW, secH);
+        if (lsize >= 18) {
+            ctx.globalAlpha = 0.5;
+            const color = isLight ? "#000000" : "#eef5e6";
+            for (let R = r0; R <= r1; R++)
+                for (let C = c0; C <= c1; C++) {
+                    const [d, r] = rung.codes[R][C];
+                    const ft = glyphLetterAt(grid, d, r);
+                    if (!ft) continue;
+                    babyBlocks.drawDirect(
+                        ctx,
+                        ft[0],
+                        Xs(C) + secW / 2,
+                        Ys(R) + secH / 2,
+                        lsize * 0.62,
+                        {
+                            transform: D4_TO_BABY[ft[1]] || "e",
+                            outline: false,
+                            color,
+                        },
+                    );
+                }
+            ctx.globalAlpha = 1;
+        }
     }
 
     // selected cage: a high-contrast double ring (dark halo + bright core) so
