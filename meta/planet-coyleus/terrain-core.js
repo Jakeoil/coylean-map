@@ -287,15 +287,17 @@ export function rungMap(order, seniorityH, curH, curV) {
 }
 
 // ── the V/H ladder: rung index k → (order, seniority), and labels ──
-export const LADDER_ORDER0 = 4; // k=0 is V4
-export const LADDER_RUNGS = 12; // V4,H4,V5,H5,…,V9,H9
+// Floor is order 2 (a single glyph — the lowest the engine renders); ceiling is
+// order 9. The dial reads 2v 2h 3v 3h … 9h.
+export const LADDER_ORDER0 = 2; // k=0 is V2
+export const LADDER_RUNGS = 16; // V2,H2,V3,H3,…,V9,H9
 export function rungAt(k) {
     const i = Math.max(0, Math.min(LADDER_RUNGS - 1, Math.round(k)));
     return { k: i, order: LADDER_ORDER0 + (i >> 1), seniorityH: (i & 1) === 1 };
 }
 export function rungLabel(k) {
     const r = rungAt(k);
-    return r.order + (r.seniorityH ? "h" : "");
+    return r.order + (r.seniorityH ? "h" : "v");
 }
 
 // ── scheme IO ──

@@ -15,6 +15,7 @@ import {
     rungAt,
     rungLabel,
     LADDER_RUNGS,
+    LADDER_ORDER0,
     paintCell,
     undo,
     serialize,
@@ -34,6 +35,7 @@ import {
 } from "./terrain-render.js";
 import { oklchHex } from "../4d/src/oklch-ramps.js";
 import { createOrientation, quadrantLabel } from "coylean/ui/orientation.js";
+import { SlidingRuler } from "coylean/ui/sliding-ruler/sliding-ruler.js";
 
 const SIZES = { focus: 220, sub: 88, trans: 80, bar: 6 };
 
@@ -95,11 +97,15 @@ const LEASH_OUT = 3; // zoom-out: 1.5 orders
 const clampK = (k) => Math.max(0, Math.min(LADDER_RUNGS - 1, k));
 
 // Continuous ladder position from zoom (section area halves each half-step).
+// LADDER_CAL keeps a given physical zoom on the same ORDER independent of the
+// ladder floor: rung 0 = order LADDER_ORDER0, so dropping the floor by an order
+// shifts every rung index by +2 and the calibration by −2 to compensate.
+const LADDER_CAL = 2 * LADDER_ORDER0 - 4;
 function ladderPos() {
-    return 2 * Math.log2(view.z / TARGET) - 4;
+    return 2 * Math.log2(view.z / TARGET) - LADDER_CAL;
 }
 function zoomForRung(k) {
-    return TARGET * 2 ** ((k + 4) / 2);
+    return TARGET * 2 ** ((k + LADDER_CAL) / 2);
 }
 
 // Update the displayed rung after a zoom. Without shift it snaps to the zoom,
@@ -484,26 +490,71 @@ function orientChanged() {
     redraw();
 }
 
-// ── sidebar: order — the V/H ladder; clicking a rung jumps the zoom there ──
+// ── sidebar: order — the V/H ladder as a sliding dial; scrub or tap to jump the
+// zoom to a rung (2v 2h 3v 3h … 9h), each notch tinted its order colour ──
+let orderRuler = null;
+
+// Order-colour ladder (mirrors conduits' COLOR_LIST — the project's shell/order
+// palette). Used to tint the dial's per-rung bands so it reads as a priority
+// ladder. Faint alpha keeps the labels legible over the band.
+// prettier-ignore
+const ORDER_TINT = [
+    "#8FBC8F", "#FFEBCD", "#8A2BE2", "#00FFFF", "#DEB887",
+    "#FAEBD7", "#FF7F50", "#F0FFFF", "#FF1493", "#8FBC8F",
+];
+const hexA = (hex, a) => {
+    const n = parseInt(hex.slice(1), 16);
+    return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+};
+function rulerPalette() {
+    return state.light
+        ? {
+              bgColor: "#eef1f5",
+              indicatorColor: "#b07d12",
+              majorTickColor: "#9aa1ad",
+              midTickColor: "#b6bcc6",
+              minorTickColor: "#d3d8de",
+              labelColor: "#3b414d",
+              fadeColor: "rgba(238,241,245,0.92)",
+          }
+        : {
+              bgColor: "#14161c",
+              indicatorColor: "#d8b56a",
+              majorTickColor: "#5b6270",
+              midTickColor: "#6b7280",
+              minorTickColor: "#2a2e38",
+              labelColor: "#c9ccd3",
+              fadeColor: "rgba(20,22,28,0.92)",
+          };
+}
+
 function buildOrder() {
-    const box = $("order");
-    box.innerHTML = "";
-    for (let k = 0; k < LADDER_RUNGS; k++) {
-        const b = el("button", "rung-btn");
-        b.dataset.k = k;
-        b.textContent = rungLabel(k);
-        b.addEventListener("click", () => {
-            jumpToRung(k);
+    const canvas = $("order-dial");
+    if (!canvas) return;
+    if (orderRuler) orderRuler.destroy();
+    const labels = {};
+    for (let k = 0; k < LADDER_RUNGS; k++) labels[k] = rungLabel(k);
+    orderRuler = new SlidingRuler(canvas, {
+        min: 0,
+        max: LADDER_RUNGS - 1,
+        value: curK < 0 ? 0 : curK,
+        visibleRange: 8, // ~four orders on the face at once
+        height: 54,
+        width: 220,
+        labels,
+        bandColor: (u) =>
+            hexA(ORDER_TINT[rungAt(u).order % ORDER_TINT.length], 0.22),
+        onChange: (v) => {
+            if (v === curK) return;
+            jumpToRung(v);
             clampView();
             redraw();
-        });
-        box.appendChild(b);
-    }
+        },
+        ...rulerPalette(),
+    });
 }
 function syncOrder() {
-    document.querySelectorAll("#order .rung-btn").forEach((b) => {
-        b.classList.toggle("on", +b.dataset.k === curK);
-    });
+    if (orderRuler) orderRuler.setValue(curK); // ignored mid-drag
 }
 
 // ── main panels ──
@@ -906,6 +957,7 @@ export async function init() {
     themeToggle.addEventListener("change", () => {
         state.light = !themeToggle.checked;
         applyTheme();
+        buildOrder(); // ruler colours are baked at construction
         redraw();
     });
     applyTheme();
@@ -931,6 +983,20 @@ export async function init() {
     buildColors();
     buildOrient();
     buildOrder();
+    // Scroll the order dial to walk the V/H ladder one rung per notch — up =
+    // higher order, down = lower (bottoming out at 2v, the lowest rung).
+    $("order-dial").addEventListener(
+        "wheel",
+        (e) => {
+            e.preventDefault();
+            const k = clampK(curK - Math.sign(e.deltaY));
+            if (k === curK) return;
+            jumpToRung(k);
+            clampView();
+            redraw();
+        },
+        { passive: false },
+    );
     buildIO();
     bindQuadrant();
     bindEditor();
