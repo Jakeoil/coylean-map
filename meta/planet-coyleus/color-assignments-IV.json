@@ -1,0 +1,257 @@
+{
+  "name": "Themes IV",
+  "orbits": {
+    "F": {
+      "canonicalCode": "3,1",
+      "cells": [
+        "#861118",
+        "#2b8a36",
+        "#65696f",
+        "#65696f",
+        "#2d6fdc",
+        "#2b8a36",
+        "#8f4ecc",
+        "#8f4ecc",
+        "#2d6fdc",
+        "#2b8a36",
+        "#be7200",
+        "#cc272e",
+        "#2d6fdc",
+        "#be7200",
+        "#be7200",
+        "#2d6fdc"
+      ]
+    },
+    "P": {
+      "canonicalCode": "1,2",
+      "cells": [
+        "#d3d8de",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#d3d8de",
+        "#cc272e",
+        "#cc272e",
+        "#cc272e",
+        "#8d6b39",
+        "#8d6b39",
+        "#8d6b39",
+        "#8f4ecc",
+        "#8d6b39",
+        "#8d6b39",
+        "#8d6b39",
+        "#65696f"
+      ]
+    },
+    "J": {
+      "canonicalCode": "3,0",
+      "cells": [
+        "#2d6fdc",
+        "#9a9fa5",
+        "#dae5f9",
+        "#dae5f9",
+        "#2d6fdc",
+        "#267d30",
+        "#dae5f9",
+        "#dae5f9",
+        "#2d6fdc",
+        "#267d30",
+        "#be7200",
+        "#ffc6c0",
+        "#2d6fdc",
+        "#be7200",
+        "#be7200",
+        "#2d6fdc"
+      ]
+    },
+    "B": {
+      "canonicalCode": "0,3",
+      "cells": [
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#ffc6c0",
+        "#ffc6c0",
+        "#ffc6c0",
+        "#ffc6c0",
+        "#dae5f9",
+        "#edc388",
+        "#edc388",
+        "#dae5f9",
+        "#dae5f9",
+        "#e8a95c",
+        "#e8a95c",
+        "#dae5f9"
+      ]
+    },
+    "O": {
+      "canonicalCode": "0,0",
+      "cells": [
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc"
+      ]
+    },
+    "L": {
+      "canonicalCode": "1,1",
+      "cells": [
+        "#dae5f9",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#73a5f6",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#73a5f6",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#73a5f6",
+        "#f47b74",
+        "#f47b74",
+        "#f47b74"
+      ]
+    },
+    "Q": {
+      "canonicalCode": "2,5",
+      "cells": [
+        "#17501d",
+        "#17501d",
+        "#e4cbff",
+        "#e4cbff",
+        "#bf6c5b",
+        "#bf6c5b",
+        "#e4cbff",
+        "#e4cbff",
+        "#bf6c5b",
+        "#bf6c5b",
+        "#9a9fa5",
+        "#4d261f",
+        "#dae5f9",
+        "#dae5f9",
+        "#9a9fa5",
+        "#2d6fdc"
+      ]
+    },
+    "E": {
+      "canonicalCode": "0,7",
+      "cells": [
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#cc272e",
+        "#cc272e",
+        "#cc272e",
+        "#cc272e",
+        "#8f4ecc",
+        "#b98cea",
+        "#b98cea",
+        "#8f4ecc",
+        "#65696f",
+        "#b98cea",
+        "#b98cea",
+        "#65696f"
+      ]
+    },
+    "V": {
+      "canonicalCode": "1,5",
+      "cells": [
+        "#dae5f9",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#f9e1c0",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#f9e1c0",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#dae5f9",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc"
+      ]
+    },
+    "C": {
+      "canonicalCode": "5,1",
+      "cells": [
+        "#dae5f9",
+        "#f8d8b4",
+        "#f8d8b4",
+        "#dae5f9",
+        "#73a5f6",
+        "#f8d8b4",
+        "#f8d8b4",
+        "#73a5f6",
+        "#73a5f6",
+        "#f8d8b4",
+        "#f8d8b4",
+        "#73a5f6",
+        "#73a5f6",
+        "#72b875",
+        "#72b875",
+        "#73a5f6"
+      ]
+    },
+    "R": {
+      "canonicalCode": "2,4",
+      "cells": [
+        "#73a5f6",
+        "#73a5f6",
+        "#65696f",
+        "#65696f",
+        "#73a5f6",
+        "#73a5f6",
+        "#8f4ecc",
+        "#8f4ecc",
+        "#73a5f6",
+        "#73a5f6",
+        "#9a9fa5",
+        "#cc272e",
+        "#dae5f9",
+        "#dae5f9",
+        "#9a9fa5",
+        "#2d6fdc"
+      ]
+    },
+    "N": {
+      "canonicalCode": "1,6",
+      "cells": [
+        "#dae5f9",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#dae5f9",
+        "#ffc6c0",
+        "#ffc6c0",
+        "#ffc6c0",
+        "#ffc6c0",
+        "#ffc6c0",
+        "#ffc6c0",
+        "#dae5f9",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#2d6fdc",
+        "#dae5f9"
+      ]
+    }
+  }
+}

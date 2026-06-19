@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>planet-coyleus · color-research</title>
+        <style>
+            :root {
+                --bg: #0b0c10;
+                --panel: #14161c;
+                --ink: #c9ccd3;
+                --dim: #6b7280;
+                --gold: #d8b56a;
+                --line: #23262f;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                font-family: Menlo, Monaco, "Courier New", monospace;
+                background: var(--bg);
+                color: var(--ink);
+                padding: 24px 32px 80px;
+                line-height: 1.5;
+            }
+            .breadcrumb {
+                font-size: 0.8rem;
+                color: var(--dim);
+                margin-bottom: 12px;
+            }
+            .breadcrumb a {
+                color: #8b93a3;
+                text-decoration: none;
+            }
+            h1 {
+                font-size: 1.3rem;
+                color: #e6e8ee;
+                margin: 0 0 4px;
+            }
+            .intro {
+                max-width: 64ch;
+                color: #9aa1ad;
+                font-size: 0.82rem;
+                margin: 0 0 18px;
+            }
+            h2 {
+                font-size: 0.95rem;
+                color: var(--gold);
+                border-bottom: 1px solid var(--line);
+                padding-bottom: 5px;
+                margin: 30px 0 14px;
+            }
+            .toolbar {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                margin-bottom: 8px;
+            }
+            select {
+                background: var(--panel);
+                color: var(--ink);
+                border: 1px solid var(--line);
+                padding: 4px 8px;
+                font-family: inherit;
+                font-size: 0.82rem;
+            }
+            #status {
+                font-size: 0.78rem;
+                color: var(--dim);
+            }
+            .sumline {
+                font-size: 0.85rem;
+                margin-bottom: 8px;
+            }
+            .sumline b {
+                color: #e6e8ee;
+            }
+            /* full-budget stacked bar */
+            .stackbar {
+                display: flex;
+                width: 100%;
+                height: 26px;
+                border: 1px solid var(--line);
+                border-radius: 3px;
+                overflow: hidden;
+            }
+            .stackbar .seg {
+                height: 100%;
+            }
+            /* shared swatch */
+            .sw {
+                display: inline-block;
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                border-radius: 2px;
+                vertical-align: middle;
+            }
+            .hex {
+                color: #aeb4bf;
+            }
+            .cname {
+                color: var(--dim);
+                font-style: italic;
+            }
+            .anum {
+                color: #aeb4bf;
+            }
+            /* allotment list */
+            .arow {
+                display: grid;
+                grid-template-columns: 24px 80px 110px 1fr 120px;
+                align-items: center;
+                gap: 10px;
+                font-size: 0.8rem;
+                padding: 2px 0;
+            }
+            .abar {
+                height: 12px;
+                background: var(--line);
+                border-radius: 2px;
+                overflow: hidden;
+            }
+            .afill {
+                height: 100%;
+            }
+            .anum {
+                text-align: right;
+            }
+            /* per-glyph cards */
+            #glyphs {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 14px;
+            }
+            .card {
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 4px;
+                padding: 12px;
+            }
+            .chead {
+                display: flex;
+                align-items: baseline;
+                gap: 8px;
+                margin-bottom: 8px;
+            }
+            .letter {
+                font-size: 1.4rem;
+                color: var(--gold);
+                font-weight: bold;
+            }
+            .code {
+                font-size: 0.72rem;
+                color: var(--dim);
+            }
+            .glyph {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                grid-template-rows: repeat(4, 1fr);
+                border: 1px solid var(--line);
+            }
+            .gc {
+                width: 100%;
+                aspect-ratio: 1;
+            }
+            .distinct {
+                font-size: 0.72rem;
+                color: var(--dim);
+                margin: 8px 0 4px;
+            }
+            .minilist {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px 8px;
+            }
+            .chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 3px;
+                font-size: 0.7rem;
+            }
+            .chip .x,
+            .gchip .x {
+                color: var(--dim);
+            }
+            /* per-color rows */
+            .crow {
+                display: flex;
+                gap: 14px;
+                align-items: flex-start;
+                padding: 8px 0;
+                border-bottom: 1px solid var(--line);
+            }
+            .crow .sw {
+                flex: none;
+                margin-top: 2px;
+            }
+            .cmeta {
+                flex: 1;
+            }
+            .ctop {
+                display: flex;
+                gap: 12px;
+                align-items: baseline;
+                font-size: 0.82rem;
+                margin-bottom: 6px;
+            }
+            .gchips {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px 6px;
+            }
+            .gchip {
+                display: inline-flex;
+                align-items: center;
+                gap: 2px;
+                background: var(--bg);
+                border: 1px solid var(--line);
+                border-radius: 3px;
+                padding: 1px 6px;
+                font-size: 0.74rem;
+            }
+            .gchip b {
+                color: var(--gold);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="breadcrumb">
+            <a href="../index.html">meta</a> /
+            <a href="./index.html">planet-coyleus</a> / color-research
+        </div>
+        <h1>color-research</h1>
+        <p class="intro">
+            Color statistics for a painted scheme. Color is global per D4 orbit,
+            so the budget is the 12 anchor glyphs × 16 canonical cells = 192
+            cells. Three views: the overall allotment, the colors inside each
+            glyph, and the glyphs using each color.
+        </p>
+
+        <div class="toolbar">
+            <label for="scheme">scheme</label>
+            <select id="scheme"></select>
+            <span id="status"></span>
+        </div>
+
+        <h2>allotment</h2>
+        <div id="summary"></div>
+        <div id="allotment" style="margin-top: 12px"></div>
+
+        <h2>colors in each glyph</h2>
+        <div id="glyphs"></div>
+
+        <h2>glyphs using each color</h2>
+        <div id="colors"></div>
+
+        <script type="module" src="./color-research.mjs"></script>
+    </body>
+</html>
