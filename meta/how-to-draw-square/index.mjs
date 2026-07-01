@@ -126,6 +126,140 @@ function buildTimeline(P, vFirst) {
     return { timeline, C, R, maxLevel: maxL };
 }
 
+// ════════════════════════════════════════════════════════════════════════
+// Universe timeline — the whole plane, drawn from the central ∞-cross outward.
+//
+// A universe is centered on the origin: the two ∞ axes are the most-senior
+// lines and cross at mid-board; the four quadrants radiate from them (nothing
+// is context to hide). Draw order, per priority level, V passes then H:
+//   • columns are visited  centre → left → right;
+//   • each vertical line fills DOWN from the cross first, then UP;
+//   • rows are visited     centre → above → below;
+//   • each horizontal line fills RIGHT from the cross first, then LEFT.
+// Every emitted segment carries a `grow` direction so the reveal animation
+// starts at the cross and grows outward.
+// ════════════════════════════════════════════════════════════════════════
+
+// Split a column's on-runs into center-out pieces around the origin row `yc`:
+// `downs` grow south from the cross, `ups` grow north, each ordered
+// nearest-the-cross first. A run straddling the cross is cut at yc. Each piece
+// is [near, far] — the cross-side endpoint first.
+function colSegsFromCenter(runs, yc) {
+    const downs = [];
+    const ups = [];
+    for (const [a, b] of runs) {
+        if (b <= yc) ups.push([b, a]); // wholly north
+        else if (a >= yc) downs.push([a, b]); // wholly south
+        else {
+            downs.push([yc, b]); // straddles the origin row
+            ups.push([yc, a]);
+        }
+    }
+    downs.sort((p, q) => p[0] - q[0]); // nearest cross (south) first
+    ups.sort((p, q) => q[0] - p[0]); // nearest cross (north) first
+    return { downs, ups };
+}
+// Symmetric for a row's on-runs around the origin column `xc`.
+function rowSegsFromCenter(runs, xc) {
+    const rights = [];
+    const lefts = [];
+    for (const [a, b] of runs) {
+        if (b <= xc) lefts.push([b, a]); // wholly west
+        else if (a >= xc) rights.push([a, b]); // wholly east
+        else {
+            rights.push([xc, b]);
+            lefts.push([xc, a]);
+        }
+    }
+    rights.sort((p, q) => p[0] - q[0]); // nearest cross (east) first
+    lefts.sort((p, q) => q[0] - p[0]); // nearest cross (west) first
+    return { rights, lefts };
+}
+
+function buildUniverseTimeline(P, vFirst) {
+    const C = P.numColumns;
+    const R = P.numRows;
+    const cP = P.colPriority;
+    const rP = P.rowPriority;
+    const centerCol = -P.hInitCol; // ∞ vertical axis (max colPriority)
+    const centerRow = -P.vInitRow; // ∞ horizontal axis
+    const xc = centerCol + 1; // the cross in line (edge) coordinates
+    const yc = centerRow + 1;
+    const timeline = [];
+    const maxL = Math.max(...cP, ...rP);
+    const minL = Math.min(...cP, ...rP);
+
+    const push = (o, fixed, near, far, grow, level, half, pi, pc, si, sc) =>
+        timeline.push({
+            orientation: o,
+            fixed,
+            start: Math.min(near, far),
+            end: Math.max(near, far),
+            grow,
+            level,
+            half,
+            passIndex: pi,
+            passCount: pc,
+            segIndex: si,
+            segCount: sc,
+        });
+
+    for (let level = maxL; level >= minL; level--) {
+        const cols = [];
+        for (let i = 0; i < C; i++) if (cP[i] === level) cols.push(i);
+        const colOrder = [
+            ...cols.filter((i) => i === centerCol),
+            ...cols.filter((i) => i < centerCol).sort((a, b) => b - a),
+            ...cols.filter((i) => i > centerCol).sort((a, b) => a - b),
+        ];
+        const rows = [];
+        for (let j = 0; j < R; j++) if (rP[j] === level) rows.push(j);
+        const rowOrder = [
+            ...rows.filter((j) => j === centerRow),
+            ...rows.filter((j) => j < centerRow).sort((a, b) => b - a),
+            ...rows.filter((j) => j > centerRow).sort((a, b) => a - b),
+        ];
+
+        const doV = () =>
+            colOrder.forEach((i, passIndex) => {
+                const { downs, ups } = colSegsFromCenter(
+                    colRuns(P.downMatrix, i, R),
+                    yc,
+                );
+                const segs = [
+                    ...downs.map((s) => ["down", s]),
+                    ...ups.map((s) => ["up", s]),
+                ];
+                segs.forEach(([grow, [near, far]], si) =>
+                    push("V", i + 1, near, far, grow, level, "V",
+                        passIndex, colOrder.length, si, segs.length));
+            });
+        const doH = () =>
+            rowOrder.forEach((j, passIndex) => {
+                const { rights, lefts } = rowSegsFromCenter(
+                    rowRuns(P.rightMatrix, j, C),
+                    xc,
+                );
+                const segs = [
+                    ...rights.map((s) => ["right", s]),
+                    ...lefts.map((s) => ["left", s]),
+                ];
+                segs.forEach(([grow, [near, far]], si) =>
+                    push("H", j + 1, near, far, grow, level, "H",
+                        passIndex, rowOrder.length, si, segs.length));
+            });
+
+        if (vFirst) {
+            doV();
+            doH();
+        } else {
+            doH();
+            doV();
+        }
+    }
+    return { timeline, C, R, maxLevel: maxL };
+}
+
 // ── Build the propagation for the current mode + orientation ───────────────
 // descent's principle: fromUniverseExtents + fromUniverseBoundary. The
 // orientation triplet is the anchor: longitude = hInitCol, latitude = vInitRow,
@@ -135,30 +269,46 @@ function buildTimeline(P, vFirst) {
 function buildPropagation() {
     const { curH, curV, senH } = state.orient;
     const seniority = senH ? Seniority.horizontal() : Seniority.vertical();
-    let opts, westExtent, northExtent, maxPri;
+    // renderWest / renderNorth = the western / northern margin the render layer
+    // hides as ∞-context. Square hides its 1-cell frame; the universe hides
+    // nothing (the ∞-cross is interior, drawn mid-board); the map has none.
+    let opts, renderWest, renderNorth, maxPri;
     if (state.mode === "square") {
         const side = 2 ** state.order;
         maxPri = state.order + 1; // pri(0) (the ∞ axis) reads one above interior
-        westExtent = curH; // include the western column iff the W frame is ∞ here
-        northExtent = curV; // …and the northern row iff the N frame is ∞ here
+        renderWest = curH; // include the western column iff the W frame is ∞ here
+        renderNorth = curV; // …and the northern row iff the N frame is ∞ here
         opts = {
-            northExtent,
-            westExtent,
+            northExtent: curV,
+            westExtent: curH,
             // extend the far edge by the anchor's slide so the priority-`order`
             // spine still lands in the last column/row for every anchor.
             southExtent: side + (1 - curV),
             eastExtent: side + (1 - curH),
         };
+    } else if (state.mode === "universe") {
+        // Symmetric window around the origin: the ∞-cross lands interior and
+        // the four quadrants radiate out. Nothing is context — draw it whole.
+        const radius = 2 ** state.order;
+        maxPri = state.order + 1; // pri(0) (the ∞ cross) reads above the interior
+        renderWest = 0;
+        renderNorth = 0;
+        opts = {
+            northExtent: radius,
+            southExtent: radius,
+            westExtent: radius,
+            eastExtent: radius,
+        };
     } else {
-        westExtent = 0; // the map patch needs no context cell (north & west later)
-        northExtent = 0;
+        renderWest = 0; // the map patch needs no context cell (north & west later)
+        renderNorth = 0;
         maxPri =
             Math.ceil(
                 Math.log2(Math.max(state.southExtent, state.eastExtent, 2)),
             ) + 1;
         opts = {
-            northExtent,
-            westExtent,
+            northExtent: 0,
+            westExtent: 0,
             southExtent: state.southExtent,
             eastExtent: state.eastExtent,
         };
@@ -170,7 +320,7 @@ function buildPropagation() {
         maxPri,
         seniority,
     });
-    return { P, westExtent, northExtent };
+    return { P, renderWest, renderNorth };
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -266,15 +416,15 @@ function paintRange(from, to, animate) {
             const ye = Math.min(s.end, state.R);
             if (ye - ys <= 0 || s.fixed < state.westExtent) continue;
             cx1 = cx2 = s.fixed;
-            cy1 = ys;
-            cy2 = ye;
+            // grow from the cross: "up" reveals from the bottom (ye) toward ys
+            [cy1, cy2] = s.grow === "up" ? [ye, ys] : [ys, ye];
         } else {
             const xs = Math.max(s.start, state.westExtent);
             const xe = Math.min(s.end, state.C);
             if (xe - xs <= 0 || s.fixed < state.northExtent) continue;
             cy1 = cy2 = s.fixed;
-            cx1 = xs;
-            cx2 = xe;
+            // grow from the cross: "left" reveals from the right (xe) toward xs
+            [cx1, cx2] = s.grow === "left" ? [xe, xs] : [xs, xe];
         }
         const l = addLine(inkG(), X(cx1), Y(cy1), X(cx2), Y(cy2), [
             "seg",
@@ -289,14 +439,17 @@ function paintRange(from, to, animate) {
 }
 
 function rebuild() {
-    const { P, westExtent, northExtent } = buildPropagation();
-    const built = buildTimeline(P, !state.orient.senH);
+    const { P, renderWest, renderNorth } = buildPropagation();
+    const built =
+        state.mode === "universe"
+            ? buildUniverseTimeline(P, !state.orient.senH)
+            : buildTimeline(P, !state.orient.senH);
     state.timeline = built.timeline;
     state.C = built.C;
     state.R = built.R;
     state.maxLevel = built.maxLevel;
-    state.westExtent = westExtent;
-    state.northExtent = northExtent;
+    state.westExtent = renderWest;
+    state.northExtent = renderNorth;
     state.drawn = 0;
     computeFit();
     inkG().innerHTML = "";
@@ -391,7 +544,9 @@ function updateLabel() {
         where.textContent =
             state.mode === "square"
                 ? `Order ${state.order} square — ready.`
-                : `${state.R}×${state.C} map — ready.`;
+                : state.mode === "universe"
+                  ? `Universe · radius 2^${state.order} — ready.`
+                  : `${state.R}×${state.C} map — ready.`;
         count.innerHTML =
             "Press <strong>Step</strong> or <strong>Play</strong> to begin.";
         return;
@@ -430,10 +585,14 @@ function syncOrient() {
 // ── mode toggle ──
 function syncMode() {
     const sq = state.mode === "square";
+    const uni = state.mode === "universe";
     el("modeSquare").classList.toggle("active", sq);
-    el("modeMap").classList.toggle("active", !sq);
-    el("square-inputs").style.display = sq ? "" : "none";
-    el("map-inputs").style.display = sq ? "none" : "";
+    el("modeUniverse").classList.toggle("active", uni);
+    el("modeMap").classList.toggle("active", state.mode === "map");
+    // Square and Universe both take Order n; only Map uses south/east extents.
+    el("square-inputs").style.display = sq || uni ? "" : "none";
+    el("map-inputs").style.display = state.mode === "map" ? "" : "none";
+    el("order-hint").textContent = uni ? "radius = 2ⁿ" : "side = 2ⁿ";
 }
 
 // ── wiring ──
@@ -448,6 +607,11 @@ function wire() {
 
     el("modeSquare").onclick = () => {
         state.mode = "square";
+        syncMode();
+        rebuild();
+    };
+    el("modeUniverse").onclick = () => {
+        state.mode = "universe";
         syncMode();
         rebuild();
     };

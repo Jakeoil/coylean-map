@@ -397,8 +397,9 @@
                 off a <em>finished propagation</em> — drawn in priority order,
                 most senior line first — so you can watch the construction
                 unfold and see that the algorithm is just its bookkeeping
-                shadow. Switch to <strong>Map</strong> for an arbitrary
-                south × east patch.
+                shadow. Switch to <strong>Universe</strong> to draw the whole
+                plane out of the central ∞-cross, or <strong>Map</strong> for
+                an arbitrary south × east patch.
             </p>
 
             <div class="stage">
@@ -418,6 +419,7 @@
                     <h2>Mode</h2>
                     <div class="mode">
                         <button id="modeSquare" class="active">Square</button>
+                        <button id="modeUniverse">Universe</button>
                         <button id="modeMap">Map</button>
                     </div>
 
@@ -449,7 +451,9 @@
                                 max="6"
                                 value="4"
                             />
-                            <span style="color: var(--muted); font-size: 0.8rem"
+                            <span
+                                id="order-hint"
+                                style="color: var(--muted); font-size: 0.8rem"
                                 >side = 2ⁿ</span
                             >
                         </div>
@@ -575,13 +579,21 @@
                     several disjoint pieces.
                 </p>
 
-                <h2>Square vs Map</h2>
+                <h2>Square vs Universe vs Map</h2>
                 <p>
                     <strong>Square</strong> mode integrates a
                     <code>2ⁿ × 2ⁿ</code> patch — the genuine self-similar Coylean
                     square — including the western / northern context column
                     only where that anchor needs its ∞ frame there (i.e. where
-                    the offset is 1). <strong>Map</strong> mode takes an
+                    the offset is 1). <strong>Universe</strong> mode instead
+                    puts the origin in the <em>middle</em>: a symmetric
+                    <code>2ⁿ</code>-radius window whose two ∞ axes cross at
+                    mid-board, with the four quadrants radiating out. It draws
+                    from that cross outward — each vertical line filling down
+                    then up, each horizontal right then left, columns and rows
+                    walked centre-first — so you watch the map grow into the
+                    plane rather than sweep in from a corner.
+                    <strong>Map</strong> mode takes an
                     arbitrary <code>south × east</code> extent and needs no
                     context cell (north and west extents come later). The
                     <strong>orientation triplet</strong> is the anchor:
