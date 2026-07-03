@@ -13,10 +13,11 @@
 // the two are mirror images across the diagonal: agnostic growth. Alice eats
 // the cake, drinks the bottle, and steps through the looking-glass.
 //
-// Data is real: each rung's line field comes from terrain-core.rungMap
-// (computeMapModel under the hood). We only animate the framing + the split.
+// Data is real: each rung is a genuine Coylean square/quadrant, integrated the
+// descent way (Universe.create + fromUniverseBoundary; see integrateRung). We
+// only animate the framing + the split.
 // ════════════════════════════════════════════════════════════════════════
-import { rungMap } from "../planet-coyleus/terrain-core.js";
+import { Propagation, Universe, Seniority } from "coylean/core";
 import { ladderRung, aspW, aspH, ease, lerp } from "./ladder-kinematics.js";
 import { SlidingRuler } from "coylean/ui/sliding-ruler/sliding-ruler.js";
 
@@ -83,15 +84,14 @@ const state = {
     panX: 0,
     panY: 0,
     mirror: false, // through the main diagonal (D1 looking-glass): starts at H
-    curH: 1, // longitude anchor ∈ {0,1} (lon toggle) — rungMap's curH
-    curV: 1, // latitude anchor ∈ {0,1} (lat toggle) — rungMap's curV
+    curH: 1, // longitude anchor ∈ {0,1} (lon toggle) — integrateRung's curH
+    curV: 1, // latitude anchor ∈ {0,1} (lat toggle) — integrateRung's curV
     theme: "dark",
-    grow: 1.5, // snap proportion: 1.5 = grow to 3:2 (default) · 2 = grow to 2:1
+    ratio: "square", // box proportion: "square" (1:1⇄2:1) or "silver" (√2)
     autoscale: true, // on = auto-fit the whole map; off = hold the cell grain
     heldScale: 0, // px-per-cell captured when autoscale is switched off
     showCells: false, // lines (the Coylean square) carry it; cells optional
     showLines: true,
-    silver: false, // display-only √2 (silver-ratio) stretch of one axis (A4)
     // "no one needs to get fatter": off = the honest fat grow (cells stretch
     // anisotropically with the box); on = subdivide (square cells, the box
     // letterboxes, so the doubling shows as more cells, never fatter ones).
@@ -99,63 +99,124 @@ const state = {
 };
 let lastFitScale = 1; // most recent auto-fit grain (for the clutch to grab)
 
-// The box proportion at a rung (aspW/aspH from ./ladder-kinematics). A square
-// grows along its split axis by `state.grow` then SNAPS: 1.5 → snap at 3:2
-// (default), 2 → snap at 2:1. So every other half-order the box is square (the
-// genuine Coylean square: V rungs) and between them it is a `grow`:1 rectangle
-// (H rungs). At 2:1 the H cells fatten back to squares; at 3:2 they stay 3:4.
+// ── the box proportion at a rung ───────────────────────────────────────────
+// Two ratio modes (state.ratio). SQUARE — the biased cell counts: V rungs are
+// 1:1 squares, the H rung between is 2:1 (v→h doubles columns). SILVER — the
+// unbiased A-series proportion: every map a √2 rectangle, V landscape (√2:1),
+// H portrait (1:√2). A v→h substitution is then a shape-preserving split + 90°
+// flip, so no aspect growth is needed (README: "Unbiased proportion").
+const sqAspW = (k) => aspW(k, 2);
+const sqAspH = (k) => aspH(k, 2);
+const silverAspW = (k) => 2 ** (k / 2 + (k % 2 === 0 ? 0.25 : -0.25));
+const silverAspH = (k) => 2 ** (k / 2 + (k % 2 === 0 ? -0.25 : 0.25));
+const aspWFor = (k) => (state.ratio === "silver" ? silverAspW(k) : sqAspW(k));
+const aspHFor = (k) => (state.ratio === "silver" ? silverAspH(k) : sqAspH(k));
 
-// rung cache wrapper (terrain-core caches by key). Anchor = the lon/lat toggles
-// (curH/curV); 1/1 is the clean baseline.
+// ── build one rung as a genuine Coylean square / quadrant (descent's method) ──
+// descent's integrateSquare, generalized: the V rung is a 2ⁿ×2ⁿ square; the H
+// rung is its double-wide v→h intermediate (2ⁿ rows × 2ⁿ⁺¹ cols). Universe.create
+// + fromUniverseBoundary anchor it at the origin against a 1-cell N/W ∞ context,
+// so the orientation (curH/curV) selects the SE/SW/NE/NW quadrant and adds the ∞
+// bars where the offset is 1 (SE=2, SW/NE=1, NW=0) — exactly as on descent. We
+// trim the off-anchor zero-width seed-margin cells so the uniform grid is exactly
+// the 2ⁿ interior, framed by its ∞ / spine bars.
+const seniorityFor = (h) => (h ? Seniority.horizontal() : Seniority.vertical());
+const rungCache = new Map();
+function integrateRung(rowOrder, colOrder, seniorityH, curH, curV) {
+    const ck = `${rowOrder},${colOrder},${seniorityH ? 1 : 0},${curH},${curV}`;
+    let cached = rungCache.get(ck);
+    if (cached) return cached;
+    const sideR = 2 ** rowOrder;
+    const sideC = 2 ** colOrder;
+    const maxPri = Math.max(rowOrder, colOrder) + 1;
+    const u = Universe.create({
+        northExtent: 1,
+        westExtent: 1,
+        southExtent: sideR + (1 - curV),
+        eastExtent: sideC + (1 - curH),
+        hInitCol: curH,
+        vInitRow: curV,
+        maxPri,
+        seniority: seniorityFor(seniorityH),
+    });
+    const p = Propagation.fromUniverseBoundary(u, { maxPri });
+    // Trim only the LEADING off-anchor zero-width seed-margin cell (curH/curV=0
+    // slides a pri-0 context col/row in before the ∞ bar). The trailing edge is
+    // always the real spine/result column — keep it (its priority is `order`,
+    // which is 0 at order 0, so a trailing trim would wrongly collapse the seed).
+    const cP = p.colPriority;
+    const rP = p.rowPriority;
+    const lc = p.numColumns - 1, lr = p.numRows - 1;
+    let fc = 0, fr = 0;
+    while (fc < lc && cP[fc] === 0) fc++;
+    while (fr < lr && rP[fr] === 0) fr++;
+    cached = {
+        downMatrix: p.downMatrix,
+        rightMatrix: p.rightMatrix,
+        colPriority: cP,
+        rowPriority: rP,
+        Mc: p.numColumns,
+        Mr: p.numRows,
+        fc, lc, fr, lr, Wc: lc - fc, Hc: lr - fr,
+        inf: maxPri,
+        seniorityH,
+    };
+    rungCache.set(ck, cached);
+    return cached;
+}
 const rung = (kInt) => {
     const r = ladderRung(kInt);
-    return rungMap(r.order, r.seniorityH, state.curH, state.curV);
+    const colOrder = r.seniorityH ? r.order + 1 : r.order; // v→h doubles columns
+    return integrateRung(r.order, colOrder, r.seniorityH, state.curH, state.curV);
 };
 
 // ── draw one rung's field into a pixel box, at a given alpha ──
-// We render the 2ⁿ interior cells (drop the index-0 seed margin) so dims are
+// We render the trimmed 2ⁿ interior (fc..lc × fr..lr from integrateRung, which
+// drops the off-anchor zero-width seed margin) as a uniform grid, so dims are
 // exact powers of two and a rung NESTS in its v/h counterpart — the cross-fade
-// lines up. But a Coylean square is CLOSED: all four sides drawn. The ∞-axis
-// (column 0 / row 0 of the west=north=1 integration) IS the west and north
-// frame, so we draw the lines on every edge 0..N — col 0 / row 0 land on the
-// left / top edge — giving the full frame, not just the open SE interior.
+// lines up. A Coylean square is CLOSED: lines on every interior edge, weighted by
+// 2-adic priority, so the ∞ / spine bars frame it on the sides the orientation
+// puts them (∞ on the west iff curH=1, on the north iff curV=1).
 function drawRung(m, px, py, pw, ph, alpha) {
-    const Wc = m.Mc - 1; // 2ⁿ interior columns
-    const Hc = m.Mr - 1; // 2ⁿ interior rows
+    const { fc, lc, fr, lr, Wc, Hc } = m; // trimmed interior edges + cell counts
     let cw = pw / Wc;
     let ch = ph / Hc;
     if (state.subdivide) {
         // honest square cells — no fattening; centre in the (possibly wider)
-        // grow box, which then letterboxes instead of stretching the cells
+        // box, which then letterboxes instead of stretching the cells
         cw = ch = Math.min(cw, ch);
         px += (pw - cw * Wc) / 2;
         py += (ph - ch * Hc) / 2;
     }
     ctx.globalAlpha = alpha;
 
-    // The ∞ frame (pri(0)) comes out as the maxPri cap (e.g. 32); remap it to
-    // one above the real interior max so the four frame lines read as a frame,
-    // not a slab.
-    const inf = m.colPriority[0];
+    // The ∞ frame (pri = maxPri) → remap to one above the real interior max so
+    // the frame bars read as a frame, not a slab.
+    const inf = m.inf;
     let finiteMax = 0;
-    for (let c = 1; c < m.colPriority.length; c++)
-        finiteMax = Math.max(finiteMax, m.colPriority[c]);
-    for (let r = 1; r < m.rowPriority.length; r++)
-        finiteMax = Math.max(finiteMax, m.rowPriority[r]);
+    for (let c = fc; c <= lc; c++)
+        if (m.colPriority[c] < inf)
+            finiteMax = Math.max(finiteMax, m.colPriority[c]);
+    for (let r = fr; r <= lr; r++)
+        if (m.rowPriority[r] < inf)
+            finiteMax = Math.max(finiteMax, m.rowPriority[r]);
     const capPri = finiteMax + 1;
     const eff = (p) => (p >= inf ? capPri : p);
 
     // deep rungs: cells go sub-pixel, so ride on the lines alone (keeps the
-    // superslow 30 s climb to V8 smooth)
+    // superslow 30 s climb smooth)
     const tiny = Math.min(cw, ch) < 3;
     if (state.showCells && !tiny) {
-        for (let sr = 0; sr < Hc; sr++) {
+        for (let sr = fr; sr < lr; sr++) {
             const rp = m.rowPriority[sr + 1];
-            for (let sc = 0; sc < Wc; sc++) {
+            for (let sc = fc; sc < lc; sc++) {
                 // cell depth = how senior the nearest cage wall is around it
                 const d = Math.min(rp, m.colPriority[sc + 1]);
                 ctx.fillStyle = rampAt(d);
-                ctx.fillRect(px + sc * cw, py + sr * ch, cw + 0.7, ch + 0.7);
+                ctx.fillRect(
+                    px + (sc - fc) * cw, py + (sr - fr) * ch,
+                    cw + 0.7, ch + 0.7,
+                );
             }
         }
     }
@@ -163,32 +224,35 @@ function drawRung(m, px, py, pw, ph, alpha) {
     if (state.showLines) {
         ctx.strokeStyle = theInk();
         ctx.lineCap = "butt";
-        // vertical lines on every edge 0..N. col 0 = west frame (x=px); col N =
-        // east frame (x=px+pw). downMatrix[row][col] is the right edge of col.
-        for (let col = 0; col <= Wc; col++) {
-            const x = px + col * cw;
+        // vertical lines on every interior edge fc..lc; col fc = the west frame
+        // (∞ bar iff curH=1), col lc = the east spine. downMatrix[row][col] is
+        // the right edge of col.
+        for (let col = fc; col <= lc; col++) {
+            const x = px + (col - fc) * cw;
             ctx.lineWidth = lineWidth(eff(m.colPriority[col]), cw, ch);
-            let runStart = -1; // in interior rows 1..N
-            for (let r = 1; r <= Hc + 1; r++) {
-                const on = r <= Hc && cellDown(m, r, col);
+            let runStart = -1;
+            for (let r = fr + 1; r <= lr + 1; r++) {
+                const on = r <= lr && cellDown(m, r, col);
                 if (on && runStart < 0) runStart = r;
                 if (!on && runStart >= 0) {
-                    seg(x, py + (runStart - 1) * ch, x, py + (r - 1) * ch);
+                    seg(x, py + (runStart - fr - 1) * ch,
+                        x, py + (r - fr - 1) * ch);
                     runStart = -1;
                 }
             }
         }
-        // horizontal lines on every edge 0..N. row 0 = north frame (y=py);
-        // row N = south frame. rightMatrix[col][row] is the bottom of row.
-        for (let row = 0; row <= Hc; row++) {
-            const y = py + row * ch;
+        // horizontal lines on every interior edge fr..lr; row fr = the north
+        // frame (∞ bar iff curV=1), row lr = the south spine.
+        for (let row = fr; row <= lr; row++) {
+            const y = py + (row - fr) * ch;
             ctx.lineWidth = lineWidth(eff(m.rowPriority[row]), ch, cw);
-            let runStart = -1; // in interior cols 1..N
-            for (let c = 1; c <= Wc + 1; c++) {
-                const on = c <= Wc && cellRight(m, c, row);
+            let runStart = -1;
+            for (let c = fc + 1; c <= lc + 1; c++) {
+                const on = c <= lc && cellRight(m, c, row);
                 if (on && runStart < 0) runStart = c;
                 if (!on && runStart >= 0) {
-                    seg(px + (runStart - 1) * cw, y, px + (c - 1) * cw, y);
+                    seg(px + (runStart - fc - 1) * cw, y,
+                        px + (c - fc - 1) * cw, y);
                     runStart = -1;
                 }
             }
@@ -243,28 +307,18 @@ function render() {
     // box proportion: grow the split axis toward 3 : 2 then snap (not 2 : 1).
     // (The cell COUNTS still double — drawRung fills the box with each rung's
     // own 2ⁿ grid — so the rungs nest and the fade lines up.)
-    const Wci = lerp(aspW(kInt, state.grow), aspW(kInt + 1, state.grow), f);
-    const Hci = lerp(aspH(kInt, state.grow), aspH(kInt + 1, state.grow), f);
+    const Wci = lerp(aspWFor(kInt), aspWFor(kInt + 1), f);
+    const Hci = lerp(aspHFor(kInt), aspHFor(kInt + 1), f);
 
     // grain = px per cell. Autoscale on: the auto-fit frames the whole map
     // (cells shrink as it grows). Autoscale off: hold the captured grain so the
     // scale stays put and the map grows past the frame.
-    // Silver ratio: a display-only √2 stretch of one axis (ported from the
-    // descent "A4 cells" toggle). Follows the looking-glass — the page's V/H
-    // fold — so V and H tiles read as the SAME √2 (A4) rectangle: !glass
-    // stretches X, glass stretches Y, and the glass transpose keeps the visual
-    // tile identical either way. No field rebuild, just a non-uniform blit.
-    const asx = state.silver && !state.mirror ? Math.SQRT2 : 1;
-    const asy = state.silver && state.mirror ? Math.SQRT2 : 1;
-    const dWci = Wci * asx;
-    const dHci = Hci * asy;
-
     const margin = 0.86;
-    lastFitScale = Math.min(VP / dWci, VP / dHci) * margin;
+    lastFitScale = Math.min(VP / Wci, VP / Hci) * margin;
     const grain =
         (state.autoscale ? lastFitScale : state.heldScale) * state.userZoom;
-    const boxW = dWci * grain;
-    const boxH = dHci * grain;
+    const boxW = Wci * grain;
+    const boxH = Hci * grain;
     const px = (VP - boxW) / 2 + state.panX;
     const py = (VP - boxH) / 2 + state.panY;
 
@@ -276,14 +330,11 @@ function render() {
     syncReadout(kInt, f);
 
     // HUD: apparent h:v line-length ratio (a horizontal cell edge vs a vertical
-    // one). Subdivide keeps cells square (1.00); the fat grow stretches them.
+    // one). Square ratio keeps cells square (1.00); silver stretches them to √2.
     const hud = el("hud");
     if (hud) {
-        let ratio = 1;
-        if (!state.subdivide) {
-            const m = f < 0.5 ? A : B;
-            ratio = (boxW / (m.Mc - 1)) / (boxH / (m.Mr - 1));
-        }
+        const m = f < 0.5 ? A : B;
+        const ratio = boxW / m.Wc / (boxH / m.Hc);
         hud.textContent = "h:v " + ratio.toFixed(2);
     }
 }
@@ -393,15 +444,16 @@ function syncOrient() {
 }
 if (el("lonBtn")) el("lonBtn").onclick = () => { state.curH ^= 1; syncOrient(); };
 if (el("latBtn")) el("latBtn").onclick = () => { state.curV ^= 1; syncOrient(); };
-// snap proportion: switch the growth between 3:2 and 2:1 (3:2 is the default).
-function syncSnap() {
-    el("snap").textContent =
-        state.grow === 2 ? "Snap 2:1 ⇄ 3:2" : "Snap 3:2 ⇄ 2:1";
-    el("snap").classList.toggle("on", state.grow === 1.5);
+// ratio: switch the box proportion between Square (1:1⇄2:1, biased cell counts)
+// and Silver (√2 landscape⇄portrait, the unbiased A-series proportion).
+function syncRatio() {
+    el("ratio").textContent =
+        state.ratio === "silver" ? "Ratio · Silver √2" : "Ratio · Square";
+    el("ratio").classList.add("on");
 }
-el("snap").onclick = () => {
-    state.grow = state.grow === 1.5 ? 2 : 1.5;
-    syncSnap();
+el("ratio").onclick = () => {
+    state.ratio = state.ratio === "silver" ? "square" : "silver";
+    syncRatio();
 };
 // Autoscale clutch. On (default): the auto-fit frames the whole map as it
 // grows. Switch it OFF: it does NOT jump — it grabs the current grain and just
@@ -434,9 +486,6 @@ const stepRung = (dir) => {
 };
 if (el("stepb")) el("stepb").onclick = () => stepRung(-1);
 el("stepf").onclick = () => stepRung(1);
-// silver ratio → display-only √2 stretch of one axis (the rAF loop re-renders)
-if (el("silver"))
-    el("silver").onchange = (e) => (state.silver = e.target.checked);
 
 // ── light / dark theme ──
 function applyTheme(t) {
@@ -496,7 +545,7 @@ cv.addEventListener(
     { passive: false },
 );
 
-syncSnap();
+syncRatio();
 syncAutoscale();
 syncOrient();
 resize();
