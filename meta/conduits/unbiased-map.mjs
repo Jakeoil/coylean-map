@@ -77,7 +77,7 @@ const rampAt = (d) => {
 // ── view / animation state ──
 const state = {
     k: 0, // continuous ladder position (0 = V0, the 1×1 box … MAXK)
-    velocity: 0, // ruler step −VEL_MAX…VEL_MAX; 0 = paused, sign = direction
+    velocity: 3, // ruler step −VEL_MAX…VEL_MAX; 0 = paused, sign = direction
     dir: 1, // last non-zero direction (for frame-step orientation)
     userZoom: 1,
     panX: 0,
@@ -91,6 +91,7 @@ const state = {
     heldScale: 0, // px-per-cell captured when autoscale is switched off
     showCells: false, // lines (the Coylean square) carry it; cells optional
     showLines: true,
+    silver: false, // display-only √2 (silver-ratio) stretch of one axis (A4)
     // "no one needs to get fatter": off = the honest fat grow (cells stretch
     // anisotropically with the box); on = subdivide (square cells, the box
     // letterboxes, so the doubling shows as more cells, never fatter ones).
@@ -248,12 +249,22 @@ function render() {
     // grain = px per cell. Autoscale on: the auto-fit frames the whole map
     // (cells shrink as it grows). Autoscale off: hold the captured grain so the
     // scale stays put and the map grows past the frame.
+    // Silver ratio: a display-only √2 stretch of one axis (ported from the
+    // descent "A4 cells" toggle). Follows the looking-glass — the page's V/H
+    // fold — so V and H tiles read as the SAME √2 (A4) rectangle: !glass
+    // stretches X, glass stretches Y, and the glass transpose keeps the visual
+    // tile identical either way. No field rebuild, just a non-uniform blit.
+    const asx = state.silver && !state.mirror ? Math.SQRT2 : 1;
+    const asy = state.silver && state.mirror ? Math.SQRT2 : 1;
+    const dWci = Wci * asx;
+    const dHci = Hci * asy;
+
     const margin = 0.86;
-    lastFitScale = Math.min(VP / Wci, VP / Hci) * margin;
+    lastFitScale = Math.min(VP / dWci, VP / dHci) * margin;
     const grain =
         (state.autoscale ? lastFitScale : state.heldScale) * state.userZoom;
-    const boxW = Wci * grain;
-    const boxH = Hci * grain;
+    const boxW = dWci * grain;
+    const boxH = dHci * grain;
     const px = (VP - boxW) / 2 + state.panX;
     const py = (VP - boxH) / 2 + state.panY;
 
@@ -357,14 +368,15 @@ function buildVelocityRuler() {
 buildVelocityRuler();
 el("mirror").onclick = () => {
     state.mirror = !state.mirror;
-    el("mirror").classList.toggle("on", state.mirror);
+    syncOrient();
 };
 // Orientation triple: lon (↔ = curH) and lat (↕ = curV) anchor toggles ∈ {0,1},
-// plus the looking-glass above. The rAF loop re-reads rung() each frame, so a
-// toggle just updates state + the button face.
+// plus the seniority / looking-glass fold (⤢ V/H — the D1 transpose). The rAF
+// loop re-reads rung() each frame, so a toggle just updates state + button face.
 function syncOrient() {
     const lon = el("lonBtn");
     const lat = el("latBtn");
+    const mir = el("mirror");
     if (lon) {
         lon.textContent = "↔ " + state.curH;
         lon.classList.toggle("on", state.curH === 1);
@@ -372,6 +384,11 @@ function syncOrient() {
     if (lat) {
         lat.textContent = "↕ " + state.curV;
         lat.classList.toggle("on", state.curV === 1);
+    }
+    if (mir) {
+        // mimic descent's seniority button: diagonal double-arrow + V/H
+        mir.textContent = "⤢ " + (state.mirror ? "H" : "V");
+        mir.classList.toggle("on", state.mirror);
     }
 }
 if (el("lonBtn")) el("lonBtn").onclick = () => { state.curH ^= 1; syncOrient(); };
@@ -417,11 +434,9 @@ const stepRung = (dir) => {
 };
 if (el("stepb")) el("stepb").onclick = () => stepRung(-1);
 el("stepf").onclick = () => stepRung(1);
-el("cells").onchange = (e) => (state.showCells = e.target.checked);
-el("lines").onchange = (e) => (state.showLines = e.target.checked);
-// "no one needs to get fatter" → subdivide (square cells) instead of the fat grow
-if (el("fatter"))
-    el("fatter").onchange = (e) => (state.subdivide = e.target.checked);
+// silver ratio → display-only √2 stretch of one axis (the rAF loop re-renders)
+if (el("silver"))
+    el("silver").onchange = (e) => (state.silver = e.target.checked);
 
 // ── light / dark theme ──
 function applyTheme(t) {

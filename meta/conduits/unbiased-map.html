@@ -370,7 +370,7 @@
                     <div class="btns">
                         <button class="ctl on" id="lonBtn" title="longitude anchor (curH) ∈ {0,1}">↔ 1</button>
                         <button class="ctl on" id="latBtn" title="latitude anchor (curV) ∈ {0,1}">↕ 1</button>
-                        <button class="ctl" id="mirror" title="looking-glass (D1 transpose)">⟍ glass</button>
+                        <button class="ctl" id="mirror" title="seniority — V / H tie-break (looking-glass, D1 transpose)">⤢ V</button>
                     </div>
                     <div class="btns">
                         <button class="ctl" id="reset">Reset ↺</button>
@@ -378,23 +378,15 @@
                         <button class="ctl on" id="autoscale">⟲ Autoscale — on</button>
                     </div>
 
-                    <h2>Layers</h2>
+                    <h2>Cells</h2>
                     <div class="checks">
                         <label
-                            ><input type="checkbox" id="cells" />Cells
-                            (cage depth)</label
-                        >
-                        <label
-                            ><input type="checkbox" id="lines" checked />Lines
-                            (the Coylean square)</label
-                        >
-                        <label
-                            ><input type="checkbox" id="fatter" />no one needs to
-                            get fatter (subdivide)</label
+                            ><input type="checkbox" id="silver" />Silver ratio
+                            (√2 cells)</label
                         >
                     </div>
                     <p class="hint">
-                        Opens paused on the 1×1 seed. <strong>Space</strong> steps
+                        Opens climbing from the 1×1 seed. <strong>Space</strong> steps
                         frame-by-frame; <strong>Play ▶</strong> /
                         <strong>◀ Rev</strong> run it forward / backward. A square
                         widens to 3:2 then snaps (columns divide), then heightens
