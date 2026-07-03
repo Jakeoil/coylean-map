@@ -160,6 +160,13 @@ function integrateRung(rowOrder, colOrder, seniorityH, curH, curV) {
         fc, lc, fr, lr, Wc: lc - fc, Hc: lr - fr,
         inf: maxPri,
         seniorityH,
+        // The seniority-breaking axis only survives on one side of the origin,
+        // so its ∞ line is absent in the two off-side quadrants — don't render
+        // it there. V: the horizontal ∞ extends only east → gone in the west
+        // quadrants (SW/NW, curH=0). H: the vertical ∞ extends only south →
+        // gone in the north quadrants (NE/NW, curV=0).
+        suppressHorizInf: !seniorityH && curH === 0,
+        suppressVertInf: seniorityH && curV === 0,
     };
     rungCache.set(ck, cached);
     return cached;
@@ -177,7 +184,7 @@ const rung = (kInt) => {
 // lines up. A Coylean square is CLOSED: lines on every interior edge, weighted by
 // 2-adic priority, so the ∞ / spine bars frame it on the sides the orientation
 // puts them (∞ on the west iff curH=1, on the north iff curV=1).
-function drawRung(m, px, py, pw, ph, alpha) {
+function drawRung(m, px, py, pw, ph, alpha, dominant) {
     const { fc, lc, fr, lr, Wc, Hc } = m; // trimmed interior edges + cell counts
     let cw = pw / Wc;
     let ch = ph / Hc;
@@ -228,6 +235,11 @@ function drawRung(m, px, py, pw, ph, alpha) {
         // (∞ bar iff curH=1), col lc = the east spine. downMatrix[row][col] is
         // the right edge of col.
         for (let col = fc; col <= lc; col++) {
+            // ∞ frame bar: skip where the axis is absent (H north quadrants) AND
+            // where this rung is the fading-out crossfade minority, so the ∞ bars
+            // always belong to the rung being shown (no neighbour bleed-through).
+            if (m.colPriority[col] >= inf && (m.suppressVertInf || !dominant))
+                continue;
             const x = px + (col - fc) * cw;
             ctx.lineWidth = lineWidth(eff(m.colPriority[col]), cw, ch);
             let runStart = -1;
@@ -244,6 +256,10 @@ function drawRung(m, px, py, pw, ph, alpha) {
         // horizontal lines on every interior edge fr..lr; row fr = the north
         // frame (∞ bar iff curV=1), row lr = the south spine.
         for (let row = fr; row <= lr; row++) {
+            // ∞ frame bar: skip where the axis is absent (V west quadrants) AND
+            // where this rung is the fading-out crossfade minority.
+            if (m.rowPriority[row] >= inf && (m.suppressHorizInf || !dominant))
+                continue;
             const y = py + (row - fr) * ch;
             ctx.lineWidth = lineWidth(eff(m.rowPriority[row]), ch, cw);
             let runStart = -1;
@@ -322,9 +338,11 @@ function render() {
     const px = (VP - boxW) / 2 + state.panX;
     const py = (VP - boxH) / 2 + state.panY;
 
-    // both rungs fill the same interpolated box; A fades out as B fades in
-    drawRung(A, px, py, boxW, boxH, 1 - f);
-    drawRung(B, px, py, boxW, boxH, f);
+    // both rungs fill the same interpolated box; A fades out as B fades in. The
+    // ∞ frame bars belong to whichever rung is dominant (≥50% shown), so the
+    // fading neighbour never bleeds its ∞ axis onto the settled rung.
+    drawRung(A, px, py, boxW, boxH, 1 - f, f <= 0.5);
+    drawRung(B, px, py, boxW, boxH, f, f > 0.5);
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     syncReadout(kInt, f);
