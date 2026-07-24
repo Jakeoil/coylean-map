@@ -5,8 +5,10 @@ import { Propagation, Seniority, pri } from 'coylean/core';
 // ── Coylean map → 3D hollow-pipe lattice ─────────────────────────────────────
 // Un-flattens the 2D universe-quadrants "Pipes card" (mode: extents, view:
 // integrated, all Display toggles off). The 2D junction is an orthographic
-// top-view of tangent cylinders; here the same per-cell half-diameters become
-// real open-ended (hollow) cylinder surfaces, all centerlines in one plane.
+// top-view of cylinders tangent to a common top plane; here the same per-cell
+// half-diameters become real open-ended (hollow) cylinder surfaces, all tangent
+// to a common front plane (z = 0) — so fatter pipes bulge further back and a
+// thinner pipe rides on the fatter one's front surface (never through its core).
 //
 // Diameter rule ported from coylean-explorer/src/display/render-pipes.js
 // (dForDown / dForRight) and arrows.js (presetForPri); those files are the
@@ -119,11 +121,14 @@ function buildModel() {
 // ── Geometry: one hollow half-pipe along local +X ────────────────────────────
 // Open-ended tube of radius r, from the cell centre (x = 0) out to x = L.
 // `fatForPhi(phi)` returns the radius of the perpendicular crossbar this part of
-// the tube tees into (0 → no crossing there, flat open end at the centre). Two
-// perpendicular cylinders through the origin meet at x = √(fatR² − r²·sin²φ)
-// (equal radii → the r·|cosφ| miter). Making the cut a function of φ — rather
-// than one radius for the whole tube — lets a tee stay SOLID on the side where
-// no crossing pipe exists (the notch fix), matching the 2D per-quadrant model.
+// the tube tees into (0 → no crossing there, flat open end at the centre).
+// Both tubes are tangent to the front plane (centres at z = −r and z = −fat), so
+// this tube's surface point sits at depth d = r(1 − sinφ) below the plane and
+// meets the crossbar at axial distance √(d(2·fat − d)) — equal radii → the
+// r·|cosφ| miter; unequal radii → the thinner rides on the fatter's front, not
+// through its core. Making the cut a function of φ — rather than one radius for
+// the whole tube — lets a tee stay SOLID on the side where no crossing pipe
+// exists (the notch fix), matching the 2D per-quadrant model.
 function makeHalfPipe(r, fatForPhi, L, segments = RADIAL) {
     const positions = [];
     const indices = [];
@@ -132,9 +137,8 @@ function makeHalfPipe(r, fatForPhi, L, segments = RADIAL) {
         const y = Math.cos(phi) * r;
         const z = Math.sin(phi) * r;
         const fat = fatForPhi ? fatForPhi(phi) : 0;
-        const xIn = fat > 0
-            ? Math.sqrt(Math.max(0, fat * fat - r * r * Math.sin(phi) * Math.sin(phi)))
-            : 0;
+        const d = r * (1 - Math.sin(phi));
+        const xIn = fat > 0 ? Math.sqrt(Math.max(0, d * (2 * fat - d))) : 0;
         positions.push(xIn, y, z);   // inner ring (centre-facing, cut where teed)
         positions.push(L, y, z);     // outer ring (flat)
     }
@@ -161,7 +165,7 @@ const ROT = {
 function addHalfPipe(cx, cy, dir, r, fatForPhi, L, mat) {
     if (r <= 0) return;
     const mesh = new THREE.Mesh(makeHalfPipe(r, fatForPhi, L), mat);
-    mesh.position.set(cx, cy, 0);
+    mesh.position.set(cx, cy, -r); // tangent to the front plane (z = 0)
     mesh.rotation.z = ROT[dir];
     pipeGroup.add(mesh);
 }
