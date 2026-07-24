@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Map Pipes &mdash; Coylean Map Playground</title>
+  <link rel="stylesheet" href="src/map-pipes.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+      "coylean/core": "../../src/core/coylean-core.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <aside id="panel">
+      <h2>Map Pipes</h2>
+      <div class="crumb"><a href="index.html">&larr; back to index</a></div>
+
+      <div class="card">
+        <h3>Extents</h3>
+        <div class="grid2">
+          <div class="control">
+            <label>North</label>
+            <input id="northExtent" type="number" step="1" />
+          </div>
+          <div class="control">
+            <label>South</label>
+            <input id="southExtent" type="number" step="1" />
+          </div>
+          <div class="control">
+            <label>West</label>
+            <input id="westExtent" type="number" step="1" />
+          </div>
+          <div class="control">
+            <label>East</label>
+            <input id="eastExtent" type="number" step="1" />
+          </div>
+          <div class="control">
+            <label>hInitCol</label>
+            <input id="hInitCol" type="number" step="1" />
+          </div>
+          <div class="control">
+            <label>vInitRow</label>
+            <input id="vInitRow" type="number" step="1" />
+          </div>
+        </div>
+        <div class="control">
+          <label>maxPri</label>
+          <input id="maxPri" type="number" step="1" min="0" />
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Pipes</h3>
+        <div class="control">
+          <div class="row">
+            <button id="pipes-mode">Pipes</button>
+          </div>
+        </div>
+        <div class="control">
+          <label>Size <span id="pipes-size-val">25</span></label>
+          <input id="pipes-size" type="range" min="0" max="100" step="1" />
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>View</h3>
+        <div class="control">
+          <label><input id="wireframe" type="checkbox" /> Wireframe</label>
+        </div>
+        <div class="control">
+          <div class="row">
+            <button id="reset">Reset view</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div id="canvas-wrap">
+      <canvas id="scene"></canvas>
+    </div>
+  </div>
+
+  <script type="module" src="src/map-pipes.js"></script>
+</body>
+</html>
