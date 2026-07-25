@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Propagation, Seniority, pri } from 'coylean/core';
 
 // ── Coylean map → 3D hollow-pipe lattice ─────────────────────────────────────
@@ -32,19 +33,29 @@ const wrap = document.getElementById('canvas-wrap');
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xcfe6ff);
 
+// Image-based lighting: a neutral room env gives the MeshStandardMaterial real
+// reflections, so the tubes read as glossy plastic rather than flat fill. With
+// it doing most of the modelling, the direct lights are kept low.
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
 const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 500);
 const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
 controls.addEventListener('change', render);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+const sun = new THREE.DirectionalLight(0xffffff, 0.9);
 sun.position.set(3, 5, 8);
 scene.add(sun);
-scene.add(new THREE.HemisphereLight(0xcfe6ff, 0xeeeeee, 0.5));
+scene.add(new THREE.HemisphereLight(0xcfe6ff, 0xeeeeee, 0.25));
 
 function makeSubtleNormalMap(size = 256, strength = 6) {
     const c = document.createElement('canvas');
@@ -81,11 +92,11 @@ const subtleNormal = makeSubtleNormalMap();
 
 const matRed = new THREE.MeshStandardMaterial({
     color: 0xff9aa2, roughness: 0.35, metalness: 0.15,
-    normalMap: subtleNormal, side: THREE.DoubleSide,
+    normalMap: subtleNormal, envMapIntensity: 0.9, side: THREE.DoubleSide,
 });
 const matBlue = new THREE.MeshStandardMaterial({
     color: 0x9ec5ff, roughness: 0.35, metalness: 0.15,
-    normalMap: subtleNormal, side: THREE.DoubleSide,
+    normalMap: subtleNormal, envMapIntensity: 0.9, side: THREE.DoubleSide,
 });
 
 // ── Config / flags ───────────────────────────────────────────────────────────
@@ -262,12 +273,50 @@ function rebuildScene() {
     render();
 }
 
-// ── Camera framing ───────────────────────────────────────────────────────────
-function frameCamera() {
-    const span = Math.max(mapCols, mapRows) * CELL;
-    controls.target.set(0, 0, 0);
-    camera.position.set(span * 0.35, -span * 0.55, span * 1.05);
-    controls.update();
+// ── Camera framing (fit-to-content) ──────────────────────────────────────────
+// View directions (from target toward camera). "map" is face-on to the front
+// plane — reproduces the 2D universe-quadrants card, north up. "iso" is the
+// default oblique. "side" grazes along +X to reveal the tangent depth (thin
+// pipes riding on the front of fat ones).
+const VIEW_DIRS = {
+    map:  new THREE.Vector3(0, 0, 1),
+    iso:  new THREE.Vector3(0.4, -0.5, 0.9).normalize(),
+    side: new THREE.Vector3(1, -0.15, 0.28).normalize(),
+};
+const _box = new THREE.Box3();
+const _sphere = new THREE.Sphere();
+const _center = new THREE.Vector3();
+
+function fitDistance(radius) {
+    const vFov = (camera.fov * Math.PI) / 180;
+    const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+    const fit = Math.max(radius / Math.sin(vFov / 2), radius / Math.sin(hFov / 2));
+    return fit * 1.12; // margin
+}
+
+// Frame the actual pipe bounds along a named direction. Falls back to the map
+// cell span when the group is empty (pipes Off). instant = snap (no tween).
+function frameView(dirKey = 'iso', { instant = false } = {}) {
+    _box.setFromObject(pipeGroup);
+    if (_box.isEmpty()) {
+        const s = Math.max(mapCols, mapRows) * CELL;
+        _box.setFromCenterAndSize(
+            new THREE.Vector3(0, 0, 0), new THREE.Vector3(s, s, 1));
+    }
+    _box.getBoundingSphere(_sphere);
+    _box.getCenter(_center);
+    const dir = VIEW_DIRS[dirKey] || VIEW_DIRS.iso;
+    const dist = fitDistance(_sphere.radius || Math.max(mapCols, mapRows) * 0.6);
+    const toPos = _center.clone().addScaledVector(dir, dist);
+    if (instant) {
+        camera.position.copy(toPos);
+        controls.target.copy(_center);
+        camera.lookAt(_center);
+        controls.update();
+        render();
+    } else {
+        tweenCamera(toPos, _center.clone());
+    }
 }
 
 // ── Controls wiring ──────────────────────────────────────────────────────────
@@ -313,12 +362,59 @@ wireframeInput.addEventListener('change', () => {
     rebuildScene();
 });
 
-document.getElementById('reset').addEventListener('click', () => {
-    frameCamera();
-    render();
-});
+const VIEW_BTNS = { 'view-map': 'map', 'view-iso': 'iso', 'view-side': 'side' };
+for (const [id, key] of Object.entries(VIEW_BTNS)) {
+    document.getElementById(id).addEventListener('click', () => frameView(key));
+}
 
-// ── Render loop (on demand) ──────────────────────────────────────────────────
+// ── Render loop (on demand + animation-gated) ────────────────────────────────
+// Idle by default (no rAF churn); render() requests a single frame. Damping and
+// camera tweens keep re-requesting frames until they settle, then the loop
+// stops again. `anims` holds active step(now)→keepGoing callbacks.
+let renderRequested = false;
+let tweening = false;
+const anims = new Set();
+
+function render() {
+    if (!renderRequested) {
+        renderRequested = true;
+        requestAnimationFrame(frame);
+    }
+}
+
+function frame(now) {
+    renderRequested = false;
+    for (const a of [...anims]) if (!a(now)) anims.delete(a);
+    if (controls.enableDamping && !tweening) controls.update();
+    renderer.render(scene, camera);
+    if (anims.size > 0) render();
+}
+
+function tweenCamera(toPos, toTarget, ms = 450) {
+    const fromPos = camera.position.clone();
+    const fromTgt = controls.target.clone();
+    let start = null;
+    tweening = true;
+    controls.enabled = false; // don't let a drag fight the tween
+    const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    anims.add((now) => {
+        if (start === null) start = now;
+        const t = Math.min(1, (now - start) / ms);
+        const e = ease(t);
+        camera.position.lerpVectors(fromPos, toPos, e);
+        controls.target.lerpVectors(fromTgt, toTarget, e);
+        camera.lookAt(controls.target);
+        if (t >= 1) {
+            tweening = false;
+            controls.enabled = true;
+            controls.update();
+            return false;
+        }
+        return true;
+    });
+    render();
+}
+
 function resize() {
     const w = wrap.clientWidth;
     const h = wrap.clientHeight;
@@ -329,10 +425,6 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 
-function render() {
-    renderer.render(scene, camera);
-}
-
 rebuildScene();
-frameCamera();
 resize();
+frameView('iso', { instant: true });
