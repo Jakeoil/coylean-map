@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { FlyControls } from 'three/addons/controls/FlyControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Propagation, Seniority, pri } from 'coylean/core';
 
@@ -428,6 +429,11 @@ let renderRequested = false;
 let tweening = false;
 const anims = new Set();
 
+// Navigation mode: "orbit" (default, gated) or "fly" (FlyControls, continuous).
+const clock = new THREE.Clock();
+let navMode = 'orbit';
+let fly = null;
+
 function render() {
     if (!renderRequested) {
         renderRequested = true;
@@ -438,10 +444,57 @@ function render() {
 function frame(now) {
     renderRequested = false;
     for (const a of [...anims]) if (!a(now)) anims.delete(a);
-    if (controls.enableDamping && !tweening) controls.update();
+    if (navMode === 'fly' && fly) {
+        fly.update(clock.getDelta());
+        render(); // FlyControls integrates a delta → keep the loop running
+    } else if (controls.enableDamping && !tweening) {
+        controls.update();
+    }
     renderer.render(scene, camera);
     if (anims.size > 0) render();
 }
+
+// ── Fly mode (space-plane) ───────────────────────────────────────────────────
+// FlyControls gives 6-DOF free flight — roll and no up-vector clamp, so the map
+// can be viewed upside down or from N/S. W/S forward-back, A/D strafe, R/F
+// up-down, Q/E roll, arrows or mouse-drag to look. It needs the continuous loop
+// above (a time delta), so we suspend OrbitControls while it's active.
+const flyBtn = document.getElementById('fly');
+
+function enterFly() {
+    navMode = 'fly';
+    if (controls.autoRotate) {
+        controls.autoRotate = false;
+        autorotateBtn.classList.remove('active');
+    }
+    controls.enabled = false;
+    fly = new FlyControls(camera, canvas);
+    fly.movementSpeed = Math.max(mapCols, mapRows, 4) * 0.5;
+    fly.rollSpeed = 0.6;
+    fly.dragToLook = true;
+    fly.autoForward = false;
+    clock.getDelta(); // flush accumulated time so the first delta is small
+    flyBtn.textContent = 'Flying';
+    flyBtn.classList.add('active');
+    render();
+}
+
+function exitFly() {
+    navMode = 'orbit';
+    if (fly) { fly.dispose(); fly = null; }
+    // Resume orbit around a point straight ahead so the view doesn't jump.
+    const fwd = new THREE.Vector3();
+    camera.getWorldDirection(fwd);
+    const dist = Math.max(0.5, camera.position.length());
+    controls.target.copy(camera.position).addScaledVector(fwd, dist);
+    controls.enabled = true;
+    controls.update();
+    flyBtn.textContent = 'Fly';
+    flyBtn.classList.remove('active');
+    render();
+}
+
+flyBtn.onclick = () => (navMode === 'orbit' ? enterFly() : exitFly());
 
 function tweenCamera(toPos, toTarget, ms = 450) {
     const fromPos = camera.position.clone();

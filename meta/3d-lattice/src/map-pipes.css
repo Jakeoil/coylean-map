@@ -59,6 +59,11 @@ html, body {
   color: #6b7280;
   list-style: revert;
 }
+.hint {
+  color: #6b7280;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
 .control {
   margin: 0.55rem 0;
   display: flex;
