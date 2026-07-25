@@ -50,15 +50,21 @@ const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 500);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
+controls.autoRotateSpeed = 1.2;
 controls.addEventListener('change', render);
 
 // Low ambient so cylinder edges fall to a dark rim; a strong key light gives
 // the bright specular streak — together they reproduce the glossy tube gradient.
 const ambient = new THREE.AmbientLight(0xffffff, 0.12);
 scene.add(ambient);
+// Key light rides with the camera (a headlight), offset up-and-right for form
+// and aimed at the map centre (target's default world origin). This keeps the
+// viewer-facing side lit so no dark "night side" swings into view while the
+// turntable spins. Camera must be in the scene graph for the child light.
 const sun = new THREE.DirectionalLight(0xffffff, 1.3);
-sun.position.set(3, 5, 8);
-scene.add(sun);
+sun.position.set(2, 4, 3);
+camera.add(sun);
+scene.add(camera);
 scene.add(new THREE.HemisphereLight(0xcfe6ff, 0xeeeeee, 0.2));
 
 function makeSubtleNormalMap(size = 256, strength = 6) {
@@ -373,6 +379,16 @@ const VIEW_BTNS = { 'view-map': 'map', 'view-iso': 'iso', 'view-side': 'side' };
 for (const [id, key] of Object.entries(VIEW_BTNS)) {
     document.getElementById(id).addEventListener('click', () => frameView(key));
 }
+
+// Turntable: OrbitControls.autoRotate spins the camera. Each controls.update()
+// emits 'change', which re-requests a frame, so the gated loop keeps running
+// while it's on and idles again when toggled off.
+const autorotateBtn = document.getElementById('autorotate');
+autorotateBtn.onclick = () => {
+    controls.autoRotate = !controls.autoRotate;
+    autorotateBtn.classList.toggle('active', controls.autoRotate);
+    render();
+};
 
 // Live material / lighting levers. `apply` runs once on init to sync to the
 // slider's HTML default (no render — the initial frame happens below), then on
