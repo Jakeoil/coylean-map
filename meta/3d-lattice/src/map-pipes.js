@@ -33,11 +33,11 @@ const wrap = document.getElementById('canvas-wrap');
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMapping = THREE.AgXToneMapping;
 renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xcfe6ff);
+scene.background = new THREE.Color(0x11161f);
 
 // Image-based lighting: a neutral room env gives the MeshStandardMaterial real
 // reflections, so the tubes read as glossy plastic rather than flat fill. With
@@ -91,12 +91,12 @@ function makeSubtleNormalMap(size = 256, strength = 6) {
 const subtleNormal = makeSubtleNormalMap();
 
 const matRed = new THREE.MeshStandardMaterial({
-    color: 0xff9aa2, roughness: 0.35, metalness: 0.15,
-    normalMap: subtleNormal, envMapIntensity: 0.9, side: THREE.DoubleSide,
+    color: 0xff9aa2, roughness: 0.35, metalness: 0,
+    normalMap: subtleNormal, envMapIntensity: 0.5, side: THREE.DoubleSide,
 });
 const matBlue = new THREE.MeshStandardMaterial({
-    color: 0x9ec5ff, roughness: 0.35, metalness: 0.15,
-    normalMap: subtleNormal, envMapIntensity: 0.9, side: THREE.DoubleSide,
+    color: 0x9ec5ff, roughness: 0.35, metalness: 0,
+    normalMap: subtleNormal, envMapIntensity: 0.5, side: THREE.DoubleSide,
 });
 
 // ── Config / flags ───────────────────────────────────────────────────────────
