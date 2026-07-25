@@ -130,7 +130,7 @@ const flags = {
 };
 
 const CELL = 1;                 // world size of one map cell
-const RADIAL = 24;              // cylinder radial segments
+const RADIAL = 48;              // cylinder radial segments
 const pipeGroup = new THREE.Group();
 scene.add(pipeGroup);
 
@@ -160,16 +160,24 @@ function buildModel() {
 // exists (the notch fix), matching the 2D per-quadrant model.
 function makeHalfPipe(r, fatForPhi, L, segments = RADIAL) {
     const positions = [];
+    const normals = [];
     const indices = [];
     for (let i = 0; i <= segments; i++) {
         const phi = (i / segments) * Math.PI * 2;
-        const y = Math.cos(phi) * r;
-        const z = Math.sin(phi) * r;
+        const cphi = Math.cos(phi);
+        const sphi = Math.sin(phi);
+        const y = cphi * r;
+        const z = sphi * r;
         const fat = fatForPhi ? fatForPhi(phi) : 0;
-        const d = r * (1 - Math.sin(phi));
+        const d = r * (1 - sphi);
         const xIn = fat > 0 ? Math.sqrt(Math.max(0, d * (2 * fat - d))) : 0;
         positions.push(xIn, y, z);   // inner ring (centre-facing, cut where teed)
         positions.push(L, y, z);     // outer ring (flat)
+        // Analytic radial normal — the whole lateral surface (including the cut
+        // taper) lies on the cylinder r = const, so the true normal is purely
+        // radial. This removes the closure seam and cut-end shading artefacts
+        // that computeVertexNormals leaves, which reflections make obvious.
+        normals.push(0, cphi, sphi, 0, cphi, sphi);
     }
     for (let i = 0; i < segments; i++) {
         const a = i * 2, b = i * 2 + 1;
@@ -178,8 +186,8 @@ function makeHalfPipe(r, fatForPhi, L, segments = RADIAL) {
     }
     const geom = new THREE.BufferGeometry();
     geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
     geom.setIndex(indices);
-    geom.computeVertexNormals();
     return geom;
 }
 
