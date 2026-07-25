@@ -54,7 +54,8 @@ controls.addEventListener('change', render);
 
 // Low ambient so cylinder edges fall to a dark rim; a strong key light gives
 // the bright specular streak — together they reproduce the glossy tube gradient.
-scene.add(new THREE.AmbientLight(0xffffff, 0.12));
+const ambient = new THREE.AmbientLight(0xffffff, 0.12);
+scene.add(ambient);
 const sun = new THREE.DirectionalLight(0xffffff, 1.3);
 sun.position.set(3, 5, 8);
 scene.add(sun);
@@ -372,6 +373,23 @@ const VIEW_BTNS = { 'view-map': 'map', 'view-iso': 'iso', 'view-side': 'side' };
 for (const [id, key] of Object.entries(VIEW_BTNS)) {
     document.getElementById(id).addEventListener('click', () => frameView(key));
 }
+
+// Live material / lighting levers. `apply` runs once on init to sync to the
+// slider's HTML default (no render — the initial frame happens below), then on
+// every input.
+function wireSlider(id, apply) {
+    const el = document.getElementById(id);
+    const val = document.getElementById(id + '-val');
+    const show = () => { val.textContent = (+el.value).toFixed(2); };
+    apply(+el.value);
+    show();
+    el.addEventListener('input', () => { apply(+el.value); show(); render(); });
+}
+wireSlider('mat-metalness', (v) => { matRed.metalness = matBlue.metalness = v; });
+wireSlider('mat-roughness', (v) => { matRed.roughness = matBlue.roughness = v; });
+wireSlider('mat-env', (v) => { matRed.envMapIntensity = matBlue.envMapIntensity = v; });
+wireSlider('light-ambient', (v) => { ambient.intensity = v; });
+wireSlider('light-key', (v) => { sun.intensity = v; });
 
 // ── Render loop (on demand + animation-gated) ────────────────────────────────
 // Idle by default (no rAF churn); render() requests a single frame. Damping and
