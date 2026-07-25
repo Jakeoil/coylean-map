@@ -33,11 +33,12 @@ const wrap = document.getElementById('canvas-wrap');
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
-renderer.toneMapping = THREE.AgXToneMapping;
-renderer.toneMappingExposure = 1.05;
+// No tone-mapping curve: show the pipes' literal material colours. IBL still
+// adds reflection, but the diffuse stays true to the source hexes.
+renderer.toneMapping = THREE.NoToneMapping;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x11161f);
+scene.background = new THREE.Color(0x17395a); // darker shade of the map blue
 
 // Image-based lighting: a neutral room env gives the MeshStandardMaterial real
 // reflections, so the tubes read as glossy plastic rather than flat fill. With
@@ -90,12 +91,14 @@ function makeSubtleNormalMap(size = 256, strength = 6) {
 }
 const subtleNormal = makeSubtleNormalMap();
 
+// Coylean legacy diamond colours from coylean-explorer theme.js
+// (row = red #9a4a4a, col = blue #5a8aaa).
 const matRed = new THREE.MeshStandardMaterial({
-    color: 0xff9aa2, roughness: 0.35, metalness: 0,
+    color: 0x9a4a4a, roughness: 0.35, metalness: 0,
     normalMap: subtleNormal, envMapIntensity: 0.5, side: THREE.DoubleSide,
 });
 const matBlue = new THREE.MeshStandardMaterial({
-    color: 0x9ec5ff, roughness: 0.35, metalness: 0,
+    color: 0x5a8aaa, roughness: 0.35, metalness: 0,
     normalMap: subtleNormal, envMapIntensity: 0.5, side: THREE.DoubleSide,
 });
 
