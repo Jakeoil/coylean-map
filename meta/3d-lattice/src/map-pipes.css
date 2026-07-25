@@ -46,6 +46,19 @@ html, body {
   letter-spacing: 0.05em;
   color: #6b7280;
 }
+.subsection {
+  margin-top: 0.5rem;
+  border-top: 1px solid #e0e4ea;
+  padding-top: 0.4rem;
+}
+.subsection > summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  list-style: revert;
+}
 .control {
   margin: 0.55rem 0;
   display: flex;
