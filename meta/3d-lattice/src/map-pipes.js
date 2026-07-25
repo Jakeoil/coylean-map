@@ -38,7 +38,7 @@ renderer.setPixelRatio(window.devicePixelRatio);
 renderer.toneMapping = THREE.NoToneMapping;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x17395a); // darker shade of the map blue
+scene.background = new THREE.Color(0xcfe6ff); // original sky blue
 
 // Image-based lighting: a neutral room env gives the MeshStandardMaterial real
 // reflections, so the tubes read as glossy plastic rather than flat fill. With
