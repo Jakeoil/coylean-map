@@ -66,6 +66,11 @@ sun.position.set(2, 4, 3);
 camera.add(sun);
 scene.add(camera);
 scene.add(new THREE.HemisphereLight(0xcfe6ff, 0xeeeeee, 0.2));
+// Fixed (world-space) dim back-rim light: sits behind/below the lattice with a
+// cool tint to catch silhouette edges and give the tubes shape as they rotate.
+const rim = new THREE.DirectionalLight(0xbfd4ff, 0.45);
+rim.position.set(-5, -3, -6);
+scene.add(rim);
 
 function makeSubtleNormalMap(size = 256, strength = 6) {
     const c = document.createElement('canvas');
