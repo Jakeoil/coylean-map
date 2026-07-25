@@ -52,11 +52,13 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.addEventListener('change', render);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.25));
-const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+// Low ambient so cylinder edges fall to a dark rim; a strong key light gives
+// the bright specular streak — together they reproduce the glossy tube gradient.
+scene.add(new THREE.AmbientLight(0xffffff, 0.12));
+const sun = new THREE.DirectionalLight(0xffffff, 1.3);
 sun.position.set(3, 5, 8);
 scene.add(sun);
-scene.add(new THREE.HemisphereLight(0xcfe6ff, 0xeeeeee, 0.25));
+scene.add(new THREE.HemisphereLight(0xcfe6ff, 0xeeeeee, 0.2));
 
 function makeSubtleNormalMap(size = 256, strength = 6) {
     const c = document.createElement('canvas');
@@ -91,15 +93,16 @@ function makeSubtleNormalMap(size = 256, strength = 6) {
 }
 const subtleNormal = makeSubtleNormalMap();
 
-// Coylean legacy diamond colours from coylean-explorer theme.js
-// (row = red #9a4a4a, col = blue #5a8aaa).
+// Saturated tube colours matching pipe-junction.js's cylinder gradients
+// (blue centre ≈ #1f7cff, red centre ≈ #ff3030); metalness + gloss + the env
+// map turn a lit cylinder into the same dark-rim → bright-streak metallic look.
 const matRed = new THREE.MeshStandardMaterial({
-    color: 0x9a4a4a, roughness: 0.35, metalness: 0,
-    normalMap: subtleNormal, envMapIntensity: 0.5, side: THREE.DoubleSide,
+    color: 0xe02a2a, roughness: 0.22, metalness: 0.5,
+    normalMap: subtleNormal, envMapIntensity: 1.0, side: THREE.DoubleSide,
 });
 const matBlue = new THREE.MeshStandardMaterial({
-    color: 0x5a8aaa, roughness: 0.35, metalness: 0,
-    normalMap: subtleNormal, envMapIntensity: 0.5, side: THREE.DoubleSide,
+    color: 0x2f7ce0, roughness: 0.22, metalness: 0.5,
+    normalMap: subtleNormal, envMapIntensity: 1.0, side: THREE.DoubleSide,
 });
 
 // ── Config / flags ───────────────────────────────────────────────────────────
